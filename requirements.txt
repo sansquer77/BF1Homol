@@ -1,0 +1,8 @@
+streamlit
+pandas
+matplotlib
+bcrypt
+pyjwt
+openpyxl
+plotly
+seaborn
