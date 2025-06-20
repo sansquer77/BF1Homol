@@ -59,44 +59,84 @@ def get_current_constructor_standings():
     return pd.DataFrame(constructors)
 
 # 4. Get driver cumulative points by race
-def get_driver_points_by_race():
-    url = f"{BASE_URL}/current/results.json?limit=1000"
-    response = requests.get(url)
-    response.raise_for_status()
-    data = response.json()
+import requests
+import pandas as pd
+from collections import defaultdict
 
-    races = data['MRData']['RaceTable']['Races']
-    points_tracker = {}
+BASE_URL = "https://api.jolpi.ca/ergast/f1"
 
-    for race in races:
+def get_driver_points_by_race(season='current'):
+    # Determinar a temporada atual se necessário
+    if season == 'current':
+        response = requests.get(f"{BASE_URL}/current.json")
+        response.raise_for_status()
+        data = response.json()
+        season = data['MRData']['RaceTable']['season']
+    
+    # Gerar lista de offsets (0 até 720 em incrementos de 30)
+    offsets = list(range(0, 721, 30))
+    all_races = []
+    
+    # Coletar dados de todos os offsets
+    for offset in offsets:
+        url = f"{BASE_URL}/{season}/results.json?limit=720&offset={offset}"
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        races = data['MRData']['RaceTable']['Races']
+        
+        if not races:
+            break
+            
+        all_races.extend(races)
+    
+    # Remover duplicatas usando o número da rodada
+    unique_races = {}
+    for race in all_races:
+        round_num = int(race['round'])
+        if round_num not in unique_races:
+            unique_races[round_num] = race
+    
+    # Ordenar corridas pelo número da rodada
+    sorted_rounds = sorted(unique_races.keys())
+    races_sorted = [unique_races[round_num] for round_num in sorted_rounds]
+    
+    # Rastrear pontos por piloto
+    points_tracker = defaultdict(dict)
+    driver_names = set()
+    
+    for race in races_sorted:
         round_num = int(race['round'])
         race_name = race['raceName']
+        
         for result in race['Results']:
             driver_name = f"{result['Driver']['givenName']} {result['Driver']['familyName']}"
-            points = int(float(result['points']))
-
-            if driver_name not in points_tracker:
-                points_tracker[driver_name] = []
-
-            points_tracker[driver_name].append({
-                'Round': round_num,
-                'Race': race_name,
-                'Points': points
-            })
-
-    rounds = sorted(list({pt['Round'] for driver in points_tracker.values() for pt in driver}))
-    race_names = {pt['Round']: pt['Race'] for driver in points_tracker.values() for pt in driver}
-
-    data = {'Round': rounds, 'Race': [race_names[r] for r in rounds]}
-    for driver, results in points_tracker.items():
+            driver_names.add(driver_name)
+            
+            try:
+                points = int(float(result['points']))
+            except (ValueError, TypeError):
+                points = 0
+                
+            points_tracker[driver_name][round_num] = points
+    
+    # Preparar dados para o DataFrame
+    rounds = sorted_rounds
+    race_names = [unique_races[r]['raceName'] for r in rounds]
+    
+    data = {'Round': rounds, 'Race': race_names}
+    
+    for driver in driver_names:
+        cumulative_points = []
         cumulative = 0
-        driver_points = []
-        result_dict = {r['Round']: r['Points'] for r in results}
-        for r in rounds:
-            cumulative += result_dict.get(r, 0)
-            driver_points.append(cumulative)
-        data[driver] = driver_points
-
+        
+        for round_num in rounds:
+            points = points_tracker[driver].get(round_num, 0)
+            cumulative += points
+            cumulative_points.append(cumulative)
+        
+        data[driver] = cumulative_points
+    
     return pd.DataFrame(data)
 
 # 5. Get qualifying vs race position delta for last race
