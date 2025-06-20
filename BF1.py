@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import ast
 import os
 import matplotlib.pyplot as plt
-import dash
+import dashboard
 from db_utils import db_connect
 from championship_bets import main as championship_bets_main
 from championship_results import main as championship_results_main
@@ -432,7 +432,7 @@ def menu_master():
         "Resultado Campeonato",
         "Log de Apostas",
         "Classificação",
-        "Dash F1",
+        "Dashboard F1",
         "Exportar/Importar Excel",
         "Regulamento",
         "Logout"
@@ -446,7 +446,7 @@ def menu_admin():
         "Apostas Campeonato",
         "Log de Apostas",
         "Classificação",
-        "Dash F1",
+        "Dashboard F1",
         "Regulamento",
         "Logout"
     ]
@@ -457,7 +457,7 @@ def menu_participante():
         "Análise de Apostas",
         "Log de Apostas",
         "Classificação",
-        "Dash F1",
+        "Dashboard F1",
         "Regulamento",
         "Logout"
     ]
@@ -592,7 +592,7 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
                 fichas_ant = []
                 piloto_11_ant = ""
             st.write("Escolha seus pilotos e distribua 15 fichas entre eles (mínimo 3 pilotos de equipes diferentes):")
-            max_linhas = 5
+            max_linhas = 10
             pilotos_aposta = []
             fichas_aposta = []
             for i in range(max_linhas):
@@ -1511,8 +1511,8 @@ if (
     modulo_exportar_importar_excel()
 
 # --- Dash F1 ---
-if st.session_state['pagina'] == "Dash F1":
-    dash.main()
+if st.session_state['pagina'] == "Dashboard F1":
+    dashboard.main()
 
 # --- Apostas Campeonato ---
 if st.session_state['pagina'] == "Apostas Campeonato":
