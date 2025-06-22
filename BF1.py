@@ -141,6 +141,7 @@ status TEXT DEFAULT 'Ativo'
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 nome TEXT,    
 data TEXT,
+horario_prova TEXT,
 status TEXT DEFAULT 'Ativo',
 tipo TEXT DEFAULT 'Normal'
 )''')
@@ -170,6 +171,7 @@ horario TEXT,
 aposta TEXT,
 piloto_11 TEXT,
 nome_prova TEXT,
+tipo_aposta INTEGER DEFAULT 0,  -- 0: normal, 1: fora do horário, 2: automática
 automatica INTEGER DEFAULT 0
 )''')
     conn.commit()
@@ -264,89 +266,284 @@ def autenticar_usuario(email, senha):
         return user
     return None
 
-def salvar_aposta(usuario_id, prova_id, pilotos, fichas, piloto_11, nome_prova, automatica=0):
+def get_horario_prova(prova_id):
     conn = db_connect()
     c = conn.cursor()
-    data_envio = datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat()
-    
-    try:
-        # Salvar aposta no banco
-        c.execute('DELETE FROM apostas WHERE usuario_id=? AND prova_id=?', (usuario_id, prova_id))
-        c.execute('''INSERT INTO apostas 
-                    (usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, nome_prova, automatica) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                (usuario_id, prova_id, data_envio, ','.join(pilotos), ','.join(map(str, fichas)), 
-                piloto_11, nome_prova, automatica))
-        conn.commit()
+    c.execute('SELECT nome, data, horario_prova FROM provas WHERE id=?', (prova_id,))
+    prova = c.fetchone()
+    conn.close()
+    if not prova:
+        return None, None, None
+    return prova[0], prova[1], prova[2]
 
-        # ---- Disparar e-mails ----
-        usuario = get_user_by_id(usuario_id)
-        if not usuario:
-            raise ValueError("Usuário não encontrado")
+def registrar_log_aposta(apostador, aposta, nome_prova, piloto_11, tipo_aposta, automatica, horario=None):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
 
-        email_usuario = usuario[2]
-        EMAIL_REMETENTE = "sansquer@gmail.com"  # Substitua por variável de ambiente
-        SENHA_REMETENTE = os.environ.get("SENHA_EMAIL")  # Garanta que está configurada
-        EMAIL_ADMIN = "cristiano_gaspar@outlook.com"
+    if horario is None:
+        horario = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    data = horario.strftime('%Y-%m-%d')
+    hora = horario.strftime('%H:%M:%S')
 
-        corpo_html = f"""
-        <h3>✅ Aposta registrada!</h3>
-        <p><strong>Prova:</strong> {nome_prova}</p>
-        <p><strong>Pilotos:</strong> {', '.join(pilotos)}</p>
-        <p><strong>Fichas:</strong> {', '.join(map(str, fichas))}</p>
-        <p><strong>11º Colocado:</strong> {piloto_11}</p>
-        <p>Data/Hora: {data_envio}</p>
-        """
-
-        # Função de envio corrigida
-        def enviar_email(destinatario, assunto, corpo_html):
-            from email.mime.text import MIMEText
-            from email.mime.multipart import MIMEMultipart
-            import smtplib
-
-            msg = MIMEMultipart()
-            msg['From'] = EMAIL_REMETENTE
-            msg['To'] = destinatario
-            msg['Subject'] = assunto
-            msg.attach(MIMEText(corpo_html, 'html'))
-
-            try:
-                with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-                    server.login(EMAIL_REMETENTE, SENHA_REMETENTE)
-                    server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
-                return True
-            except Exception as e:
-                st.error(f"Erro no envio: {str(e)}")
-                return False
-
-        # Enviar e-mails com tratamento de erro
-        if not enviar_email(email_usuario, "Confirmação de Aposta - BF1Dev", corpo_html):
-            st.error("Falha no envio para o participante")
-
-        if not enviar_email(EMAIL_ADMIN, f"Nova aposta de {usuario[1]}", corpo_html):
-            st.error("Falha no envio para admin")
-
-    except Exception as e:
-        st.error(f"Erro geral ao salvar aposta: {str(e)}")
-        conn.rollback()
-        return False
-    finally:
-        conn.close()
-    
-    return True
-
-def registrar_log_aposta(apostador, aposta, nome_prova, piloto_11, automatica):
     conn = db_connect()
     c = conn.cursor()
-    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
-    data = agora.strftime('%Y-%m-%d')
-    horario = agora.strftime('%H:%M:%S')
     c.execute('''INSERT INTO log_apostas 
-                (apostador, data, horario, aposta, nome_prova, piloto_11, automatica) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)''',
-              (apostador, data, horario, aposta, nome_prova, piloto_11, automatica))
+                (apostador, data, horario, aposta, nome_prova, piloto_11, tipo_aposta, automatica) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+              (apostador, data, hora, aposta, nome_prova, piloto_11, tipo_aposta, automatica))
     conn.commit()
     conn.close()
+
+def log_aposta_existe(apostador, nome_prova, tipo_aposta, automatica, dados_aposta):
+    conn = db_connect()
+    c = conn.cursor()
+    c.execute('''SELECT COUNT(*) FROM log_apostas 
+                 WHERE apostador=? AND nome_prova=? AND tipo_aposta=? AND automatica=? AND aposta=?''',
+              (apostador, nome_prova, tipo_aposta, automatica, dados_aposta))
+    count = c.fetchone()[0]
+    conn.close()
+    return count > 0
+
+def salvar_aposta(
+    usuario_id, prova_id, pilotos, fichas, piloto_11, nome_prova,
+    automatica=0, horario_forcado=None
+):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    import streamlit as st
+    import os
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    # Busca horário da prova
+    nome_prova_bd, data_prova, horario_prova = get_horario_prova(prova_id)
+    if not horario_prova:
+        st.error("Prova não encontrada ou horário não cadastrado.")
+        return False
+
+    # Normaliza o horário da prova para SP
+    horario_limite = datetime.strptime(f"{data_prova} {horario_prova}", '%Y-%m-%d %H:%M:%S')
+    horario_limite = horario_limite.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+
+    # Horário atual normalizado para SP (ou horário forçado para aposta automática)
+    agora_sp = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    if horario_forcado:
+        agora_sp = horario_forcado
+
+    # Formatar dados completos da aposta
+    dados_aposta = f"Pilotos: {', '.join(pilotos)} | Fichas: {', '.join(map(str, fichas))}"
+
+    # Determinar tipo de aposta (0 = dentro do prazo, 1 = fora do prazo)
+    tipo_aposta = 0
+    if agora_sp > horario_limite:
+        tipo_aposta = 1
+        st.error("Apostas para esta prova já estão encerradas!")
+
+    # Verificação de duplicidade
+    usuario = get_user_by_id(usuario_id)
+    if not usuario:
+        return False
+
+    if log_aposta_existe(usuario[1], nome_prova_bd, tipo_aposta, automatica, dados_aposta):
+        return True  # Log já existe
+
+    conn = None
+    try:
+        conn = db_connect()
+        c = conn.cursor()
+        
+        # Atualiza aposta existente ou insere nova
+        c.execute('DELETE FROM apostas WHERE usuario_id=? AND prova_id=?', (usuario_id, prova_id))
+        
+        # Só salva na tabela de apostas se for dentro do prazo (tipo 0)
+        if tipo_aposta == 0:
+            data_envio = agora_sp.isoformat()
+            c.execute('''INSERT INTO apostas (usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, nome_prova, automatica)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                      (usuario_id, prova_id, data_envio, ','.join(pilotos), ','.join(map(str, fichas)),
+                       piloto_11, nome_prova_bd, automatica))
+            conn.commit()
+
+            # Envia e-mail apenas para apostas dentro do prazo
+            email_usuario = usuario[2]
+            EMAIL_REMETENTE = "sansquer@gmail.com"
+            SENHA_REMETENTE = os.environ.get("SENHA_EMAIL")
+            EMAIL_ADMIN = "cristiano_gaspar@outlook.com"
+
+            corpo_html = f"""
+            <h3>✅ Aposta registrada!</h3>
+            <p><strong>Prova:</strong> {nome_prova_bd}</p>
+            <p><strong>Pilotos:</strong> {', '.join(pilotos)}</p>
+            <p><strong>Fichas:</strong> {', '.join(map(str, fichas))}</p>
+            <p><strong>11º Colocado:</strong> {piloto_11}</p>
+            <p>Data/Hora: {data_envio}</p>
+            """
+
+            def enviar_email(destinatario, assunto, corpo_html):
+                msg = MIMEMultipart()
+                msg['From'] = EMAIL_REMETENTE
+                msg['To'] = destinatario
+                msg['Subject'] = assunto
+                msg.attach(MIMEText(corpo_html, 'html'))
+                try:
+                    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                        server.login(EMAIL_REMETENTE, SENHA_REMETENTE)
+                        server.send_message(msg)
+                    return True
+                except Exception as e:
+                    st.error(f"Erro no envio para {destinatario}: {str(e)}")
+                    return False
+
+            enviar_email(email_usuario, "Confirmação de Aposta - BF1Dev", corpo_html)
+            enviar_email(EMAIL_ADMIN, f"Nova aposta de {usuario[1]}", corpo_html)
+
+    except Exception as e:
+        st.error(f"Erro ao salvar aposta: {str(e)}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+    # Registrar log para todos os casos
+    registrar_log_aposta(
+        apostador=usuario[1],
+        aposta=dados_aposta,
+        nome_prova=nome_prova_bd,
+        piloto_11=piloto_11,
+        tipo_aposta=tipo_aposta,
+        automatica=automatica,
+        horario=agora_sp
+    )
+
+    return True
+
+def gerar_aposta_aleatoria(pilotos_df):
+    """Gera uma aposta aleatória respeitando as regras"""
+    import random
+    
+    # Seleciona 3 pilotos de equipes diferentes
+    equipes_unicas = pilotos_df['equipe'].unique().tolist()
+    
+    # Garante pelo menos 3 equipes
+    if len(equipes_unicas) < 3:
+        # Usa todas as equipes disponíveis e completa com pilotos aleatórios
+        equipes_selecionadas = equipes_unicas.copy()
+        while len(equipes_selecionadas) < 3:
+            equipes_selecionadas.append(random.choice(equipes_unicas))
+    else:
+        equipes_selecionadas = random.sample(equipes_unicas, 3)
+    
+    pilotos_selecionados = []
+    for equipe in equipes_selecionadas:
+        pilotos_equipe = pilotos_df[pilotos_df['equipe'] == equipe]['nome'].tolist()
+        if pilotos_equipe:
+            pilotos_selecionados.append(random.choice(pilotos_equipe))
+    
+    n_pilotos = len(pilotos_selecionados)
+    fichas = []
+    total_fichas = 15
+    
+    # Distribuição robusta de fichas
+    if total_fichas < n_pilotos:
+        # Modo de emergência: 1 ficha por piloto + excedente no primeiro
+        fichas = [1] * n_pilotos
+        fichas[0] += total_fichas - n_pilotos
+    else:
+        for i in range(n_pilotos):
+            if i == n_pilotos - 1:
+                fichas.append(total_fichas)
+            else:
+                reserva_restante = n_pilotos - i - 1
+                max_ficha = min(10, total_fichas - reserva_restante)
+                ficha = random.randint(1, max_ficha)
+                fichas.append(ficha)
+                total_fichas -= ficha
+    
+    # Seleção do 11º colocado
+    todos_pilotos = pilotos_df['nome'].tolist()
+    candidatos_11 = [p for p in todos_pilotos if p not in pilotos_selecionados]
+    piloto_11 = random.choice(candidatos_11) if candidatos_11 else random.choice(todos_pilotos)
+    
+    return pilotos_selecionados, fichas, piloto_11
+
+def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas_df):
+    """Gera apostas automáticas com tratamento robusto de erros"""
+    # Buscar informações da prova atual
+    prova_atual = provas_df[provas_df['id'] == prova_id]
+    if prova_atual.empty:
+        return False, "Prova não encontrada."
+    
+    # Obter data e horário da prova
+    data_prova = prova_atual['data'].iloc[0]
+    horario_prova = prova_atual['horario_prova'].iloc[0]
+    
+    # Criar datetime da prova (fuso SP)
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    horario_limite = datetime.strptime(f"{data_prova} {horario_prova}", '%Y-%m-%d %H:%M:%S')
+    horario_limite = horario_limite.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+    
+    # Buscar dados de pilotos
+    pilotos_df = get_pilotos_df()
+    
+    # Verificar posição da prova no calendário
+    provas_df = provas_df.sort_values('data')
+    try:
+        idx_prova = provas_df[provas_df['id'] == prova_id].index[0]
+    except IndexError:
+        return False, "Prova não encontrada no calendário."
+    
+    # Determinar aposta anterior ou gerar aleatória
+    pilotos_ant, fichas_ant, piloto_11_ant = None, None, None
+    
+    if idx_prova > 0:  # Não é a primeira prova
+        # Busca prova anterior
+        prova_ant_id = provas_df.iloc[idx_prova-1]['id']
+        ap_ant = apostas_df[(apostas_df['usuario_id'] == usuario_id) & 
+                            (apostas_df['prova_id'] == prova_ant_id)]
+        
+        if not ap_ant.empty:
+            # Usa aposta anterior se existir
+            ap_ant = ap_ant.iloc[0]
+            pilotos_ant = ap_ant['pilotos'].split(",")
+            fichas_ant = list(map(int, ap_ant['fichas'].split(",")))
+            piloto_11_ant = ap_ant['piloto_11']
+            st.success(f"Copiando aposta anterior da prova {provas_df.iloc[idx_prova-1]['nome']}")
+    
+    # Se não encontrou aposta anterior (seja porque é primeira prova ou não havia)
+    if pilotos_ant is None:
+        pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria(pilotos_df)
+        if idx_prova == 0:
+            st.warning("Primeira prova. Gerada aposta aleatória.")
+        else:
+            st.warning("Não havia aposta anterior. Gerada aposta aleatória.")
+    
+    # Verificar se já existe aposta para esta prova
+    conn = db_connect()
+    c = conn.cursor()
+    c.execute('SELECT id FROM apostas WHERE usuario_id=? AND prova_id=?', (usuario_id, prova_id))
+    aposta_existente = c.fetchone()
+    conn.close()
+    
+    if aposta_existente:
+        return False, "O usuário já possui aposta para esta prova."
+    
+    # Forçar salvamento com horário da prova
+    success = salvar_aposta(
+        usuario_id, 
+        prova_id, 
+        pilotos_ant, 
+        fichas_ant, 
+        piloto_11_ant, 
+        nome_prova, 
+        automatica=1,  # Marca como aposta automática
+        horario_forcado=horario_limite
+    )
+    
+    return success, "Aposta automática gerada com sucesso!" if success else "Falha ao salvar aposta automática."
 
 def calcular_pontuacao_lote(apostas_df, resultados_df, provas_df):
     import ast
@@ -393,23 +590,6 @@ def calcular_pontuacao_lote(apostas_df, resultados_df, provas_df):
             pt = int(pt * 0.75)
         pontos.append(pt)
     return pontos
-
-def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas_df):
-    provas_df = provas_df.sort_values('data')
-    idx_prova = provas_df[provas_df['id'] == prova_id].index[0]
-    if idx_prova == 0:
-        return False, "Não há prova anterior para copiar a aposta."
-    prova_ant_id = provas_df.iloc[idx_prova-1]['id']
-    ap_ant = apostas_df[(apostas_df['usuario_id'] == usuario_id) & (apostas_df['prova_id'] == prova_ant_id)]
-    if ap_ant.empty:
-        return False, "Participante não tem aposta anterior para copiar."
-    ap_ant = ap_ant.iloc[0]
-    pilotos_ant = ap_ant['pilotos'].split(",")
-    fichas_ant = list(map(int, ap_ant['fichas'].split(",")))
-    piloto_11_ant = ap_ant['piloto_11']
-    num_auto = len(apostas_df[(apostas_df['usuario_id'] == usuario_id) & (apostas_df['automatica'] >= 1)])
-    salvar_aposta(usuario_id, prova_id, pilotos_ant, fichas_ant, piloto_11_ant, nome_prova, automatica=num_auto+1)
-    return True, "Aposta automática gerada!"
 
 # --- INICIALIZAÇÃO E MENU ---
 init_db()
@@ -656,7 +836,6 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
                         piloto_11, nome_prova, automatica=0
                     )
                     aposta_str = f"Prova: {nome_prova}, Pilotos: {pilotos_validos}, Fichas: {fichas_validas}, 11º: {piloto_11}"
-                    registrar_log_aposta(user[1], aposta_str, nome_prova, piloto_11, 0)
                     st.success("Aposta registrada/atualizada!")
                     st.cache_data.clear()
                     st.rerun()
@@ -742,7 +921,6 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
     else:
         st.info("Nenhuma aposta registrada.")
 
-
 # --- GESTÃO DE USUÁRIOS (apenas master) ---
 if st.session_state['pagina'] == "Gestão de Usuários" and st.session_state['token']:
     payload = get_payload()
@@ -766,6 +944,16 @@ if st.session_state['pagina'] == "Gestão de Usuários" and st.session_state['to
             novo_email = st.text_input("Email", value=usuario['email'], key="edit_email")
             novo_status = st.selectbox("Status", ["Ativo", "Inativo"], index=0 if usuario['status'] == "Ativo" else 1, key="edit_status")
             novo_perfil = st.selectbox("Perfil", ["participante", "admin"], index=0 if usuario['perfil'] == "participante" else 1, key="edit_perfil")
+            
+            # NOVO CAMPO: Atualização manual de faltas
+            st.subheader("Controle de Faltas")
+            novo_faltas = st.number_input(
+                "Faltas", 
+                min_value=0, 
+                value=int(usuario['faltas']) if usuario['faltas'] is not None else 0,
+                key="edit_faltas"
+            )
+            
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Atualizar usuário"):
@@ -774,8 +962,12 @@ if st.session_state['pagina'] == "Gestão de Usuários" and st.session_state['to
                     else:
                         conn = db_connect()
                         c = conn.cursor()
-                        c.execute('UPDATE usuarios SET nome=?, email=?, status=?, perfil=? WHERE id=?',
-                                  (novo_nome, novo_email, novo_status, novo_perfil, usuario_id))
+                        # Atualiza todos os campos, incluindo faltas
+                        c.execute('''
+                            UPDATE usuarios 
+                            SET nome=?, email=?, status=?, perfil=?, faltas=? 
+                            WHERE id=?
+                        ''', (novo_nome, novo_email, novo_status, novo_perfil, novo_faltas, usuario_id))
                         conn.commit()
                         conn.close()
                         st.success("Usuário atualizado!")
@@ -988,34 +1180,13 @@ if st.session_state['pagina'] == "Gestão de Apostas" and st.session_state['toke
                             c.execute('UPDATE usuarios SET faltas=? WHERE id=?', (faltas_novo, part.id))
                             conn.commit()
                             conn.close()
-                            # Tenta copiar aposta anterior
+                            
+                            # Tenta gerar aposta automática
                             ok, msg = gerar_aposta_automatica(part.id, prova['id'], prova['nome'], apostas_df, provas_df)
-                            if ok:
-                                st.cache_data.clear()  # Limpa o cache antes de buscar a aposta recém-criada!
-                                nova_aposta_df = get_apostas_df()
-                                filtro = (
-                                    (nova_aposta_df['usuario_id'] == part.id) &
-                                    (nova_aposta_df['prova_id'] == prova['id'])
-                                )
-                                resultado = nova_aposta_df[filtro]
-                                if not resultado.empty:
-                                    nova_aposta = resultado.iloc[0]
-                                    aposta_str = f"Prova: {prova['nome']}*, Pilotos: {nova_aposta['pilotos']}, Fichas: {nova_aposta['fichas']}, 11º: {nova_aposta['piloto_11']}"
-                                    registrar_log_aposta(  
-                                        part.nome, 
-                                        aposta_str, 
-                                        f"{prova['nome']}*", 
-                                        nova_aposta['piloto_11'],
-                                        1  # ✅ automatica=1 (aposta automática)
-                                    )
-                                else:
-                                    st.warning("Aposta automática gerada, mas não foi possível registrar no log (aposta não encontrada no banco).")
-                                st.success(msg)
-                                st.rerun()
-                            else:
+                            
+                            if not ok:
+                                # Fallback para aposta zerada
                                 resultado_row = resultados_df[resultados_df['prova_id'] == prova['id']]
-                                pilotos_nao_pontuaram = []
-                                piloto_11_nao = None
                                 if not resultado_row.empty:
                                     resultado = ast.literal_eval(resultado_row.iloc[0]['posicoes'])
                                     pontuaram = set(resultado.get(str(pos), "") for pos in range(1, 11))
@@ -1027,7 +1198,10 @@ if st.session_state['pagina'] == "Gestão de Apostas" and st.session_state['toke
                                 else:
                                     pilotos_nao_pontuaram = [pilotos_df['nome'].iloc[0]]
                                     piloto_11_nao = pilotos_df['nome'].iloc[0]
+                                
                                 piloto_aposta = pilotos_nao_pontuaram[0] if pilotos_nao_pontuaram else pilotos_df['nome'].iloc[0]
+                                
+                                # Salva aposta fallback
                                 salvar_aposta(
                                     part.id,
                                     prova['id'],
@@ -1037,37 +1211,13 @@ if st.session_state['pagina'] == "Gestão de Apostas" and st.session_state['toke
                                     prova['nome'],
                                     automatica=1
                                 )
-                                # Incrementa o campo faltas do usuário novamente (caso gere aposta "zerada")
-                                conn = db_connect()
-                                c = conn.cursor()
-                                c.execute('SELECT faltas FROM usuarios WHERE id=?', (part.id,))
-                                faltas_atual = c.fetchone()
-                                faltas_novo = (faltas_atual[0] if faltas_atual and faltas_atual[0] else 0) + 1
-                                c.execute('UPDATE usuarios SET faltas=? WHERE id=?', (faltas_novo, part.id))
-                                conn.commit()
-                                conn.close()
-                                st.cache_data.clear()
-                                # Registrar no log com "*"
-                                nova_aposta_df = get_apostas_df()
-                                filtro = (
-                                    (nova_aposta_df['usuario_id'] == part.id) &
-                                    (nova_aposta_df['prova_id'] == prova['id'])
-                                )
-                                resultado = nova_aposta_df[filtro]
-                                if not resultado.empty:
-                                    nova_aposta = resultado.iloc[0]
-                                    aposta_str = f"Prova: {prova['nome']}*, Pilotos: {nova_aposta['pilotos']}, Fichas: {nova_aposta['fichas']}, 11º: {nova_aposta['piloto_11']}"
-                                    registrar_log_aposta(  
-                                        part.nome, 
-                                        aposta_str, 
-                                        f"{prova['nome']}*", 
-                                        nova_aposta['piloto_11'],
-                                        1  # ✅ automatica=1 (aposta automática)
-                                    )
-                                else:
-                                    st.warning("Aposta automática gerada, mas não foi possível registrar no log (aposta não encontrada no banco).")
-                                st.success(f"Aposta automática gerada: 15 fichas em {piloto_aposta}, 11º colocado: {piloto_11_nao}")
-                                st.rerun()
+                                
+                                # Mensagem de sucesso
+                                msg = f"Aposta automática gerada: 15 fichas em {piloto_aposta}, 11º colocado: {piloto_11_nao}"
+                            
+                            st.cache_data.clear()
+                            st.success(msg)
+                            st.rerun()
     else:
         st.warning("Acesso restrito ao administrador/master.")
 
