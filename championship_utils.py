@@ -1,5 +1,6 @@
-from db_utils import championship_db_connect
-from datetime import datetime, timedelta, UTC
+import pandas as pd
+from db_utils import championship_db_connect, db_connect
+from datetime import datetime, UTC
 
 def init_championship_db():
     """Cria as tabelas necessárias para apostas e resultado do campeonato."""
@@ -8,6 +9,7 @@ def init_championship_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS championship_bets (
             user_id INTEGER PRIMARY KEY,
+            user_nome TEXT NOT NULL,
             champion TEXT NOT NULL,
             vice TEXT NOT NULL,
             team TEXT NOT NULL,
@@ -18,6 +20,7 @@ def init_championship_db():
         CREATE TABLE IF NOT EXISTS championship_bets_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
+            user_nome TEXT NOT NULL,
             champion TEXT NOT NULL,
             vice TEXT NOT NULL,
             team TEXT NOT NULL,
@@ -35,7 +38,19 @@ def init_championship_db():
     conn.commit()
     conn.close()
 
-def save_championship_bet(user_id, champion, vice, team):
+def get_user_name(user_id):
+    """Obtém o nome do usuário pelo ID"""
+    try:
+        conn = db_connect()
+        cursor = conn.cursor()
+        cursor.execute("SELECT nome FROM usuarios WHERE id = ?", (user_id,))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else "Nome não encontrado"
+    except Exception:
+        return "Erro ao buscar nome"
+
+def save_championship_bet(user_id, user_nome, champion, vice, team):
     """Salva ou atualiza a aposta do usuário para o campeonato e registra no log."""
     init_championship_db()
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
@@ -43,14 +58,14 @@ def save_championship_bet(user_id, champion, vice, team):
     cursor = conn.cursor()
     # Atualiza aposta válida (última)
     cursor.execute('''
-        INSERT OR REPLACE INTO championship_bets (user_id, champion, vice, team, bet_time)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (user_id, champion, vice, team, now))
+        INSERT OR REPLACE INTO championship_bets (user_id, user_nome, champion, vice, team, bet_time)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (user_id, user_nome, champion, vice, team, now))
     # Registra log de apostas
     cursor.execute('''
-        INSERT INTO championship_bets_log (user_id, champion, vice, team, bet_time)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (user_id, champion, vice, team, now))
+        INSERT INTO championship_bets_log (user_id, user_nome, champion, vice, team, bet_time)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (user_id, user_nome, champion, vice, team, now))
     conn.commit()
     conn.close()
 
@@ -74,7 +89,7 @@ def get_championship_bet_log(user_id):
     conn = championship_db_connect()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT champion, vice, team, bet_time
+        SELECT user_nome, champion, vice, team, bet_time
         FROM championship_bets_log
         WHERE user_id = ?
         ORDER BY bet_time DESC

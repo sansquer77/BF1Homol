@@ -3,7 +3,8 @@ import pandas as pd
 from championship_utils import (
     save_championship_bet,
     get_championship_bet,
-    get_championship_bet_log
+    get_championship_bet_log,
+    get_user_name  # Nova função necessária
 )
 
 def main():
@@ -14,15 +15,21 @@ def main():
         st.error("Faça login para apostar.")
         return
 
+    # Obter nome do usuário
+    user_nome = get_user_name(user_id)  # Nova linha para obter o nome
+
     # Exemplo: substitua por sua lógica real de extração de pilotos/equipes
     pilotos = [
-    "Pierre Gasly", "Jack Doohan", "Fernando Alonso", "Lance Stroll",
-    "Charles Leclerc", "Lewis Hamilton", "Esteban Ocon", "Oliver Bearman",
-    "Lando Norris", "Oscar Piastri", "Kimi Antonelli", "George Russell",
-    "Liam Lawson", "Isack Hadjar", "Max Verstappen", "Yuki Tsunoda",
-    "Nico Hulkenberg", "Gabriel Bortoleto", "Alex Albon", "Carlos Sainz"
-]
-    equipes = ["Red Bull", "Mercedes", "Ferrari", "McLaren", "Alpine", "Aston Martin", "Haas", "Racing Bulls", "Sauber", "Williams"]
+        "Pierre Gasly", "Jack Doohan", "Fernando Alonso", "Lance Stroll",
+        "Charles Leclerc", "Lewis Hamilton", "Esteban Ocon", "Oliver Bearman",
+        "Lando Norris", "Oscar Piastri", "Kimi Antonelli", "George Russell",
+        "Liam Lawson", "Isack Hadjar", "Max Verstappen", "Yuki Tsunoda",
+        "Nico Hulkenberg", "Gabriel Bortoleto", "Alex Albon", "Carlos Sainz"
+    ]
+    equipes = [
+        "Red Bull", "Mercedes", "Ferrari", "McLaren", "Alpine",
+        "Aston Martin", "Haas", "Racing Bulls", "Sauber", "Williams"
+    ]
 
     # Carregar aposta anterior (se houver)
     aposta = get_championship_bet(user_id) or {}
@@ -63,14 +70,21 @@ def main():
         if campeao == vice:
             st.error("O Vice deve ser diferente do Campeão.")
         else:
-            save_championship_bet(user_id, campeao, vice, equipe)
+            # Inclui user_nome na chamada
+            save_championship_bet(user_id, user_nome, campeao, vice, equipe)
             st.success("Aposta registrada/atualizada!")
 
     # Log de apostas
     log = get_championship_bet_log(user_id)
 
-    if log and all(len(entry) == 4 for entry in log):
-        df_log = pd.DataFrame(log, columns=["Campeão", "Vice", "Equipe", "Data/Hora"])
+    if log and all(len(entry) == 5 for entry in log):
+        df_log = pd.DataFrame(log, columns=[
+            "Participante",    # user_nome
+            "Campeão",         # champion
+            "Vice",            # vice
+            "Equipe",          # team
+            "Data/Hora"        # bet_time
+        ])
         st.subheader("Histórico de Apostas no Campeonato")
         st.dataframe(df_log)
     elif log:

@@ -3,7 +3,7 @@ import sqlite3
 import bcrypt
 import jwt as pyjwt
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 import ast
 import os
@@ -470,7 +470,10 @@ def gerar_aposta_aleatoria(pilotos_df):
     return pilotos_selecionados, fichas, piloto_11
 
 def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas_df):
-    """Gera apostas automáticas com tratamento robusto de erros"""
+    """
+    Gera uma aposta automática para o usuário, copiando a aposta anterior se houver,
+    ou gerando uma aleatória. O campo 'automatica' é incrementado a cada geração.
+    """
     # Buscar informações da prova atual
     prova_atual = provas_df[provas_df['id'] == prova_id]
     if prova_atual.empty:
@@ -531,6 +534,16 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     if aposta_existente:
         return False, "O usuário já possui aposta para esta prova."
     
+    # Buscar o maior valor atual de automatica para o usuário
+    conn = db_connect()
+    c = conn.cursor()
+    c.execute('SELECT MAX(automatica) FROM apostas WHERE usuario_id = ?', (usuario_id,))
+    max_automatica = c.fetchone()[0]
+    conn.close()
+    
+    # Determinar o novo valor de automatica
+    nova_automatica = 1 if max_automatica is None else max_automatica + 1
+
     # Forçar salvamento com horário da prova
     success = salvar_aposta(
         usuario_id, 
@@ -539,7 +552,7 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         fichas_ant, 
         piloto_11_ant, 
         nome_prova, 
-        automatica=1,  # Marca como aposta automática
+        automatica=nova_automatica,  # Usar valor incrementado
         horario_forcado=horario_limite
     )
     
@@ -775,14 +788,18 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
             max_linhas = 10
             pilotos_aposta = []
             fichas_aposta = []
+            
             for i in range(max_linhas):
                 mostrar = False
+                # Sempre mostra as 3 primeiras linhas
                 if i < 3:
                     mostrar = True
-                elif i == 3 and len([p for p in pilotos_aposta if p != "Nenhum"]) == 3 and sum(fichas_aposta) < 15:
+                # Para linhas extras (4-10), mostra apenas se:
+                # - Todas as linhas anteriores estão preenchidas (não são "Nenhum")
+                # - A soma das fichas ainda não atingiu 15
+                elif i < max_linhas and len([p for p in pilotos_aposta if p != "Nenhum"]) == i and sum(fichas_aposta) < 15:
                     mostrar = True
-                elif i == 4 and len([p for p in pilotos_aposta if p != "Nenhum"]) == 4 and sum(fichas_aposta) < 15:
-                    mostrar = True
+                
                 if mostrar:
                     col1, col2 = st.columns([3,1])
                     with col1:
@@ -804,10 +821,14 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
                         else:
                             pilotos_aposta.append("Nenhum")
                             fichas_aposta.append(0)
+            
+            # Filtrar apenas pilotos válidos ("Nenhum" são ignorados)
             pilotos_validos = [p for p in pilotos_aposta if p != "Nenhum"]
             fichas_validas = [f for i, f in enumerate(fichas_aposta) if pilotos_aposta[i] != "Nenhum"]
             equipes_apostadas = [pilotos_equipe[p] for p in pilotos_validos]
             total_fichas = sum(fichas_validas)
+            
+            # Opções para 11º colocado (não pode ser um piloto apostado)
             pilotos_11_opcoes = [p for p in pilotos if p not in pilotos_validos]
             if not pilotos_11_opcoes:
                 pilotos_11_opcoes = pilotos
@@ -815,11 +836,13 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
                 "Palpite para 11º colocado", pilotos_11_opcoes,
                 index=pilotos_11_opcoes.index(piloto_11_ant) if piloto_11_ant in pilotos_11_opcoes else 0
             )
+            
+            # Validação e envio da aposta
             erro = None
             if st.button("Efetivar Aposta"):
                 if len(set(pilotos_validos)) != len(pilotos_validos):
                     erro = "Não é permitido apostar em dois pilotos iguais."
-                elif len(set(equipes_apostadas)) != len(equipes_apostadas):
+                elif len(set(equipes_apostadas)) < len(equipes_apostadas):
                     erro = "Não é permitido apostar em dois pilotos da mesma equipe."
                 elif len(pilotos_validos) < 3:
                     erro = "Você deve apostar em pelo menos 3 pilotos de equipes diferentes."
@@ -827,6 +850,7 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
                     erro = "A soma das fichas deve ser exatamente 15."
                 elif piloto_11 in pilotos_validos:
                     erro = "O 11º colocado não pode ser um dos pilotos apostados."
+                
                 if erro:
                     st.error(erro)
                 else:
@@ -835,7 +859,6 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
                         fichas_validas,
                         piloto_11, nome_prova, automatica=0
                     )
-                    aposta_str = f"Prova: {nome_prova}, Pilotos: {pilotos_validos}, Fichas: {fichas_validas}, 11º: {piloto_11}"
                     st.success("Aposta registrada/atualizada!")
                     st.cache_data.clear()
                     st.rerun()
@@ -1076,26 +1099,30 @@ if st.session_state['pagina'] == "Gestão do campeonato" and st.session_state['t
         with tab2:
             st.subheader("Adicionar nova prova")
             nome_prova = st.text_input("Nome da nova prova", key="nome_nova_prova")
-            data_prova_str = st.text_input("Data da nova prova (DD/MM/AAAA)", key="data_nova_prova")
+            data_prova = st.date_input("Data da nova prova", key="data_nova_prova")
+            horario_prova = st.time_input("Horário da nova prova", value=time(15,0), key="hora_nova_prova")  # valor padrão: 15:00
             status_prova = st.selectbox("Status da prova", ["Ativo", "Inativo"], key="status_nova_prova")
             tipo_prova = st.selectbox("Tipo da prova", ["Normal", "Sprint"], key="tipo_nova_prova")
+        
             if st.button("Adicionar prova", key="btn_add_prova_form"):
                 if not nome_prova.strip():
                     st.error("Informe o nome da prova.")
                 else:
                     try:
-                        data_prova = datetime.strptime(data_prova_str, "%d/%m/%Y")
+                        data_str = data_prova.strftime("%Y-%m-%d")
+                        hora_str = horario_prova.strftime("%H:%M:%S")
                         conn = db_connect()
                         c = conn.cursor()
-                        c.execute('INSERT INTO provas (nome, data, status, tipo) VALUES (?, ?, ?, ?)', (nome_prova.strip(), data_prova.strftime("%Y-%m-%d"), status_prova, tipo_prova))
+                        c.execute('INSERT INTO provas (nome, data, horario_prova, status, tipo) VALUES (?, ?, ?, ?, ?)',
+                                  (nome_prova.strip(), data_str, hora_str, status_prova, tipo_prova))
                         conn.commit()
                         conn.close()
                         st.success("Prova adicionada!")
                         st.cache_data.clear()
                         st.rerun()
-                    except ValueError:
-                        st.error("Data inválida! Use o formato DD/MM/AAAA.")
-
+                    except Exception as e:
+                        st.error(f"Erro ao adicionar prova: {e}")
+        
             st.markdown("---")
             st.subheader("Provas cadastradas")
             provas = get_provas_df()
@@ -1103,35 +1130,44 @@ if st.session_state['pagina'] == "Gestão do campeonato" and st.session_state['t
                 st.info("Nenhuma prova cadastrada.")
             else:
                 for idx, row in provas.iterrows():
-                    col1, col2, col3, col4, col5 = st.columns([3,3,2,2,2])
+                    col1, col2, col3, col4, col5, col6 = st.columns([3,2,2,2,2,2])
                     with col1:
                         novo_nome = st.text_input(f"Nome prova {row['id']}", value=row['nome'], key=f"pr_nome_{row['id']}")
                     with col2:
-                        if pd.notnull(row['data']) and str(row['data']).strip() != "":
-                            try:
-                                data_formatada = pd.to_datetime(row['data']).strftime("%d/%m/%Y")
-                            except Exception:
-                                data_formatada = "Data inválida"
-                        else:
-                            data_formatada = "Data não informada"
-                        nova_data_str = st.text_input(f"Data prova {row['id']} (DD/MM/AAAA)", value=data_formatada, key=f"pr_data_{row['id']}")
+                        # Data
+                        try:
+                            data_val = pd.to_datetime(row['data']).date() if pd.notnull(row['data']) else datetime.today().date()
+                        except Exception:
+                            data_val = datetime.today().date()
+                        nova_data = st.date_input(f"Data prova {row['id']}", value=data_val, key=f"pr_data_{row['id']}")
                     with col3:
-                        novo_status = st.selectbox(f"Status prova {row['id']}", ["Ativo", "Inativo"], index=0 if row.get('status', 'Ativo') == "Ativo" else 1, key=f"pr_status_{row['id']}")
+                        # Horário
+                        try:
+                            hora_val = pd.to_datetime(row['horario_prova']).time() if pd.notnull(row['horario_prova']) else time(15,0)
+                        except Exception:
+                            hora_val = time(15,0)
+                        novo_horario = st.time_input(f"Horário prova {row['id']}", value=hora_val, key=f"pr_hora_{row['id']}")
                     with col4:
+                        novo_status = st.selectbox(f"Status prova {row['id']}", ["Ativo", "Inativo"], index=0 if row.get('status', 'Ativo') == "Ativo" else 1, key=f"pr_status_{row['id']}")
+                    with col5:
+                        novo_tipo = st.selectbox(f"Tipo prova {row['id']}", ["Normal", "Sprint"], index=0 if row.get('tipo', 'Normal') == "Normal" else 1, key=f"pr_tipo_{row['id']}")
+                    with col6:
                         if st.button("Editar prova", key=f"pr_edit_{row['id']}"):
                             try:
-                                nova_data = datetime.strptime(nova_data_str, "%d/%m/%Y")
+                                data_str = nova_data.strftime("%Y-%m-%d")
+                                hora_str = novo_horario.strftime("%H:%M:%S")
                                 conn = db_connect()
                                 c = conn.cursor()
-                                c.execute('UPDATE provas SET nome=?, data=?, status=? WHERE id=?', (novo_nome, nova_data.strftime("%Y-%m-%d"), novo_status, row['id']))
+                                c.execute('UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=? WHERE id=?',
+                                          (novo_nome, data_str, hora_str, novo_status, novo_tipo, row['id']))
                                 conn.commit()
                                 conn.close()
                                 st.success("Prova editada!")
                                 st.cache_data.clear()
                                 st.rerun()
-                            except ValueError:
-                                st.error("Data inválida! Use o formato DD/MM/AAAA.")
-                    with col5:
+                            except Exception as e:
+                                st.error(f"Erro ao editar prova: {e}")
+                    with col6:
                         if st.button("Excluir prova", key=f"pr_del_{row['id']}"):
                             conn = db_connect()
                             c = conn.cursor()
@@ -1489,7 +1525,6 @@ if st.session_state['pagina'] == "Regulamento":
     st.markdown(REGULAMENTO.replace('\n', '  \n'))
 
 # --- Backup ---
-# --- Backup ---
 import io
 import sqlite3
 import pandas as pd
@@ -1500,18 +1535,17 @@ DB_PATH = 'bolao_f1Dev.db'
 CHAMPIONSHIP_DB_PATH = 'championship.db'
 
 def exportar_apostas_campeonato_excel():
-    # Conecta ao banco do campeonato e anexa o banco principal
+    """Exporta todas as apostas incluindo ID do usuário"""
     conn = sqlite3.connect(CHAMPIONSHIP_DB_PATH)
-    conn.execute(f"ATTACH DATABASE '{DB_PATH}' AS main_db")
     query = '''
     SELECT 
-        u.nome AS participante,
-        c.champion AS campeao,
-        c.vice AS vice_campeao,
-        c.team AS equipe_campea,
-        c.bet_time AS data_aposta
-    FROM championship_bets c
-    JOIN main_db.usuarios u ON c.user_id = u.id
+        user_id AS "ID Usuário",
+        user_nome AS "Participante",
+        champion AS "Campeão",
+        vice AS "Vice",
+        team AS "Equipe",
+        bet_time AS "Data Aposta"
+    FROM championship_bets
     '''
     df = pd.read_sql(query, conn)
     output = io.BytesIO()
@@ -1521,28 +1555,52 @@ def exportar_apostas_campeonato_excel():
     return output.getvalue()
 
 def importar_apostas_campeonato_excel(arquivo_excel_bytes):
-    conn_championship = sqlite3.connect(CHAMPIONSHIP_DB_PATH)
-    conn_main = sqlite3.connect(DB_PATH)
+    """Importa apostas substituindo dados existentes e atualiza o log"""
+    conn = sqlite3.connect(CHAMPIONSHIP_DB_PATH)
+    cursor = conn.cursor()
+    
+    # Apaga TODOS os registros existentes das duas tabelas
+    cursor.execute('DELETE FROM championship_bets')
+    cursor.execute('DELETE FROM championship_bets_log')  # Limpa o log também
+    conn.commit()
+    
+    # Lê e valida o Excel
     df = pd.read_excel(io.BytesIO(arquivo_excel_bytes))
-    colunas_necessarias = ['participante', 'campeao', 'vice_campeao', 'equipe_campea']
-    if not all(col in df.columns for col in colunas_necessarias):
+    colunas_obrigatorias = ['ID Usuário', 'Participante', 'Campeão', 'Vice', 'Equipe']
+    if not all(col in df.columns for col in colunas_obrigatorias):
         raise ValueError("Arquivo Excel não possui colunas obrigatórias!")
+    
+    # Processa cada linha
     for _, row in df.iterrows():
-        cursor_main = conn_main.cursor()
-        cursor_main.execute('SELECT id FROM usuarios WHERE nome = ?', (row['participante'],))
-        user_id = cursor_main.fetchone()
-        if not user_id:
-            st.warning(f"Participante '{row['participante']}' não encontrado. Aposta ignorada.")
+        try:
+            user_id = row['ID Usuário']
+            participante = row['Participante']
+            campeao = row['Campeão']
+            vice = row['Vice']
+            equipe = row['Equipe']
+            data_aposta = row.get('Data Aposta', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            
+            # Insere na tabela principal
+            cursor.execute('''
+                INSERT INTO championship_bets 
+                (user_id, user_nome, champion, vice, team, bet_time)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (user_id, participante, campeao, vice, equipe, data_aposta))
+            
+            # Insere no log (mesmos dados)
+            cursor.execute('''
+                INSERT INTO championship_bets_log 
+                (user_id, user_nome, champion, vice, team, bet_time)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (user_id, participante, campeao, vice, equipe, data_aposta))
+            
+        except Exception as e:
+            print(f"Erro na linha {_+2}: {str(e)}")
             continue
-        cursor_championship = conn_championship.cursor()
-        cursor_championship.execute('''
-            INSERT OR REPLACE INTO championship_bets (user_id, champion, vice, team, bet_time)
-            VALUES (?, ?, ?, ?, COALESCE(?, datetime('now')))
-        ''', (user_id[0], row['campeao'], row['vice_campeao'], row['equipe_campea'], row.get('data_aposta')))
-    conn_championship.commit()
-    conn_championship.close()
-    conn_main.close()
-    return "Apostas do campeonato importadas com sucesso!"
+    
+    conn.commit()
+    conn.close()
+    return "Apostas importadas com sucesso! Dados e log atualizados."
 
 def exportar_tabelas_para_excel(db_path):
     conn = sqlite3.connect(db_path)
@@ -1650,7 +1708,6 @@ def modulo_exportar_importar_excel():
                     st.error(f"Erro ao importar: {e}")
     else:
         st.info("Nenhuma tabela disponível para importação.")
-
 
 # --- INTEGRAÇÃO NO APP ---
 if (
