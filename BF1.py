@@ -9,6 +9,7 @@ import ast
 import os
 import matplotlib.pyplot as plt
 import dashboard
+from backup import main as backup_main
 from db_utils import db_connect
 from championship_bets import main as championship_bets_main
 from championship_results import main as championship_results_main
@@ -627,6 +628,7 @@ def menu_master():
         "Classificação",
         "Dashboard F1",
         "Exportar/Importar Excel",
+        "Backup dos Bancos de Dados",
         "Regulamento",
         "Logout"
     ]
@@ -1531,7 +1533,7 @@ import pandas as pd
 import streamlit as st
 import os
 
-DB_PATH = 'bolao_f1Dev.db'
+DB_PATH = 'bolao_f1.db'
 CHAMPIONSHIP_DB_PATH = 'championship.db'
 
 def exportar_apostas_campeonato_excel():
@@ -1732,6 +1734,10 @@ if st.session_state['pagina'] == "Resultado Campeonato":
 # --- Analises de Apostas ---
 if st.session_state['pagina'] == "Análise de Apostas":
     analysis_main()
+
+# --- Backup dos Bancos de Dados ---
+if st.session_state['pagina'] == "Backup dos Bancos de Dados":
+    backup_main()
 
 # --- Logoff ---
 if st.session_state['pagina'] == "Logout" and st.session_state['token']:
