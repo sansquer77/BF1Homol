@@ -430,7 +430,6 @@ def gerar_aposta_aleatoria(pilotos_df):
     
     # Garante pelo menos 3 equipes
     if len(equipes_unicas) < 3:
-        # Usa todas as equipes disponíveis e completa com pilotos aleatórios
         equipes_selecionadas = equipes_unicas.copy()
         while len(equipes_selecionadas) < 3:
             equipes_selecionadas.append(random.choice(equipes_unicas))
@@ -447,21 +446,27 @@ def gerar_aposta_aleatoria(pilotos_df):
     fichas = []
     total_fichas = 15
     
-    # Distribuição robusta de fichas
+    # Distribuição robusta de fichas (corrigida)
     if total_fichas < n_pilotos:
-        # Modo de emergência: 1 ficha por piloto + excedente no primeiro
         fichas = [1] * n_pilotos
         fichas[0] += total_fichas - n_pilotos
     else:
+        # Garante pelo menos 1 ficha para cada piloto
+        fichas = [1] * n_pilotos
+        total_fichas -= n_pilotos
+        
+        # Distribui as fichas restantes
         for i in range(n_pilotos):
+            if total_fichas <= 0:
+                break
             if i == n_pilotos - 1:
-                fichas.append(total_fichas)
+                fichas[i] += total_fichas
+                total_fichas = 0
             else:
-                reserva_restante = n_pilotos - i - 1
-                max_ficha = min(10, total_fichas - reserva_restante)
-                ficha = random.randint(1, max_ficha)
-                fichas.append(ficha)
-                total_fichas -= ficha
+                max_para_este = min(9, total_fichas)  # Máximo 10 fichas por piloto (1 já foi dada)
+                adicionais = random.randint(0, max_para_este)
+                fichas[i] += adicionais
+                total_fichas -= adicionais
     
     # Seleção do 11º colocado
     todos_pilotos = pilotos_df['nome'].tolist()
@@ -472,7 +477,7 @@ def gerar_aposta_aleatoria(pilotos_df):
 
 def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas_df):
     """
-    Gera uma aposta automática para o usuário, copiando a aposta anterior se houver,
+    Gera uma aposta automática para o usuário, copiando a aposta da prova anterior se houver,
     ou gerando uma aleatória. O campo 'automatica' é incrementado a cada geração.
     """
     # Buscar informações da prova atual
@@ -493,21 +498,20 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     # Buscar dados de pilotos
     pilotos_df = get_pilotos_df()
     
-    # Verificar posição da prova no calendário
-    provas_df = provas_df.sort_values('data')
-    try:
-        idx_prova = provas_df[provas_df['id'] == prova_id].index[0]
-    except IndexError:
-        return False, "Prova não encontrada no calendário."
-    
     # Determinar aposta anterior ou gerar aleatória
     pilotos_ant, fichas_ant, piloto_11_ant = None, None, None
     
-    if idx_prova > 0:  # Não é a primeira prova
-        # Busca prova anterior
-        prova_ant_id = provas_df.iloc[idx_prova-1]['id']
-        ap_ant = apostas_df[(apostas_df['usuario_id'] == usuario_id) & 
-                            (apostas_df['prova_id'] == prova_ant_id)]
+    # 1. Buscar prova anterior (ID imediatamente inferior)
+    prova_ant_id = prova_id - 1
+    
+    # 2. Verificar se existe prova com ID anterior
+    prova_ant = provas_df[provas_df['id'] == prova_ant_id]
+    if not prova_ant.empty:
+        # 3. Buscar aposta do usuário nessa prova anterior
+        ap_ant = apostas_df[
+            (apostas_df['usuario_id'] == usuario_id) & 
+            (apostas_df['prova_id'] == prova_ant_id)
+        ]
         
         if not ap_ant.empty:
             # Usa aposta anterior se existir
@@ -515,15 +519,12 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
             pilotos_ant = ap_ant['pilotos'].split(",")
             fichas_ant = list(map(int, ap_ant['fichas'].split(",")))
             piloto_11_ant = ap_ant['piloto_11']
-            st.success(f"Copiando aposta anterior da prova {provas_df.iloc[idx_prova-1]['nome']}")
+            st.success(f"Copiando aposta anterior da prova {prova_ant['nome'].values[0]}")
     
-    # Se não encontrou aposta anterior (seja porque é primeira prova ou não havia)
+    # Se não encontrou aposta anterior
     if pilotos_ant is None:
         pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria(pilotos_df)
-        if idx_prova == 0:
-            st.warning("Primeira prova. Gerada aposta aleatória.")
-        else:
-            st.warning("Não havia aposta anterior. Gerada aposta aleatória.")
+        st.warning("Não havia aposta anterior. Gerada aposta aleatória.")
     
     # Verificar se já existe aposta para esta prova
     conn = db_connect()
@@ -553,7 +554,7 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         fichas_ant, 
         piloto_11_ant, 
         nome_prova, 
-        automatica=nova_automatica,  # Usar valor incrementado
+        automatica=nova_automatica,
         horario_forcado=horario_limite
     )
     
@@ -601,7 +602,7 @@ def calcular_pontuacao_lote(apostas_df, resultados_df, provas_df):
         if piloto_11 == piloto_11_real:
             pt += bonus_11
         if automatica >= 2:
-            pt = int(pt * 0.75)
+            pt = round(pt * 0.75, 2)
         pontos.append(pt)
     return pontos
 
@@ -936,7 +937,7 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
                 total_pontos += pontos_11_col
     
                 if automatica and int(automatica) >= 2:
-                    total_pontos = int(total_pontos * 0.75)
+                    total_pontos = round(total_pontos * 0.75, 2)
     
                 st.markdown(f"#### {prova_nome} ({tipo_prova})")
                 st.dataframe(pd.DataFrame(dados), hide_index=True)
@@ -1294,7 +1295,9 @@ if st.session_state['pagina'] == "Classificação" and st.session_state['token']
             "Pontos por Prova": pontos_part
         })
 
-    df_class = pd.DataFrame(tabela_classificacao).sort_values("Pontos Provas", ascending=False).reset_index(drop=True)
+    df_class = pd.DataFrame(tabela_classificacao)
+    df_class = df_class.sort_values("Pontos Provas", ascending=False).reset_index(drop=True)
+    df_class["Pontos Provas"] = df_class["Pontos Provas"].apply(lambda x: f"{x:.2f}")
     st.subheader("Classificação Geral - Apenas Provas")
     st.table(df_class)
 
@@ -1330,7 +1333,10 @@ if st.session_state['pagina'] == "Classificação" and st.session_state['token']
             "Acertos Campeonato": ", ".join(acertos) if acertos else "-"
         })
 
-    df_class_completo = pd.DataFrame(tabela_classificacao_completa).sort_values("Total Geral", ascending=False).reset_index(drop=True)
+    df_class_completo = pd.DataFrame(tabela_classificacao_completa)
+    df_class_completo = df_class_completo.sort_values("Total Geral", ascending=False).reset_index(drop=True)
+    for col in ["Pontos Provas", "Pontos Campeonato", "Total Geral"]:
+        df_class_completo[col] = df_class_completo[col].apply(lambda x: f"{x:.2f}")
     st.subheader("Classificação Final (Provas + Campeonato)")
     st.table(df_class_completo)
 
@@ -1369,7 +1375,7 @@ if st.session_state['pagina'] == "Classificação" and st.session_state['token']
     # 3. Criar DataFrame cruzado
     df_cruzada = pd.DataFrame(dados_cruzados).T
     df_cruzada = df_cruzada.reindex(columns=[p['nome'] for _, p in participantes.iterrows()], fill_value=0)
-    
+    df_cruzada = df_cruzada.applymap(lambda x: f"{x:.2f}")
     st.dataframe(df_cruzada)
 
    # --------- 4. Gráfico de evolução ----------
@@ -1379,7 +1385,7 @@ if st.session_state['pagina'] == "Classificação" and st.session_state['token']
         fig = go.Figure()
         # Usar nomes das colunas diretamente do DataFrame
         for participante in df_cruzada.columns:
-            pontos_acumulados = df_cruzada[participante].cumsum()
+            pontos_acumulados = df_cruzada[participante].astype(float).cumsum()
             fig.add_trace(go.Scatter(
                 x=df_cruzada.index.tolist(),  # Nomes das provas como eixo X
                 y=pontos_acumulados,
@@ -1392,7 +1398,11 @@ if st.session_state['pagina'] == "Classificação" and st.session_state['token']
             yaxis_title="Pontuação Acumulada",
             xaxis_tickangle=-45,
             margin=dict(l=40, r=20, t=60, b=80),
-            plot_bgcolor='rgba(240,240,255,0.9)'
+            plot_bgcolor='rgba(240,240,255,0.9)',
+            yaxis=dict(
+                tickformat=',.0f',   # <-- Sem casas decimais
+                range=[100, 7000]    # <-- Limite do eixo Y
+            )
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
