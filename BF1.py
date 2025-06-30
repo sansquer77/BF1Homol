@@ -1298,6 +1298,14 @@ if st.session_state['pagina'] == "Classificação" and st.session_state['token']
     df_class = pd.DataFrame(tabela_classificacao)
     df_class = df_class.sort_values("Pontos Provas", ascending=False).reset_index(drop=True)
     df_class["Pontos Provas"] = df_class["Pontos Provas"].apply(lambda x: f"{x:.2f}")
+
+    # Adiciona coluna de diferença para cada linha (exceto a primeira)
+    pontos_float = [float(x) for x in df_class["Pontos Provas"]]
+    diferencas = [0]  # Primeira linha não tem diferença
+    for i in range(1, len(pontos_float)):
+        diferencas.append(pontos_float[i-1] - pontos_float[i])
+    df_class["Diferença"] = ["-" if i == 0 else f"{d:.2f}" for i, d in enumerate(diferencas)]
+
     st.subheader("Classificação Geral - Apenas Provas")
     st.table(df_class)
 
