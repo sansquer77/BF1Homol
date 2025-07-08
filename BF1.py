@@ -17,6 +17,7 @@ from analysis import main as analysis_main
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import plotly.graph_objects as go
 
 st.set_page_config(
     page_title="BF1",
@@ -163,6 +164,17 @@ FOREIGN KEY(prova_id) REFERENCES provas(id)
 prova_id INTEGER PRIMARY KEY,
 posicoes TEXT,
 FOREIGN KEY(prova_id) REFERENCES provas(id)
+)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS posicoes_participantes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    prova_id INTEGER NOT NULL,
+    usuario_id INTEGER NOT NULL,
+    posicao INTEGER NOT NULL,
+    pontos REAL NOT NULL,
+    data_registro TEXT DEFAULT (datetime('now')),
+    UNIQUE(prova_id, usuario_id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+    FOREIGN KEY (prova_id) REFERENCES provas(id)
 )''')
     c.execute('''CREATE TABLE IF NOT EXISTS log_apostas (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -396,7 +408,7 @@ def salvar_aposta(
                     st.error(f"Erro no envio para {destinatario}: {str(e)}")
                     return False
 
-            enviar_email(email_usuario, "Confirmação de Aposta - BF1Dev", corpo_html)
+            enviar_email(email_usuario, "Confirmação de Aposta - BF1", corpo_html)
             enviar_email(EMAIL_ADMIN, f"Nova aposta de {usuario[1]}", corpo_html)
 
     except Exception as e:
@@ -605,6 +617,83 @@ def calcular_pontuacao_lote(apostas_df, resultados_df, provas_df):
             pt = round(pt * 0.75, 2)
         pontos.append(pt)
     return pontos
+
+def salvar_classificacao_prova(prova_id, df_classificacao):
+    conn = db_connect()
+    cursor = conn.cursor()
+    for _, row in df_classificacao.iterrows():
+        usuario_id = int(row['usuario_id'])  # Garante que é inteiro
+        posicao = int(row['posicao'])
+        pontos = float(row['pontos'])
+        data_registro = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        cursor.execute('''
+            INSERT OR REPLACE INTO posicoes_participantes 
+            (prova_id, usuario_id, posicao, pontos, data_registro)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (prova_id, usuario_id, posicao, pontos, data_registro))
+    conn.commit()
+    conn.close()
+
+def atualizar_classificacoes_todas_as_provas():
+    """Calcula e salva a classificação de todas as provas já ocorridas com resultado cadastrado."""
+    conn = db_connect()
+    usuarios_df = pd.read_sql('SELECT * FROM usuarios WHERE status = "Ativo"', conn)
+    provas_df = pd.read_sql('SELECT * FROM provas', conn)
+    apostas_df = pd.read_sql('SELECT * FROM apostas', conn)
+    resultados_df = pd.read_sql('SELECT * FROM resultados', conn)
+    conn.close()
+
+    for _, prova in provas_df.iterrows():
+        prova_id = prova['id']
+        if prova_id not in resultados_df['prova_id'].values:
+            continue
+
+        apostas_prova = apostas_df[apostas_df['prova_id'] == prova_id]
+        if apostas_prova.empty:
+            continue
+
+        tabela = []
+        for _, usuario in usuarios_df.iterrows():
+            aposta = apostas_prova[apostas_prova['usuario_id'] == usuario['id']]
+            if aposta.empty:
+                pontos = 0
+                data_envio = None
+                acerto_11 = 0
+            else:
+                pontos = calcular_pontuacao_lote(aposta, resultados_df, provas_df)
+                pontos = pontos[0] if pontos and pontos[0] is not None else 0
+                data_envio = aposta.iloc[0]['data_envio'] if 'data_envio' in aposta.columns else None
+
+                # Checa acerto do 11º colocado
+                acerto_11 = 0
+                if not aposta.empty and not resultados_df.empty:
+                    resultado = resultados_df[resultados_df['prova_id'] == prova_id]
+                    if not resultado.empty:
+                        import ast
+                        posicoes = ast.literal_eval(resultado.iloc[0]['posicoes'])
+                        piloto_11_real = posicoes.get(11, "")
+                        piloto_11_apostado = aposta.iloc[0]['piloto_11']
+                        if piloto_11_apostado == piloto_11_real:
+                            acerto_11 = 1
+
+            tabela.append({
+                'usuario_id': int(usuario['id']),
+                'pontos': pontos,
+                'data_envio': data_envio,
+                'acerto_11': acerto_11
+            })
+
+        # Ordena por: pontos (desc), data_envio (asc), acerto_11 (desc)
+        df_classificacao = pd.DataFrame(tabela)
+        # Para garantir ordenação correta, converte data_envio para datetime (None vai para o fim)
+        df_classificacao['data_envio'] = pd.to_datetime(df_classificacao['data_envio'], errors='coerce')
+        df_classificacao = df_classificacao.sort_values(
+            by=['pontos', 'acerto_11', 'data_envio'],
+            ascending=[False, False, True]
+        ).reset_index(drop=True)
+        df_classificacao['posicao'] = df_classificacao.index + 1
+
+        salvar_classificacao_prova(prova_id, df_classificacao)
 
 # --- INICIALIZAÇÃO E MENU ---
 init_db()
@@ -893,9 +982,9 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
                 pilotos_apostados = aposta['pilotos'].split(',')
                 piloto_11_apostado = aposta['piloto_11']
                 automatica = aposta.get('automatica', 0)
-    
+
                 tipo_prova = provas_df[provas_df['id'] == prova_id]['tipo'].values[0] if not provas_df[provas_df['id'] == prova_id].empty else 'Normal'
-    
+
                 resultado_row = resultados_df[resultados_df['prova_id'] == prova_id]
                 if not resultado_row.empty:
                     try:
@@ -904,19 +993,19 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
                         posicoes_dict = {}
                 else:
                     posicoes_dict = {}
-    
+
                 dados = []
                 total_pontos = 0
-    
+
                 if tipo_prova == 'Sprint':
                     pontos_lista = pontos_sprint
                     n_pos = 8
                 else:
                     pontos_lista = pontos_f1
                     n_pos = 10
-    
+
                 piloto_para_pos = {v: int(k) for k, v in posicoes_dict.items()}
-    
+
                 for i in range(n_pos):
                     aposta_piloto = pilotos_apostados[i] if i < len(pilotos_apostados) else ""
                     ficha = fichas[i] if i < len(fichas) else 0
@@ -929,23 +1018,57 @@ if st.session_state['pagina'] == "Painel do Participante" and st.session_state['
                         "Piloto Apostado": aposta_piloto,
                         "Fichas": ficha,
                         "Posição Real": pos_real if pos_real is not None else "-",
-                        "Pontos": pontos
+                        "Pontos": f"{pontos:.2f}"  # <-- Duas casas decimais
                     })
-    
+
                 piloto_11_real = posicoes_dict.get(11, "")
                 pontos_11_col = bonus_11 if piloto_11_apostado == piloto_11_real else 0
                 total_pontos += pontos_11_col
-    
+
                 if automatica and int(automatica) >= 2:
                     total_pontos = round(total_pontos * 0.75, 2)
-    
+
                 st.markdown(f"#### {prova_nome} ({tipo_prova})")
                 st.dataframe(pd.DataFrame(dados), hide_index=True)
                 st.write(f"**11º Apostado:** {piloto_11_apostado} | **11º Real:** {piloto_11_real} | **Pontos 11º:** {pontos_11_col}")
-                st.write(f"**Total de Pontos na Prova:** {total_pontos}")
+                st.write(f"**Total de Pontos na Prova:** {total_pontos:.2f}")  # <-- Duas casas decimais
                 st.markdown("---")
     else:
         st.info("Nenhuma aposta registrada.")
+    
+    # --------- Gráfico de evolução da posição do participante logado ---------
+    st.subheader("Evolução da Posição no Campeonato")
+
+    user_id_logado = user[0]  # ID do usuário logado
+    user_nome_logado = user[1]  # Nome do usuário logado
+
+    conn = db_connect()
+    df_posicoes = pd.read_sql('SELECT * FROM posicoes_participantes', conn)
+    conn.close()
+
+    # Filtra apenas as posições do usuário logado
+    posicoes_part = df_posicoes[df_posicoes['usuario_id'] == user_id_logado].sort_values('prova_id')
+
+    if not posicoes_part.empty:
+        # Certifique-se de que provas_df está definido e atualizado antes deste bloco
+        provas_nomes = [provas_df[provas_df['id'] == pid]['nome'].values[0] for pid in posicoes_part['prova_id']]
+        fig_pos = go.Figure()
+        fig_pos.add_trace(go.Scatter(
+            x=provas_nomes,
+            y=posicoes_part['posicao'],
+            mode='lines+markers',
+            name=user_nome_logado if user_nome_logado else "Você"
+        ))
+        fig_pos.update_yaxes(autorange="reversed")  # Posição 1 no topo
+        fig_pos.update_layout(
+            xaxis_title="Prova",
+            yaxis_title="Posição",
+            title=f"Evolução da Posição - {user_nome_logado if user_nome_logado else 'Você'}",
+            showlegend=False
+        )
+        st.plotly_chart(fig_pos, use_container_width=True)
+    else:
+        st.info("Ainda não há histórico de posições para o seu usuário.")
 
 # --- GESTÃO DE USUÁRIOS (apenas master) ---
 if st.session_state['pagina'] == "Gestão de Usuários" and st.session_state['token']:
@@ -1288,6 +1411,7 @@ if st.session_state['pagina'] == "Classificação" and st.session_state['token']
         total = sum([p for p in pontos_part if p is not None])
         tabela_classificacao.append({
             "Participante": part['nome'],
+            "usuario_id": part['id'],
             "Pontos Provas": total
         })
         tabela_detalhada.append({
@@ -1298,21 +1422,67 @@ if st.session_state['pagina'] == "Classificação" and st.session_state['token']
     df_class = pd.DataFrame(tabela_classificacao)
     df_class = df_class.sort_values("Pontos Provas", ascending=False).reset_index(drop=True)
     df_class["Pontos Provas"] = df_class["Pontos Provas"].apply(lambda x: f"{x:.2f}")
+    df_class['Posição'] = df_class.index + 1
+
+    # --------- NOVO: Coluna de movimentação baseada na classificação acumulada até a última prova anterior ---------
+    provas_realizadas = provas_df[provas_df['id'].isin(resultados_df['prova_id'])]
+    if len(provas_realizadas) > 1:
+        penultima_prova_id = provas_realizadas.iloc[-2]['id']
+        provas_ate_penultima = provas_realizadas[provas_realizadas['id'] <= penultima_prova_id]['id'].tolist()
+        # Calcula pontos acumulados até a penúltima prova
+        tabela_anterior = []
+        for idx, part in participantes.iterrows():
+            apostas_anteriores = apostas_df[
+                (apostas_df['usuario_id'] == part['id']) &
+                (apostas_df['prova_id'].isin(provas_ate_penultima))
+            ].sort_values('prova_id')
+            pontos_anteriores = calcular_pontuacao_lote(apostas_anteriores, resultados_df, provas_df)
+            total_anteriores = sum([p for p in pontos_anteriores if p is not None])
+            tabela_anterior.append({
+                "Participante": part['nome'],
+                "usuario_id": part['id'],
+                "Pontos Provas": total_anteriores
+            })
+        df_class_anterior = pd.DataFrame(tabela_anterior)
+        df_class_anterior = df_class_anterior.sort_values("Pontos Provas", ascending=False).reset_index(drop=True)
+        df_class_anterior['Posição Anterior'] = df_class_anterior.index + 1
+
+        # Merge para comparar posição anterior x atual
+        df_class = df_class.merge(
+            df_class_anterior[['usuario_id', 'Posição Anterior']],
+            on='usuario_id',
+            how='left'
+        )
+        def movimento(row):
+            if pd.isnull(row['Posição Anterior']):
+                return "Novo"
+            diff = int(row['Posição Anterior']) - int(row['Posição'])
+            if diff > 0:
+                return f"Subiu {diff}"
+            elif diff < 0:
+                return f"Caiu {abs(diff)}"
+            else:
+                return "Permaneceu"
+        df_class['Movimentação'] = df_class.apply(movimento, axis=1)
+    else:
+        df_class['Movimentação'] = "Novo"
 
     # Adiciona coluna de diferença para cada linha (exceto a primeira)
     pontos_float = [float(x) for x in df_class["Pontos Provas"]]
-    diferencas = [0]  # Primeira linha não tem diferença
+    diferencas = [0]
     for i in range(1, len(pontos_float)):
         diferencas.append(pontos_float[i-1] - pontos_float[i])
     df_class["Diferença"] = ["-" if i == 0 else f"{d:.2f}" for i, d in enumerate(diferencas)]
 
+    # --------- ORDEM DAS COLUNAS E EXIBIÇÃO SEM ÍNDICE ---------
+    colunas_ordem = ["Posição", "Participante", "Pontos Provas", "Diferença", "Movimentação"]
+
     st.subheader("Classificação Geral - Apenas Provas")
-    st.table(df_class)
+    st.table(df_class[colunas_ordem])
 
     # --------- 2. Pontuação final (Provas + Campeonato) ----------
     resultado_campeonato = get_final_results()
     tabela_classificacao_completa = []
-    destaques = []
 
     for idx, part in participantes.iterrows():
         apostas_part = apostas_df[apostas_df['usuario_id'] == part['id']].sort_values('prova_id')
@@ -1350,52 +1520,35 @@ if st.session_state['pagina'] == "Classificação" and st.session_state['token']
 
     # --------- 3. Pontuação por Prova (detalhe) ----------
     st.subheader("Pontuação por Prova")
-    
-    # 1. Ordenar provas pelo ID correto (coluna 'id' na tabela provas)
     provas_df = provas_df.sort_values('id')
     provas_nomes = provas_df['nome'].tolist()
-    provas_ids_ordenados = provas_df['id'].tolist()  # Usar 'id' em vez de 'prova_id'
-    
-    # 2. Mapear pontos por prova_id (usando o id da prova)
+    provas_ids_ordenados = provas_df['id'].tolist()
     dados_cruzados = {prova_nome: {} for prova_nome in provas_nomes}
-    
     for part in tabela_detalhada:
         participante = part['Participante']
         pontos_por_prova = {}
-        
-        # Obter ID do participante
         usuario_id = participantes[participantes['nome'] == participante].iloc[0]['id']
-        
-        # Filtrar apostas do participante
         apostas_part = apostas_df[apostas_df['usuario_id'] == usuario_id]
-        
         for _, aposta in apostas_part.iterrows():
             pontos = calcular_pontuacao_lote(pd.DataFrame([aposta]), resultados_df, provas_df)
             if pontos:
-                # Usar prova_id da aposta (foreign key para provas.id)
                 pontos_por_prova[aposta['prova_id']] = pontos[0]
-        
-        # Preencher pontos para todas as provas
         for prova_id, prova_nome in zip(provas_ids_ordenados, provas_nomes):
             pontos = pontos_por_prova.get(prova_id, 0)
             dados_cruzados[prova_nome][participante] = pontos if pontos is not None else 0
-    
-    # 3. Criar DataFrame cruzado
     df_cruzada = pd.DataFrame(dados_cruzados).T
     df_cruzada = df_cruzada.reindex(columns=[p['nome'] for _, p in participantes.iterrows()], fill_value=0)
     df_cruzada = df_cruzada.applymap(lambda x: f"{x:.2f}")
     st.dataframe(df_cruzada)
 
-   # --------- 4. Gráfico de evolução ----------
+    # --------- 4. Gráfico de evolução da pontuação acumulada ---------
     st.subheader("Evolução da Pontuação Acumulada")
-    
     if not df_cruzada.empty:
         fig = go.Figure()
-        # Usar nomes das colunas diretamente do DataFrame
         for participante in df_cruzada.columns:
             pontos_acumulados = df_cruzada[participante].astype(float).cumsum()
             fig.add_trace(go.Scatter(
-                x=df_cruzada.index.tolist(),  # Nomes das provas como eixo X
+                x=df_cruzada.index.tolist(),
                 y=pontos_acumulados,
                 mode='lines+markers',
                 name=participante
@@ -1407,14 +1560,35 @@ if st.session_state['pagina'] == "Classificação" and st.session_state['token']
             xaxis_tickangle=-45,
             margin=dict(l=40, r=20, t=60, b=80),
             plot_bgcolor='rgba(240,240,255,0.9)',
-            yaxis=dict(
-                tickformat=',.0f',   # <-- Sem casas decimais
-                range=[100, 7000]    # <-- Limite do eixo Y
-            )
+            yaxis=dict(tickformat=',.0f')
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Sem dados para exibir o gráfico de evolução.")
+
+    # --------- 5. Gráfico geral de posições de todos ---------
+    st.subheader("Classificação de Cada Participante ao Longo do Campeonato")
+    conn = db_connect()
+    df_posicoes = pd.read_sql('SELECT * FROM posicoes_participantes', conn)
+    conn.close()
+    fig_all = go.Figure()
+    for part in participantes['nome']:
+        usuario_id = participantes[participantes['nome'] == part].iloc[0]['id']
+        posicoes_part = df_posicoes[df_posicoes['usuario_id'] == usuario_id].sort_values('prova_id')
+        if not posicoes_part.empty:
+            fig_all.add_trace(go.Scatter(
+                x=[provas_df[provas_df['id']==pid]['nome'].values[0] for pid in posicoes_part['prova_id']],
+                y=posicoes_part['posicao'],
+                mode='lines+markers',
+                name=part
+            ))
+    fig_all.update_yaxes(autorange="reversed")
+    fig_all.update_layout(
+        xaxis_title="Prova",
+        yaxis_title="Posição",
+        legend_title="Participante"
+    )
+    st.plotly_chart(fig_all, use_container_width=True)
 
 # --- ATUALIZAÇÃO DE RESULTADOS (apenas master/admin) ---
 if st.session_state['pagina'] == "Atualização de resultados" and st.session_state['token']:
@@ -1438,7 +1612,6 @@ if st.session_state['pagina'] == "Atualização de resultados" and st.session_st
             posicoes = {}
             st.markdown("**Informe o piloto para cada posição:**")
             col1, col2 = st.columns(2)
-            # Inicializa opções para cada posição
             pilotos_usados = set()
             # 1º ao 5º
             for pos in range(1, 6):
@@ -1525,8 +1698,8 @@ if st.session_state['pagina'] == "Atualização de resultados" and st.session_st
             st.warning("Cadastre provas e pilotos ativos antes de lançar resultados.")
     else:
         st.warning("Acesso restrito ao administrador/master.")
-
-
+    atualizar_classificacoes_todas_as_provas()
+    
 # --- LOG DE APOSTAS (visível para todos, mas com filtros) ---
 if st.session_state['pagina'] == "Log de Apostas" and st.session_state['token']:
     payload = get_payload()
@@ -1762,3 +1935,4 @@ if st.session_state['pagina'] == "Logout" and st.session_state['token']:
     st.session_state['token'] = None
     st.session_state['pagina'] = "Login"
     st.success("Logout realizado com sucesso!")
+# --- FIM DO CÓDIGO PRINCIPAL ---
