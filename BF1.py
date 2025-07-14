@@ -1935,4 +1935,3 @@ if st.session_state['pagina'] == "Logout" and st.session_state['token']:
     st.session_state['token'] = None
     st.session_state['pagina'] = "Login"
     st.success("Logout realizado com sucesso!")
-# --- FIM DO CÓDIGO PRINCIPAL ---
