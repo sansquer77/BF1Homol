@@ -172,7 +172,7 @@ def render_admin_panel(conn, seasons):
         return
     
     # Tab layout for better organization
-    tab1, tab2, tab3 = st.tabs(["➕ Adicionar Resultado", "✏️ Editar/Deletar", "📅 Importação em Lote"])
+    tab1, tab2 = st.tabs(["➕ Adicionar Resultado", "✏️ Editar/Deletar", ])
     
     # TAB 1: Manual entry
     with tab1:
@@ -317,7 +317,7 @@ def render_admin_panel(conn, seasons):
     
     # TAB 3: Bulk import
     with tab3:
-        st.subheader("📅 Importação em Lote")
+        st.subheader()
         st.write("📤 Importe dados históricos de múltiplas temporadas de uma vez.")
         
         with st.expander("📥 Importar 20 anos de dados (2005-2024)", expanded=False):
