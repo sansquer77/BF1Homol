@@ -11,6 +11,13 @@ import streamlit as st
 import os
 import logging
 
+# ============ CONFIGURAR PÁGINA PRIMEIRO ============
+st.set_page_config(
+    page_title="BF1Dev",
+    page_icon="🏁",
+    layout="wide"
+)
+
 # ============ CONFIGURAÇÃO DE LOGGING ============
 logging.basicConfig(
     level=logging.INFO,
@@ -174,12 +181,6 @@ def sidebar_menu():
 
 # ============ APP PRINCIPAL ============
 def main():
-    st.set_page_config(
-        page_title="BF1Dev",
-        page_icon="🏁",
-        layout="wide"
-    )
-    
     sidebar_menu()
     pagina = st.session_state["pagina"]
     
