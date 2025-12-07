@@ -218,7 +218,7 @@ def render_admin_panel(conn, seasons):
                 try:
                     # Check if record already exists
                     c.execute(
-                        "SELECT id, posicao FROM hall_da_fama WHERE usuario_id = ? AND temporada = ?",
+                        "SELECT id, posicao_final FROM hall_da_fama WHERE usuario_id = ? AND temporada = ?",
                         (user_id, str(season_year))
                     )
                     existing = c.fetchone()
