@@ -17,7 +17,7 @@ PyJWT==2.10.1
 # Data Processing
 pandas==2.1.4
 numpy==1.24.3
-openpyxl==3.11.0
+openpyxl==3.1.5
 
 # Visualização
 plotly==5.18.0
