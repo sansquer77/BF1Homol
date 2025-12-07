@@ -18,7 +18,7 @@ def hall_da_fama():
     st.title("🏆 Hall da Fama")
     st.write("📈 Histórico de classificações por temporada - Melhores posições em cada ano")
     
-    # Debug info (temporário)
+    # Debug info (temporário - remover depois)
     user_role = st.session_state.get('user_role', 'não definido')
     st.caption(f"🔑 Perfil atual: {user_role}")
 
@@ -226,12 +226,12 @@ def render_admin_panel(conn, seasons):
                     if existing:
                         st.warning(f"⚠️ **{selected_user}** já possui um registro para a temporada **{season_year}** (posição atual: {existing[1]}º). Use a aba 'Editar/Deletar' para modificar.")
                     else:
-                        # Insert new record
+                        # Insert new record (sem data_atualizacao)
                         c.execute(
                             """INSERT INTO posicoes_participantes 
-                               (usuario_id, posicao, temporada, data_atualizacao) 
-                               VALUES (?, ?, ?, ?)""",
-                            (user_id, int(position), str(season_year), dt_datetime.now().isoformat())
+                               (usuario_id, posicao, temporada) 
+                               VALUES (?, ?, ?)""",
+                            (user_id, int(position), str(season_year))
                         )
                         conn.commit()
                         st.success(f"✅ **{selected_user}** adicionado em **{position}º** lugar na temporada **{season_year}**!")
@@ -263,9 +263,9 @@ def render_admin_panel(conn, seasons):
                 key="filter_user"
             )
         
-        # Fetch records with filters
+        # Fetch records with filters (SEM data_atualizacao)
         query = """
-            SELECT pp.id, u.nome, pp.posicao, pp.temporada, pp.data_atualizacao
+            SELECT pp.id, u.nome, pp.posicao, pp.temporada
             FROM posicoes_participantes pp
             JOIN usuarios u ON pp.usuario_id = u.id
             WHERE 1=1
@@ -290,9 +290,9 @@ def render_admin_panel(conn, seasons):
             st.write(f"📄 Total de registros encontrados: **{len(records)}**")
             st.markdown("---")
             
-            for record_id, name, position, season, updated_at in records:
+            for record_id, name, position, season in records:
                 with st.container():
-                    col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 2, 1])
+                    col1, col2, col3, col4 = st.columns([4, 1, 1, 1])
                     
                     with col1:
                         st.write(f"👤 **{name}**")
@@ -301,9 +301,6 @@ def render_admin_panel(conn, seasons):
                     with col3:
                         st.write(f"📅 {season}")
                     with col4:
-                        date_str = updated_at[:10] if updated_at else "N/A"
-                        st.caption(f"🕒 Atualizado: {date_str}")
-                    with col5:
                         if st.button("🗑️ Deletar", key=f"delete_{record_id}", type="secondary"):
                             try:
                                 c.execute("DELETE FROM posicoes_participantes WHERE id = ?", (record_id,))
@@ -457,12 +454,12 @@ def import_historical_data(conn):
                 progress_bar.progress((idx + 1) / len(historical_data))
                 continue
             
-            # Insert new record
+            # Insert new record (SEM data_atualizacao)
             c.execute(
                 """INSERT INTO posicoes_participantes 
-                   (usuario_id, posicao, temporada, data_atualizacao) 
-                   VALUES (?, ?, ?, ?)""",
-                (usuario_id, posicao, str(temporada), dt_datetime.now().isoformat())
+                   (usuario_id, posicao, temporada) 
+                   VALUES (?, ?, ?)""",
+                (usuario_id, posicao, str(temporada))
             )
             imported += 1
         except Exception as e:
