@@ -10,6 +10,7 @@ from db.db_utils import (
 )
 from services.bets_service import salvar_aposta
 from services.auth_service import check_password, hash_password
+from db.backup_utils import list_temporadas
 
 def participante_view():
     if 'token' not in st.session_state or 'user_id' not in st.session_state:
@@ -26,12 +27,26 @@ def participante_view():
         st.image("BF1.jpg", width=75)
     with col2:
         st.title("Painel do Participante")
-        # Season selector (temporada) for plurianual support
+        # Season selector (temporada) - read temporadas from the backup-managed table when available
         current_year = datetime.datetime.now().year
-        season_options = [str(y) for y in range(current_year - 2, current_year + 2)]
-        # Default to current year
-        current_year_index = season_options.index(str(current_year)) if str(current_year) in season_options else 0
-        season = st.selectbox("Temporada", season_options, index=current_year_index)
+        current_year_str = str(current_year)
+
+        try:
+            season_options = list_temporadas() or []
+        except Exception:
+            season_options = []
+
+        # If the temporadas table is empty or missing, fallback to fixed options
+        if not season_options:
+            season_options = ["2025", "2026"]
+
+        # Default to current year when present, otherwise first option
+        if current_year_str in season_options:
+            default_index = season_options.index(current_year_str)
+        else:
+            default_index = 0
+
+        season = st.selectbox("Temporada", season_options, index=default_index)
         st.session_state['temporada'] = season
     
     st.write(f"Bem-vindo, {user['nome']} ({user['email']}) - Status: {user['perfil']}")
@@ -40,8 +55,19 @@ def participante_view():
     # ------------------ Aba: Apostas ----------------------
     with tabs[0]:
         st.cache_data.clear()
+        # Betting form should show only provas that will occur in the current calendar year
         temporada = st.session_state.get('temporada', str(datetime.datetime.now().year))
-        provas = get_provas_df(temporada)
+        # Fetch all provas (db_utils will filter by temporada when provided). We fetch without filter and
+        # then restrict by the prova date to ensure only upcoming/current-year events are shown.
+        provas_df = get_provas_df(None)
+        try:
+            if not provas_df.empty and 'data' in provas_df.columns:
+                provas_df['__data_dt'] = pd.to_datetime(provas_df['data'], errors='coerce')
+                provas = provas_df[provas_df['__data_dt'].dt.year == current_year]
+            else:
+                provas = pd.DataFrame()
+        except Exception:
+            provas = pd.DataFrame()
         pilotos_df = get_pilotos_df()
         # Filtrar pilotos ativos (com validação de coluna)
         if not pilotos_df.empty:

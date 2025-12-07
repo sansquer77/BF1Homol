@@ -163,6 +163,23 @@ def main():
     with tab2:
         upload_tabela()
 
+    st.divider()
+    st.header("Temporadas")
+    st.write("Gerencie as temporadas visíveis no sistema. A criação de uma nova temporada fará com que ela possa aparecer em seletores que leem a tabela `temporadas`.")
+    col_a, col_b = st.columns([2, 8])
+    with col_a:
+        if st.button("➕ Criar próxima temporada (ano atual + 1)"):
+            new_year = create_next_temporada()
+            st.success(f"✅ Temporada {new_year} criada/registrada com sucesso.")
+            st.experimental_rerun()
+    with col_b:
+        existing = list_temporadas()
+        if existing:
+            st.write("Temporadas cadastradas:")
+            st.write(", ".join(existing))
+        else:
+            st.info("Nenhuma temporada cadastrada. Botão acima cria a próxima temporada.")
+
 if __name__ == "__main__":
     main()
 
@@ -206,3 +223,53 @@ def restaurar_backup(backup_file: str) -> bool:
     except Exception as e:
         print(f"Erro ao restaurar backup: {e}")
         return False
+
+
+# ============ FUNÇÕES DE TEMPORADAS ============
+def ensure_temporadas_table() -> None:
+    """Garante que a tabela `temporadas` exista no banco de dados."""
+    try:
+        with db_connect() as conn:
+            c = conn.cursor()
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS temporadas (
+                    temporada TEXT PRIMARY KEY,
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.commit()
+    except Exception as e:
+        st.error(f"❌ Erro ao garantir tabela 'temporadas': {e}")
+
+
+def create_next_temporada() -> str:
+    """Cria (se ainda não existir) a temporada do próximo ano (ano atual + 1).
+
+    Retorna a string do ano criado (ex: '2026').
+    """
+    from datetime import datetime as _dt
+    next_year = _dt.now().year + 1
+    ensure_temporadas_table()
+    try:
+        with db_connect() as conn:
+            c = conn.cursor()
+            c.execute("INSERT OR IGNORE INTO temporadas (temporada) VALUES (?)", (str(next_year),))
+            conn.commit()
+    except Exception as e:
+        st.error(f"❌ Erro ao criar temporada {next_year}: {e}")
+    return str(next_year)
+
+
+def list_temporadas() -> list:
+    """Retorna lista de temporadas cadastradas (strings)."""
+    try:
+        with db_connect() as conn:
+            c = conn.cursor()
+            c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='temporadas'")
+            if not c.fetchone():
+                return []
+            c.execute("SELECT temporada FROM temporadas ORDER BY temporada ASC")
+            return [str(r[0]) for r in c.fetchall()]
+    except Exception as e:
+        st.error(f"❌ Erro ao listar temporadas: {e}")
+        return []
