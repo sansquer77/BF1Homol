@@ -23,9 +23,9 @@ def hall_da_fama():
     st.caption(f"🔑 Perfil atual: {user_role}")
 
     with db_connect() as conn:
-        # Get all unique years/seasons from posicoes_participantes
+        # Get all unique years/seasons from hall_da_fama
         c = conn.cursor()
-        c.execute("SELECT DISTINCT temporada FROM posicoes_participantes ORDER BY temporada DESC")
+        c.execute("SELECT DISTINCT temporada FROM hall_da_fama ORDER BY temporada DESC")
         seasons = [r[0] for r in c.fetchall()]
         
         # Get all users
@@ -57,7 +57,7 @@ def hall_da_fama():
             for season in seasons:
                 c.execute('''
                     SELECT MIN(posicao) as melhor_posicao 
-                    FROM posicoes_participantes 
+                    FROM hall_da_fama 
                     WHERE usuario_id = ? AND temporada = ?
                 ''', (user_id, season))
                 result = c.fetchone()
@@ -96,11 +96,11 @@ def hall_da_fama():
         with col1:
             st.metric("👥 Total de Participantes", len(usuarios))
         with col2:
-            c.execute("SELECT COUNT(DISTINCT temporada) FROM posicoes_participantes")
+            c.execute("SELECT COUNT(DISTINCT temporada) FROM hall_da_fama")
             unique_seasons = c.fetchone()[0]
             st.metric("📆 Temporadas com Resultados", unique_seasons)
         with col3:
-            c.execute("SELECT COUNT(*) FROM posicoes_participantes")
+            c.execute("SELECT COUNT(*) FROM hall_da_fama")
             total_records = c.fetchone()[0]
             st.metric("📝 Total de Registros", total_records)
         
@@ -114,7 +114,7 @@ def hall_da_fama():
                 SELECT COUNT(DISTINCT usuario_id) as participants,
                        MIN(posicao) as best_pos,
                        AVG(posicao) as avg_pos
-                FROM posicoes_participantes
+                FROM hall_da_fama
                 WHERE temporada = ?
             ''', (season,))
             result = c.fetchone()
@@ -139,7 +139,7 @@ def hall_da_fama():
         
         c.execute('''
             SELECT u.nome, MIN(pp.posicao) as best_ever, COUNT(DISTINCT pp.temporada) as temporadas
-            FROM posicoes_participantes pp
+            FROM hall_da_fama pp
             JOIN usuarios u ON pp.usuario_id = u.id
             GROUP BY pp.usuario_id
             ORDER BY best_ever ASC, temporadas DESC
@@ -218,7 +218,7 @@ def render_admin_panel(conn, seasons):
                 try:
                     # Check if record already exists
                     c.execute(
-                        "SELECT id, posicao FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?",
+                        "SELECT id, posicao FROM hall_da_fama WHERE usuario_id = ? AND temporada = ?",
                         (user_id, str(season_year))
                     )
                     existing = c.fetchone()
@@ -228,7 +228,7 @@ def render_admin_panel(conn, seasons):
                     else:
                         # Insert new record (sem data_atualizacao)
                         c.execute(
-                            """INSERT INTO posicoes_participantes 
+                            """INSERT INTO hall_da_fama 
                                (usuario_id, posicao, temporada) 
                                VALUES (?, ?, ?)""",
                             (user_id, int(position), str(season_year))
@@ -266,7 +266,7 @@ def render_admin_panel(conn, seasons):
         # Fetch records with filters (SEM data_atualizacao)
         query = """
             SELECT pp.id, u.nome, pp.posicao, pp.temporada
-            FROM posicoes_participantes pp
+            FROM hall_da_fama pp
             JOIN usuarios u ON pp.usuario_id = u.id
             WHERE 1=1
         """
@@ -303,7 +303,7 @@ def render_admin_panel(conn, seasons):
                     with col4:
                         if st.button("🗑️ Deletar", key=f"delete_{record_id}", type="secondary"):
                             try:
-                                c.execute("DELETE FROM posicoes_participantes WHERE id = ?", (record_id,))
+                                c.execute("DELETE FROM hall_da_fama WHERE id = ?", (record_id,))
                                 conn.commit()
                                 st.success(f"✅ Registro de **{name}** ({season}) deletado!")
                                 st.cache_data.clear()
@@ -446,7 +446,7 @@ def import_historical_data(conn):
         try:
             # Check if record already exists
             c.execute(
-                "SELECT id FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?",
+                "SELECT id FROM hall_da_fama WHERE usuario_id = ? AND temporada = ?",
                 (usuario_id, str(temporada))
             )
             if c.fetchone():
@@ -456,7 +456,7 @@ def import_historical_data(conn):
             
             # Insert new record (SEM data_atualizacao)
             c.execute(
-                """INSERT INTO posicoes_participantes 
+                """INSERT INTO hall_da_fama 
                    (usuario_id, posicao, temporada) 
                    VALUES (?, ?, ?)""",
                 (usuario_id, posicao, str(temporada))
