@@ -6,6 +6,7 @@ mostrando o nome do participante em cada célula para cada ano/posição.
 
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from datetime import datetime as dt_datetime
 from db.db_utils import (
     db_connect,
@@ -28,8 +29,10 @@ def hall_da_fama():
         c.execute("SELECT DISTINCT temporada FROM hall_da_fama ORDER BY temporada DESC")
         seasons = [r[0] for r in c.fetchall()]
         
-        # Get all users
+        # Get all users (exclude master from historical table)
         usuarios = get_usuarios_df()
+        if not usuarios.empty and 'perfil' in usuarios.columns:
+            usuarios = usuarios[usuarios['perfil'].str.lower() != 'master']
         if usuarios.empty:
             st.warning("⚠️ Nenhum usuário cadastrado.")
             # Show admin panel even if no users
@@ -56,14 +59,25 @@ def hall_da_fama():
             
             for season in seasons:
                 c.execute('''
-                    SELECT MIN(posicao_final) as melhor_posicao 
-                    FROM hall_da_fama 
+                    SELECT posicao_final, pontos
+                    FROM hall_da_fama
                     WHERE usuario_id = ? AND temporada = ?
+                    LIMIT 1
                 ''', (user_id, season))
                 result = c.fetchone()
-                
-                if result and result[0]:
-                    row[season] = f"{result[0]}º"
+
+                if result and result[0] is not None:
+                    pos_val = result[0]
+                    pts_val = result[1] if len(result) > 1 and result[1] is not None else 0
+                    # Format points nicely (avoid .0 when integer)
+                    try:
+                        if float(pts_val).is_integer():
+                            pts_display = str(int(pts_val))
+                        else:
+                            pts_display = f"{pts_val:.1f}"
+                    except Exception:
+                        pts_display = str(pts_val)
+                    row[season] = f"{pos_val}º ({pts_display} pts)"
                 else:
                     row[season] = "-"
             
@@ -103,7 +117,12 @@ def hall_da_fama():
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("👥 Total de Participantes", len(usuarios))
+            # Excluir usuário Master do total de participantes
+            if 'perfil' in usuarios.columns:
+                participantes_count = len(usuarios[usuarios['perfil'].str.lower() != 'master'])
+            else:
+                participantes_count = len(usuarios)
+            st.metric("👥 Total de Participantes", participantes_count)
         with col2:
             c.execute("SELECT COUNT(DISTINCT temporada) FROM hall_da_fama")
             unique_seasons = c.fetchone()[0]
@@ -122,7 +141,9 @@ def hall_da_fama():
             c.execute('''
                 SELECT COUNT(DISTINCT usuario_id) as participants,
                        MIN(posicao_final) as best_pos,
-                       AVG(posicao_final) as avg_pos
+                       AVG(posicao_final) as avg_pos,
+                       MAX(pontos) as best_points,
+                       AVG(pontos) as avg_points
                 FROM hall_da_fama
                 WHERE temporada = ?
             ''', (season,))
@@ -132,7 +153,9 @@ def hall_da_fama():
                     'Temporada': season,
                     'Participantes': result[0],
                     'Melhor Posição': f"{result[1]}º" if result[1] else "-",
-                    'Posição Média': f"{result[2]:.1f}" if result[2] else "-"
+                    'Posição Média': f"{result[2]:.1f}" if result[2] else "-",
+                    'Maior Pontuação': f"{result[3]:.1f}" if result[3] is not None else "-",
+                    'Pontuação Média': f"{result[4]:.1f}" if result[4] is not None else "-"
                 })
         
         if season_stats:
@@ -142,25 +165,34 @@ def hall_da_fama():
                 hide_index=True
             )
         
-        # Podium view
+        # Position distribution table + chart
         st.markdown("---")
-        st.subheader("🏆 Podium (Melhor Posição All-Time)")
-        
+        st.subheader("📋 Distribuição de Posições por Participante")
+
+        # Fetch all historical positions with user names (exclude master)
         c.execute('''
-            SELECT u.nome, MIN(pp.posicao_final) as best_ever, COUNT(DISTINCT pp.temporada) as temporadas
+            SELECT u.nome as nome, pp.posicao_final as posicao
             FROM hall_da_fama pp
             JOIN usuarios u ON pp.usuario_id = u.id
-            GROUP BY pp.usuario_id
-            ORDER BY best_ever ASC, temporadas DESC
-            LIMIT 10
+            WHERE LOWER(u.perfil) != 'master'
         ''')
-        
-        podium = c.fetchall()
-        if podium:
-            medals = ['🥇', '🥈', '🥉']
-            for idx, (name, best_pos, seasons_count) in enumerate(podium):
-                medal = medals[idx] if idx < 3 else f"{idx + 1}."
-                st.write(f"{medal} **{name}** - Melhor posição: {best_pos}º (em {seasons_count} temporadas)")
+        rows = c.fetchall()
+        if rows:
+            df_pos_counts = pd.DataFrame(rows, columns=['nome', 'posicao'])
+            # Pivot: rows = participante, cols = posição, values = counts
+            pivot = df_pos_counts.pivot_table(index='nome', columns='posicao', aggfunc=len, fill_value=0)
+            # Sort columns by position
+            pivot = pivot.reindex(sorted(pivot.columns), axis=1)
+            st.dataframe(pivot, use_container_width=True)
+
+            # Stacked bar chart showing counts per position for each participant
+            try:
+                fig = px.bar(pivot, x=pivot.index, y=pivot.columns.astype(str), title='Contagem de posições por participante', labels={'value':'Contagem','nome':'Participante'})
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception:
+                st.info('Gráfico indisponível.')
+        else:
+            st.info('Ainda não há registros para gerar a distribuição de posições.')
         
         # ALWAYS show admin panel for Master users
         if user_role == 'master':
@@ -211,17 +243,19 @@ def render_admin_panel(conn, seasons):
         st.write("*Preencha quantas linhas forem necessárias. Novas linhas aparecerão automaticamente.*")
         
         # Dynamic rows
-        col_headers = st.columns([3, 1, 0.5])
+        col_headers = st.columns([3, 1, 1, 0.5])
         with col_headers[0]:
             st.write("**👤 Participante**")
         with col_headers[1]:
             st.write("**🏅 Posição**")
+        with col_headers[2]:
+            st.write("**⭐ Pontos**")
         
         entries = []
         max_rows = len(st.session_state.hall_fama_rows)
         
         for i in range(max_rows):
-            col1, col2, col_spacer = st.columns([3, 1, 0.5])
+            col1, col2, col3, col_spacer = st.columns([3, 1, 1, 0.5])
             
             with col1:
                 selected_user = st.selectbox(
@@ -241,9 +275,20 @@ def render_admin_panel(conn, seasons):
                     key=f"pos_{i}",
                     label_visibility="collapsed"
                 )
+
+            with col3:
+                pontos = st.number_input(
+                    "Pontos",
+                    min_value=0.0,
+                    max_value=10000.0,
+                    value=0.0,
+                    step=0.5,
+                    key=f"pts_{i}",
+                    label_visibility="collapsed"
+                )
             
             if selected_user:
-                entries.append({'user': selected_user, 'position': position})
+                entries.append({'user': selected_user, 'position': position, 'points': pontos})
                 
                 # Se a linha atual foi preenchida e é a última, adiciona mais 3 linhas
                 if i == max_rows - 1 and len(st.session_state.hall_fama_rows) < 50:
@@ -277,9 +322,9 @@ def render_admin_panel(conn, seasons):
                             else:
                                 c.execute(
                                     """INSERT INTO hall_da_fama 
-                                       (usuario_id, posicao_final, temporada) 
-                                       VALUES (?, ?, ?)""",
-                                    (user_id, int(entry['position']), str(season_year))
+                                       (usuario_id, posicao_final, pontos, temporada) 
+                                       VALUES (?, ?, ?, ?)""",
+                                    (user_id, int(entry['position']), float(entry.get('points', 0)), str(season_year))
                                 )
                                 success_count += 1
                         except Exception as e:
@@ -328,7 +373,7 @@ def render_admin_panel(conn, seasons):
         
         # Fetch records with filters (SEM data_atualizacao)
         query = """
-            SELECT pp.id, u.nome, pp.posicao_final, pp.temporada
+            SELECT pp.id, u.nome, pp.posicao_final, pp.pontos, pp.temporada
             FROM hall_da_fama pp
             JOIN usuarios u ON pp.usuario_id = u.id
             WHERE 1=1
@@ -353,9 +398,9 @@ def render_admin_panel(conn, seasons):
             st.write(f"📄 Total de registros encontrados: **{len(records)}**")
             st.markdown("---")
             
-            for record_id, name, position, season in records:
+            for record_id, name, position, points, season in records:
                 with st.container():
-                    col1, col2, col3, col4 = st.columns([4, 1, 1, 1])
+                    col1, col2, col3, col4, col5 = st.columns([4, 1, 1, 1, 1])
                     
                     with col1:
                         st.write(f"👤 **{name}**")
@@ -364,6 +409,8 @@ def render_admin_panel(conn, seasons):
                     with col3:
                         st.write(f"📅 {season}")
                     with col4:
+                        st.write(f"⭐ {points}")
+                    with col5:
                         if st.button("🗑️ Deletar", key=f"delete_{record_id}", type="secondary"):
                             try:
                                 c.execute("DELETE FROM hall_da_fama WHERE id = ?", (record_id,))
@@ -373,7 +420,7 @@ def render_admin_panel(conn, seasons):
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"❌ Erro ao deletar: {e}")
-                    
+
                     st.markdown("---")
         else:
             st.info("ℹ️ Nenhum registro encontrado com os filtros selecionados.")
@@ -500,9 +547,9 @@ def import_historical_data(conn):
             # Insert new record (SEM data_atualizacao)
             c.execute(
                 """INSERT INTO hall_da_fama 
-                   (usuario_id, posicao_final, temporada) 
-                   VALUES (?, ?, ?)""",
-                (usuario_id, posicao, str(temporada))
+                   (usuario_id, posicao_final, pontos, temporada) 
+                   VALUES (?, ?, ?, ?)""",
+                (usuario_id, posicao, 0.0, str(temporada))
             )
             imported += 1
         except Exception as e:

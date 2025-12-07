@@ -223,6 +223,7 @@ def create_hall_da_fama_table():
                     usuario_id INTEGER NOT NULL,
                     temporada TEXT NOT NULL,
                     posicao_final INTEGER NOT NULL,
+                    pontos REAL DEFAULT 0,
                     UNIQUE(usuario_id, temporada),
                     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
                 )
