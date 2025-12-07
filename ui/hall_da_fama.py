@@ -56,7 +56,7 @@ def hall_da_fama():
             
             for season in seasons:
                 c.execute('''
-                    SELECT MIN(posicao) as melhor_posicao 
+                    SELECT MIN(posicao_final) as melhor_posicao 
                     FROM hall_da_fama 
                     WHERE usuario_id = ? AND temporada = ?
                 ''', (user_id, season))
@@ -138,7 +138,7 @@ def hall_da_fama():
         st.subheader("🏆 Podium (Melhor Posição All-Time)")
         
         c.execute('''
-            SELECT u.nome, MIN(pp.posicao) as best_ever, COUNT(DISTINCT pp.temporada) as temporadas
+            SELECT u.nome, MIN(pp.posicao_final) as best_ever, COUNT(DISTINCT pp.temporada) as temporadas
             FROM hall_da_fama pp
             JOIN usuarios u ON pp.usuario_id = u.id
             GROUP BY pp.usuario_id
@@ -229,7 +229,7 @@ def render_admin_panel(conn, seasons):
                         # Insert new record (sem data_atualizacao)
                         c.execute(
                             """INSERT INTO hall_da_fama 
-                               (usuario_id, posicao, temporada) 
+                               (usuario_id, posicao_final, temporada) 
                                VALUES (?, ?, ?)""",
                             (user_id, int(position), str(season_year))
                         )
@@ -265,7 +265,7 @@ def render_admin_panel(conn, seasons):
         
         # Fetch records with filters (SEM data_atualizacao)
         query = """
-            SELECT pp.id, u.nome, pp.posicao, pp.temporada
+            SELECT pp.id, u.nome, pp.posicao_final, pp.temporada
             FROM hall_da_fama pp
             JOIN usuarios u ON pp.usuario_id = u.id
             WHERE 1=1
@@ -281,7 +281,7 @@ def render_admin_panel(conn, seasons):
             query += " AND pp.usuario_id = ?"
             params.append(user_id)
         
-        query += " ORDER BY pp.temporada DESC, pp.posicao ASC"
+        query += " ORDER BY pp.temporada DESC, pp.posicao_final ASC"
         
         c.execute(query, params)
         records = c.fetchall()
@@ -457,7 +457,7 @@ def import_historical_data(conn):
             # Insert new record (SEM data_atualizacao)
             c.execute(
                 """INSERT INTO hall_da_fama 
-                   (usuario_id, posicao, temporada) 
+                   (usuario_id, posicao_final, temporada) 
                    VALUES (?, ?, ?)""",
                 (usuario_id, posicao, str(temporada))
             )
