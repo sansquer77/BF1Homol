@@ -309,6 +309,7 @@ def render_admin_panel(conn, seasons):
                     for entry in entries:
                         try:
                             user_id = usuarios[usuarios['nome'] == entry['user']]['id'].values[0]
+                                                        user_id = int(user_id)  # Garantir tipo INTEGER para o banco
                             
                             # Check if record already exists
                             c.execute(
@@ -532,7 +533,8 @@ def import_historical_data(conn):
             skipped += 1
             progress_bar.progress((idx + 1) / len(historical_data))
             continue
-        
+
+                    usuario_id = int(usuario_id)  # Garantir tipo INTEGER para o banco
         try:
             # Check if record already exists
             c.execute(
