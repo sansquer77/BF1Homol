@@ -209,3 +209,32 @@ def run_migrations():
             logger.error(f"✗ Erro ao executar migrations: {e}")
             conn.rollback()
             raise
+
+def create_hall_da_fama_table():
+    """
+    Cria a tabela hall_da_fama para armazenar resultados anuais independentes
+    """
+    try:
+        with get_pool().get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS hall_da_fama (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    usuario_id INTEGER NOT NULL,
+                    temporada TEXT NOT NULL,
+                    posicao_final INTEGER NOT NULL,
+                    UNIQUE(usuario_id, temporada),
+                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+                )
+            ''')
+            conn.commit()
+            logger.info("✓ Tabela hall_da_fama criada com sucesso")
+    except Exception as e:
+        logger.error(f"Erro ao criar tabela hall_da_fama: {e}")
+        raise
+
+# Executar quando o módulo é importado
+try:
+    create_hall_da_fama_table()
+except:
+    pass
