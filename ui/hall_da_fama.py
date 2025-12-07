@@ -71,8 +71,17 @@ def hall_da_fama():
         
         # Sort by overall best position
         def score_user(row):
-            participated = sum(1 for v in row.values() if v != "-")
-            best_pos = min([int(v.replace("º", "")) for v in row.values() if v != "-"], default=9999)
+            # Filtra apenas valores que são números (posições), ignorando 'Participante' e outros campos
+            positions = []
+            for k, v in row.items():
+                if k != 'Participante' and v != "-":
+                    try:
+                        positions.append(int(v.replace("º", "")))
+                    except (ValueError, AttributeError):
+                        pass  # Ignora valores que não são números
+            
+            participated = len(positions)
+            best_pos = min(positions) if positions else 9999
             return (-participated, best_pos)
         
         hall_data.sort(key=score_user)
@@ -172,7 +181,7 @@ def render_admin_panel(conn, seasons):
         return
     
     # Tab layout for better organization
-    tab1, tab2 = st.tabs(["➕ Adicionar Resultado", "✏️ Editar/Deletar", ])
+    tab1, tab2 = st.tabs(["➕ Adicionar Resultado", "✏️ Editar/Deletar"])
     
     # TAB 1: Manual entry
     with tab1:
@@ -314,26 +323,6 @@ def render_admin_panel(conn, seasons):
                     st.markdown("---")
         else:
             st.info("ℹ️ Nenhum registro encontrado com os filtros selecionados.")
-    
-    # TAB 3: Bulk import
-    with tab3:
-        st.subheader()
-        st.write("📤 Importe dados históricos de múltiplas temporadas de uma vez.")
-        
-        with st.expander("📥 Importar 20 anos de dados (2005-2024)", expanded=False):
-            st.warning("""
-            ⚠️ **Atenção:** Esta função importa dados fictícios para demonstração.
-            
-            Os dados incluem:
-            - **20 temporadas** (2005-2024)
-            - **10 participantes** por temporada
-            - Rankings aleatórios distribuidos entre os usuários cadastrados
-            
-            Registros já existentes serão ignorados.
-            """)
-            
-            if st.button("🔄 Confirmar Importação de Dados Históricos", type="primary", key="import_bulk"):
-                import_historical_data(conn)
 
 
 def import_historical_data(conn):
