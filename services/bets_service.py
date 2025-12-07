@@ -253,7 +253,19 @@ def calcular_pontuacao_lote(apostas_df, resultados_df, provas_df):
         pontos.append(pt)
     return pontos
 
-def salvar_classificacao_prova(prova_id, df_classificacao):
+def salvar_classificacao_prova(prova_id, df_classificacao, temporada=None):
+    """
+    Salva classificação de uma prova na tabela posicoes_participantes.
+    
+    Args:
+        prova_id: ID da prova
+        df_classificacao: DataFrame com colunas usuario_id, posicao, pontos
+        temporada: Ano da temporada (opcional, usa ano atual se não fornecido)
+    """
+    if temporada is None:
+        import datetime
+        temporada = str(datetime.datetime.now().year)
+    
     with db_connect() as conn:
         cursor = conn.cursor()
         for _, row in df_classificacao.iterrows():
@@ -263,9 +275,9 @@ def salvar_classificacao_prova(prova_id, df_classificacao):
             data_registro = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
             cursor.execute('''
                 INSERT OR REPLACE INTO posicoes_participantes 
-                (prova_id, usuario_id, posicao, pontos, data_registro)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (prova_id, usuario_id, posicao, pontos_val, data_registro))
+                (prova_id, usuario_id, posicao, pontos, data_registro, temporada)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (prova_id, usuario_id, posicao, pontos_val, data_registro, temporada))
         conn.commit()
 
 def atualizar_classificacoes_todas_as_provas():
@@ -276,6 +288,8 @@ def atualizar_classificacoes_todas_as_provas():
         resultados_df = pd.read_sql('SELECT * FROM resultados', conn)
     for _, prova in provas_df.iterrows():
         prova_id = prova['id']
+        # Get temporada from prova if available, otherwise use current year
+        temporada = prova.get('temporada', str(pd.Timestamp.now().year))
         if prova_id not in resultados_df['prova_id'].values:
             continue
         apostas_prova = apostas_df[apostas_df['prova_id'] == prova_id]
@@ -315,4 +329,4 @@ def atualizar_classificacoes_todas_as_provas():
             ascending=[False, False, True]
         ).reset_index(drop=True)
         df_classificacao['posicao'] = df_classificacao.index + 1
-        salvar_classificacao_prova(prova_id, df_classificacao)
+        salvar_classificacao_prova(prova_id, df_classificacao, temporada)
