@@ -121,8 +121,8 @@ def hall_da_fama():
         for season in seasons:
             c.execute('''
                 SELECT COUNT(DISTINCT usuario_id) as participants,
-                       MIN(posicao) as best_pos,
-                       AVG(posicao) as avg_pos
+                       MIN(posicao_final) as best_pos,
+                       AVG(posicao_final) as avg_pos
                 FROM hall_da_fama
                 WHERE temporada = ?
             ''', (season,))
@@ -183,72 +183,126 @@ def render_admin_panel(conn, seasons):
     # Tab layout for better organization
     tab1, tab2 = st.tabs(["➕ Adicionar Resultado", "✏️ Editar/Deletar"])
     
-    # TAB 1: Manual entry
+    # TAB 1: Manual entry with dynamic rows
     with tab1:
-        st.subheader("➕ Adicionar Resultado Manual")
-        st.write("📝 Adicione manualmente um resultado de classificação para um participante em uma temporada específica.")
+        st.subheader("➕ Adicionar Resultados em Lote")
+        st.write("📝 Adicione múltiplos resultados de classificação para uma temporada. As linhas aparecem dinamicamente conforme você preenche.")
         
-        with st.form("form_add_manual", clear_on_submit=True):
-            col1, col2, col3 = st.columns(3)
+        # Initialize session state for dynamic rows
+        if 'hall_fama_rows' not in st.session_state:
+            st.session_state.hall_fama_rows = [{'user': None, 'position': None}] * 3
+        
+        if 'hall_fama_season' not in st.session_state:
+            st.session_state.hall_fama_season = dt_datetime.now().year
+        
+        # Season selector
+        col_season = st.columns(1)[0]
+        season_year = st.number_input(
+            "📅 Ano/Temporada *",
+            min_value=1990,
+            max_value=dt_datetime.now().year + 1,
+            value=st.session_state.hall_fama_season,
+            key="hall_fama_season_input",
+            help="Digite o ano da temporada (ex: 2024)"
+        )
+        st.session_state.hall_fama_season = season_year
+        
+        st.write("**Participantes e Posições:**")
+        st.write("*Preencha quantas linhas forem necessárias. Novas linhas aparecerão automaticamente.*")
+        
+        # Dynamic rows
+        col_headers = st.columns([3, 1, 0.5])
+        with col_headers[0]:
+            st.write("**👤 Participante**")
+        with col_headers[1]:
+            st.write("**🏅 Posição**")
+        
+        entries = []
+        max_rows = len(st.session_state.hall_fama_rows)
+        
+        for i in range(max_rows):
+            col1, col2, col_spacer = st.columns([3, 1, 0.5])
             
             with col1:
                 selected_user = st.selectbox(
-                    "👤 Selecione o Participante *",
-                    options=usuarios['nome'].values,
-                    key="manual_user"
+                    "Selecione",
+                    options=[None] + list(usuarios['nome'].values),
+                    index=0,
+                    key=f"user_{i}",
+                    label_visibility="collapsed"
                 )
             
             with col2:
-                season_year = st.number_input(
-                    "📅 Ano/Temporada *",
-                    min_value=1990,
-                    max_value=dt_datetime.now().year + 1,
-                    value=dt_datetime.now().year,
-                    key="manual_season",
-                    help="Digite o ano da temporada (ex: 2024)"
-                )
-            
-            with col3:
                 position = st.number_input(
-                    "🏅 Posição Final *",
+                    "Posição",
                     min_value=1,
                     max_value=100,
-                    value=1,
-                    key="manual_position",
-                    help="Posição final na classificação (1º a 100º)"
+                    value=i+1,
+                    key=f"pos_{i}",
+                    label_visibility="collapsed"
                 )
             
-            st.markdown("---")
-            submitted = st.form_submit_button("✅ Adicionar Resultado", use_container_width=True, type="primary")
-            
-            if submitted:
-                user_id = usuarios[usuarios['nome'] == selected_user]['id'].values[0]
+            if selected_user:
+                entries.append({'user': selected_user, 'position': position})
                 
-                try:
-                    # Check if record already exists
-                    c.execute(
-                        "SELECT id, posicao_final FROM hall_da_fama WHERE usuario_id = ? AND temporada = ?",
-                        (user_id, str(season_year))
-                    )
-                    existing = c.fetchone()
+                # Se a linha atual foi preenchida e é a última, adiciona mais 3 linhas
+                if i == max_rows - 1 and len(st.session_state.hall_fama_rows) < 50:
+                    st.session_state.hall_fama_rows.extend([{'user': None, 'position': None}] * 3)
+                    st.rerun()
+        
+        st.markdown("---")
+        col_btn1, col_btn2 = st.columns(2)
+        
+        with col_btn1:
+            if st.button("✅ Salvar Resultados", type="primary", use_container_width=True):
+                if not entries:
+                    st.error("❌ Por favor, preencha pelo menos um participante e posição.")
+                else:
+                    errors = []
+                    success_count = 0
                     
-                    if existing:
-                        st.warning(f"⚠️ **{selected_user}** já possui um registro para a temporada **{season_year}** (posição atual: {existing[1]}º). Use a aba 'Editar/Deletar' para modificar.")
-                    else:
-                        # Insert new record (sem data_atualizacao)
-                        c.execute(
-                            """INSERT INTO hall_da_fama 
-                               (usuario_id, posicao_final, temporada) 
-                               VALUES (?, ?, ?)""",
-                            (user_id, int(position), str(season_year))
-                        )
-                        conn.commit()
-                        st.success(f"✅ **{selected_user}** adicionado em **{position}º** lugar na temporada **{season_year}**!")
+                    for entry in entries:
+                        try:
+                            user_id = usuarios[usuarios['nome'] == entry['user']]['id'].values[0]
+                            
+                            # Check if record already exists
+                            c.execute(
+                                "SELECT id, posicao_final FROM hall_da_fama WHERE usuario_id = ? AND temporada = ?",
+                                (user_id, str(season_year))
+                            )
+                            existing = c.fetchone()
+                            
+                            if existing:
+                                errors.append(f"⚠️ **{entry['user']}** já possui registro para {season_year}")
+                            else:
+                                c.execute(
+                                    """INSERT INTO hall_da_fama 
+                                       (usuario_id, posicao_final, temporada) 
+                                       VALUES (?, ?, ?)""",
+                                    (user_id, int(entry['position']), str(season_year))
+                                )
+                                success_count += 1
+                        except Exception as e:
+                            errors.append(f"❌ **{entry['user']}**: {str(e)}")
+                    
+                    conn.commit()
+                    
+                    if success_count > 0:
+                        st.success(f"✅ {success_count} resultado(s) adicionado(s) com sucesso!")
                         st.balloons()
                         st.cache_data.clear()
+                        st.session_state.hall_fama_rows = [{'user': None, 'position': None}] * 3
                         st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Erro ao adicionar resultado: {e}")
+                    
+                    if errors:
+                        st.warning("⚠️ Alguns registros não foram salvos:")
+                        for error in errors:
+                            st.write(error)
+        
+        with col_btn2:
+            if st.button("🔄 Limpar Formulário", use_container_width=True):
+                st.session_state.hall_fama_rows = [{'user': None, 'position': None}] * 3
+                st.rerun()
     
     # TAB 2: Edit/Delete
     with tab2:
