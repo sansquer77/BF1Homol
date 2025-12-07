@@ -17,6 +17,10 @@ def hall_da_fama():
     """Exibe hall da fama com histórico plurianual."""
     st.title("🏆 Hall da Fama")
     st.write("📈 Histórico de classificações por temporada - Melhores posições em cada ano")
+    
+    # Debug info (temporário)
+    user_role = st.session_state.get('user_role', 'não definido')
+    st.caption(f"🔑 Perfil atual: {user_role}")
 
     with db_connect() as conn:
         # Get all unique years/seasons from posicoes_participantes
@@ -24,20 +28,23 @@ def hall_da_fama():
         c.execute("SELECT DISTINCT temporada FROM posicoes_participantes ORDER BY temporada DESC")
         seasons = [r[0] for r in c.fetchall()]
         
-        if not seasons:
-            st.info("ℹ️ Nenhuma classificação registrada ainda.")
-            # Show admin panel first if no data
-            if st.session_state.get('user_role') == 'master':
-                render_admin_panel(conn, [])
-            return
-        
-        st.write(f"**Temporadas disponíveis:** {', '.join(seasons)}")
-        
         # Get all users
         usuarios = get_usuarios_df()
         if usuarios.empty:
             st.warning("⚠️ Nenhum usuário cadastrado.")
+            # Show admin panel even if no users
+            if user_role == 'master':
+                render_admin_panel(conn, [])
             return
+        
+        if not seasons:
+            st.info("ℹ️ Nenhuma classificação registrada ainda.")
+            # Show admin panel if Master user
+            if user_role == 'master':
+                render_admin_panel(conn, [])
+            return
+        
+        st.write(f"**Temporadas disponíveis:** {', '.join(seasons)}")
         
         # Build the hall of fame table
         hall_data = []
@@ -146,8 +153,8 @@ def hall_da_fama():
                 medal = medals[idx] if idx < 3 else f"{idx + 1}."
                 st.write(f"{medal} **{name}** - Melhor posição: {best_pos}º (em {seasons_count} temporadas)")
         
-        # Admin panel for Master users
-        if st.session_state.get('user_role') == 'master':
+        # ALWAYS show admin panel for Master users
+        if user_role == 'master':
             render_admin_panel(conn, seasons)
 
 
@@ -159,6 +166,10 @@ def render_admin_panel(conn, seasons):
     
     c = conn.cursor()
     usuarios = get_usuarios_df()
+    
+    if usuarios.empty:
+        st.error("❌ Não há usuários cadastrados no sistema. Cadastre usuários primeiro na seção 'Gestão de Usuários'.")
+        return
     
     # Tab layout for better organization
     tab1, tab2, tab3 = st.tabs(["➕ Adicionar Resultado", "✏️ Editar/Deletar", "📅 Importação em Lote"])
