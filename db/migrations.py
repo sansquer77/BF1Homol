@@ -210,14 +210,22 @@ def create_missing_tables_if_needed():
                 except Exception as e:
                     logger.debug(f"  Falha ao adicionar season em championship_bets_log: {e}")
 
-            # Tabela log_apostas
-            cursor.execute('''
+            # Tabela log_apostas (garante colunas compatíveis com UI de log)
+            cursor.execute(f'''
                 CREATE TABLE IF NOT EXISTS log_apostas (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    usuario_id INTEGER NOT NULL,
-                    prova_id INTEGER NOT NULL,
+                    usuario_id INTEGER,
+                    prova_id INTEGER,
+                    apostador TEXT,
+                    aposta TEXT,
+                    nome_prova TEXT,
                     pilotos TEXT,
                     piloto_11 TEXT,
+                    tipo_aposta INTEGER,
+                    automatica INTEGER,
+                    data TEXT,
+                    horario TIMESTAMP,
+                    temporada TEXT DEFAULT '{current_year}',
                     status TEXT DEFAULT 'Registrada',
                     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
@@ -225,6 +233,71 @@ def create_missing_tables_if_needed():
                 )
             ''')
             logger.info("✓ Tabela `log_apostas` criada ou já existe")
+
+            # Rebuild log_apostas if legacy columns missing
+            cursor.execute("PRAGMA table_info('log_apostas')")
+            log_cols = [r[1] for r in cursor.fetchall()]
+            required_cols = {"apostador", "aposta", "nome_prova", "tipo_aposta", "automatica", "data", "horario", "temporada"}
+            has_required = required_cols.issubset(set(log_cols))
+            if not has_required:
+                logger.info("↻ Atualizando `log_apostas` para incluir colunas de temporada e metadados de aposta...")
+                cursor.execute("PRAGMA foreign_keys=OFF")
+                cursor.execute("BEGIN")
+                cursor.execute(f'''
+                    CREATE TABLE IF NOT EXISTS log_apostas__new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        usuario_id INTEGER,
+                        prova_id INTEGER,
+                        apostador TEXT,
+                        aposta TEXT,
+                        nome_prova TEXT,
+                        pilotos TEXT,
+                        piloto_11 TEXT,
+                        tipo_aposta INTEGER,
+                        automatica INTEGER,
+                        data TEXT,
+                        horario TIMESTAMP,
+                        temporada TEXT DEFAULT '{current_year}',
+                        status TEXT DEFAULT 'Registrada',
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+                        FOREIGN KEY (prova_id) REFERENCES provas(id)
+                    )
+                ''')
+                # Copia dados legados, mapeando o que existir
+                cursor.execute("PRAGMA table_info('log_apostas')")
+                legacy_cols = [r[1] for r in cursor.fetchall()]
+                has_col = lambda name: name in legacy_cols
+                insert_sql = '''
+                    INSERT INTO log_apostas__new (usuario_id, prova_id, apostador, aposta, nome_prova, pilotos, piloto_11, tipo_aposta, automatica, data, horario, temporada, status, data_criacao)
+                    SELECT 
+                        usuario_id,
+                        prova_id,
+                        NULL,
+                        CASE WHEN {has_pilotos} THEN pilotos ELSE NULL END,
+                        NULL,
+                        CASE WHEN {has_pilotos} THEN pilotos ELSE NULL END,
+                        CASE WHEN {has_piloto11} THEN piloto_11 ELSE NULL END,
+                        0,
+                        0,
+                        DATE(CASE WHEN {has_data_criacao} THEN data_criacao ELSE CURRENT_TIMESTAMP END),
+                        CASE WHEN {has_data_criacao} THEN data_criacao ELSE CURRENT_TIMESTAMP END,
+                        '{current_year}',
+                        CASE WHEN {has_status} THEN status ELSE 'Registrada' END,
+                        CASE WHEN {has_data_criacao} THEN data_criacao ELSE CURRENT_TIMESTAMP END
+                    FROM log_apostas
+                '''.format(
+                    has_pilotos='1' if has_col('pilotos') else '0',
+                    has_piloto11='1' if has_col('piloto_11') else '0',
+                    has_data_criacao='1' if has_col('data_criacao') else '0',
+                    has_status='1' if has_col('status') else '0'
+                )
+                cursor.execute(insert_sql)
+                cursor.execute("DROP TABLE log_apostas")
+                cursor.execute("ALTER TABLE log_apostas__new RENAME TO log_apostas")
+                cursor.execute("COMMIT")
+                cursor.execute("PRAGMA foreign_keys=ON")
+                logger.info("✓ `log_apostas` atualizada para estrutura completa")
 
             conn.commit()
         except Exception as e:

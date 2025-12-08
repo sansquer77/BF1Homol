@@ -11,12 +11,12 @@ def carregar_logs(temporada=None):
     """Carrega logs de apostas, opcionalmente filtrando por temporada"""
     with db_connect() as conn:
         if temporada:
-            query = '''SELECT * FROM apostas_log 
+            query = '''SELECT * FROM log_apostas 
                        WHERE (temporada = ? OR temporada IS NULL)
                        ORDER BY id DESC'''
             df = pd.read_sql(query, conn, params=(temporada,))
         else:
-            df = pd.read_sql('SELECT * FROM apostas_log ORDER BY id DESC', conn)
+            df = pd.read_sql('SELECT * FROM log_apostas ORDER BY id DESC', conn)
     return df
 
 def get_nome_from_cookie():
