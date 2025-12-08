@@ -309,7 +309,7 @@ def render_admin_panel(conn, seasons):
                     for entry in entries:
                         try:
                             user_id = usuarios[usuarios['nome'] == entry['user']]['id'].values[0]
-                                                        user_id = int(user_id)  # Garantir tipo INTEGER para o banco
+                            user_id = int(user_id)  # Garantir tipo INTEGER para o banco
                             
                             # Check if record already exists
                             c.execute(
