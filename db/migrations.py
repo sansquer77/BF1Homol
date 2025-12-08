@@ -92,24 +92,81 @@ def create_missing_tables_if_needed():
     Idempotent: usa CREATE TABLE IF NOT EXISTS.
     """
     pool = get_pool()
+    current_year = datetime.datetime.now().year
     with pool.get_connection() as conn:
         cursor = conn.cursor()
         try:
-            # Tabela championship_bets
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS championship_bets (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    user_nome TEXT NOT NULL,
-                    champion TEXT NOT NULL,
-                    vice TEXT NOT NULL,
-                    team TEXT NOT NULL,
-                    bet_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES usuarios(id),
-                    UNIQUE(user_id)
-                )
-            ''')
-            logger.info("✓ Tabela `championship_bets` criada ou já existe")
+            # Tabela championship_bets (agora com coluna season e UNIQUE por usuário+season)
+            cursor.execute("PRAGMA table_info('championship_bets')")
+            bets_cols = cursor.fetchall()
+            has_bets = bool(bets_cols)
+            bets_has_season = any(col[1] == 'season' for col in bets_cols)
+            cursor.execute("PRAGMA index_list('championship_bets')")
+            idx_list = cursor.fetchall()
+            has_user_season_unique = False
+            has_old_user_unique = False
+            for idx in idx_list:
+                idx_name = idx[1]
+                is_unique = bool(idx[2])
+                if not is_unique:
+                    continue
+                cursor.execute(f"PRAGMA index_info('{idx_name}')")
+                cols_for_idx = [r[2] for r in cursor.fetchall()]
+                if cols_for_idx == ['user_id']:
+                    has_old_user_unique = True
+                if cols_for_idx == ['user_id', 'season']:
+                    has_user_season_unique = True
+
+            if not has_bets:
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS championship_bets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        user_nome TEXT NOT NULL,
+                        champion TEXT NOT NULL,
+                        vice TEXT NOT NULL,
+                        team TEXT NOT NULL,
+                        season INTEGER NOT NULL,
+                        bet_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES usuarios(id),
+                        UNIQUE(user_id, season)
+                    )
+                ''')
+                logger.info("✓ Tabela `championship_bets` criada com coluna season")
+            else:
+                # Se não tiver season ou a UNIQUE antiga (apenas user_id), recria com o novo esquema
+                needs_rebuild = (not bets_has_season) or (not has_user_season_unique) or has_old_user_unique
+                if needs_rebuild:
+                    logger.info("↻ Atualizando `championship_bets` para suportar temporadas...")
+                    cursor.execute("PRAGMA foreign_keys=OFF")
+                    cursor.execute("BEGIN")
+                    cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS championship_bets__new (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER NOT NULL,
+                            user_nome TEXT NOT NULL,
+                            champion TEXT NOT NULL,
+                            vice TEXT NOT NULL,
+                            team TEXT NOT NULL,
+                            season INTEGER NOT NULL,
+                            bet_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (user_id) REFERENCES usuarios(id),
+                            UNIQUE(user_id, season)
+                        )
+                    ''')
+                    # Copia dados antigos colocando season padrão no ano atual
+                    cursor.execute('''
+                        INSERT INTO championship_bets__new (user_id, user_nome, champion, vice, team, season, bet_time)
+                        SELECT user_id, user_nome, champion, vice, team, ?, bet_time
+                        FROM championship_bets
+                    ''', (current_year,))
+                    cursor.execute("DROP TABLE championship_bets")
+                    cursor.execute("ALTER TABLE championship_bets__new RENAME TO championship_bets")
+                    cursor.execute("COMMIT")
+                    cursor.execute("PRAGMA foreign_keys=ON")
+                    logger.info("✓ `championship_bets` agora tem coluna season e UNIQUE(user_id, season)")
+                else:
+                    logger.debug("  `championship_bets` já compatível com temporadas")
 
             # Tabela championship_results
             cursor.execute('''
@@ -125,7 +182,10 @@ def create_missing_tables_if_needed():
             logger.info("✓ Tabela `championship_results` criada ou já existe")
 
             # Tabela championship_bets_log
-            cursor.execute('''
+            cursor.execute("PRAGMA table_info('championship_bets_log')")
+            log_cols = cursor.fetchall()
+            log_has_season = any(col[1] == 'season' for col in log_cols)
+            cursor.execute(f'''
                 CREATE TABLE IF NOT EXISTS championship_bets_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
@@ -133,11 +193,19 @@ def create_missing_tables_if_needed():
                     champion TEXT NOT NULL,
                     vice TEXT NOT NULL,
                     team TEXT NOT NULL,
+                    season INTEGER NOT NULL DEFAULT {current_year},
                     bet_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES usuarios(id)
                 )
             ''')
             logger.info("✓ Tabela `championship_bets_log` criada ou já existe")
+            if log_cols and not log_has_season:
+                try:
+                    cursor.execute(f"ALTER TABLE championship_bets_log ADD COLUMN season INTEGER NOT NULL DEFAULT {current_year}")
+                    cursor.execute(f"UPDATE championship_bets_log SET season = {current_year} WHERE season IS NULL")
+                    logger.info("✓ Coluna season adicionada a `championship_bets_log`")
+                except Exception as e:
+                    logger.debug(f"  Falha ao adicionar season em championship_bets_log: {e}")
 
             # Tabela log_apostas
             cursor.execute('''
