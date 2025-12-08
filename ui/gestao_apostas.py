@@ -1,11 +1,13 @@
 """
 Gestão de Apostas - BF1Dev 3.0
-Corrigido com context manager para pool de conexões
+Corrigido com context manager para pool de conexões e suporte a temporadas
 """
 
 import streamlit as st
 import pandas as pd
+import datetime as dt
 from db.db_utils import get_apostas_df, get_usuarios_df, get_provas_df, get_pilotos_df, db_connect
+from db.backup_utils import list_temporadas
 
 def main():
     st.title("💰 Gestão de Apostas")
@@ -16,10 +18,32 @@ def main():
         st.warning("Acesso restrito a administradores.")
         return
     
-    # Buscar dados com cache
-    apostas_df = get_apostas_df()
+    # Season selector - read from temporadas table
+    current_year = dt.datetime.now().year
+    current_year_str = str(current_year)
+    
+    try:
+        season_options = list_temporadas() or []
+    except Exception:
+        season_options = []
+    
+    # Fallback to fixed options if temporadas table is empty
+    if not season_options:
+        season_options = ["2025", "2026"]
+    
+    # Default to current year when present, otherwise first option
+    if current_year_str in season_options:
+        default_index = season_options.index(current_year_str)
+    else:
+        default_index = 0
+    
+    season = st.selectbox("Temporada", season_options, index=default_index, key="gestao_apostas_season")
+    st.session_state['temporada'] = season
+    
+    # Buscar dados com cache e filtro de temporada
+    apostas_df = get_apostas_df(season)
     usuarios_df = get_usuarios_df()
-    provas_df = get_provas_df()
+    provas_df = get_provas_df(season)
     pilotos_df = get_pilotos_df()
     
     # Seção: Apostas Cadastradas
@@ -57,9 +81,9 @@ def main():
             with db_connect() as conn:
                 c = conn.cursor()
                 c.execute(
-                    '''INSERT INTO apostas (usuario_id, prova_id, piloto_id, pontos)
-                       VALUES (?, ?, ?, ?)''',
-                    (usuario_id, prova_id, piloto_id, pontos_aposta)
+                    '''INSERT INTO apostas (usuario_id, prova_id, piloto_id, pontos, temporada)
+                       VALUES (?, ?, ?, ?, ?)''',
+                    (usuario_id, prova_id, piloto_id, pontos_aposta, season)
                 )
                 conn.commit()
             

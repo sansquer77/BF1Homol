@@ -1,13 +1,22 @@
 import streamlit as st
 import pandas as pd
+import datetime as dt
 from db.db_utils import db_connect
+from db.backup_utils import list_temporadas
 import extra_streamlit_components as stx
 import jwt
 import os
 
-def carregar_logs():
+def carregar_logs(temporada=None):
+    """Carrega logs de apostas, opcionalmente filtrando por temporada"""
     with db_connect() as conn:
-        df = pd.read_sql('SELECT * FROM log_apostas ORDER BY id DESC', conn)
+        if temporada:
+            query = '''SELECT * FROM apostas_log 
+                       WHERE (temporada = ? OR temporada IS NULL)
+                       ORDER BY id DESC'''
+            df = pd.read_sql(query, conn, params=(temporada,))
+        else:
+            df = pd.read_sql('SELECT * FROM apostas_log ORDER BY id DESC', conn)
     return df
 
 def get_nome_from_cookie():
@@ -29,6 +38,28 @@ def main():
 
     perfil = st.session_state.get("user_role", "participante")
 
+    # Season selector - read from temporadas table
+    current_year = dt.datetime.now().year
+    current_year_str = str(current_year)
+    
+    try:
+        season_options = list_temporadas() or []
+    except Exception:
+        season_options = []
+    
+    # Fallback to fixed options if temporadas table is empty
+    if not season_options:
+        season_options = ["2025", "2026"]
+    
+    # Default to current year when present, otherwise first option
+    if current_year_str in season_options:
+        default_index = season_options.index(current_year_str)
+    else:
+        default_index = 0
+    
+    season = st.selectbox("Temporada", season_options, index=default_index, key="log_apostas_season")
+    st.session_state['temporada'] = season
+
     # Usa o nome do cookie se não for perfil admin/master
     nome_usuario = None
     if perfil not in ("admin", "master"):
@@ -36,7 +67,7 @@ def main():
     else:
         nome_usuario = st.session_state.get("user_name")  # ou pode não usar, depende dos filtros
 
-    df = carregar_logs()
+    df = carregar_logs(season)
     if df.empty:
         st.warning("Nenhum registro no log de apostas.")
         return
