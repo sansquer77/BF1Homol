@@ -140,8 +140,8 @@ def hall_da_fama():
             ''')
             top_winners = c.fetchall()
             if top_winners:
-                winners_text = " | ".join([f"{name} ({wins})" for name, wins in top_winners])
-                st.metric("🥇 Maiores Vencedores", winners_text if len(winners_text) < 40 else f"{len(top_winners)} vencedores")
+                winners_list = [f"{name} ({wins})" for name, wins in top_winners]
+                st.metric("🥇 Maiores Vencedores", "\n".join(winners_list))
             else:
                 st.metric("🥇 Maiores Vencedores", "-")
         
