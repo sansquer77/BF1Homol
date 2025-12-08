@@ -126,11 +126,24 @@ def hall_da_fama():
         with col2:
             c.execute("SELECT COUNT(DISTINCT temporada) FROM hall_da_fama")
             unique_seasons = c.fetchone()[0]
-            st.metric("📆 Temporadas com Resultados", unique_seasons)
+            st.metric("📆 Temporadas Realizadas", unique_seasons)
         with col3:
-            c.execute("SELECT COUNT(*) FROM hall_da_fama")
-            total_records = c.fetchone()[0]
-            st.metric("📝 Total de Registros", total_records)
+            # Maiores vencedores: top 3 participantes com mais temporadas ganhas (1º lugar)
+            c.execute('''
+                SELECT u.nome, COUNT(*) as vitorias
+                FROM hall_da_fama hf
+                JOIN usuarios u ON hf.usuario_id = u.id
+                WHERE hf.posicao_final = 1 AND LOWER(u.perfil) != 'master'
+                GROUP BY hf.usuario_id
+                ORDER BY vitorias DESC
+                LIMIT 3
+            ''')
+            top_winners = c.fetchall()
+            if top_winners:
+                winners_text = " | ".join([f"{name} ({wins})" for name, wins in top_winners])
+                st.metric("🥇 Maiores Vencedores", winners_text if len(winners_text) < 40 else f"{len(top_winners)} vencedores")
+            else:
+                st.metric("🥇 Maiores Vencedores", "-")
         
         # Per-season breakdown
         st.markdown("---")
@@ -140,8 +153,6 @@ def hall_da_fama():
         for season in seasons:
             c.execute('''
                 SELECT COUNT(DISTINCT usuario_id) as participants,
-                       MIN(posicao_final) as best_pos,
-                       AVG(posicao_final) as avg_pos,
                        MAX(pontos) as best_points,
                        AVG(pontos) as avg_points
                 FROM hall_da_fama
@@ -152,10 +163,8 @@ def hall_da_fama():
                 season_stats.append({
                     'Temporada': season,
                     'Participantes': result[0],
-                    'Melhor Posição': f"{result[1]}º" if result[1] else "-",
-                    'Posição Média': f"{result[2]:.1f}" if result[2] else "-",
-                    'Maior Pontuação': f"{result[3]:.1f}" if result[3] is not None else "-",
-                    'Pontuação Média': f"{result[4]:.1f}" if result[4] is not None else "-"
+                    'Maior Pontuação': f"{result[1]:.1f}" if result[1] is not None else "-",
+                    'Pontuação Média': f"{result[2]:.1f}" if result[2] is not None else "-"
                 })
         
         if season_stats:
@@ -185,12 +194,24 @@ def hall_da_fama():
             pivot = pivot.reindex(sorted(pivot.columns), axis=1)
             st.dataframe(pivot, use_container_width=True)
 
-            # Stacked bar chart showing counts per position for each participant
+            # Stacked bar chart: X=participante, Y=contagem de cada posição (empilhadas)
             try:
-                fig = px.bar(pivot, x=pivot.index, y=pivot.columns.astype(str), title='Contagem de posições por participante', labels={'value':'Contagem','nome':'Participante'})
+                # Prepare data for stacked bar chart
+                df_chart = pivot.reset_index()
+                df_melted = pd.melt(df_chart, id_vars=['nome'], var_name='Posição', value_name='Contagem')
+                fig = px.bar(
+                    df_melted, 
+                    x='nome', 
+                    y='Contagem', 
+                    color='Posição',
+                    title='Distribuição de Posições por Participante',
+                    labels={'nome': 'Participante', 'Contagem': 'Contagem'},
+                    barmode='stack'
+                )
+                fig.update_layout(xaxis_tickangle=-45)
                 st.plotly_chart(fig, use_container_width=True)
-            except Exception:
-                st.info('Gráfico indisponível.')
+            except Exception as e:
+                st.info(f'Gráfico indisponível: {str(e)}')
         else:
             st.info('Ainda não há registros para gerar a distribuição de posições.')
         

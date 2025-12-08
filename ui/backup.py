@@ -1,5 +1,5 @@
 import streamlit as st
-from db.backup_utils import download_db, upload_db, download_tabela, upload_tabela
+from db.backup_utils import download_db, upload_db, download_tabela, upload_tabela, create_next_temporada, list_temporadas
 
 def main():
     st.title("💾 Backup e Restauração do Banco de Dados BF1")
@@ -24,6 +24,23 @@ def main():
         download_tabela()
     with tab2:
         upload_tabela()
+
+    st.divider()
+    st.header("Temporadas")
+    st.write("Gerencie as temporadas visíveis no sistema. A criação de uma nova temporada fará com que ela possa aparecer em seletores que leem a tabela `temporadas`.")
+    col_a, col_b = st.columns([2, 8])
+    with col_a:
+        if st.button("➕ Criar próxima temporada", use_container_width=True):
+            new_year = create_next_temporada()
+            st.success(f"✅ Temporada {new_year} criada/registrada com sucesso.")
+            st.rerun()
+    with col_b:
+        existing = list_temporadas()
+        if existing:
+            st.write("Temporadas cadastradas:")
+            st.write(", ".join(existing))
+        else:
+            st.info("Nenhuma temporada cadastrada. Botão acima cria a próxima temporada.")
 
 if __name__ == "__main__":
     main()

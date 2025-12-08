@@ -162,7 +162,7 @@ def gerar_aposta_aleatoria(pilotos_df):
     piloto_11 = random.choice(candidatos_11) if candidatos_11 else random.choice(todos_pilotos)
     return pilotos_sel, fichas, piloto_11
 
-def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas_df):
+def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas_df, temporada=None):
     try:
         usuario_id = int(usuario_id)
         prova_id = int(prova_id)
@@ -206,7 +206,7 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     nova_automatica = 1 if max_automatica is None else max_automatica + 1
     sucesso = salvar_aposta(
         usuario_id, prova_id, pilotos_ant, fichas_ant,
-        piloto_11_ant, nome_prova, automatica=nova_automatica, horario_forcado=horario_limite
+        piloto_11_ant, nome_prova, automatica=nova_automatica, horario_forcado=horario_limite, temporada=temporada
     )
     return (True, "Aposta automática gerada com sucesso!") if sucesso else (False, "Falha ao salvar aposta automática.")
 

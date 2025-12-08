@@ -12,14 +12,17 @@ from db.db_config import DB_PATH  # Importar caminho correto do banco
 def download_db():
     """Permite fazer o download do arquivo inteiro do banco de dados SQLite."""
     if DB_PATH.exists():
+        # Lê o arquivo ANTES de passar ao download_button (não durante)
         with open(DB_PATH, "rb") as fp:
-            st.download_button(
-                label="⬇️ Baixar banco de dados completo (.db)",
-                data=fp,
-                file_name=DB_PATH.name,
-                mime="application/octet-stream",
-                use_container_width=True
-            )
+            db_data = fp.read()
+        
+        st.download_button(
+            label="⬇️ Baixar banco de dados completo (.db)",
+            data=db_data,
+            file_name=DB_PATH.name,
+            mime="application/octet-stream",
+            use_container_width=True
+        )
     else:
         st.warning(f"⚠️ Arquivo do banco de dados não encontrado: {DB_PATH}")
         st.info(f"📍 Caminho esperado: {DB_PATH.absolute()}")
@@ -168,10 +171,10 @@ def main():
     st.write("Gerencie as temporadas visíveis no sistema. A criação de uma nova temporada fará com que ela possa aparecer em seletores que leem a tabela `temporadas`.")
     col_a, col_b = st.columns([2, 8])
     with col_a:
-        if st.button("➕ Criar próxima temporada (ano atual + 1)"):
+        if st.button("➕ Criar próxima temporada"):
             new_year = create_next_temporada()
             st.success(f"✅ Temporada {new_year} criada/registrada com sucesso.")
-            st.experimental_rerun()
+            st.rerun()
     with col_b:
         existing = list_temporadas()
         if existing:
