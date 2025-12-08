@@ -65,8 +65,28 @@ def main():
         # Botão: Atualizar
         with col1:
             if st.button("🔄 Atualizar piloto", key="btn_update_piloto"):
+                # Validar duplicidade
                 with db_connect() as conn:
                     c = conn.cursor()
+                    if novo_status == "Ativo":
+                        # Para Ativo: nome não pode estar duplicado em outro registro Ativo
+                        c.execute(
+                            "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(?) AND status = 'Ativo' AND id != ?",
+                            (novo_nome, int(piloto_row["id"]))
+                        )
+                        if c.fetchone():
+                            st.error("❌ Já existe outro piloto ativo com este nome.")
+                            return
+                    else:
+                        # Para Inativo: não pode ter nome+numero+equipe duplicados
+                        c.execute(
+                            "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(?) AND numero = ? AND LOWER(equipe) = LOWER(?) AND status = 'Inativo' AND id != ?",
+                            (novo_nome, int(novo_numero), nova_equipe, int(piloto_row["id"]))
+                        )
+                        if c.fetchone():
+                            st.error("❌ Já existe outro piloto inativo com este nome, número e equipe.")
+                            return
+                    
                     c.execute(
                         "UPDATE pilotos SET nome=?, numero=?, equipe=?, status=? WHERE id=?",
                         (novo_nome, int(novo_numero), nova_equipe, novo_status, int(piloto_row["id"]))
@@ -104,8 +124,29 @@ def main():
         if not nome_novo or not equipe_nova:
             st.error("❌ Preencha todos os campos obrigatórios.")
         else:
+            # Validar duplicidade
             with db_connect() as conn:
                 c = conn.cursor()
+                
+                if status_novo == "Ativo":
+                    # Para Ativo: nome não pode estar duplicado em outro registro Ativo
+                    c.execute(
+                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(?) AND status = 'Ativo'",
+                        (nome_novo,)
+                    )
+                    if c.fetchone():
+                        st.error("❌ Já existe outro piloto ativo com este nome.")
+                        return
+                else:
+                    # Para Inativo: não pode ter nome+numero+equipe duplicados
+                    c.execute(
+                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(?) AND numero = ? AND LOWER(equipe) = LOWER(?) AND status = 'Inativo'",
+                        (nome_novo, int(numero_novo), equipe_nova)
+                    )
+                    if c.fetchone():
+                        st.error("❌ Já existe outro piloto inativo com este nome, número e equipe.")
+                        return
+                
                 c.execute(
                     '''INSERT INTO pilotos (nome, numero, equipe, status)
                        VALUES (?, ?, ?, ?)''',
