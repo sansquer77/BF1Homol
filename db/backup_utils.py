@@ -12,6 +12,13 @@ from db.db_config import DB_PATH  # Importar caminho correto do banco
 def download_db():
     """Permite fazer o download do arquivo inteiro do banco de dados SQLite."""
     if DB_PATH.exists():
+        # Garante que dados em WAL sejam aplicados antes de ler o arquivo
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception as e:
+            st.warning(f"⚠️ Não foi possível checkpointar o WAL: {e}")
+
         # Lê o arquivo ANTES de passar ao download_button (não durante)
         with open(DB_PATH, "rb") as fp:
             db_data = fp.read()
@@ -114,31 +121,45 @@ def upload_tabela():
     )
     
     if uploaded_file is not None and tabela:
+        try:
+            df = pd.read_excel(uploaded_file)
+        except Exception as e:
+            st.error(f"❌ Não foi possível ler o Excel: {e}")
+            return
+
+        st.write(f"👀 Prévia dos dados ({len(df)} linhas):")
+        st.dataframe(df.head(10))
+
         if st.button("✅ Confirmar Importação", type="primary", use_container_width=True):
             try:
-                df = pd.read_excel(uploaded_file)
-                
-                # Mostrar prévia dos dados
-                st.write(f"👀 Prévia dos dados ({len(df)} linhas):")
-                st.dataframe(df.head(10))
-                
-                # Importar para o banco
                 with sqlite3.connect(DB_PATH) as conn:
-                    # Fazer backup da tabela atual
-                    backup_df = pd.read_sql(f"SELECT * FROM {tabela}", conn)
-                    
-                    # Deletar dados antigos
-                    conn.execute(f"DELETE FROM {tabela}")
-                    
-                    # Inserir novos dados
-                    df.to_sql(tabela, conn, if_exists='append', index=False)
-                    
-                st.success(f"✅ Tabela '{tabela}' atualizada com sucesso! {len(df)} linhas importadas.")
+                    conn.execute("PRAGMA foreign_keys=OFF")  # evita falhas ao limpar e regravar
+                    # Garantir alinhamento de colunas antes de importar
+                    cols_info = conn.execute(f"PRAGMA table_info('{tabela}')").fetchall()
+                    if not cols_info:
+                        raise ValueError(f"Tabela '{tabela}' não encontrada no banco.")
+                    db_cols = [r[1] for r in cols_info]
+
+                    missing_cols = [c for c in db_cols if c not in df.columns]
+                    extra_cols = [c for c in df.columns if c not in db_cols]
+                    if missing_cols:
+                        raise ValueError(f"Colunas faltantes no Excel: {missing_cols}")
+                    if extra_cols:
+                        st.info(f"ℹ️ Colunas extras no Excel serão ignoradas: {extra_cols}")
+                    df_alinhado = df[db_cols]
+
+                    backup_df = pd.read_sql(f'SELECT * FROM "{tabela}"', conn)
+
+                    conn.execute("BEGIN IMMEDIATE")  # bloqueio exclusivo para substituir tudo
+                    conn.execute(f'DELETE FROM "{tabela}"')
+                    df_alinhado.to_sql(tabela, conn, if_exists='append', index=False, method='multi')
+                    conn.commit()
+
+                st.success(f"✅ Tabela '{tabela}' atualizada com sucesso! {len(df_alinhado)} linhas importadas.")
                 st.info(f"💾 Backup da tabela anterior: {len(backup_df)} linhas")
-                
             except Exception as e:
                 st.error(f"❌ Erro ao importar tabela: {e}")
-                st.info("💡 Verifique se as colunas do arquivo Excel correspondem às colunas da tabela.")
+                st.info("💡 Verifique se as colunas do arquivo Excel correspondem exatamente às colunas da tabela.")
 
 def main():
     st.title("💾 Backup e Restauração do Banco de Dados")

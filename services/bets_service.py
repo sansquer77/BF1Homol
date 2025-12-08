@@ -18,7 +18,7 @@ from services.email_service import enviar_email
 
 def salvar_aposta(
     usuario_id, prova_id, pilotos, fichas, piloto_11, nome_prova,
-    automatica=0, horario_forcado=None, temporada: str = None
+    automatica=0, horario_forcado=None, temporada: str | None = None
 ):
     # Garante tipo correto para os argumentos IDs (resolve erro de usuário não encontrado)
     try:
