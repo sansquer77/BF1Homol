@@ -1,3 +1,14 @@
 .DS_Store
 .DS_Store
 .DS_Store
+RESUMO_EXECUTIVO.md
+RELATORIO_FINAL_AUDITORIA.md
+RELATORIO_AUDITORIA_INTEGRACAO.md
+INDICE_DOCUMENTOS.md
+GUIA_DEPLOYMENT.md
+CHECKLIST_FINALIZACAO.md
+bf1dev.log
+bolao_f1.db
+db/__pycache__/backup_utils.cpython-313.pyc
+db/__pycache__/migrations.cpython-313.pyc
+db/__pycache__/backup_utils.cpython-313.pyc

@@ -534,7 +534,7 @@ def import_historical_data(conn):
             progress_bar.progress((idx + 1) / len(historical_data))
             continue
 
-                    usuario_id = int(usuario_id)  # Garantir tipo INTEGER para o banco
+        usuario_id = int(usuario_id)  # Garantir tipo INTEGER para o banco
         try:
             # Check if record already exists
             c.execute(

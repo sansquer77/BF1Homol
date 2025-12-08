@@ -3,7 +3,7 @@ import pandas as pd
 import datetime as dt
 from db.db_utils import db_connect
 from db.backup_utils import list_temporadas
-import extra_streamlit_components as stx
+import extra_streamlit_components as stx # type: ignore
 import jwt
 import os
 

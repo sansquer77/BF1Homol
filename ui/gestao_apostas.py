@@ -51,47 +51,57 @@ def main():
         st.info("Nenhuma aposta cadastrada.")
     else:
         st.markdown("### 📋 Apostas Cadastradas")
-        show_df = apostas_df[["id", "usuario_id", "prova_id", "piloto_id", "pontos"]].copy()
-        show_df.columns = ["ID", "Usuário ID", "Prova ID", "Piloto ID", "Pontos"]
+        # Mostrar apenas colunas que existem no schema real
+        available_cols = [col for col in ["id", "usuario_id", "prova_id", "data_envio", "pilotos", "temporada"] 
+                         if col in apostas_df.columns]
+        show_df = apostas_df[available_cols].copy() if available_cols else apostas_df.copy()
         st.dataframe(show_df, use_container_width=True)
     
     # Divisor
     st.markdown("---")
     
-    # Seção: Adicionar Nova Aposta
-    st.markdown("### ➕ Adicionar Nova Aposta")
+    # Seção: Adicionar Classificação Manual (Posição)
+    st.markdown("### ➕ Adicionar Classificação Manual")
+    st.info("ℹ️ Adicione a posição de um participante em uma prova (sistema de pontuação)")
     
     usuarios_list = usuarios_df["nome"].tolist() if not usuarios_df.empty else []
     provas_list = provas_df["nome"].tolist() if not provas_df.empty else []
-    pilotos_list = pilotos_df["nome"].tolist() if not pilotos_df.empty else []
     
-    if usuarios_list and provas_list and pilotos_list:
-        usuario_selecionado = st.selectbox("Selecione o usuário", usuarios_list, key="sel_usuario_aposta")
-        prova_selecionada = st.selectbox("Selecione a prova", provas_list, key="sel_prova_aposta")
-        piloto_selecionado = st.selectbox("Selecione o piloto", pilotos_list, key="sel_piloto_aposta")
-        pontos_aposta = st.number_input("Pontos", min_value=0, max_value=100, value=0, key="pontos_aposta")
+    if usuarios_list and provas_list:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            usuario_selecionado = st.selectbox("Selecione o usuário", usuarios_list, key="sel_usuario_classif")
+        with col2:
+            prova_selecionada = st.selectbox("Selecione a prova", provas_list, key="sel_prova_classif")
+        with col3:
+            posicao_classif = st.number_input("Posição", min_value=1, max_value=50, value=1, key="pos_classif")
         
-        if st.button("➕ Adicionar aposta", key="btn_add_aposta"):
+        pontos_classif = st.number_input("Pontos", min_value=0, max_value=100, value=0, key="pontos_classif")
+        
+        if st.button("➕ Adicionar classificação", key="btn_add_classif"):
             # Obter IDs
             usuario_id = usuarios_df[usuarios_df["nome"] == usuario_selecionado]["id"].values[0]
             prova_id = provas_df[provas_df["nome"] == prova_selecionada]["id"].values[0]
-            piloto_id = pilotos_df[pilotos_df["nome"] == piloto_selecionado]["id"].values[0]
             
-            # ✅ CORRIGIDO: Context manager com 'with'
+            # ✅ CORRIGIDO: Inserir em posicoes_participantes (estrutura correta)
+            from datetime import datetime
+            data_registro = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
             with db_connect() as conn:
                 c = conn.cursor()
                 c.execute(
-                    '''INSERT INTO apostas (usuario_id, prova_id, piloto_id, pontos, temporada)
-                       VALUES (?, ?, ?, ?, ?)''',
-                    (usuario_id, prova_id, piloto_id, pontos_aposta, season)
+                    '''INSERT OR REPLACE INTO posicoes_participantes 
+                       (prova_id, usuario_id, posicao, pontos, data_registro, temporada)
+                       VALUES (?, ?, ?, ?, ?, ?)''',
+                    (prova_id, usuario_id, posicao_classif, pontos_classif, data_registro, season)
                 )
                 conn.commit()
             
-            st.success("✅ Aposta adicionada com sucesso!")
+            st.success("✅ Classificação adicionada com sucesso!")
             st.cache_data.clear()
             st.rerun()
     else:
-        st.warning("⚠️ Cadastre usuários, provas e pilotos antes de adicionar apostas.")
+        st.warning("⚠️ Cadastre usuários e provas antes de adicionar classificações.")
 
 if __name__ == "__main__":
     main()
