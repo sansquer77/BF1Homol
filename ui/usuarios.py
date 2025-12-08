@@ -19,8 +19,8 @@ def main():
 
     st.markdown("### Usuários Cadastrados")
     with st.expander("Lista Completa de Usuários", expanded=True):
-        show_df = df[["id", "nome", "email", "perfil", "status", "faltas"]].copy()
-        show_df.columns = ["ID", "Nome", "Email", "Perfil", "Status", "Faltas"]
+        show_df = df[["id", "nome", "email", "perfil", "status"]].copy()
+        show_df.columns = ["ID", "Nome", "Email", "Perfil", "Status"]
         st.dataframe(show_df, use_container_width=True)
 
     st.markdown("### Editar Usuário")
@@ -34,7 +34,6 @@ def main():
     novo_email = st.text_input("Email", user_row["email"])
     novo_perfil = st.selectbox("Perfil", ["participante", "admin", "master"], index=["participante", "admin", "master"].index(user_row["perfil"]))
     novo_status = st.selectbox("Status", ["Ativo", "Inativo"], index=0 if user_row["status"] == "Ativo" else 1)
-    novas_faltas = st.number_input("Faltas", value=int(user_row.get("faltas", 0)), min_value=0)
 
     col1, col2 = st.columns(2)
 
@@ -43,8 +42,8 @@ def main():
             with db_connect() as conn:
                 c = conn.cursor()
                 c.execute(
-                    "UPDATE usuarios SET nome=?, email=?, perfil=?, status=?, faltas=? WHERE id=?",
-                    (novo_nome, novo_email, novo_perfil, novo_status, novas_faltas, int(user_row["id"]))
+                    "UPDATE usuarios SET nome=?, email=?, perfil=?, status=? WHERE id=?",
+                    (novo_nome, novo_email, novo_perfil, novo_status, int(user_row["id"]))
                 )
                 conn.commit()
             st.success("Usuário atualizado!")
@@ -97,7 +96,6 @@ def main():
     senha_novo = st.text_input("Senha", type="password", key="nova_senha")
     perfil_novo = st.selectbox("Perfil", ["participante", "admin", "master"], key="novo_perfil")
     status_novo = st.selectbox("Status", ["Ativo", "Inativo"], key="novo_status")
-    faltas_novo = st.number_input("Faltas", value=0, min_value=0, key="novo_faltas")
 
     if st.button("Adicionar usuário"):
         if not nome_novo or not email_novo or not senha_novo:
@@ -106,12 +104,6 @@ def main():
             from services.auth_service import cadastrar_usuario
             sucesso = cadastrar_usuario(nome_novo, email_novo, senha_novo, perfil=perfil_novo, status=status_novo)
             if sucesso:
-                # Atualiza as faltas manualmente, se não zero
-                if faltas_novo > 0:
-                        with db_connect() as conn:
-                            c = conn.cursor()
-                            c.execute("UPDATE usuarios SET faltas=? WHERE email=?", (faltas_novo, email_novo))
-                            conn.commit()
                 st.success("Usuário adicionado com sucesso!")
                 st.cache_data.clear()
                 st.rerun()

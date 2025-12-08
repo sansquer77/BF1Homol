@@ -121,13 +121,9 @@ def salvar_aposta(
         piloto_11=piloto_11,
         tipo_aposta=tipo_aposta,
         automatica=automatica,
-        horario=agora_sp
+        horario=agora_sp,
+        temporada=temporada
     )
-    if automatica:
-        with db_connect() as conn:
-            c = conn.cursor()
-            c.execute('UPDATE usuarios SET faltas = faltas + 1 WHERE id=?', (usuario_id,))
-            conn.commit()
     return True
 
 def gerar_aposta_aleatoria(pilotos_df):
@@ -248,8 +244,9 @@ def calcular_pontuacao_lote(apostas_df, resultados_df, provas_df):
         piloto_11_real = res.get(11, "")
         if piloto_11 == piloto_11_real:
             pt += bonus_11
+        # Penalidade de 20% (0.8x) a partir da segunda aposta automática (automatica >= 2)
         if automatica and int(automatica) >= 2:
-            pt = round(pt * 0.75, 2)
+            pt = round(pt * 0.8, 2)
         pontos.append(pt)
     return pontos
 
