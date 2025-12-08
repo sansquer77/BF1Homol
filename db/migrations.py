@@ -53,7 +53,7 @@ def add_temporada_columns_if_missing():
 def add_legacy_columns_if_missing():
     """
     Adiciona colunas presentes no schema legado mas que podem faltar em bancos antigos:
-    - `equipe` e `status` em `pilotos`
+    - `equipe`, `status` e `numero` em `pilotos`
     - `horario_prova` e `tipo` em `provas`
     Idempotent: não faz nada se a coluna já existe.
     """
@@ -70,6 +70,9 @@ def add_legacy_columns_if_missing():
             if 'status' not in cols:
                 cursor.execute("ALTER TABLE pilotos ADD COLUMN status TEXT DEFAULT 'Ativo'")
                 logger.info("✓ Coluna `status` adicionada a `pilotos`")
+            if 'numero' not in cols:
+                cursor.execute("ALTER TABLE pilotos ADD COLUMN numero INTEGER DEFAULT 0")
+                logger.info("✓ Coluna `numero` adicionada a `pilotos`")
 
             # Provas
             cursor.execute("PRAGMA table_info('provas')")

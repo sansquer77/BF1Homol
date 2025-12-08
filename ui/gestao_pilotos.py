@@ -24,8 +24,17 @@ def main():
         st.info("Nenhum piloto cadastrado.")
     else:
         st.markdown("### 📋 Pilotos Cadastrados")
-        show_df = df[["id", "nome", "numero", "equipe", "status"]].copy()
-        show_df.columns = ["ID", "Nome", "Número", "Equipe", "Status"]
+        # Verificar quais colunas existem
+        cols_to_show = ["id", "nome"]
+        col_names = ["ID", "Nome"]
+        if "numero" in df.columns:
+            cols_to_show.append("numero")
+            col_names.append("Número")
+        cols_to_show.extend(["equipe", "status"])
+        col_names.extend(["Equipe", "Status"])
+        
+        show_df = df[cols_to_show].copy()
+        show_df.columns = col_names
         st.dataframe(show_df, use_container_width=True)
     
     # Seção: Editar Piloto
