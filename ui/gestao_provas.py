@@ -6,6 +6,7 @@ Corrigido com context manager para pool de conexões
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from db.db_utils import get_provas_df, db_connect
 
 def main():
@@ -50,7 +51,12 @@ def main():
             horario_time = pd.to_datetime(horario_atual, format="%H:%M:%S").time()
         except Exception:
             horario_time = pd.to_datetime("14:00:00", format="%H:%M:%S").time()
-        novo_horario = st.time_input("Horário da prova (bloqueio de apostas após este horário)", horario_time, key="edit_horario_prova")
+        novo_horario = st.time_input(
+            "Horário da prova (Fuso Horário: São Paulo/Brasil - Bloqueio de apostas após este horário)",
+            horario_time,
+            key="edit_horario_prova",
+            help="Horário em formato 24h (ex: 14:00 para 2 PM). Apostas serão bloqueadas após este horário em qualquer fuso horário."
+        )
         
         # Normalize status options to Ativa/Inativa for new UX. If stored value is different, fall back to first option.
         status_options = ["Ativa", "Inativa"]
@@ -132,7 +138,12 @@ def main():
     
     nome_novo = st.text_input("Nome da nova prova", key="novo_nome_prova")
     data_nova = st.date_input("Data da prova", key="nova_data_prova")
-    horario_novo = st.time_input("Horário da prova (bloqueio de apostas após este horário)", pd.to_datetime("14:00:00", format="%H:%M:%S").time(), key="novo_horario_prova")
+    horario_novo = st.time_input(
+        "Horário da prova (Fuso Horário: São Paulo/Brasil - Bloqueio de apostas após este horário)",
+        pd.to_datetime("14:00:00", format="%H:%M:%S").time(),
+        key="novo_horario_prova",
+        help="Horário em formato 24h (ex: 14:00 para 2 PM). Apostas serão bloqueadas após este horário em qualquer fuso horário."
+    )
     status_novo = st.selectbox("Status", ["Ativa", "Inativa"], key="novo_status_prova")
     tipo_novo = st.selectbox("Tipo", ["Normal", "Sprint"], key="novo_tipo_prova")
     

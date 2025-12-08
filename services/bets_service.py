@@ -16,6 +16,43 @@ from db.db_utils import (
 )
 from services.email_service import enviar_email
 
+
+def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
+    """
+    Verifica se o usuário pode fazer aposta comparando horário local com horário de São Paulo.
+    
+    Args:
+        data_prova_str: Data da prova (YYYY-MM-DD)
+        horario_prova_str: Horário da prova em SP (HH:MM:SS)
+        horario_usuario: DateTime do usuário (se None, usa agora em SP)
+    
+    Returns:
+        tuple: (pode_fazer: bool, mensagem: str, horario_limite_sp: datetime)
+    """
+    try:
+        # Horário limite em São Paulo
+        horario_limite_sp = datetime.strptime(
+            f"{data_prova_str} {horario_prova_str}", '%Y-%m-%d %H:%M:%S'
+        ).replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+        
+        # Horário do usuário (padrão: agora em SP)
+        if horario_usuario is None:
+            horario_usuario = datetime.now(ZoneInfo("America/Sao_Paulo"))
+        elif not horario_usuario.tzinfo:
+            # Se sem timezone, assume SP
+            horario_usuario = horario_usuario.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+        
+        # Converte para UTC para comparar
+        horario_usuario_utc = horario_usuario.astimezone(ZoneInfo("UTC"))
+        horario_limite_utc = horario_limite_sp.astimezone(ZoneInfo("UTC"))
+        
+        pode = horario_usuario_utc <= horario_limite_utc
+        mensagem = f"Aposta {'permitida' if pode else 'bloqueada'} (Horário limite SP: {horario_limite_sp.strftime('%d/%m/%Y %H:%M:%S')})"
+        
+        return pode, mensagem, horario_limite_sp
+    except Exception as e:
+        return False, f"Erro ao validar horário: {str(e)}", None
+
 def salvar_aposta(
     usuario_id, prova_id, pilotos, fichas, piloto_11, nome_prova,
     automatica=0, horario_forcado=None, temporada: str | None = None
