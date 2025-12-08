@@ -172,6 +172,9 @@ def main():
         })
 
     df_class = pd.DataFrame(tabela_classificacao)
+    if df_class.empty:
+        st.info("Nenhuma pontuação disponível para a temporada selecionada.")
+        return
     df_class = df_class.sort_values("Pontos Provas", ascending=False).reset_index(drop=True)
     df_class["Pontos Provas"] = df_class["Pontos Provas"].apply(lambda x: formatar_brasileiro(float(x)))
     df_class['Posição'] = df_class.index + 1
