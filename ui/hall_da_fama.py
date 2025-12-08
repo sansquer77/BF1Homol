@@ -139,11 +139,12 @@ def hall_da_fama():
                 LIMIT 3
             ''')
             top_winners = c.fetchall()
+            st.markdown("**🥇 Maiores Vencedores**")
             if top_winners:
-                winners_list = [f"{name} ({wins})" for name, wins in top_winners]
-                st.metric("🥇 Maiores Vencedores", "\n".join(winners_list))
+                for name, wins in top_winners:
+                    st.markdown(f"- {name} ({wins})")
             else:
-                st.metric("🥇 Maiores Vencedores", "-")
+                st.markdown("-")
         
         # Per-season breakdown
         st.markdown("---")
