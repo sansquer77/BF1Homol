@@ -79,7 +79,8 @@ def salvar_aposta(
     ).replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
     agora_sp = horario_forcado or datetime.now(ZoneInfo("America/Sao_Paulo"))
     tipo_aposta = 0 if agora_sp <= horario_limite else 1
-    dados_aposta = f"Pilotos: {', '.join(pilotos)} | Fichas: {', '.join(map(str, fichas))}"
+    dados_pilotos = ', '.join(pilotos)
+    dados_fichas = ', '.join(map(str, fichas))
 
     usuario = get_user_by_id(usuario_id)
     if not usuario:
@@ -153,7 +154,8 @@ def salvar_aposta(
 
     registrar_log_aposta(
         apostador=usuario[1],
-        aposta=dados_aposta,
+        pilotos=dados_pilotos,
+        aposta=dados_fichas,
         nome_prova=nome_prova_bd,
         piloto_11=piloto_11,
         tipo_aposta=tipo_aposta,
@@ -281,9 +283,9 @@ def calcular_pontuacao_lote(apostas_df, resultados_df, provas_df):
         piloto_11_real = res.get(11, "")
         if piloto_11 == piloto_11_real:
             pt += bonus_11
-        # Penalidade de 20% (0.8x) a partir da segunda aposta automática (automatica >= 2)
+        # Penalidade de 25% (0.75x) a partir da segunda aposta automática (automatica >= 2)
         if automatica and int(automatica) >= 2:
-            pt = round(pt * 0.8, 2)
+            pt = round(pt * 0.75, 2)
         pontos.append(pt)
     return pontos
 
