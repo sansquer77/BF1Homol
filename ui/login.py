@@ -99,7 +99,7 @@ def login_view():
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown("# 🏁 BF1Dev - Bolão de F1")
+        st.markdown("# 🏁 BF1 - Bolão de F1")
         st.markdown("### Sistema de Apostas e Ranking")
         st.markdown("---")
         

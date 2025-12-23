@@ -18,8 +18,9 @@ def main():
         st.warning("Acesso restrito a administradores.")
         return
     
-    # Buscar provas com cache
-    df = get_provas_df().sort_values(by="data", ascending=False)
+    # Buscar TODAS as provas (sem filtro de temporada) para gestão
+    with db_connect() as conn:
+        df = pd.read_sql_query("SELECT * FROM provas ORDER BY data DESC", conn)
     
     # Seção: Provas Cadastradas
     if df.empty:
@@ -167,23 +168,39 @@ def main():
                 # Check if temporada column exists
                 c.execute("PRAGMA table_info('provas')")
                 cols = [r[1] for r in c.fetchall()]
+                
+                # Verificar duplicidade (nome + data + temporada)
                 if "temporada" in cols:
                     c.execute(
-                        '''INSERT INTO provas (nome, data, horario_prova, status, tipo, temporada)
-                           VALUES (?, ?, ?, ?, ?, ?)''',
-                        (nome_novo, data_nova, horario_str_novo, status_novo, tipo_novo, temporada_nova)
+                        "SELECT COUNT(*) FROM provas WHERE nome = ? AND data = ? AND temporada = ?",
+                        (nome_novo, data_nova, temporada_nova)
                     )
                 else:
                     c.execute(
-                        '''INSERT INTO provas (nome, data, horario_prova, status, tipo)
-                           VALUES (?, ?, ?, ?, ?)''',
-                        (nome_novo, data_nova, horario_str_novo, status_novo, tipo_novo)
+                        "SELECT COUNT(*) FROM provas WHERE nome = ? AND data = ?",
+                        (nome_novo, data_nova)
                     )
-                conn.commit()
-            
-            st.success("✅ Prova adicionada com sucesso!")
-            st.cache_data.clear()
-            st.rerun()
+                
+                if c.fetchone()[0] > 0:
+                    st.error(f"❌ Já existe uma prova cadastrada com este nome e data para a temporada {temporada_nova}.")
+                else:
+                    # Inserir nova prova
+                    if "temporada" in cols:
+                        c.execute(
+                            '''INSERT INTO provas (nome, data, horario_prova, status, tipo, temporada)
+                               VALUES (?, ?, ?, ?, ?, ?)''',
+                            (nome_novo, data_nova, horario_str_novo, status_novo, tipo_novo, temporada_nova)
+                        )
+                    else:
+                        c.execute(
+                            '''INSERT INTO provas (nome, data, horario_prova, status, tipo)
+                               VALUES (?, ?, ?, ?, ?)''',
+                            (nome_novo, data_nova, horario_str_novo, status_novo, tipo_novo)
+                        )
+                    conn.commit()
+                    st.success("✅ Prova adicionada com sucesso!")
+                    st.cache_data.clear()
+                    st.rerun()
 
 if __name__ == "__main__":
     main()
