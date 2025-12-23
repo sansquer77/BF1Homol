@@ -8,6 +8,7 @@ import pandas as pd
 from pathlib import Path
 import bcrypt
 import logging
+import os
 from typing import Optional, Dict
 from db.connection_pool import get_pool, init_pool
 from db.db_config import BCRYPT_ROUNDS, DB_PATH
@@ -61,6 +62,24 @@ def check_password(senha: str, hash_senha: str) -> bool:
 
 def init_db():
     """Inicializa o banco de dados com todas as tabelas necessárias"""
+    # Verificar integridade e recuperar se necessário
+    try:
+        with sqlite3.connect(str(DB_PATH), timeout=10) as test_conn:
+            test_conn.execute("PRAGMA integrity_check")
+            test_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except sqlite3.DatabaseError as e:
+        logger.error(f"Banco corrompido detectado: {e}. Tentando recuperação...")
+        try:
+            # Tentar recuperação via dump
+            import os
+            backup_path = str(DB_PATH) + ".corrupted_backup"
+            if Path(DB_PATH).exists():
+                os.rename(str(DB_PATH), backup_path)
+                logger.info(f"Banco corrompido movido para {backup_path}")
+            # O banco será recriado abaixo
+        except Exception as recovery_error:
+            logger.error(f"Erro na recuperação: {recovery_error}")
+    
     # Cria o esquema compatível com o dump histórico (pilotos com 'equipe', provas com 'horario_prova' e 'tipo', resultados com 'posicoes')
     with db_connect() as conn:
         c = conn.cursor()
