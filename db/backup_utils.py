@@ -13,46 +13,33 @@ def download_db():
     """Permite fazer o download do arquivo inteiro do banco de dados SQLite (versão limpa e consolidada)."""
     if DB_PATH.exists():
         import tempfile
-        import subprocess
         
         try:
             # Consolidar WAL no banco original
-            with sqlite3.connect(DB_PATH) as conn:
+            with sqlite3.connect(DB_PATH, timeout=30) as conn:
                 conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
                 conn.execute("VACUUM")
             
-            # Criar versão limpa via dump/restore
+            # Criar versão limpa via backup API do sqlite3
             temp_dir = tempfile.mkdtemp()
             temp_clean = Path(temp_dir) / "bolao_f1_clean.db"
             
             st.info("🔄 Preparando banco de dados limpo para download...")
             
-            # Exportar dados
-            dump_result = subprocess.run(
-                ["sqlite3", str(DB_PATH), ".dump"],
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
+            # Usar backup API do sqlite3 (mais confiável)
+            source = sqlite3.connect(str(DB_PATH), timeout=30)
+            dest = sqlite3.connect(str(temp_clean), timeout=30)
             
-            if dump_result.returncode != 0:
-                st.error(f"❌ Erro ao exportar dados: {dump_result.stderr}")
-                shutil.rmtree(temp_dir)
-                return
+            with source:
+                source.backup(dest)
             
-            # Restaurar em banco limpo
-            restore_result = subprocess.run(
-                ["sqlite3", str(temp_clean)],
-                input=dump_result.stdout,
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
+            source.close()
             
-            if restore_result.returncode != 0:
-                st.error(f"❌ Erro ao criar banco limpo: {restore_result.stderr}")
-                shutil.rmtree(temp_dir)
-                return
+            # Otimizar banco destino
+            with dest:
+                dest.execute("PRAGMA integrity_check")
+                dest.execute("VACUUM")
+            dest.close()
             
             # Ler arquivo limpo
             with open(temp_clean, "rb") as fp:
@@ -70,12 +57,15 @@ def download_db():
                 help="Banco de dados validado, consolidado e livre de corrupção WAL"
             )
             
-        except subprocess.TimeoutExpired:
-            st.error("❌ Timeout ao processar banco de dados")
         except Exception as e:
             st.error(f"⚠️ Erro ao preparar download: {e}")
             st.info("Tentando download direto (pode conter WAL não consolidado)...")
             # Fallback: download direto
+            try:
+                with sqlite3.connect(DB_PATH) as conn:
+                    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            except:
+                pass
             with open(DB_PATH, "rb") as fp:
                 db_data = fp.read()
             st.download_button(
@@ -98,7 +88,6 @@ def upload_db():
     )
     if uploaded_file is not None:
         import tempfile
-        import subprocess
         
         # Salvar arquivo temporário
         temp_dir = tempfile.mkdtemp()
@@ -109,43 +98,38 @@ def upload_db():
             f.write(uploaded_file.getbuffer())
         
         try:
-            # Verificar integridade e consolidar WAL
-            with sqlite3.connect(str(temp_uploaded), timeout=10) as test_conn:
-                result = test_conn.execute("PRAGMA integrity_check").fetchone()
+            st.info("🔄 Validando e limpando banco de dados...")
+            
+            # Verificar integridade e consolidar WAL usando API Python nativa
+            source_conn = sqlite3.connect(str(temp_uploaded), timeout=30)
+            
+            try:
+                result = source_conn.execute("PRAGMA integrity_check").fetchone()
                 if result[0] != "ok":
                     st.error(f"❌ Arquivo de backup está corrompido: {result[0]}")
+                    source_conn.close()
                     shutil.rmtree(temp_dir)
                     return
                 
                 # Consolidar WAL
-                test_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-                test_conn.execute("VACUUM")
-            
-            # Criar versão limpa via dump/restore
-            st.info("🔄 Validando e limpando banco de dados...")
-            dump_result = subprocess.run(
-                ["sqlite3", str(temp_uploaded), ".dump"],
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            
-            if dump_result.returncode != 0:
-                st.error(f"❌ Erro ao exportar dados: {dump_result.stderr}")
-                shutil.rmtree(temp_dir)
-                return
-            
-            # Restaurar em banco limpo
-            restore_result = subprocess.run(
-                ["sqlite3", str(temp_clean)],
-                input=dump_result.stdout,
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            
-            if restore_result.returncode != 0:
-                st.error(f"❌ Erro ao restaurar dados: {restore_result.stderr}")
+                source_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                source_conn.execute("VACUUM")
+                
+                # Criar versão limpa usando backup API
+                dest_conn = sqlite3.connect(str(temp_clean), timeout=30)
+                source_conn.backup(dest_conn)
+                source_conn.close()
+                
+                # Otimizar destino
+                dest_conn.execute("VACUUM")
+                dest_conn.close()
+                
+            except sqlite3.DatabaseError as db_error:
+                st.error(f"❌ Erro no banco de dados: {db_error}")
+                try:
+                    source_conn.close()
+                except:
+                    pass
                 shutil.rmtree(temp_dir)
                 return
             
@@ -167,15 +151,12 @@ def upload_db():
             st.cache_data.clear()
             st.rerun()
             
-        except sqlite3.DatabaseError as e:
-            st.error(f"❌ Erro no banco de dados: {e}")
-            shutil.rmtree(temp_dir)
-        except subprocess.TimeoutExpired:
-            st.error("❌ Timeout ao processar banco de dados (arquivo muito grande)")
-            shutil.rmtree(temp_dir)
         except Exception as e:
             st.error(f"❌ Erro inesperado: {e}")
-            shutil.rmtree(temp_dir)
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
 
 def listar_tabelas():
     """Retorna o nome de todas as tabelas do banco de dados."""
