@@ -85,13 +85,19 @@ def upload_db():
     st.error("🚨 **ATENÇÃO: SUBSTITUIÇÃO COMPLETA DO BANCO**")
     st.warning("⚠️ Esta operação irá **DELETAR E SUBSTITUIR TODO O BANCO DE DADOS**. Um backup automático será criado antes da substituição.")
     
+    # Inicializar controle de importação no session_state
+    if 'import_in_progress' not in st.session_state:
+        st.session_state.import_in_progress = False
+    
     uploaded_file = st.file_uploader(
         "Faça upload de um arquivo .db (SQLite) ou .sql (dump MySQL/SQLite)",
         type=["db", "sqlite", "sql"],
         key="upload_whole_db",
         help="Arquivos .db: banco SQLite completo | Arquivos .sql: dump SQL (converte MySQL→SQLite automaticamente)"
     )
-    if uploaded_file is not None:
+    
+    # Evitar reprocessamento após rerun
+    if uploaded_file is not None and not st.session_state.import_in_progress:
         import tempfile
         import re
         
@@ -100,6 +106,9 @@ def upload_db():
         
         if file_extension == 'sql':
             # ===== IMPORTAÇÃO DE ARQUIVO SQL =====
+            # Marcar que importação está em progresso
+            st.session_state.import_in_progress = True
+            
             st.info("📄 Detectado arquivo SQL - Iniciando conversão e importação...")
             
             # Salvar arquivo SQL temporário
@@ -219,12 +228,15 @@ def upload_db():
                 if failed > 0:
                     st.warning(f"⚠️ {failed} comandos falharam (podem ser erros esperados de sintaxe)")
                 st.info("💾 Backup do banco anterior salvo em /backups/")
-                st.info("🔄 Recarregando aplicação com novo banco...")
                 
+                # Limpar cache e resetar controle antes de recarregar
                 st.cache_data.clear()
+                st.session_state.import_in_progress = False
+                st.info("✅ Banco de dados importado com sucesso! Recarregando página...")
                 st.rerun()
                 
             except Exception as e:
+                st.session_state.import_in_progress = False  # Resetar em caso de erro
                 st.error(f"❌ Erro ao importar SQL: {e}")
                 import traceback
                 st.code(traceback.format_exc())
@@ -236,6 +248,9 @@ def upload_db():
         
         else:
             # ===== IMPORTAÇÃO DE ARQUIVO .DB =====
+            # Marcar que importação está em progresso
+            st.session_state.import_in_progress = True
+            
             import tempfile
         
             # Salvar arquivo temporário
@@ -297,10 +312,14 @@ def upload_db():
                 
                 st.success("✅ Banco de dados .db validado e restaurado com sucesso!")
                 st.info("💾 Um backup do banco anterior foi salvo na pasta 'backups'")
+                
+                # Limpar cache e resetar controle antes de recarregar
                 st.cache_data.clear()
+                st.session_state.import_in_progress = False
                 st.rerun()
                 
             except Exception as e:
+                st.session_state.import_in_progress = False  # Resetar em caso de erro
                 st.error(f"❌ Erro inesperado: {e}")
                 import traceback
                 st.code(traceback.format_exc())
