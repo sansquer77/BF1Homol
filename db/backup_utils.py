@@ -182,8 +182,8 @@ def upload_db():
                 conn = sqlite3.connect(str(temp_new_db), timeout=300, isolation_level='DEFERRED')
                 cursor = conn.cursor()
                 cursor.execute("PRAGMA foreign_keys=OFF")
-                cursor.execute("PRAGMA synchronous=OFF")  # Mais rápido
-                cursor.execute("PRAGMA journal_mode=MEMORY")  # Mais rápido
+                cursor.execute("PRAGMA synchronous=FULL")  # CRITICAL: FULL garante persistência
+                cursor.execute("PRAGMA journal_mode=WAL")  # WAL para performance mantendo segurança
                 cursor.execute("PRAGMA cache_size=10000")  # Cache maior para performance
                 cursor.execute("PRAGMA temp_store=MEMORY")  # Usar memória para temp
                 

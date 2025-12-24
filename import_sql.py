@@ -65,10 +65,10 @@ def import_sql(sql_file, db_path="bolao_f1.db"):
     conn = sqlite3.connect(str(db_path), timeout=300)
     cursor = conn.cursor()
     
-    # Otimizações
+    # Otimizações (CRITICAL: synchronous=FULL e journal_mode=WAL para persistência)
     cursor.execute("PRAGMA foreign_keys=OFF")
-    cursor.execute("PRAGMA synchronous=OFF")
-    cursor.execute("PRAGMA journal_mode=MEMORY")
+    cursor.execute("PRAGMA synchronous=FULL")  # FULL garante que dados sejam gravados
+    cursor.execute("PRAGMA journal_mode=WAL")  # WAL para performance mantendo segurança
     cursor.execute("PRAGMA cache_size=10000")
     cursor.execute("PRAGMA temp_store=MEMORY")
     
