@@ -72,8 +72,8 @@ def import_sql_file(sql_file_path, target_db_path=None):
 
         # Configuracoes de otimizacao
         cursor.execute("PRAGMA foreign_keys=OFF")
-        cursor.execute("PRAGMA synchronous=OFF")
-        cursor.execute("PRAGMA journal_mode=MEMORY")
+        cursor.execute("PRAGMA synchronous=FULL")
+
 
         stats = {
             'total_statements': len(statements),
