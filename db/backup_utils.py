@@ -262,6 +262,13 @@ def upload_db():
                 
                 shutil.rmtree(temp_dir)
                 
+                # CRÍTICO: Reinicializar pool com novo banco
+                from db.connection_pool import init_pool
+                try:
+                    init_pool(str(DB_PATH))  # Força criação de novo pool
+                except:
+                    pass
+                
                 # Limpar cache e criar mensagem de sucesso
                 st.cache_data.clear()
                 st.session_state['import_success'] = {
@@ -363,6 +370,13 @@ def upload_db():
                 
                 # Limpar temporários
                 shutil.rmtree(temp_dir)
+                
+                # CRÍTICO: Reinicializar pool com novo banco
+                from db.connection_pool import init_pool
+                try:
+                    init_pool(str(DB_PATH))  # Força criação de novo pool
+                except:
+                    pass
                 
                 # Limpar cache e criar mensagem de sucesso
                 st.cache_data.clear()
