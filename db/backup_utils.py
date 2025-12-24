@@ -81,6 +81,7 @@ def download_db():
         st.info(f"📍 Caminho esperado: {DB_PATH.absolute()}")
 
 def upload_db():
+        import sqlite3
     """Permite upload de um novo arquivo .db ou .sql, substituindo o banco atual."""
     
     # Mostrar mensagem de sucesso se houver importação recente
