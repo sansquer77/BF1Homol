@@ -81,8 +81,11 @@ def download_db():
 
 def upload_db():
     """Permite upload de um novo arquivo .db, substituindo o banco atual."""
+    st.error("🚨 **ATENÇÃO: SUBSTITUIÇÃO COMPLETA DO BANCO**")
+    st.warning("⚠️ Esta operação irá **DELETAR E SUBSTITUIR TODO O BANCO DE DADOS**. Um backup automático será criado antes da substituição.")
+    
     uploaded_file = st.file_uploader(
-        "Faça upload de um arquivo .db para substituir todo o banco atual",
+        "Faça upload de um arquivo .db para substituir COMPLETAMENTE o banco atual",
         type=["db", "sqlite"],
         key="upload_whole_db"
     )
@@ -215,7 +218,8 @@ def upload_tabela():
     
     tabela = st.selectbox("Escolha a tabela para sobrescrever:", tabelas, key="select_import")
     
-    st.warning("⚠️ **Atenção:** Esta operação irá **deletar todos os dados** da tabela selecionada e substituí-los pelo conteúdo do arquivo Excel.")
+    st.error("🚨 **ATENÇÃO: OPERAÇÃO DESTRUTIVA**")
+    st.warning("⚠️ Esta operação irá **DELETAR PERMANENTEMENTE TODOS OS DADOS** da tabela selecionada e substituí-los pelo conteúdo do arquivo Excel. Esta ação não pode ser desfeita!")
     
     uploaded_file = st.file_uploader(
         f"Upload do arquivo .xlsx para substituir dados da tabela '{tabela}'",
@@ -233,10 +237,11 @@ def upload_tabela():
         st.write(f"👀 Prévia dos dados ({len(df)} linhas):")
         st.dataframe(df.head(10))
 
-        if st.button("✅ Confirmar Importação", type="primary", use_container_width=True):
+        if st.button("✅ Confirmar Importação - SOBRESCREVER TODOS OS DADOS", type="primary", use_container_width=True):
             try:
-                with sqlite3.connect(DB_PATH) as conn:
+                with sqlite3.connect(DB_PATH, timeout=30) as conn:
                     conn.execute("PRAGMA foreign_keys=OFF")  # evita falhas ao limpar e regravar
+                    
                     # Garantir alinhamento de colunas antes de importar
                     cols_info = conn.execute(f"PRAGMA table_info('{tabela}')").fetchall()
                     if not cols_info:
@@ -251,15 +256,26 @@ def upload_tabela():
                         st.info(f"ℹ️ Colunas extras no Excel serão ignoradas: {extra_cols}")
                     df_alinhado = df[db_cols]
 
-                    backup_df = pd.read_sql(f'SELECT * FROM "{tabela}"', conn)
+                    # Contar registros atuais antes de deletar
+                    count_before = conn.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
 
+                    # DELETAR TODOS OS DADOS DA TABELA
                     conn.execute("BEGIN IMMEDIATE")  # bloqueio exclusivo para substituir tudo
                     conn.execute(f'DELETE FROM "{tabela}"')
+                    count_after_delete = conn.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
+                    
+                    # Inserir novos dados
                     df_alinhado.to_sql(tabela, conn, if_exists='append', index=False, method='multi')
+                    count_after_insert = conn.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
+                    
+                    conn.execute("PRAGMA foreign_keys=ON")  # reativar foreign keys
                     conn.commit()
 
-                st.success(f"✅ Tabela '{tabela}' atualizada com sucesso! {len(df_alinhado)} linhas importadas.")
-                st.info(f"💾 Backup da tabela anterior: {len(backup_df)} linhas")
+                st.success(f"✅ Tabela '{tabela}' completamente sobrescrita!")
+                st.info(f"🗑️ Registros deletados: {count_before}")
+                st.info(f"📥 Registros importados: {count_after_insert}")
+                st.cache_data.clear()
+                st.rerun()
             except Exception as e:
                 st.error(f"❌ Erro ao importar tabela: {e}")
                 st.info("💡 Verifique se as colunas do arquivo Excel correspondem exatamente às colunas da tabela.")
