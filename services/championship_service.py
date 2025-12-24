@@ -43,8 +43,6 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
             return True
     except Exception:
         return False
-    finally:
-        conn.close()
 
 def get_championship_bet(user_id: int, season: int | None = None):
     """Retorna a última aposta válida do usuário no campeonato para a temporada informada."""
@@ -96,8 +94,6 @@ def save_final_results(champion: str, vice: str, team: str, season: int | None =
             return True
     except Exception:
         return False
-    finally:
-        conn.close()
 
 def get_final_results(season: int | None = None):
     """Retorna o resultado oficial do campeonato para a temporada informada."""
