@@ -230,13 +230,16 @@ def upload_db():
                 progress_bar.empty()
                 status_text.empty()
                 
-                # IMPORTANTE: Fechar todas as conexões do pool antes de substituir o arquivo
-                from db.connection_pool import get_pool
+                # CRÍTICO: Fechar TODAS as conexões ANTES de substituir arquivo
+                from db.connection_pool import close_pool
                 try:
-                    pool = get_pool()
-                    pool.close_all()
-                except:
-                    pass  # Se não houver pool, ok
+                    close_pool()  # Fecha pool e libera locks
+                except Exception as e:
+                    st.warning(f"⚠️ Aviso ao fechar pool: {e}")
+                
+                # Pequena pausa para garantir que locks foram liberados
+                import time
+                time.sleep(0.5)
                 
                 # Criar backup do banco atual
                 if DB_PATH.exists():
@@ -261,14 +264,6 @@ def upload_db():
                     shm_file.unlink()
                 
                 shutil.rmtree(temp_dir)
-                
-                # CRÍTICO: Fechar pool para forçar recriação com novo banco
-                from db.connection_pool import close_pool
-                try:
-                    close_pool()  # Fecha pool atual, será recriado automaticamente na próxima consulta
-                except Exception as e:
-                    st.error(f"❌ Erro ao fechar pool de conexões: {e}")
-                    raise
                 
                 # Limpar cache e criar mensagem de sucesso
                 st.cache_data.clear()
@@ -339,13 +334,16 @@ def upload_db():
                     shutil.rmtree(temp_dir)
                     return
                 
-                # IMPORTANTE: Fechar todas as conexões do pool antes de substituir o arquivo
-                from db.connection_pool import get_pool
+                # CRÍTICO: Fechar TODAS as conexões ANTES de substituir arquivo
+                from db.connection_pool import close_pool
                 try:
-                    pool = get_pool()
-                    pool.close_all()
-                except:
-                    pass  # Se não houver pool, ok
+                    close_pool()  # Fecha pool e libera locks
+                except Exception as e:
+                    st.warning(f"⚠️ Aviso ao fechar pool: {e}")
+                
+                # Pequena pausa para garantir que locks foram liberados
+                import time
+                time.sleep(0.5)
                 
                 # Criar backup antes de sobrescrever
                 if DB_PATH.exists():
@@ -371,14 +369,6 @@ def upload_db():
                 
                 # Limpar temporários
                 shutil.rmtree(temp_dir)
-                
-                # CRÍTICO: Fechar pool para forçar recriação com novo banco
-                from db.connection_pool import close_pool
-                try:
-                    close_pool()  # Fecha pool atual, será recriado automaticamente na próxima consulta
-                except Exception as e:
-                    st.error(f"❌ Erro ao fechar pool de conexões: {e}")
-                    raise
                 
                 # Limpar cache e criar mensagem de sucesso
                 st.cache_data.clear()
