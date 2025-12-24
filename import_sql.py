@@ -16,7 +16,8 @@ try:
     from db.db_config import DB_PATH
     DEFAULT_DB_PATH = str(DB_PATH)
 except ImportError:
-    DEFAULT_DB_PATH = "/bolao_f1.db"
+    # Fallback: mesmo diretório do script
+    DEFAULT_DB_PATH = str(Path(__file__).parent / "bolao_f1.db")
 
 def convert_mysql_to_sqlite(sql_content):
     """Converte sintaxe MySQL para SQLite"""

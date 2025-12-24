@@ -99,9 +99,12 @@ class ConnectionPool:
 # Instância global do pool
 _pool: Optional[ConnectionPool] = None
 
-def init_pool(db_path: str = "/bolao_f1.db", pool_size: int = 5):
+def init_pool(db_path: str = None, pool_size: int = 5):
     """Inicializa o pool global"""
     global _pool
+    if db_path is None:
+        from db.db_config import DB_PATH
+        db_path = str(DB_PATH)
     _pool = ConnectionPool(db_path, pool_size)
 
 def get_pool() -> ConnectionPool:
