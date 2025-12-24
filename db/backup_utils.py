@@ -115,13 +115,10 @@ def upload_db():
         # Criar identificador único do arquivo
         file_id = f"{uploaded_file.name}_{uploaded_file.size}"
         
-        # Se já processamos este arquivo, não processar novamente
-        if st.session_state.last_uploaded_file == file_id:
+        # Se já processamos este arquivo E já temos sucesso, não processar novamente
+        if st.session_state.last_uploaded_file == file_id and 'import_success' not in st.session_state:
             st.info("⏸️ Arquivo já foi processado. Faça upload de outro arquivo ou recarregue a página para limpar.")
             return
-        
-        # Marcar que estamos processando ESTE arquivo
-        st.session_state.last_uploaded_file = file_id
         
         import tempfile
         import re
@@ -254,9 +251,9 @@ def upload_db():
                 shutil.copy2(temp_new_db, DB_PATH)
                 shutil.rmtree(temp_dir)
                 
-                # Limpar cache e resetar controle ANTES de recarregar (sem mensagens)
+                # Limpar cache e marcar sucesso ANTES de recarregar (sem mensagens)
                 st.cache_data.clear()
-                st.session_state.import_in_progress = False
+                st.session_state.last_uploaded_file = file_id  # Marcar como processado APÓS sucesso
                 st.session_state['import_success'] = {
                     'tables': len(tables_imported),
                     'records': total_records,
@@ -337,9 +334,9 @@ def upload_db():
                 # Limpar temporários
                 shutil.rmtree(temp_dir)
                 
-                # Limpar cache e resetar controle ANTES de recarregar (sem mensagens)
+                # Limpar cache e marcar sucesso ANTES de recarregar (sem mensagens)
                 st.cache_data.clear()
-                st.session_state.import_in_progress = False
+                st.session_state.last_uploaded_file = file_id  # Marcar como processado APÓS sucesso
                 st.session_state['import_success'] = {
                     'tables': 0,
                     'records': 0,
