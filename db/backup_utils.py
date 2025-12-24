@@ -279,6 +279,18 @@ def upload_db():
                 if not DB_PATH.exists() or DB_PATH.stat().st_size == 0:
                     raise Exception(f"Erro ao salvar banco: arquivo vazio ou não existe! Path: {DB_PATH}")
                 
+                # VERIFICAÇÃO IMEDIATA: Ler o arquivo copiado e mostrar contagens
+                st.info("🔍 Verificando dados no arquivo copiado ANTES de limpar...")
+                verify_conn = sqlite3.connect(str(DB_PATH), timeout=30)
+                verify_cursor = verify_conn.cursor()
+                verify_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+                verify_tables = verify_cursor.fetchall()
+                for t in verify_tables:
+                    verify_cursor.execute(f"SELECT COUNT(*) FROM \"{t[0]}\"")
+                    cnt = verify_cursor.fetchone()[0]
+                    st.write(f"   ✓ {t[0]}: {cnt} registros")
+                verify_conn.close()
+                
                 # IMPORTANTE: Remover arquivos WAL/SHM antigos que podem causar problemas
                 wal_file = Path(str(DB_PATH) + "-wal")
                 shm_file = Path(str(DB_PATH) + "-shm")
