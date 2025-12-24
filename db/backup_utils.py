@@ -182,8 +182,6 @@ def upload_db():
                             st.warning(f"⚠️ Erro {failed}: {str(e)[:80]}")
                 
                 conn.commit()  # Commit final
-                progress_bar.progress(1.0)
-                status_text.text(f"✅ Processamento concluído!")
                 
                 cursor.execute("PRAGMA foreign_keys=ON")
                 cursor.execute("VACUUM")  # Otimizar banco
@@ -192,10 +190,18 @@ def upload_db():
                 # Verificar dados importados
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
                 tables_imported = cursor.fetchall()
-                st.success(f"✅ {len(tables_imported)} tabelas importadas: {', '.join([t[0] for t in tables_imported])}")
-                st.info(f"📊 Total: {successful} comandos executados, {failed} erros")
+                
+                # Contar registros totais
+                total_records = 0
+                for table in tables_imported:
+                    cursor.execute(f"SELECT COUNT(*) FROM \"{table[0]}\"")
+                    total_records += cursor.fetchone()[0]
                 
                 conn.close()
+                
+                # Limpar elementos de progresso antes das mensagens finais
+                progress_bar.empty()
+                status_text.empty()
                 
                 # Criar backup do banco atual
                 if DB_PATH.exists():
@@ -203,15 +209,18 @@ def upload_db():
                     backup_path.mkdir(exist_ok=True)
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     shutil.copy2(DB_PATH, backup_path / f"backup_antes_sql_import_{timestamp}.db")
-                    st.info(f"💾 Backup do banco anterior salvo")
                 
                 # Substituir banco
                 shutil.copy2(temp_new_db, DB_PATH)
                 shutil.rmtree(temp_dir)
                 
-                st.success(f"✅ Importação SQL concluída! {successful} comandos executados")
+                # Mostrar resultado final
+                st.success(f"✅ Importação concluída: {len(tables_imported)} tabelas, {total_records} registros, {successful} comandos SQL")
                 if failed > 0:
                     st.warning(f"⚠️ {failed} comandos falharam (podem ser erros esperados de sintaxe)")
+                st.info("💾 Backup do banco anterior salvo em /backups/")
+                st.info("🔄 Recarregando aplicação com novo banco...")
+                
                 st.cache_data.clear()
                 st.rerun()
                 
