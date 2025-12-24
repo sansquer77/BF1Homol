@@ -126,6 +126,7 @@ def upload_db():
     
     st.error("🚨 **ATENÇÃO: SUBSTITUIÇÃO COMPLETA DO BANCO**")
     st.warning("⚠️ Esta operação irá **DELETAR E SUBSTITUIR TODO O BANCO DE DADOS**. Um backup automático será criado antes da substituição.")
+    st.caption(f"Arquivo de destino atual: {DB_PATH}")
     
     uploaded_file = st.file_uploader(
         "Faça upload de um arquivo .db (SQLite) ou .sql (dump MySQL/SQLite)",

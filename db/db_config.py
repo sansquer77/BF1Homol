@@ -8,9 +8,12 @@ from pathlib import Path
 import os
 
 # Caminho do banco de dados - suporta variável de ambiente
-DB_PATH = Path(os.environ.get("DATABASE_PATH", str(Path(__file__).parent.parent / "bolao_f1.db")))
-# Criar diretório de dados se não existir
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+# Padrão: /bolao_f1.db (raiz do servidor), podendo ser sobrescrito via DATABASE_PATH
+DB_PATH = Path(os.environ.get("DATABASE_PATH", "/bolao_f1.db"))
+
+# Criar diretório somente se não existir (evita tentar criar "/")
+if not DB_PATH.parent.exists():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # Configurações de Pool
 POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
