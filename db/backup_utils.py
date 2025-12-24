@@ -93,10 +93,21 @@ def upload_db():
             if info['errors'] > 0:
                 st.warning(f"⚠️ {info['errors']} comandos falharam (podem ser erros esperados de sintaxe)")
         st.info("💾 Backup do banco anterior salvo em /backups/")
-        st.warning("🔄 **IMPORTANTE:** Para ver os dados importados, você precisa REINICIAR o aplicativo!")
-        st.info("👉 **Como reiniciar:**\n- **Local:** Pare o terminal (Ctrl+C) e rode novamente `streamlit run main.py`\n- **Produção (Digital Ocean):** No painel, vá em Settings → clique em 'Restart' ou faça um novo deploy")
+        
+        # FORÇAR RESTART DO APLICATIVO PARA RECARREGAR CONEXÕES
+        st.warning("🔄 **Reiniciando aplicativo para carregar novos dados...**")
+        st.info("⏳ Aguarde alguns segundos e a página será recarregada automaticamente.")
+        
+        # Limpar flag antes de sair
         del st.session_state.import_success
-        return  # IMPORTANTE: Sair da função após mostrar sucesso
+        
+        # Aguardar um pouco para usuário ver a mensagem
+        import time
+        time.sleep(2)
+        
+        # Forçar término do processo - Digital Ocean vai reiniciar automaticamente
+        import os
+        os._exit(0)
     
     st.error("🚨 **ATENÇÃO: SUBSTITUIÇÃO COMPLETA DO BANCO**")
     st.warning("⚠️ Esta operação irá **DELETAR E SUBSTITUIR TODO O BANCO DE DADOS**. Um backup automático será criado antes da substituição.")
