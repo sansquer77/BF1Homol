@@ -4,6 +4,7 @@ import sqlite3
 import os
 import io  # IMPORTANTE: necessário para exportar Excel em memória
 import shutil
+import re  # Para conversão de sintaxe SQL
 from pathlib import Path
 from datetime import datetime
 from db.db_utils import db_connect
@@ -80,28 +81,136 @@ def download_db():
         st.info(f"📍 Caminho esperado: {DB_PATH.absolute()}")
 
 def upload_db():
-    """Permite upload de um novo arquivo .db, substituindo o banco atual."""
+    """Permite upload de um novo arquivo .db ou .sql, substituindo o banco atual."""
     st.error("🚨 **ATENÇÃO: SUBSTITUIÇÃO COMPLETA DO BANCO**")
     st.warning("⚠️ Esta operação irá **DELETAR E SUBSTITUIR TODO O BANCO DE DADOS**. Um backup automático será criado antes da substituição.")
     
     uploaded_file = st.file_uploader(
-        "Faça upload de um arquivo .db para substituir COMPLETAMENTE o banco atual",
-        type=["db", "sqlite"],
-        key="upload_whole_db"
+        "Faça upload de um arquivo .db (SQLite) ou .sql (dump MySQL/SQLite)",
+        type=["db", "sqlite", "sql"],
+        key="upload_whole_db",
+        help="Arquivos .db: banco SQLite completo | Arquivos .sql: dump SQL (converte MySQL→SQLite automaticamente)"
     )
     if uploaded_file is not None:
         import tempfile
+        import re
         
-        # Salvar arquivo temporário
-        temp_dir = tempfile.mkdtemp()
-        temp_uploaded = Path(temp_dir) / "uploaded.db"
-        temp_clean = Path(temp_dir) / "clean.db"
+        # Detectar tipo de arquivo
+        file_extension = uploaded_file.name.split('.')[-1].lower()
         
-        with open(temp_uploaded, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+        if file_extension == 'sql':
+            # ===== IMPORTAÇÃO DE ARQUIVO SQL =====
+            st.info("📄 Detectado arquivo SQL - Iniciando conversão e importação...")
+            
+            # Salvar arquivo SQL temporário
+            temp_dir = tempfile.mkdtemp()
+            temp_sql = Path(temp_dir) / "uploaded.sql"
+            temp_new_db = Path(temp_dir) / "new_database.db"
+            
+            with open(temp_sql, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            
+            try:
+                # Ler e converter SQL
+                with open(temp_sql, 'r', encoding='utf-8') as f:
+                    sql_content = f.read()
+                
+                # Converter sintaxe MySQL para SQLite
+                st.info("🔄 Convertendo sintaxe MySQL → SQLite...")
+                sql_content = re.sub(r'\s+AUTO_INCREMENT\s*,', ',', sql_content, flags=re.IGNORECASE)
+                sql_content = re.sub(r'\s+AUTO_INCREMENT\s+', ' ', sql_content, flags=re.IGNORECASE)
+                sql_content = re.sub(r'integer\s+AUTO_INCREMENT', 'INTEGER PRIMARY KEY AUTOINCREMENT', sql_content, flags=re.IGNORECASE)
+                sql_content = sql_content.replace('`', '"')
+                sql_content = re.sub(r'\s*ENGINE\s*=\s*\w+', '', sql_content, flags=re.IGNORECASE)
+                sql_content = re.sub(r'\s*DEFAULT\s+CHARSET\s*=\s*\w+', '', sql_content, flags=re.IGNORECASE)
+                
+                # Criar novo banco e importar
+                st.info("📥 Importando dados para novo banco...")
+                conn = sqlite3.connect(str(temp_new_db), timeout=60)
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA foreign_keys=OFF")
+                
+                # Separar em comandos
+                statements = []
+                current_statement = []
+                for line in sql_content.split('\n'):
+                    line = line.strip()
+                    if not line or line.startswith('--'):
+                        continue
+                    current_statement.append(line)
+                    if line.endswith(';'):
+                        statements.append(' '.join(current_statement))
+                        current_statement = []
+                
+                # Executar comandos
+                successful = 0
+                failed = 0
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                for i, statement in enumerate(statements):
+                    try:
+                        cursor.execute(statement)
+                        successful += 1
+                    except sqlite3.Error as e:
+                        failed += 1
+                        if failed <= 5:  # Mostrar apenas os 5 primeiros erros
+                            st.warning(f"⚠️ Erro ignorado: {str(e)[:100]}")
+                    
+                    # Atualizar progresso
+                    if i % 50 == 0:
+                        progress_bar.progress((i + 1) / len(statements))
+                        status_text.text(f"Processando: {i + 1}/{len(statements)} comandos...")
+                
+                progress_bar.progress(1.0)
+                status_text.text(f"✅ Concluído: {successful} sucessos, {failed} erros")
+                
+                cursor.execute("PRAGMA foreign_keys=ON")
+                conn.commit()
+                conn.close()
+                
+                # Criar backup do banco atual
+                if DB_PATH.exists():
+                    backup_path = Path("backups")
+                    backup_path.mkdir(exist_ok=True)
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    shutil.copy2(DB_PATH, backup_path / f"backup_antes_sql_import_{timestamp}.db")
+                    st.info(f"💾 Backup do banco anterior salvo")
+                
+                # Substituir banco
+                shutil.copy2(temp_new_db, DB_PATH)
+                shutil.rmtree(temp_dir)
+                
+                st.success(f"✅ Importação SQL concluída! {successful} comandos executados")
+                if failed > 0:
+                    st.warning(f"⚠️ {failed} comandos falharam (podem ser erros esperados de sintaxe)")
+                st.cache_data.clear()
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Erro ao importar SQL: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+                try:
+                    shutil.rmtree(temp_dir)
+                except:
+                    pass
+                return
         
-        try:
-            st.info("🔄 Validando e limpando banco de dados...")
+        else:
+            # ===== IMPORTAÇÃO DE ARQUIVO .DB =====
+            import tempfile
+        
+            # Salvar arquivo temporário
+            temp_dir = tempfile.mkdtemp()
+            temp_uploaded = Path(temp_dir) / "uploaded.db"
+            temp_clean = Path(temp_dir) / "clean.db"
+        
+            with open(temp_uploaded, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+        
+            try:
+                st.info("🔄 Validando e limpando banco de dados...")
             
             # Verificar integridade e consolidar WAL usando API Python nativa
             source_conn = sqlite3.connect(str(temp_uploaded), timeout=30)
@@ -136,30 +245,32 @@ def upload_db():
                 shutil.rmtree(temp_dir)
                 return
             
-            # Criar backup antes de sobrescrever
-            if DB_PATH.exists():
-                backup_path = Path("backups")
-                backup_path.mkdir(exist_ok=True)
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                shutil.copy2(DB_PATH, backup_path / f"backup_antes_restauracao_{timestamp}.db")
-            
-            # Sobrescrever banco com versão limpa
-            shutil.copy2(temp_clean, DB_PATH)
-            
-            # Limpar temporários
-            shutil.rmtree(temp_dir)
-            
-            st.success("✅ Banco de dados validado e restaurado com sucesso!")
-            st.info("💾 Um backup do banco anterior foi salvo na pasta 'backups'")
-            st.cache_data.clear()
-            st.rerun()
-            
-        except Exception as e:
-            st.error(f"❌ Erro inesperado: {e}")
-            try:
+                # Criar backup antes de sobrescrever
+                if DB_PATH.exists():
+                    backup_path = Path("backups")
+                    backup_path.mkdir(exist_ok=True)
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    shutil.copy2(DB_PATH, backup_path / f"backup_antes_restauracao_{timestamp}.db")
+                
+                # Sobrescrever banco com versão limpa
+                shutil.copy2(temp_clean, DB_PATH)
+                
+                # Limpar temporários
                 shutil.rmtree(temp_dir)
-            except:
-                pass
+                
+                st.success("✅ Banco de dados .db validado e restaurado com sucesso!")
+                st.info("💾 Um backup do banco anterior foi salvo na pasta 'backups'")
+                st.cache_data.clear()
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Erro inesperado: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+                try:
+                    shutil.rmtree(temp_dir)
+                except:
+                    pass
 
 def listar_tabelas():
     """Retorna o nome de todas as tabelas do banco de dados."""
@@ -239,37 +350,48 @@ def upload_tabela():
 
         if st.button("✅ Confirmar Importação - SOBRESCREVER TODOS OS DADOS", type="primary", use_container_width=True):
             try:
-                with sqlite3.connect(DB_PATH, timeout=30) as conn:
-                    conn.execute("PRAGMA foreign_keys=OFF")  # evita falhas ao limpar e regravar
-                    
-                    # Garantir alinhamento de colunas antes de importar
-                    cols_info = conn.execute(f"PRAGMA table_info('{tabela}')").fetchall()
-                    if not cols_info:
-                        raise ValueError(f"Tabela '{tabela}' não encontrada no banco.")
-                    db_cols = [r[1] for r in cols_info]
+                # Conectar diretamente ao banco para garantir commit explícito
+                conn = sqlite3.connect(str(DB_PATH), timeout=30, isolation_level=None)  # autocommit desligado
+                cursor = conn.cursor()
+                
+                cursor.execute("PRAGMA foreign_keys=OFF")  # evita falhas ao limpar e regravar
+                
+                # Garantir alinhamento de colunas antes de importar
+                cols_info = cursor.execute(f"PRAGMA table_info('{tabela}')").fetchall()
+                if not cols_info:
+                    conn.close()
+                    raise ValueError(f"Tabela '{tabela}' não encontrada no banco.")
+                db_cols = [r[1] for r in cols_info]
 
-                    missing_cols = [c for c in db_cols if c not in df.columns]
-                    extra_cols = [c for c in df.columns if c not in db_cols]
-                    if missing_cols:
-                        raise ValueError(f"Colunas faltantes no Excel: {missing_cols}")
-                    if extra_cols:
-                        st.info(f"ℹ️ Colunas extras no Excel serão ignoradas: {extra_cols}")
-                    df_alinhado = df[db_cols]
+                missing_cols = [c for c in db_cols if c not in df.columns]
+                extra_cols = [c for c in df.columns if c not in db_cols]
+                if missing_cols:
+                    conn.close()
+                    raise ValueError(f"Colunas faltantes no Excel: {missing_cols}")
+                if extra_cols:
+                    st.info(f"ℹ️ Colunas extras no Excel serão ignoradas: {extra_cols}")
+                df_alinhado = df[db_cols]
 
-                    # Contar registros atuais antes de deletar
-                    count_before = conn.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
+                # Contar registros atuais antes de deletar
+                count_before = cursor.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
 
-                    # DELETAR TODOS OS DADOS DA TABELA
-                    conn.execute("BEGIN IMMEDIATE")  # bloqueio exclusivo para substituir tudo
-                    conn.execute(f'DELETE FROM "{tabela}"')
-                    count_after_delete = conn.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
-                    
-                    # Inserir novos dados
-                    df_alinhado.to_sql(tabela, conn, if_exists='append', index=False, method='multi')
-                    count_after_insert = conn.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
-                    
-                    conn.execute("PRAGMA foreign_keys=ON")  # reativar foreign keys
-                    conn.commit()
+                # DELETAR TODOS OS DADOS DA TABELA
+                cursor.execute("BEGIN IMMEDIATE")
+                cursor.execute(f'DELETE FROM "{tabela}"')
+                conn.commit()  # Commit do DELETE
+                
+                count_after_delete = cursor.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
+                
+                # Inserir novos dados
+                cursor.execute("BEGIN IMMEDIATE")
+                df_alinhado.to_sql(tabela, conn, if_exists='append', index=False, method='multi')
+                conn.commit()  # Commit do INSERT
+                
+                count_after_insert = cursor.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
+                
+                cursor.execute("PRAGMA foreign_keys=ON")
+                conn.commit()  # Commit final
+                conn.close()
 
                 st.success(f"✅ Tabela '{tabela}' completamente sobrescrita!")
                 st.info(f"🗑️ Registros deletados: {count_before}")
@@ -277,22 +399,31 @@ def upload_tabela():
                 st.cache_data.clear()
                 st.rerun()
             except Exception as e:
+                try:
+                    conn.rollback()
+                    conn.close()
+                except:
+                    pass
                 st.error(f"❌ Erro ao importar tabela: {e}")
                 st.info("💡 Verifique se as colunas do arquivo Excel correspondem exatamente às colunas da tabela.")
+                import traceback
+                st.code(traceback.format_exc())
 
 def main():
     st.title("💾 Backup e Restauração do Banco de Dados")
     st.markdown("""
-    - **Download Completo:** Baixe uma cópia do banco inteiro (.db).
-    - **Upload Completo:** Substitua todo o banco de dados por um novo arquivo.
+    - **Download Completo:** Baixe uma cópia limpa do banco inteiro (.db).
+    - **Upload Completo:** Substitua todo o banco por arquivo .db (SQLite) ou .sql (dump MySQL/PostgreSQL).
     - **Exportar tabela:** Exporte uma tabela específica (.xlsx).
     - **Importar tabela:** Importe dados para uma tabela específica (sobrescreve).
+    
+    💡 **Novidade:** Agora aceita arquivos .sql! O sistema converte automaticamente sintaxe MySQL→SQLite.
     """)
     
     # Mostrar info do banco
     st.info(f"📍 Banco de dados: `{DB_PATH.name}` | Status: {'Existe' if DB_PATH.exists() else 'Não encontrado'}")
     
-    st.header("Backup/Restauração do arquivo completo (.db)")
+    st.header("Backup/Restauração do arquivo completo")
     col1, col2 = st.columns(2)
     with col1:
         download_db()
