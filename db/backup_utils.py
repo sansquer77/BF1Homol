@@ -117,12 +117,21 @@ def upload_db():
                 
                 # Converter sintaxe MySQL para SQLite
                 st.info("🔄 Convertendo sintaxe MySQL → SQLite...")
-                sql_content = re.sub(r'\s+AUTO_INCREMENT\s*,', ',', sql_content, flags=re.IGNORECASE)
-                sql_content = re.sub(r'\s+AUTO_INCREMENT\s+', ' ', sql_content, flags=re.IGNORECASE)
-                sql_content = re.sub(r'integer\s+AUTO_INCREMENT', 'INTEGER PRIMARY KEY AUTOINCREMENT', sql_content, flags=re.IGNORECASE)
+                
+                # Remover AUTO_INCREMENT mas marcar onde estava
+                sql_content = re.sub(r'`(\w+)`\s+integer\s+AUTO_INCREMENT', r'"\1" INTEGER PRIMARY KEY AUTOINCREMENT', sql_content, flags=re.IGNORECASE)
+                sql_content = re.sub(r'(\w+)\s+integer\s+AUTO_INCREMENT', r'\1 INTEGER PRIMARY KEY AUTOINCREMENT', sql_content, flags=re.IGNORECASE)
+                
+                # Remover PRIMARY KEY separado se já está na coluna
+                sql_content = re.sub(r',?\s*PRIMARY KEY\s*\([^)]+\)\s*', '', sql_content, flags=re.IGNORECASE)
+                
+                # Substituir backticks por aspas duplas
                 sql_content = sql_content.replace('`', '"')
+                
+                # Remover cláusulas MySQL-specific
                 sql_content = re.sub(r'\s*ENGINE\s*=\s*\w+', '', sql_content, flags=re.IGNORECASE)
                 sql_content = re.sub(r'\s*DEFAULT\s+CHARSET\s*=\s*\w+', '', sql_content, flags=re.IGNORECASE)
+                sql_content = re.sub(r'\s*COLLATE\s*=\s*\w+', '', sql_content, flags=re.IGNORECASE)
                 
                 # Criar novo banco e importar
                 st.info("📥 Importando dados para novo banco...")
