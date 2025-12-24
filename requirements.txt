@@ -2,46 +2,37 @@
 # Sistema de Bolão de Fórmula 1 com Performance e Segurança
 
 # Core Framework
-streamlit==1.28.1
-streamlit-option-menu==0.3.6
-extra-streamlit-components==0.1.56
+streamlit>=1.28.0
+streamlit-option-menu>=0.3.0
+extra-streamlit-components>=0.1.56
 
 # Database
 # sqlite3 já vem com Python
 
 # Segurança
-bcrypt==4.1.2
-cryptography==41.0.7
-PyJWT==2.10.1
+bcrypt>=4.1.0
+cryptography>=41.0.0
+PyJWT>=2.8.0
 
 # Data Processing
-pandas==2.1.4
-numpy==1.24.3
-openpyxl==3.1.5
+pandas>=2.2.0
+numpy>=1.26.0
+openpyxl>=3.1.0
 
 # Visualização
-plotly==5.18.0
-altair==5.2.0
-matplotlib==3.8.2
+plotly>=5.18.0
+altair>=5.2.0
+matplotlib>=3.8.0
 
 # Utilitários
-python-dotenv==1.0.0
-requests==2.31.0
+python-dotenv>=1.0.0
+requests>=2.31.0
 
 # FastF1 (opcional - para integração F1)
-FastF1==3.7.0
+# FastF1>=3.7.0
 
 # Logging e Monitoring
-python-json-logger==2.0.7
+python-json-logger>=2.0.0
 
 # API Integration
-httpx==0.25.2
-
-# Testing (opcional)
-pytest==7.4.3
-pytest-cov==4.1.0
-
-# Dev Tools (opcional)
-black==23.12.1
-flake8==6.1.0
-pylint==3.0.3
+httpx>=0.25.0

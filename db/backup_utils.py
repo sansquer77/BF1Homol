@@ -82,6 +82,19 @@ def download_db():
 
 def upload_db():
     """Permite upload de um novo arquivo .db ou .sql, substituindo o banco atual."""
+    
+    # Mostrar mensagem de sucesso se houver importação recente
+    if 'import_success' in st.session_state:
+        info = st.session_state.import_success
+        if info.get('type') == 'db':
+            st.success("✅ Banco de dados .db validado e restaurado com sucesso!")
+        else:
+            st.success(f"✅ Importação concluída: {info['tables']} tabelas, {info['records']} registros, {info['commands']} comandos SQL")
+            if info['errors'] > 0:
+                st.warning(f"⚠️ {info['errors']} comandos falharam (podem ser erros esperados de sintaxe)")
+        st.info("💾 Backup do banco anterior salvo em /backups/")
+        del st.session_state.import_success
+    
     st.error("🚨 **ATENÇÃO: SUBSTITUIÇÃO COMPLETA DO BANCO**")
     st.warning("⚠️ Esta operação irá **DELETAR E SUBSTITUIR TODO O BANCO DE DADOS**. Um backup automático será criado antes da substituição.")
     
@@ -144,11 +157,13 @@ def upload_db():
                 
                 # Criar novo banco e importar
                 st.info("📥 Importando dados para novo banco...")
-                conn = sqlite3.connect(str(temp_new_db), timeout=120, isolation_level='DEFERRED')
+                conn = sqlite3.connect(str(temp_new_db), timeout=300, isolation_level='DEFERRED')
                 cursor = conn.cursor()
                 cursor.execute("PRAGMA foreign_keys=OFF")
                 cursor.execute("PRAGMA synchronous=OFF")  # Mais rápido
                 cursor.execute("PRAGMA journal_mode=MEMORY")  # Mais rápido
+                cursor.execute("PRAGMA cache_size=10000")  # Cache maior para performance
+                cursor.execute("PRAGMA temp_store=MEMORY")  # Usar memória para temp
                 
                 # Separar em comandos
                 statements = []
@@ -172,6 +187,7 @@ def upload_db():
                 status_text.text(f"Iniciando importação de {total} comandos...")
                 
                 cursor.execute("BEGIN")
+                last_update = 0
                 
                 for i, statement in enumerate(statements):
                     try:
@@ -182,8 +198,12 @@ def upload_db():
                         if i > 0 and i % 100 == 0:
                             conn.commit()
                             cursor.execute("BEGIN")
-                            progress_bar.progress(i / total)
-                            status_text.text(f"Importando: {i}/{total} comandos...")
+                            
+                            # Atualizar UI apenas a cada 100 comandos (não mais frequente)
+                            if i - last_update >= 100:
+                                progress_bar.progress(min(i / total, 0.99))
+                                status_text.text(f"Importando: {i}/{total} comandos ({int(i/total*100)}%)")
+                                last_update = i
                             
                     except sqlite3.Error as e:
                         failed += 1
@@ -191,6 +211,8 @@ def upload_db():
                             st.warning(f"⚠️ Erro {failed}: {str(e)[:80]}")
                 
                 conn.commit()  # Commit final
+                progress_bar.progress(1.0)
+                status_text.text(f"Finalizando importação...")
                 
                 cursor.execute("PRAGMA foreign_keys=ON")
                 cursor.execute("VACUUM")  # Otimizar banco
@@ -223,16 +245,15 @@ def upload_db():
                 shutil.copy2(temp_new_db, DB_PATH)
                 shutil.rmtree(temp_dir)
                 
-                # Mostrar resultado final
-                st.success(f"✅ Importação concluída: {len(tables_imported)} tabelas, {total_records} registros, {successful} comandos SQL")
-                if failed > 0:
-                    st.warning(f"⚠️ {failed} comandos falharam (podem ser erros esperados de sintaxe)")
-                st.info("💾 Backup do banco anterior salvo em /backups/")
-                
-                # Limpar cache e resetar controle antes de recarregar
+                # Limpar cache e resetar controle ANTES de recarregar (sem mensagens)
                 st.cache_data.clear()
                 st.session_state.import_in_progress = False
-                st.info("✅ Banco de dados importado com sucesso! Recarregando página...")
+                st.session_state['import_success'] = {
+                    'tables': len(tables_imported),
+                    'records': total_records,
+                    'commands': successful,
+                    'errors': failed
+                }
                 st.rerun()
                 
             except Exception as e:
@@ -310,12 +331,16 @@ def upload_db():
                 # Limpar temporários
                 shutil.rmtree(temp_dir)
                 
-                st.success("✅ Banco de dados .db validado e restaurado com sucesso!")
-                st.info("💾 Um backup do banco anterior foi salvo na pasta 'backups'")
-                
-                # Limpar cache e resetar controle antes de recarregar
+                # Limpar cache e resetar controle ANTES de recarregar (sem mensagens)
                 st.cache_data.clear()
                 st.session_state.import_in_progress = False
+                st.session_state['import_success'] = {
+                    'tables': 0,
+                    'records': 0,
+                    'commands': 0,
+                    'errors': 0,
+                    'type': 'db'
+                }
                 st.rerun()
                 
             except Exception as e:
