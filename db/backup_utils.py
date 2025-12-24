@@ -93,6 +93,8 @@ def upload_db():
             if info['errors'] > 0:
                 st.warning(f"⚠️ {info['errors']} comandos falharam (podem ser erros esperados de sintaxe)")
         st.info("💾 Backup do banco anterior salvo em /backups/")
+        st.warning("🔄 **IMPORTANTE:** Para ver os dados importados, você precisa REINICIAR o aplicativo!")
+        st.info("👉 **Como reiniciar:**\n- **Local:** Pare o terminal (Ctrl+C) e rode novamente `streamlit run main.py`\n- **Produção (Digital Ocean):** No painel, vá em Settings → clique em 'Restart' ou faça um novo deploy")
         del st.session_state.import_success
         return  # IMPORTANTE: Sair da função após mostrar sucesso
     
