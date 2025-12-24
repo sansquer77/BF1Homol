@@ -262,12 +262,12 @@ def upload_db():
                 
                 shutil.rmtree(temp_dir)
                 
-                # CRÍTICO: Reinicializar pool com novo banco
-                from db.connection_pool import init_pool
+                # CRÍTICO: Fechar pool para forçar recriação com novo banco
+                from db.connection_pool import close_pool
                 try:
-                    init_pool(str(DB_PATH))  # Força criação de novo pool
+                    close_pool()  # Fecha pool atual, será recriado automaticamente na próxima consulta
                 except Exception as e:
-                    st.error(f"❌ Erro ao reinicializar pool de conexões: {e}")
+                    st.error(f"❌ Erro ao fechar pool de conexões: {e}")
                     raise
                 
                 # Limpar cache e criar mensagem de sucesso
@@ -372,12 +372,12 @@ def upload_db():
                 # Limpar temporários
                 shutil.rmtree(temp_dir)
                 
-                # CRÍTICO: Reinicializar pool com novo banco
-                from db.connection_pool import init_pool
+                # CRÍTICO: Fechar pool para forçar recriação com novo banco
+                from db.connection_pool import close_pool
                 try:
-                    init_pool(str(DB_PATH))  # Força criação de novo pool
+                    close_pool()  # Fecha pool atual, será recriado automaticamente na próxima consulta
                 except Exception as e:
-                    st.error(f"❌ Erro ao reinicializar pool de conexões: {e}")
+                    st.error(f"❌ Erro ao fechar pool de conexões: {e}")
                     raise
                 
                 # Limpar cache e criar mensagem de sucesso
@@ -530,12 +530,12 @@ def upload_tabela():
                 conn.commit()  # Commit final
                 conn.close()
                 
-                # CRÍTICO: Reinicializar pool após modificar dados
-                from db.connection_pool import init_pool
+                # CRÍTICO: Fechar pool para forçar recriação após modificar dados
+                from db.connection_pool import close_pool
                 try:
-                    init_pool(str(DB_PATH))
+                    close_pool()  # Fecha pool atual, será recriado automaticamente na próxima consulta
                 except Exception as e:
-                    st.error(f"❌ Erro ao reinicializar pool de conexões: {e}")
+                    st.error(f"❌ Erro ao fechar pool de conexões: {e}")
                     raise
 
                 st.success(f"✅ Tabela '{tabela}' completamente sobrescrita!")
