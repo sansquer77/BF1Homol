@@ -89,7 +89,6 @@ def upload_db():
         
         # Debug: verificar arquivo DIRETAMENTE (sem pool/cache)
         try:
-            import sqlite3
             direct_conn = sqlite3.connect(str(DB_PATH))
             cursor = direct_conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM usuarios")
