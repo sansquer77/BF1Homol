@@ -82,7 +82,7 @@ def download_db():
 
 def upload_db():
         import sqlite3
-    """Permite upload de um novo arquivo .db ou .sql, substituindo o banco atual."""
+        """Permite upload de um novo arquivo .db ou .sql, substituindo o banco atual."""
     
     # Mostrar mensagem de sucesso se houver importação recente
     if 'import_success' in st.session_state:
