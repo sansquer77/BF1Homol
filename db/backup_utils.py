@@ -87,40 +87,19 @@ def upload_db():
     if 'import_success' in st.session_state:
         info = st.session_state.import_success
         
-        # Debug: mostrar caminho e tamanho do arquivo
-        st.code(f"DB_PATH = {DB_PATH}\nExiste: {DB_PATH.exists()}\nTamanho: {DB_PATH.stat().st_size if DB_PATH.exists() else 'N/A'} bytes")
-        
-        # Debug: verificar arquivo DIRETAMENTE (sem pool/cache)
-        try:
-            direct_conn = sqlite3.connect(str(DB_PATH))
-            cursor = direct_conn.cursor()
-            # Listar todas as tabelas e contagens
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-            tables = cursor.fetchall()
-            st.write(f"📋 Tabelas encontradas: {[t[0] for t in tables]}")
-            for table in tables:
-                cursor.execute(f"SELECT COUNT(*) FROM \"{table[0]}\"")
-                count = cursor.fetchone()[0]
-                st.write(f"   • {table[0]}: {count} registros")
-            direct_conn.close()
-        except Exception as e:
-            st.error(f"❌ Erro ao ler arquivo direto: {e}")
-        
         if info.get('type') == 'db':
             st.success("✅ Banco de dados .db validado e restaurado com sucesso!")
         else:
-            st.success(f"✅ Importação concluída: {info['tables']} tabelas, {info['records']} registros, {info['commands']} comandos SQL")
+            st.success(f"✅ Importação concluída: {info['tables']} tabelas, {info['records']} registros")
             if info['errors'] > 0:
                 st.warning(f"⚠️ {info['errors']} comandos falharam (podem ser erros esperados de sintaxe)")
-            if 'db_size' in info:
-                st.info(f"📊 Tamanho do banco: {info['db_size'] / 1024:.1f} KB")
+        st.info(f"📊 Tamanho do banco: {info.get('db_size', 0) / 1024:.1f} KB")
         st.info("💾 Backup do banco anterior salvo em /backups/")
         del st.session_state.import_success
         return  # IMPORTANTE: Sair da função após mostrar sucesso
     
     st.error("🚨 **ATENÇÃO: SUBSTITUIÇÃO COMPLETA DO BANCO**")
     st.warning("⚠️ Esta operação irá **DELETAR E SUBSTITUIR TODO O BANCO DE DADOS**. Um backup automático será criado antes da substituição.")
-    st.caption(f"Arquivo de destino atual: {DB_PATH}")
     
     uploaded_file = st.file_uploader(
         "Faça upload de um arquivo .db (SQLite) ou .sql (dump MySQL/SQLite)",
@@ -248,9 +227,6 @@ def upload_db():
                     cursor.execute(f"SELECT COUNT(*) FROM \"{table[0]}\"")
                     total_records += cursor.fetchone()[0]
                 
-                # Debug: mostrar contagens no banco temporário ANTES de fechar
-                st.info(f"📊 Dados no banco temporário: {total_records} registros em {len(tables_imported)} tabelas")
-                
                 conn.close()
                 
                 # Limpar elementos de progresso antes das mensagens finais
@@ -262,11 +238,11 @@ def upload_db():
                 try:
                     close_pool()  # Fecha pool e libera locks
                 except Exception as e:
-                    st.warning(f"⚠️ Aviso ao fechar pool: {e}")
+                    pass  # Ignorar se pool não existir
                 
                 # Pequena pausa para garantir que locks foram liberados
                 import time
-                time.sleep(0.5)
+                time.sleep(0.3)
                 
                 # Criar backup do banco atual
                 if DB_PATH.exists():
@@ -274,11 +250,6 @@ def upload_db():
                     backup_path.mkdir(exist_ok=True)
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     shutil.copy2(DB_PATH, backup_path / f"backup_antes_sql_import_{timestamp}.db")
-                
-                # CRÍTICO: Usar API de backup do SQLite ao invés de shutil.copy2
-                # Isso garante que todos os dados (incluindo WAL) sejam copiados corretamente
-                st.info(f"📋 Usando SQLite backup API: {temp_new_db} → {DB_PATH}")
-                st.info(f"📋 Tamanho fonte: {temp_new_db.stat().st_size} bytes")
                 
                 # Remover arquivo destino antigo e seus WAL/SHM
                 if DB_PATH.exists():
@@ -301,26 +272,9 @@ def upload_db():
                 dest_conn.execute("VACUUM")
                 dest_conn.close()
                 
-                st.info(f"📋 Tamanho destino: {DB_PATH.stat().st_size} bytes")
-                
                 # Verificar que o arquivo foi copiado corretamente
                 if not DB_PATH.exists() or DB_PATH.stat().st_size == 0:
                     raise Exception(f"Erro ao salvar banco: arquivo vazio ou não existe! Path: {DB_PATH}")
-                
-                # VERIFICAÇÃO IMEDIATA: Ler o arquivo copiado e mostrar contagens
-                st.info("🔍 Verificando dados no arquivo destino APÓS backup...")
-                verify_conn = sqlite3.connect(str(DB_PATH), timeout=30)
-                verify_cursor = verify_conn.cursor()
-                verify_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-                verify_tables = verify_cursor.fetchall()
-                verify_total = 0
-                for t in verify_tables:
-                    verify_cursor.execute(f"SELECT COUNT(*) FROM \"{t[0]}\"")
-                    cnt = verify_cursor.fetchone()[0]
-                    verify_total += cnt
-                    st.write(f"   ✓ {t[0]}: {cnt} registros")
-                verify_conn.close()
-                st.success(f"✅ Total verificado no destino: {verify_total} registros")
                 
                 # Remover WAL/SHM que podem ter sido criados
                 if wal_file.exists():

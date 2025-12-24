@@ -113,8 +113,6 @@ def get_pool() -> ConnectionPool:
     if _pool is None:
         # Importar aqui para evitar circular import
         from db.db_config import DB_PATH
-        import logging
-        logging.info(f"🔌 Criando pool com DB_PATH = {DB_PATH}")
         init_pool(str(DB_PATH))
     return _pool
 
