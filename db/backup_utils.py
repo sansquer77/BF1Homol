@@ -87,17 +87,31 @@ def upload_db():
     if 'import_success' in st.session_state:
         info = st.session_state.import_success
         
-        # Debug: verificar dados após importação
+        # Debug: verificar arquivo DIRETAMENTE (sem pool/cache)
+        try:
+            import sqlite3
+            direct_conn = sqlite3.connect(str(DB_PATH))
+            cursor = direct_conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM usuarios")
+            usuarios_direct = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM apostas")
+            apostas_direct = cursor.fetchone()[0]
+            direct_conn.close()
+            st.info(f"🔍 Arquivo direto: {usuarios_direct} usuários, {apostas_direct} apostas")
+        except Exception as e:
+            st.error(f"❌ Erro ao ler arquivo direto: {e}")
+        
+        # Debug: verificar dados PELO POOL
         try:
             with db_connect() as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT COUNT(*) FROM usuarios")
-                usuarios_count = cursor.fetchone()[0]
+                usuarios_pool = cursor.fetchone()[0]
                 cursor.execute("SELECT COUNT(*) FROM apostas")
-                apostas_count = cursor.fetchone()[0]
-                st.info(f"🔍 Debug: {usuarios_count} usuários, {apostas_count} apostas no banco atual")
+                apostas_pool = cursor.fetchone()[0]
+                st.info(f"🔍 Pelo pool: {usuarios_pool} usuários, {apostas_pool} apostas")
         except Exception as e:
-            st.warning(f"⚠️ Erro ao verificar dados: {e}")
+            st.warning(f"⚠️ Erro ao verificar pelo pool: {e}")
         
         if info.get('type') == 'db':
             st.success("✅ Banco de dados .db validado e restaurado com sucesso!")

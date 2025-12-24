@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 import datetime
 
-# Inicializar pool ao importar
-init_pool(str(DB_PATH))
+# NÃO inicializar pool aqui - será lazy-initialized em get_pool()
+# Isso evita criar pool com arquivo antigo antes da importação substituir
 
 # ============ FUNÇÕES DE CONEXÃO ============
 
