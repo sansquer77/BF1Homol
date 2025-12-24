@@ -7,6 +7,7 @@ import sqlite3
 import re
 from pathlib import Path
 from db.db_config import DB_PATH
+from db.connection_pool import close_pool, init_pool
 
 def convert_mysql_to_sqlite(sql_content):
     """Converte sintaxe MySQL para SQLite"""
@@ -49,6 +50,9 @@ def import_sql_file(sql_file_path, target_db_path=None):
         # Ler arquivo SQL
         with open(sql_file_path, 'r', encoding='utf-8') as f:
             sql_content = f.read()
+                # Fechar pool para evitar locks SQLite durante importacao
+    close_pool()
+
 
         # Converter sintaxe
         sql_content = convert_mysql_to_sqlite(sql_content)
@@ -114,6 +118,9 @@ def import_sql_file(sql_file_path, target_db_path=None):
         return (True, f"✅ Importacao concluida: {stats['successful']} comandos executados, {stats['failed']} erros", stats)
 
     except Exception as e:
+    
+    # Reinicializar pool apos importacao
+    init_pool()
         return (False, f"❌ Erro ao importar SQL: {str(e)}", {})
 
 if __name__ == "__main__":
