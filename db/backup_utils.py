@@ -232,6 +232,9 @@ def upload_db():
                 status_text.text(f"Finalizando importação...")
                 
                 cursor.execute("PRAGMA foreign_keys=ON")
+                
+                # CRÍTICO: Consolidar WAL antes de fechar - força todos os dados para o arquivo principal
+                cursor.execute("PRAGMA wal_checkpoint(TRUNCATE)")
                 cursor.execute("VACUUM")  # Otimizar banco
                 conn.commit()
                 
@@ -244,6 +247,9 @@ def upload_db():
                 for table in tables_imported:
                     cursor.execute(f"SELECT COUNT(*) FROM \"{table[0]}\"")
                     total_records += cursor.fetchone()[0]
+                
+                # Debug: mostrar contagens no banco temporário ANTES de fechar
+                st.info(f"📊 Dados no banco temporário: {total_records} registros em {len(tables_imported)} tabelas")
                 
                 conn.close()
                 
@@ -269,10 +275,32 @@ def upload_db():
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     shutil.copy2(DB_PATH, backup_path / f"backup_antes_sql_import_{timestamp}.db")
                 
-                # Substituir banco
-                st.info(f"📋 Debug: Copiando {temp_new_db} → {DB_PATH}")
+                # CRÍTICO: Usar API de backup do SQLite ao invés de shutil.copy2
+                # Isso garante que todos os dados (incluindo WAL) sejam copiados corretamente
+                st.info(f"📋 Usando SQLite backup API: {temp_new_db} → {DB_PATH}")
                 st.info(f"📋 Tamanho fonte: {temp_new_db.stat().st_size} bytes")
-                shutil.copy2(temp_new_db, DB_PATH)
+                
+                # Remover arquivo destino antigo e seus WAL/SHM
+                if DB_PATH.exists():
+                    DB_PATH.unlink()
+                wal_file = Path(str(DB_PATH) + "-wal")
+                shm_file = Path(str(DB_PATH) + "-shm")
+                if wal_file.exists():
+                    wal_file.unlink()
+                if shm_file.exists():
+                    shm_file.unlink()
+                
+                # Usar backup API do sqlite3 (mais confiável que shutil.copy2)
+                source_conn = sqlite3.connect(str(temp_new_db), timeout=30)
+                dest_conn = sqlite3.connect(str(DB_PATH), timeout=30)
+                source_conn.backup(dest_conn)
+                source_conn.close()
+                
+                # Consolidar WAL no destino e fechar
+                dest_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                dest_conn.execute("VACUUM")
+                dest_conn.close()
+                
                 st.info(f"📋 Tamanho destino: {DB_PATH.stat().st_size} bytes")
                 
                 # Verificar que o arquivo foi copiado corretamente
@@ -280,20 +308,21 @@ def upload_db():
                     raise Exception(f"Erro ao salvar banco: arquivo vazio ou não existe! Path: {DB_PATH}")
                 
                 # VERIFICAÇÃO IMEDIATA: Ler o arquivo copiado e mostrar contagens
-                st.info("🔍 Verificando dados no arquivo copiado ANTES de limpar...")
+                st.info("🔍 Verificando dados no arquivo destino APÓS backup...")
                 verify_conn = sqlite3.connect(str(DB_PATH), timeout=30)
                 verify_cursor = verify_conn.cursor()
                 verify_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
                 verify_tables = verify_cursor.fetchall()
+                verify_total = 0
                 for t in verify_tables:
                     verify_cursor.execute(f"SELECT COUNT(*) FROM \"{t[0]}\"")
                     cnt = verify_cursor.fetchone()[0]
+                    verify_total += cnt
                     st.write(f"   ✓ {t[0]}: {cnt} registros")
                 verify_conn.close()
+                st.success(f"✅ Total verificado no destino: {verify_total} registros")
                 
-                # IMPORTANTE: Remover arquivos WAL/SHM antigos que podem causar problemas
-                wal_file = Path(str(DB_PATH) + "-wal")
-                shm_file = Path(str(DB_PATH) + "-shm")
+                # Remover WAL/SHM que podem ter sido criados
                 if wal_file.exists():
                     wal_file.unlink()
                 if shm_file.exists():
