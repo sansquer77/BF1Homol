@@ -87,30 +87,24 @@ def upload_db():
     if 'import_success' in st.session_state:
         info = st.session_state.import_success
         
+        # Debug: mostrar caminho e tamanho do arquivo
+        st.code(f"DB_PATH = {DB_PATH}\nExiste: {DB_PATH.exists()}\nTamanho: {DB_PATH.stat().st_size if DB_PATH.exists() else 'N/A'} bytes")
+        
         # Debug: verificar arquivo DIRETAMENTE (sem pool/cache)
         try:
             direct_conn = sqlite3.connect(str(DB_PATH))
             cursor = direct_conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM usuarios")
-            usuarios_direct = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM apostas")
-            apostas_direct = cursor.fetchone()[0]
+            # Listar todas as tabelas e contagens
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+            tables = cursor.fetchall()
+            st.write(f"📋 Tabelas encontradas: {[t[0] for t in tables]}")
+            for table in tables:
+                cursor.execute(f"SELECT COUNT(*) FROM \"{table[0]}\"")
+                count = cursor.fetchone()[0]
+                st.write(f"   • {table[0]}: {count} registros")
             direct_conn.close()
-            st.info(f"🔍 Arquivo direto: {usuarios_direct} usuários, {apostas_direct} apostas")
         except Exception as e:
             st.error(f"❌ Erro ao ler arquivo direto: {e}")
-        
-        # Debug: verificar dados PELO POOL
-        try:
-            with db_connect() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM usuarios")
-                usuarios_pool = cursor.fetchone()[0]
-                cursor.execute("SELECT COUNT(*) FROM apostas")
-                apostas_pool = cursor.fetchone()[0]
-                st.info(f"🔍 Pelo pool: {usuarios_pool} usuários, {apostas_pool} apostas")
-        except Exception as e:
-            st.warning(f"⚠️ Erro ao verificar pelo pool: {e}")
         
         if info.get('type') == 'db':
             st.success("✅ Banco de dados .db validado e restaurado com sucesso!")
