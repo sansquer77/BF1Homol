@@ -211,40 +211,40 @@ def upload_db():
         
             try:
                 st.info("🔄 Validando e limpando banco de dados...")
-            
-            # Verificar integridade e consolidar WAL usando API Python nativa
-            source_conn = sqlite3.connect(str(temp_uploaded), timeout=30)
-            
-            try:
-                result = source_conn.execute("PRAGMA integrity_check").fetchone()
-                if result[0] != "ok":
-                    st.error(f"❌ Arquivo de backup está corrompido: {result[0]}")
+                
+                # Verificar integridade e consolidar WAL usando API Python nativa
+                source_conn = sqlite3.connect(str(temp_uploaded), timeout=30)
+                
+                try:
+                    result = source_conn.execute("PRAGMA integrity_check").fetchone()
+                    if result[0] != "ok":
+                        st.error(f"❌ Arquivo de backup está corrompido: {result[0]}")
+                        source_conn.close()
+                        shutil.rmtree(temp_dir)
+                        return
+                    
+                    # Consolidar WAL
+                    source_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                    source_conn.execute("VACUUM")
+                    
+                    # Criar versão limpa usando backup API
+                    dest_conn = sqlite3.connect(str(temp_clean), timeout=30)
+                    source_conn.backup(dest_conn)
                     source_conn.close()
+                    
+                    # Otimizar destino
+                    dest_conn.execute("VACUUM")
+                    dest_conn.close()
+                    
+                except sqlite3.DatabaseError as db_error:
+                    st.error(f"❌ Erro no banco de dados: {db_error}")
+                    try:
+                        source_conn.close()
+                    except:
+                        pass
                     shutil.rmtree(temp_dir)
                     return
                 
-                # Consolidar WAL
-                source_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-                source_conn.execute("VACUUM")
-                
-                # Criar versão limpa usando backup API
-                dest_conn = sqlite3.connect(str(temp_clean), timeout=30)
-                source_conn.backup(dest_conn)
-                source_conn.close()
-                
-                # Otimizar destino
-                dest_conn.execute("VACUUM")
-                dest_conn.close()
-                
-            except sqlite3.DatabaseError as db_error:
-                st.error(f"❌ Erro no banco de dados: {db_error}")
-                try:
-                    source_conn.close()
-                except:
-                    pass
-                shutil.rmtree(temp_dir)
-                return
-            
                 # Criar backup antes de sobrescrever
                 if DB_PATH.exists():
                     backup_path = Path("backups")
