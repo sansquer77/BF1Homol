@@ -38,6 +38,13 @@ def main():
     
     # Seção: Editar Prova
     st.markdown("### ✏️ Editar Prova")
+        # Inicializar variáveis para evitar NameError
+    novo_nome = None
+    nova_data = None
+    horario_str = None
+    novo_status = None
+    novo_tipo = None
+    nova_temporada = None
     if not df.empty:
         provas = df["nome"].tolist()
         selected = st.selectbox("Selecione uma prova para editar", provas, key="sel_prova_edit")
