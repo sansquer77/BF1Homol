@@ -402,6 +402,32 @@ def upload_db():
                 # Limpar temporários
                 shutil.rmtree(temp_dir)
                 
+                # Debug: verificar arquivo DIRETAMENTE (sem pool/cache)
+                try:
+                    import sqlite3
+                    direct_conn = sqlite3.connect(str(DB_PATH))
+                    cursor = direct_conn.cursor()
+                    cursor.execute("SELECT COUNT(*) FROM usuarios")
+                    usuarios_direct = cursor.fetchone()[0]
+                    cursor.execute("SELECT COUNT(*) FROM apostas")
+                    apostas_direct = cursor.fetchone()[0]
+                    direct_conn.close()
+                    st.info(f"🔍 Arquivo direto: {usuarios_direct} usuários, {apostas_direct} apostas")
+                except Exception as e:
+                    st.error(f"❌ Erro ao ler arquivo direto: {e}")
+
+                # Debug: verificar dados PELO POOL (pool será recriado lazily)
+                try:
+                    with db_connect() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT COUNT(*) FROM usuarios")
+                        usuarios_pool = cursor.fetchone()[0]
+                        cursor.execute("SELECT COUNT(*) FROM apostas")
+                        apostas_pool = cursor.fetchone()[0]
+                        st.info(f"🔍 Pelo pool: {usuarios_pool} usuários, {apostas_pool} apostas")
+                except Exception as e:
+                    st.warning(f"⚠️ Erro ao verificar pelo pool: {e}")
+
                 # Limpar cache e criar mensagem de sucesso
                 st.cache_data.clear()
                 st.session_state['import_success'] = {
