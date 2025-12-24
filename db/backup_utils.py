@@ -86,6 +86,19 @@ def upload_db():
     # Mostrar mensagem de sucesso se houver importação recente
     if 'import_success' in st.session_state:
         info = st.session_state.import_success
+        
+        # Debug: verificar dados após importação
+        try:
+            with db_connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM usuarios")
+                usuarios_count = cursor.fetchone()[0]
+                cursor.execute("SELECT COUNT(*) FROM apostas")
+                apostas_count = cursor.fetchone()[0]
+                st.info(f"🔍 Debug: {usuarios_count} usuários, {apostas_count} apostas no banco atual")
+        except Exception as e:
+            st.warning(f"⚠️ Erro ao verificar dados: {e}")
+        
         if info.get('type') == 'db':
             st.success("✅ Banco de dados .db validado e restaurado com sucesso!")
         else:
@@ -249,7 +262,10 @@ def upload_db():
                     shutil.copy2(DB_PATH, backup_path / f"backup_antes_sql_import_{timestamp}.db")
                 
                 # Substituir banco
+                st.info(f"📋 Debug: Copiando {temp_new_db} → {DB_PATH}")
+                st.info(f"📋 Tamanho fonte: {temp_new_db.stat().st_size} bytes")
                 shutil.copy2(temp_new_db, DB_PATH)
+                st.info(f"📋 Tamanho destino: {DB_PATH.stat().st_size} bytes")
                 
                 # Verificar que o arquivo foi copiado corretamente
                 if not DB_PATH.exists() or DB_PATH.stat().st_size == 0:
@@ -353,7 +369,10 @@ def upload_db():
                     shutil.copy2(DB_PATH, backup_path / f"backup_antes_restauracao_{timestamp}.db")
                 
                 # Sobrescrever banco com versão limpa
+                st.info(f"📋 Debug: Copiando {temp_clean} → {DB_PATH}")
+                st.info(f"📋 Tamanho fonte: {temp_clean.stat().st_size} bytes")
                 shutil.copy2(temp_clean, DB_PATH)
+                st.info(f"📋 Tamanho destino: {DB_PATH.stat().st_size} bytes")
                 
                 # Verificar que o arquivo foi copiado corretamente
                 if not DB_PATH.exists() or DB_PATH.stat().st_size == 0:

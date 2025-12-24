@@ -107,7 +107,9 @@ def init_pool(db_path: str = "bolao_f1.db", pool_size: int = 5):
 def get_pool() -> ConnectionPool:
     """Retorna o pool global"""
     if _pool is None:
-        init_pool()
+        # Importar aqui para evitar circular import
+        from db.db_config import DB_PATH
+        init_pool(str(DB_PATH))
     return _pool
 
 def close_pool():
