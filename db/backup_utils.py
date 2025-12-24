@@ -135,9 +135,11 @@ def upload_db():
                 
                 # Criar novo banco e importar
                 st.info("📥 Importando dados para novo banco...")
-                conn = sqlite3.connect(str(temp_new_db), timeout=60)
+                conn = sqlite3.connect(str(temp_new_db), timeout=120, isolation_level='DEFERRED')
                 cursor = conn.cursor()
                 cursor.execute("PRAGMA foreign_keys=OFF")
+                cursor.execute("PRAGMA synchronous=OFF")  # Mais rápido
+                cursor.execute("PRAGMA journal_mode=MEMORY")  # Mais rápido
                 
                 # Separar em comandos
                 statements = []
@@ -151,31 +153,48 @@ def upload_db():
                         statements.append(' '.join(current_statement))
                         current_statement = []
                 
-                # Executar comandos
+                # Executar comandos em lotes
                 successful = 0
                 failed = 0
+                total = len(statements)
+                
                 progress_bar = st.progress(0)
                 status_text = st.empty()
+                status_text.text(f"Iniciando importação de {total} comandos...")
+                
+                cursor.execute("BEGIN")
                 
                 for i, statement in enumerate(statements):
                     try:
                         cursor.execute(statement)
                         successful += 1
+                        
+                        # Commit a cada 100 comandos para não perder progresso
+                        if i > 0 and i % 100 == 0:
+                            conn.commit()
+                            cursor.execute("BEGIN")
+                            progress_bar.progress(i / total)
+                            status_text.text(f"Importando: {i}/{total} comandos...")
+                            
                     except sqlite3.Error as e:
                         failed += 1
-                        if failed <= 5:  # Mostrar apenas os 5 primeiros erros
-                            st.warning(f"⚠️ Erro ignorado: {str(e)[:100]}")
-                    
-                    # Atualizar progresso
-                    if i % 50 == 0:
-                        progress_bar.progress((i + 1) / len(statements))
-                        status_text.text(f"Processando: {i + 1}/{len(statements)} comandos...")
+                        if failed <= 3:  # Mostrar apenas os 3 primeiros erros
+                            st.warning(f"⚠️ Erro {failed}: {str(e)[:80]}")
                 
+                conn.commit()  # Commit final
                 progress_bar.progress(1.0)
-                status_text.text(f"✅ Concluído: {successful} sucessos, {failed} erros")
+                status_text.text(f"✅ Processamento concluído!")
                 
                 cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.execute("VACUUM")  # Otimizar banco
                 conn.commit()
+                
+                # Verificar dados importados
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+                tables_imported = cursor.fetchall()
+                st.success(f"✅ {len(tables_imported)} tabelas importadas: {', '.join([t[0] for t in tables_imported])}")
+                st.info(f"📊 Total: {successful} comandos executados, {failed} erros")
+                
                 conn.close()
                 
                 # Criar backup do banco atual
