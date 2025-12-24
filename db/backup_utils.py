@@ -240,6 +240,14 @@ def upload_db():
                 progress_bar.empty()
                 status_text.empty()
                 
+                # IMPORTANTE: Fechar todas as conexões do pool antes de substituir o arquivo
+                from db.connection_pool import get_pool
+                try:
+                    pool = get_pool()
+                    pool.close_all()
+                except:
+                    pass  # Se não houver pool, ok
+                
                 # Criar backup do banco atual
                 if DB_PATH.exists():
                     backup_path = Path("backups")
@@ -249,6 +257,15 @@ def upload_db():
                 
                 # Substituir banco
                 shutil.copy2(temp_new_db, DB_PATH)
+                
+                # IMPORTANTE: Remover arquivos WAL/SHM antigos que podem causar problemas
+                wal_file = Path(str(DB_PATH) + "-wal")
+                shm_file = Path(str(DB_PATH) + "-shm")
+                if wal_file.exists():
+                    wal_file.unlink()
+                if shm_file.exists():
+                    shm_file.unlink()
+                
                 shutil.rmtree(temp_dir)
                 
                 # Limpar cache e marcar sucesso ANTES de recarregar (sem mensagens)
@@ -321,6 +338,14 @@ def upload_db():
                     shutil.rmtree(temp_dir)
                     return
                 
+                # IMPORTANTE: Fechar todas as conexões do pool antes de substituir o arquivo
+                from db.connection_pool import get_pool
+                try:
+                    pool = get_pool()
+                    pool.close_all()
+                except:
+                    pass  # Se não houver pool, ok
+                
                 # Criar backup antes de sobrescrever
                 if DB_PATH.exists():
                     backup_path = Path("backups")
@@ -330,6 +355,14 @@ def upload_db():
                 
                 # Sobrescrever banco com versão limpa
                 shutil.copy2(temp_clean, DB_PATH)
+                
+                # IMPORTANTE: Remover arquivos WAL/SHM antigos que podem causar problemas
+                wal_file = Path(str(DB_PATH) + "-wal")
+                shm_file = Path(str(DB_PATH) + "-shm")
+                if wal_file.exists():
+                    wal_file.unlink()
+                if shm_file.exists():
+                    shm_file.unlink()
                 
                 # Limpar temporários
                 shutil.rmtree(temp_dir)
