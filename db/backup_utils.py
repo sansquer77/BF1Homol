@@ -99,10 +99,6 @@ def upload_db():
     st.error("🚨 **ATENÇÃO: SUBSTITUIÇÃO COMPLETA DO BANCO**")
     st.warning("⚠️ Esta operação irá **DELETAR E SUBSTITUIR TODO O BANCO DE DADOS**. Um backup automático será criado antes da substituição.")
     
-    # Inicializar controle de importação no session_state
-    if 'last_uploaded_file' not in st.session_state:
-        st.session_state.last_uploaded_file = None
-    
     uploaded_file = st.file_uploader(
         "Faça upload de um arquivo .db (SQLite) ou .sql (dump MySQL/SQLite)",
         type=["db", "sqlite", "sql"],
@@ -110,15 +106,7 @@ def upload_db():
         help="Arquivos .db: banco SQLite completo | Arquivos .sql: dump SQL (converte MySQL→SQLite automaticamente)"
     )
     
-    # Evitar reprocessamento: só processar se for um arquivo DIFERENTE
     if uploaded_file is not None:
-        # Criar identificador único do arquivo
-        file_id = f"{uploaded_file.name}_{uploaded_file.size}"
-        
-        # Se já processamos este arquivo E já temos sucesso, não processar novamente
-        if st.session_state.last_uploaded_file == file_id and 'import_success' not in st.session_state:
-            st.info("⏸️ Arquivo já foi processado. Faça upload de outro arquivo ou recarregue a página para limpar.")
-            return
         
         import tempfile
         import re
@@ -268,9 +256,8 @@ def upload_db():
                 
                 shutil.rmtree(temp_dir)
                 
-                # Limpar cache e marcar sucesso ANTES de recarregar (sem mensagens)
+                # Limpar cache e criar mensagem de sucesso
                 st.cache_data.clear()
-                st.session_state.last_uploaded_file = file_id  # Marcar como processado APÓS sucesso
                 st.session_state['import_success'] = {
                     'tables': len(tables_imported),
                     'records': total_records,
@@ -280,7 +267,6 @@ def upload_db():
                 st.rerun()
                 
             except Exception as e:
-                st.session_state.last_uploaded_file = None  # Resetar em caso de erro
                 st.error(f"❌ Erro ao importar SQL: {e}")
                 import traceback
                 st.code(traceback.format_exc())
@@ -367,9 +353,8 @@ def upload_db():
                 # Limpar temporários
                 shutil.rmtree(temp_dir)
                 
-                # Limpar cache e marcar sucesso ANTES de recarregar (sem mensagens)
+                # Limpar cache e criar mensagem de sucesso
                 st.cache_data.clear()
-                st.session_state.last_uploaded_file = file_id  # Marcar como processado APÓS sucesso
                 st.session_state['import_success'] = {
                     'tables': 0,
                     'records': 0,
@@ -380,7 +365,6 @@ def upload_db():
                 st.rerun()
                 
             except Exception as e:
-                st.session_state.last_uploaded_file = None  # Resetar em caso de erro
                 st.error(f"❌ Erro inesperado: {e}")
                 import traceback
                 st.code(traceback.format_exc())
