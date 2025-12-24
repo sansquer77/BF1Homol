@@ -92,22 +92,11 @@ def upload_db():
             st.success(f"✅ Importação concluída: {info['tables']} tabelas, {info['records']} registros, {info['commands']} comandos SQL")
             if info['errors'] > 0:
                 st.warning(f"⚠️ {info['errors']} comandos falharam (podem ser erros esperados de sintaxe)")
+            if 'db_size' in info:
+                st.info(f"📊 Tamanho do banco: {info['db_size'] / 1024:.1f} KB")
         st.info("💾 Backup do banco anterior salvo em /backups/")
-        
-        # FORÇAR RESTART DO APLICATIVO PARA RECARREGAR CONEXÕES
-        st.warning("🔄 **Reiniciando aplicativo para carregar novos dados...**")
-        st.info("⏳ Aguarde alguns segundos e a página será recarregada automaticamente.")
-        
-        # Limpar flag antes de sair
         del st.session_state.import_success
-        
-        # Aguardar um pouco para usuário ver a mensagem
-        import time
-        time.sleep(2)
-        
-        # Forçar término do processo - Digital Ocean vai reiniciar automaticamente
-        import os
-        os._exit(0)
+        return  # IMPORTANTE: Sair da função após mostrar sucesso
     
     st.error("🚨 **ATENÇÃO: SUBSTITUIÇÃO COMPLETA DO BANCO**")
     st.warning("⚠️ Esta operação irá **DELETAR E SUBSTITUIR TODO O BANCO DE DADOS**. Um backup automático será criado antes da substituição.")
@@ -259,6 +248,10 @@ def upload_db():
                 # Substituir banco
                 shutil.copy2(temp_new_db, DB_PATH)
                 
+                # Verificar que o arquivo foi copiado corretamente
+                if not DB_PATH.exists() or DB_PATH.stat().st_size == 0:
+                    raise Exception(f"Erro ao salvar banco: arquivo vazio ou não existe! Path: {DB_PATH}")
+                
                 # IMPORTANTE: Remover arquivos WAL/SHM antigos que podem causar problemas
                 wal_file = Path(str(DB_PATH) + "-wal")
                 shm_file = Path(str(DB_PATH) + "-shm")
@@ -275,7 +268,8 @@ def upload_db():
                     'tables': len(tables_imported),
                     'records': total_records,
                     'commands': successful,
-                    'errors': failed
+                    'errors': failed,
+                    'db_size': DB_PATH.stat().st_size
                 }
                 st.rerun()
                 
@@ -355,6 +349,10 @@ def upload_db():
                 # Sobrescrever banco com versão limpa
                 shutil.copy2(temp_clean, DB_PATH)
                 
+                # Verificar que o arquivo foi copiado corretamente
+                if not DB_PATH.exists() or DB_PATH.stat().st_size == 0:
+                    raise Exception(f"Erro ao salvar banco: arquivo vazio ou não existe! Path: {DB_PATH}")
+                
                 # IMPORTANTE: Remover arquivos WAL/SHM antigos que podem causar problemas
                 wal_file = Path(str(DB_PATH) + "-wal")
                 shm_file = Path(str(DB_PATH) + "-shm")
@@ -373,7 +371,8 @@ def upload_db():
                     'records': 0,
                     'commands': 0,
                     'errors': 0,
-                    'type': 'db'
+                    'type': 'db',
+                    'db_size': DB_PATH.stat().st_size
                 }
                 st.rerun()
                 
