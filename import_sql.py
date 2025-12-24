@@ -11,6 +11,13 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
+# Importar caminho centralizado do banco
+try:
+    from db.db_config import DB_PATH
+    DEFAULT_DB_PATH = str(DB_PATH)
+except ImportError:
+    DEFAULT_DB_PATH = "/bolao_f1.db"
+
 def convert_mysql_to_sqlite(sql_content):
     """Converte sintaxe MySQL para SQLite"""
     print("🔄 Convertendo sintaxe MySQL → SQLite...")
@@ -32,8 +39,10 @@ def convert_mysql_to_sqlite(sql_content):
     
     return sql_content
 
-def import_sql(sql_file, db_path="bolao_f1.db"):
+def import_sql(sql_file, db_path=None):
     """Importa arquivo SQL para o banco SQLite"""
+    if db_path is None:
+        db_path = DEFAULT_DB_PATH
     
     if not Path(sql_file).exists():
         print(f"❌ Arquivo não encontrado: {sql_file}")
@@ -148,6 +157,6 @@ if __name__ == "__main__":
         sys.exit(1)
     
     sql_file = sys.argv[1]
-    db_path = sys.argv[2] if len(sys.argv) > 2 else "bolao_f1.db"
+    db_path = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_DB_PATH
     
     import_sql(sql_file, db_path)
