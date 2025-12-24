@@ -266,8 +266,9 @@ def upload_db():
                 from db.connection_pool import init_pool
                 try:
                     init_pool(str(DB_PATH))  # Força criação de novo pool
-                except:
-                    pass
+                except Exception as e:
+                    st.error(f"❌ Erro ao reinicializar pool de conexões: {e}")
+                    raise
                 
                 # Limpar cache e criar mensagem de sucesso
                 st.cache_data.clear()
@@ -375,8 +376,9 @@ def upload_db():
                 from db.connection_pool import init_pool
                 try:
                     init_pool(str(DB_PATH))  # Força criação de novo pool
-                except:
-                    pass
+                except Exception as e:
+                    st.error(f"❌ Erro ao reinicializar pool de conexões: {e}")
+                    raise
                 
                 # Limpar cache e criar mensagem de sucesso
                 st.cache_data.clear()
@@ -477,6 +479,14 @@ def upload_tabela():
 
         if st.button("✅ Confirmar Importação - SOBRESCREVER TODOS OS DADOS", type="primary", use_container_width=True):
             try:
+                # Fechar todas as conexões do pool antes de operação crítica
+                from db.connection_pool import get_pool
+                try:
+                    pool = get_pool()
+                    pool.close_all()
+                except:
+                    pass
+                
                 # Conectar diretamente ao banco para garantir commit explícito
                 conn = sqlite3.connect(str(DB_PATH), timeout=30, isolation_level=None)  # autocommit desligado
                 cursor = conn.cursor()
@@ -519,6 +529,14 @@ def upload_tabela():
                 cursor.execute("PRAGMA foreign_keys=ON")
                 conn.commit()  # Commit final
                 conn.close()
+                
+                # CRÍTICO: Reinicializar pool após modificar dados
+                from db.connection_pool import init_pool
+                try:
+                    init_pool(str(DB_PATH))
+                except Exception as e:
+                    st.error(f"❌ Erro ao reinicializar pool de conexões: {e}")
+                    raise
 
                 st.success(f"✅ Tabela '{tabela}' completamente sobrescrita!")
                 st.info(f"🗑️ Registros deletados: {count_before}")
