@@ -113,12 +113,12 @@ def main():
                     if "temporada" in cols:
                         c.execute(
                             "UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=?, temporada=? WHERE id=?",
-                            (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, nova_temporada, int(prova_row["id"]))
+                            (novo_nome, (nova_data.strftime('%Y-%m-%d') if nova_data is not None else str(prova_row["data"])), horario_str, novo_status, novo_tipo, nova_temporada, int(prova_row["id"]))
                         )
                     else:
                         c.execute(
                             "UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=? WHERE id=?",
-                            (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, int(prova_row["id"]))
+                            (novo_nome, (nova_data.strftime('%Y-%m-%d') if nova_data is not None else str(prova_row["data"])), horario_str, novo_status, novo_tipo, int(prova_row["id"]))
                         )
                     conn.commit()
                 
