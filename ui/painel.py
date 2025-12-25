@@ -59,7 +59,7 @@ def participante_view():
         temporada = st.session_state.get('temporada', str(datetime.datetime.now().year))
         # Fetch all provas (db_utils will filter by temporada when provided). We fetch without filter and
         # then restrict by the prova date to ensure only upcoming/current-year events are shown.
-        provas_df = get_provas_df(None)
+        provas_df = get_provas_df(temporada)
         try:
             if not provas_df.empty and 'data' in provas_df.columns:
                 provas_df['__data_dt'] = pd.to_datetime(provas_df['data'], errors='coerce')
