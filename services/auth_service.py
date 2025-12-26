@@ -1,30 +1,65 @@
-import bcrypt
 import jwt
 from datetime import datetime, timedelta, timezone
 import streamlit as st
 import extra_streamlit_components as stx
-from db.db_utils import db_connect
 import os
+import logging
 
-# Tentar obter JWT_SECRET de secrets, environment variables ou usar um padrão
-try:
-    JWT_SECRET = st.secrets.get("JWT_SECRET")
-except (FileNotFoundError, KeyError):
-    JWT_SECRET = None
+# Funções de hash/check de senha - importadas de db_utils para evitar duplicação
+# Re-exportadas aqui para manter compatibilidade com módulos que importam de auth_service
+from db.db_utils import db_connect, hash_password, check_password
 
-JWT_SECRET = JWT_SECRET or os.environ.get("JWT_SECRET") or "bf1dev_secret_key_2025"
+# Exportar explicitamente para manter compatibilidade
+__all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_token', 
+           'decode_token', 'create_token', 'cadastrar_usuario', 'get_user_by_email',
+           'get_user_by_id', 'set_auth_cookies', 'clear_auth_cookies']
+
+logger = logging.getLogger(__name__)
+
+# ============ CONFIGURAÇÃO JWT ============
+# JWT_SECRET DEVE ser configurado via st.secrets ou variável de ambiente
+# Em produção, NUNCA usar fallback hardcoded
+
+def _get_jwt_secret() -> str:
+    """Obtém JWT_SECRET de forma segura. Lança erro se não configurado em produção."""
+    secret = None
+    
+    # Tentar obter de st.secrets primeiro
+    try:
+        secret = st.secrets.get("JWT_SECRET")
+    except (FileNotFoundError, KeyError, AttributeError):
+        pass
+    
+    # Fallback para variável de ambiente
+    if not secret:
+        secret = os.environ.get("JWT_SECRET")
+    
+    # Verificar se está em ambiente de produção (Digital Ocean / Streamlit Cloud)
+    is_production = (
+        os.environ.get("STREAMLIT_SHARING") or 
+        os.environ.get("DIGITALOCEAN_APP_PLATFORM") or
+        os.environ.get("PRODUCTION") == "true"
+    )
+    
+    if not secret:
+        if is_production:
+            logger.critical("JWT_SECRET não configurado em ambiente de produção!")
+            raise RuntimeError(
+                "ERRO CRÍTICO DE SEGURANÇA: JWT_SECRET não está configurado. "
+                "Configure a variável de ambiente JWT_SECRET ou adicione em st.secrets."
+            )
+        else:
+            # Apenas em desenvolvimento local - com aviso
+            logger.warning(
+                "⚠️  JWT_SECRET não configurado - usando chave de desenvolvimento. "
+                "NÃO USE EM PRODUÇÃO!"
+            )
+            secret = "DEV_ONLY_bf1dev_secret_key_2025_NOT_FOR_PRODUCTION"
+    
+    return secret
+
+JWT_SECRET = _get_jwt_secret()
 JWT_EXP_MINUTES = 120
-
-# --- HASH E CHECK DE SENHA ---
-def hash_password(password: str) -> str:
-    """Gera um hash bcrypt para a senha fornecida."""
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode("utf-8")
-
-def check_password(password: str, hashed: str) -> bool:
-    """Valida uma senha em texto puro contra um hash bcrypt."""
-    if isinstance(hashed, str):
-        hashed = hashed.encode()
-    return bcrypt.checkpw(password.encode(), hashed)
 
 # --- AUTENTICAÇÃO ---
 def autenticar_usuario(email: str, senha: str):

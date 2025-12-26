@@ -1,6 +1,41 @@
 import pandas as pd
+import json
+import ast
 from datetime import datetime
 from db.db_utils import db_connect, get_provas_df, get_resultados_df
+
+
+def _parse_posicoes(posicoes_str: str) -> dict:
+    """
+    Converte string de posições para dicionário de forma segura.
+    Suporta formato JSON e formato Python dict (legado).
+    
+    Args:
+        posicoes_str: String com posições (JSON ou repr de dict Python)
+    
+    Returns:
+        Dicionário com posições {int: str}
+    """
+    if not posicoes_str:
+        return {}
+    
+    try:
+        # Tentar JSON primeiro (formato preferido)
+        return json.loads(posicoes_str)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    
+    try:
+        # Fallback para ast.literal_eval (formato legado Python dict)
+        # ast.literal_eval é seguro - apenas avalia literais Python
+        result = ast.literal_eval(posicoes_str)
+        if isinstance(result, dict):
+            # Converter chaves para int se necessário
+            return {int(k): v for k, v in result.items()}
+        return {}
+    except (ValueError, SyntaxError):
+        return {}
+
 
 def salvar_resultado_prova(prova_id: int, posicoes: dict) -> bool:
     """
@@ -31,10 +66,8 @@ def obter_resultado_prova(prova_id: int):
         c.execute("SELECT posicoes FROM resultados WHERE prova_id = ?", (prova_id,))
         row = c.fetchone()
     if row and row[0]:
-        try:
-            return eval(row[0])
-        except Exception:
-            return None
+        result = _parse_posicoes(row[0])
+        return result if result else None
     return None
 
 def listar_resultados_completos():
@@ -46,10 +79,7 @@ def listar_resultados_completos():
     lista = []
     for _, res in resultados.iterrows():
         prova_id = res['prova_id']
-        try:
-            posicoes = eval(res['posicoes'])
-        except Exception:
-            posicoes = {}
+        posicoes = _parse_posicoes(res['posicoes'])
         linha = {
             "Prova": provas.loc[prova_id]['nome'] if prova_id in provas.index else f"Prova {prova_id}",
             "Data": provas.loc[prova_id]['data'] if prova_id in provas.index else "",
