@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
 import ast
+from datetime import datetime
 
 from db.db_utils import db_connect, get_provas_df, get_pilotos_df, get_resultados_df
+from db.backup_utils import list_temporadas
 from services.bets_service import atualizar_classificacoes_todas_as_provas
 
 def resultados_view():
@@ -13,10 +15,33 @@ def resultados_view():
 
     st.title("Atualizar Resultado Manualmente")
 
-    provas = get_provas_df()
+    # Seletor de temporada
+    current_year = datetime.now().year
+    current_year_str = str(current_year)
+    try:
+        temporadas = list_temporadas() or []
+    except Exception:
+        temporadas = []
+    if not temporadas:
+        temporadas = [current_year_str]
+    if current_year_str not in temporadas:
+        temporadas.append(current_year_str)
+    temporadas = sorted(temporadas, reverse=True)
+    default_index = temporadas.index(current_year_str) if current_year_str in temporadas else 0
+    
+    temporada_selecionada = st.selectbox(
+        "🗓️ Temporada",
+        temporadas,
+        index=default_index,
+        key="resultados_temporada"
+    )
+    st.session_state["temporada"] = temporada_selecionada
+
+    # Buscar dados filtrados por temporada
+    provas = get_provas_df(temporada_selecionada)
     pilotos_df = get_pilotos_df()
     pilotos_ativos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
-    resultados_df = get_resultados_df()
+    resultados_df = get_resultados_df(temporada_selecionada)
 
     if len(provas) == 0 or len(pilotos_ativos_df) == 0:
         st.warning("Cadastre provas e pilotos ativos antes de lançar resultados.")
@@ -98,8 +123,8 @@ def resultados_view():
             st.rerun()
 
     st.markdown("---")
-    st.subheader("Resultados cadastrados")
-    resultados_df = get_resultados_df()
+    st.subheader(f"Resultados cadastrados - Temporada {temporada_selecionada}")
+    resultados_df = get_resultados_df(temporada_selecionada)
     provas_resultados = []
     for _, prova in provas.iterrows():
         res = resultados_df[resultados_df['prova_id'] == prova['id']]
