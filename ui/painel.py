@@ -63,7 +63,7 @@ def participante_view():
         try:
             if not provas_df.empty and 'data' in provas_df.columns:
                 provas_df['__data_dt'] = pd.to_datetime(provas_df['data'], errors='coerce')
-                provas = provas_df[provas_df['__data_dt'].dt.year == current_year]
+                provas = provas_df[provas_df['__data_dt'].dt.year == int(temporada)]
             else:
                 provas = pd.DataFrame()
         except Exception:
