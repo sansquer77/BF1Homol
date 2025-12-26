@@ -618,9 +618,31 @@ a:hover {
 }
 
 /* ============ HIDE STREAMLIT BRANDING ============ */
+/* Nota: NÃO esconder header pois contém o botão do menu no mobile */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-header {visibility: hidden;}
+
+/* Estilizar o header (contém botão hamburguer no mobile) */
+header[data-testid="stHeader"] {
+    background: transparent !important;
+    backdrop-filter: blur(var(--blur-amount)) !important;
+    -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
+}
+
+/* Botão hamburguer do menu mobile */
+button[data-testid="stSidebarCollapseButton"],
+button[data-testid="baseButton-headerNoPadding"] {
+    background: var(--glass-bg) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--border-radius-sm) !important;
+    color: var(--text-primary) !important;
+}
+
+button[data-testid="stSidebarCollapseButton"]:hover,
+button[data-testid="baseButton-headerNoPadding"]:hover {
+    background: var(--glass-bg-hover) !important;
+    border-color: var(--accent-color) !important;
+}
 
 /* ============ SAFE AREA PARA MOBILE (NOTCH) ============ */
 @supports (padding-top: env(safe-area-inset-top)) {
