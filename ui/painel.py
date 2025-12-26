@@ -265,7 +265,7 @@ def participante_view():
                 
                             # Load all provas (not filtered by temporada) to resolve prova names for any prova_id in history
                 
-                provas_nomes = [provas_df_all[provas_df_all['id'] == pid]['nome'].values[0] if len(provas_df_all[provas_df_all['id'] == pid]) > 0 else f"Prova {pid}" for pid in posicoes_part['prova_id']]
+                            provas_nomes = [provas_df_all[provas_df_all['id'] == pid]['nome'].values[0] if len(provas_df_all[provas_df_all['id'] == pid]) > 0 else f"Prova {pid}" for pid in posicoes_part['prova_id']]
                 fig_pos = go.Figure()
                 fig_pos.add_trace(go.Scatter(
                     x=provas_nomes,
