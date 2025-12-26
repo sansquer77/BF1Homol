@@ -260,7 +260,12 @@ def participante_view():
         if not df_posicoes.empty and {'usuario_id', 'prova_id', 'posicao'}.issubset(df_posicoes.columns):
             posicoes_part = df_posicoes[df_posicoes['usuario_id'] == user_id_logado].sort_values('prova_id')
             if not posicoes_part.empty:
-                provas_nomes = [provas_df[provas_df['id'] == pid]['nome'].values[0] for pid in posicoes_part['prova_id']]
+                            # Load all provas without temporada filter to resolve names for any prova_id in position history
+                            provas_df_all = get_provas_df(None)
+                
+                            # Load all provas (not filtered by temporada) to resolve prova names for any prova_id in history
+                
+                provas_nomes = [provas_df_all[provas_df_all['id'] == pid]['nome'].values[0] if len(provas_df_all[provas_df_all['id'] == pid]) > 0 else f"Prova {pid}" for pid in posicoes_part['prova_id']]
                 fig_pos = go.Figure()
                 fig_pos.add_trace(go.Scatter(
                     x=provas_nomes,
