@@ -5,6 +5,7 @@ enableCORS = false
 enableXsrfProtection = true
 headless = true
 maxUploadSize = 500
+enableStaticServing = true
 
 [browser]
 serverAddress = "0.0.0.0"
