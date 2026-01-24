@@ -1,4 +1,4 @@
-# BF1Dev 3.0 - Requirements
+# BF1 3.0 - Requirements
 # Sistema de Bolão de Fórmula 1 com Performance e Segurança
 
 # Core Framework

@@ -1,5 +1,5 @@
 /* 
- * BF1Dev - Tema Liquid Glass
+ * BF1 - Tema Liquid Glass
  * Inspirado no design Apple com efeitos de vidro e blur
  * Responsivo para mobile e desktop
  */
@@ -308,16 +308,30 @@ hr {
 
 /* ============ RESPONSIVIDADE MOBILE ============ */
 @media (max-width: 768px) {
-    /* Ajustar padding geral */
+    /* Ajustar padding geral - garantir que conteúdo não fique sob a sidebar */
     .main .block-container {
-        padding: 1rem 0.5rem !important;
+        padding: 1rem 1rem 1rem 1rem !important;
         max-width: 100% !important;
+        margin-left: 0 !important;
     }
     
-    /* Sidebar como overlay no mobile */
+    /* Garantir que o conteúdo principal tenha margem adequada */
+    .main {
+        margin-left: 0 !important;
+        padding-left: 0 !important;
+    }
+    
+    /* Sidebar como overlay no mobile - não empurrar conteúdo */
     [data-testid="stSidebar"] {
         min-width: 280px !important;
         max-width: 280px !important;
+        position: fixed !important;
+        z-index: 1000 !important;
+    }
+    
+    /* Quando sidebar está fechada, garantir que conteúdo ocupe toda a largura */
+    [data-testid="stSidebar"][aria-expanded="false"] ~ .main {
+        margin-left: 0 !important;
     }
     
     /* Tabs menores */
@@ -644,13 +658,33 @@ button[data-testid="baseButton-headerNoPadding"]:hover {
     border-color: var(--accent-color) !important;
 }
 
-/* ============ SAFE AREA PARA MOBILE (NOTCH) ============ */
+/* ============ SAFE AREA PARA MOBILE (NOTCH/DYNAMIC ISLAND) ============ */
 @supports (padding-top: env(safe-area-inset-top)) {
+    /* Aplicar safe area ao app inteiro */
+    .stApp {
+        padding-top: env(safe-area-inset-top) !important;
+        padding-left: env(safe-area-inset-left) !important;
+        padding-right: env(safe-area-inset-right) !important;
+        padding-bottom: env(safe-area-inset-bottom) !important;
+    }
+    
+    /* Conteúdo principal com padding adicional */
     .main .block-container {
         padding-top: max(1rem, env(safe-area-inset-top)) !important;
         padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
-        padding-left: max(0.5rem, env(safe-area-inset-left)) !important;
-        padding-right: max(0.5rem, env(safe-area-inset-right)) !important;
+        padding-left: max(1rem, env(safe-area-inset-left)) !important;
+        padding-right: max(1rem, env(safe-area-inset-right)) !important;
+    }
+    
+    /* Header com safe area */
+    header[data-testid="stHeader"] {
+        padding-top: env(safe-area-inset-top) !important;
+    }
+    
+    /* Sidebar com safe area */
+    [data-testid="stSidebar"] {
+        padding-top: env(safe-area-inset-top) !important;
+        padding-left: env(safe-area-inset-left) !important;
     }
 }
 

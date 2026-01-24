@@ -244,12 +244,20 @@ def upload_db():
                 import time
                 time.sleep(0.3)
                 
-                # Criar backup do banco atual
+                # Criar backup do banco atual usando sqlite3.backup (garante WAL)
                 if DB_PATH.exists():
                     backup_path = Path("backups")
                     backup_path.mkdir(exist_ok=True)
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    shutil.copy2(DB_PATH, backup_path / f"backup_antes_sql_import_{timestamp}.db")
+                    backup_file = backup_path / f"backup_antes_sql_import_{timestamp}.db"
+                    src = sqlite3.connect(str(DB_PATH), timeout=30)
+                    bkp = sqlite3.connect(str(backup_file), timeout=30)
+                    try:
+                        src.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                        src.backup(bkp)
+                    finally:
+                        src.close()
+                        bkp.close()
                 
                 # Remover arquivo destino antigo e seus WAL/SHM
                 if DB_PATH.exists():
@@ -364,17 +372,36 @@ def upload_db():
                 import time
                 time.sleep(0.5)
                 
-                # Criar backup antes de sobrescrever
+                # Criar backup antes de sobrescrever usando sqlite3.backup (garante WAL)
                 if DB_PATH.exists():
                     backup_path = Path("backups")
                     backup_path.mkdir(exist_ok=True)
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    shutil.copy2(DB_PATH, backup_path / f"backup_antes_restauracao_{timestamp}.db")
+                    backup_file = backup_path / f"backup_antes_restauracao_{timestamp}.db"
+                    src = sqlite3.connect(str(DB_PATH), timeout=30)
+                    bkp = sqlite3.connect(str(backup_file), timeout=30)
+                    try:
+                        src.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                        src.backup(bkp)
+                    finally:
+                        src.close()
+                        bkp.close()
                 
-                # Sobrescrever banco com versão limpa
+                # Sobrescrever banco com versão limpa usando sqlite3.backup (garante WAL)
                 st.info(f"📋 Debug: Copiando {temp_clean} → {DB_PATH}")
                 st.info(f"📋 Tamanho fonte: {temp_clean.stat().st_size} bytes")
-                shutil.copy2(temp_clean, DB_PATH)
+                
+                # Usar API de backup do SQLite para garantir integridade
+                src_conn = sqlite3.connect(str(temp_clean), timeout=30)
+                dst_conn = sqlite3.connect(str(DB_PATH), timeout=30)
+                try:
+                    src_conn.backup(dst_conn)
+                    dst_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                    dst_conn.execute("VACUUM")
+                finally:
+                    src_conn.close()
+                    dst_conn.close()
+                
                 st.info(f"📋 Tamanho destino: {DB_PATH.stat().st_size} bytes")
                 
                 # Verificar que o arquivo foi copiado corretamente
@@ -643,7 +670,8 @@ if __name__ == "__main__":
 
 def backup_banco(backup_dir: str = "backups") -> str:
     """
-    Cria um backup do banco de dados
+    Cria um backup do banco de dados usando a API de backup do SQLite.
+    Isso garante que todos os dados do WAL sejam incluídos no backup.
     
     Args:
         backup_dir: Diretório para armazenar backups
@@ -657,12 +685,25 @@ def backup_banco(backup_dir: str = "backups") -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_file = backup_path / f"backup_{timestamp}.db"
     
-    shutil.copy2(DB_PATH, backup_file)
+    # Usar API de backup do SQLite para garantir integridade (inclui WAL)
+    source_conn = sqlite3.connect(str(DB_PATH), timeout=30)
+    dest_conn = sqlite3.connect(str(backup_file), timeout=30)
+    
+    try:
+        # Consolidar WAL antes do backup
+        source_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        source_conn.backup(dest_conn)
+        dest_conn.execute("VACUUM")
+    finally:
+        source_conn.close()
+        dest_conn.close()
+    
     return str(backup_file)
 
 def restaurar_backup(backup_file: str) -> bool:
     """
-    Restaura o banco de dados a partir de um backup
+    Restaura o banco de dados a partir de um backup usando a API de backup do SQLite.
+    Isso garante que todos os dados do WAL sejam tratados corretamente.
     
     Args:
         backup_file: Caminho do arquivo de backup
@@ -674,7 +715,40 @@ def restaurar_backup(backup_file: str) -> bool:
         if not Path(backup_file).exists():
             return False
         
-        shutil.copy2(backup_file, DB_PATH)
+        # Fechar pool para evitar locks
+        from db.connection_pool import close_pool
+        try:
+            close_pool()
+        except:
+            pass
+        
+        # Remover arquivos WAL/SHM antigos que podem causar problemas
+        wal_file = Path(str(DB_PATH) + "-wal")
+        shm_file = Path(str(DB_PATH) + "-shm")
+        if wal_file.exists():
+            wal_file.unlink()
+        if shm_file.exists():
+            shm_file.unlink()
+        
+        # Usar API de backup do SQLite para garantir integridade
+        source_conn = sqlite3.connect(str(backup_file), timeout=30)
+        dest_conn = sqlite3.connect(str(DB_PATH), timeout=30)
+        
+        try:
+            source_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            source_conn.backup(dest_conn)
+            dest_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            dest_conn.execute("VACUUM")
+        finally:
+            source_conn.close()
+            dest_conn.close()
+        
+        # Remover arquivos WAL/SHM que podem ter sido criados
+        if wal_file.exists():
+            wal_file.unlink()
+        if shm_file.exists():
+            shm_file.unlink()
+        
         return True
     except Exception as e:
         print(f"Erro ao restaurar backup: {e}")

@@ -54,7 +54,7 @@ def _get_jwt_secret() -> str:
                 "⚠️  JWT_SECRET não configurado - usando chave de desenvolvimento. "
                 "NÃO USE EM PRODUÇÃO!"
             )
-            secret = "DEV_ONLY_bf1dev_secret_key_2025_NOT_FOR_PRODUCTION"
+            secret = "DEV_ONLY_bf1_secret_key_2025_NOT_FOR_PRODUCTION"
     
     return secret
 
@@ -170,10 +170,24 @@ def redefinir_senha_usuario(email: str):
     return True, (usuario[1], nova_senha)  # nome, nova_senha
 
 # --- CRIAÇÃO AUTOMÁTICA DO MASTER ---
+def _get_secret_value(*keys):
+    """Busca valor em múltiplas chaves (maiúscula/minúscula) em st.secrets e os.environ"""
+    for key in keys:
+        try:
+            value = st.secrets.get(key)
+            if value:
+                return value
+        except:
+            pass
+        value = os.environ.get(key)
+        if value:
+            return value
+    return None
+
 def criar_master_se_nao_existir():
-    nome = st.secrets.get('usuario_master') or os.environ.get('usuario_master')
-    email = st.secrets.get('email_master') or os.environ.get('email_master')
-    senha = st.secrets.get('senha_master') or os.environ.get('senha_master')
+    nome = _get_secret_value('USUARIO_MASTER', 'usuario_master')
+    email = _get_secret_value('EMAIL_MASTER', 'email_master')
+    senha = _get_secret_value('SENHA_MASTER', 'senha_master')
     if not (nome and email and senha):
         return
     with db_connect() as conn:

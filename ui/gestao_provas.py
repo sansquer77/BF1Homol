@@ -1,5 +1,5 @@
 """
-Gestão de Provas - BF1Dev 3.0
+Gestão de Provas - BF1 3.0
 Corrigido com context manager para pool de conexões
 Reorganizado em abas: Editar Provas / Adicionar Nova Prova
 """

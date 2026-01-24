@@ -1,5 +1,5 @@
 """
-Sistema de Login - BF1Dev 3.0
+Sistema de Login - BF1 3.0
 Melhorias:
 - Rate limiting para segurança
 - Bcrypt para verificação de senha

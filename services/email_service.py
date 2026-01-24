@@ -43,9 +43,9 @@ def enviar_email(destinatario: str, assunto: str, corpo_html: str) -> bool:
 def enviar_email_recuperacao_senha(email_usuario: str, nome_usuario: str, nova_senha: str):
     """Envia e-mail com senha temporária para o usuário."""
     corpo_html = f"""
-    <h3>Recuperação de Senha - BF1Dev</h3>
+    <h3>Recuperação de Senha - BF1</h3>
     <p>Olá, {nome_usuario}!</p>
     <p>Sua nova senha temporária é: <b>{nova_senha}</b></p>
     <p>Faça login e altere sua senha imediatamente após o acesso.</p>
     """
-    enviar_email(email_usuario, "Recuperação de Senha - BF1Dev", corpo_html)
+    enviar_email(email_usuario, "Recuperação de Senha - BF1", corpo_html)

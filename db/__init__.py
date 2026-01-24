@@ -1,5 +1,5 @@
 """
-Módulo de Banco de Dados - BF1Dev 3.0
+Módulo de Banco de Dados - BF1 3.0
 Inicializa pool de conexões, migrations e master user
 """
 
@@ -13,7 +13,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('bf1dev.log', encoding='utf-8')
+        logging.FileHandler('bf1.log', encoding='utf-8')
     ]
 )
 
@@ -78,7 +78,7 @@ from db.backup_utils import backup_banco, restaurar_backup
 def initialize_database():
     """Inicializa o banco de dados completo"""
     try:
-        logger.info("🚀 Inicializando BF1Dev 3.0 Database Layer...")
+        logger.info("🚀 Inicializando BF1 3.0 Database Layer...")
         
         logger.info("1️⃣  Inicializando pool de conexões...")
         init_pool(str(DB_PATH), POOL_SIZE)

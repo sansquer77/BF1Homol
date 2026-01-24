@@ -1,5 +1,5 @@
 """
-Gestão de Pilotos - BF1Dev 3.0
+Gestão de Pilotos - BF1 3.0
 Corrigido com context manager para pool de conexões
 Reorganizado em abas: Editar Pilotos / Adicionar Novo Piloto
 """

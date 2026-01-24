@@ -1,5 +1,5 @@
 """
-Módulo de Banco de Dados - BF1Dev 3.0
+Módulo de Banco de Dados - BF1 3.0
 Inicializa pool de conexões, migrations e master user
 """
 
@@ -13,7 +13,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('bf1dev.log', encoding='utf-8')
+        logging.FileHandler('bf1.log', encoding='utf-8')
     ]
 )
 
@@ -81,7 +81,7 @@ def initialize_database():
     Executa ordem correta: pool → db → migrations → master user
     """
     try:
-        logger.info("🚀 Inicializando BF1Dev 3.0 Database Layer...")
+        logger.info("🚀 Inicializando BF1 3.0 Database Layer...")
         
         # 1. Inicializar pool de conexões
         logger.info("1️⃣  Inicializando pool de conexões...")
