@@ -106,9 +106,9 @@ class MasterUserManager:
             return False
     
     @staticmethod
-        def _create_master() -> bool:
+    def _create_master() -> bool:
         """
-Cria usuário Master se não existir
+        Cria usuário Master se não existir
         
         Fluxo:
         1. Lê variáveis de ambiente
