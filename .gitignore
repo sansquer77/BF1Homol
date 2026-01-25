@@ -13,3 +13,8 @@ db/__pycache__/backup_utils.cpython-313.pyc
 db/__pycache__/migrations.cpython-313.pyc
 db/__pycache__/backup_utils.cpython-313.pyc
 bolao_f1_backup_20251223_194228.db
+*.md
+*.pyc
+*.log
+*.pyc
+/db/__pycache__
