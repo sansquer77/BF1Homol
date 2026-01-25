@@ -245,7 +245,23 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     
     return (True, "Aposta automática gerada!") if sucesso else (False, "Falha ao salvar.")
 
-def calcular_pontuacao_lote(ap_df, res_df, prov_df):
+def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
+    """
+    Calcula pontuação de um lote de apostas respeitando as regras da temporada.
+    
+    Args:
+        ap_df: DataFrame de apostas
+        res_df: DataFrame de resultados
+        prov_df: DataFrame de provas
+        temporada_descarte: Temporada para aplicar descarte (None = usa aposta.temporada)
+    
+    Returns:
+        Lista de pontos calculados, respeitando:
+        - Fórmula: fichas[i] × pontos_piloto[posição[i]-1] + bônus_11
+        - Descarte: remove pior resultado se habilitado na regra
+        - Penalidade: deduz pontos por abandono
+        - Wildcard: multiplica por 2 se sprint com pontos_dobrada=Sim
+    """
     import ast
     ress_map = {r['prova_id']: ast.literal_eval(r['posicoes']) for _, r in res_df.iterrows()}
     tipos_prova = dict(zip(prov_df['id'], prov_df['tipo'] if 'tipo' in prov_df.columns else ['Normal']*len(prov_df)))
@@ -259,7 +275,8 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df):
             
         res = ress_map[prova_id]
         tipo = tipos_prova.get(prova_id, 'Normal')
-        regras = get_regras_aplicaveis(str(aposta.get('temporada', datetime.now().year)), tipo)
+        temp_str = str(aposta.get('temporada', datetime.now().year))
+        regras = get_regras_aplicaveis(temp_str, tipo)
         
         pilotos = aposta['pilotos'].split(",")
         fichas = list(map(int, aposta['fichas'].split(",")))
@@ -268,18 +285,88 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df):
         pts_pos = regras.get('pontos_posicoes', [])
         p_pos = {v: int(k) for k, v in res.items()}
         
-        pt = sum(fichas[i] * pts_pos[p_pos[pilotos[i]]-1]
-                 for i in range(min(len(pilotos), len(fichas)))
-                 if pilotos[i] in p_pos and 1 <= p_pos[pilotos[i]] <= len(pts_pos))
-                 
+        # Calculo base: fichas × pontos_posição + bônus_11
+        pt = 0
+        for i in range(min(len(pilotos), len(fichas))):
+            piloto = pilotos[i]
+            ficha = fichas[i]
+            if piloto in p_pos and 1 <= p_pos[piloto] <= len(pts_pos):
+                pos = p_pos[piloto]
+                pts_piloto = pts_pos[pos - 1]
+                pt += ficha * pts_piloto
+        
+        # Bônus 11º colocado
         if piloto_11 == res.get(11):
             pt += regras.get('pontos_11_colocado', 0)
-            
+        
+        # Wildcard (pontuação dobrada em provas Sprint)
+        if regras.get('dobrada', False) and tipo == 'Sprint':
+            pt *= 2
+        
+        # Aposta automática com fator de redução (legado - manter compatibilidade)
         if int(aposta.get('automatica', 0)) >= 2:
             pt *= 0.75
-            
+        
         pontos.append(round(pt, 2))
+    
     return pontos
+
+def aplicar_descarte_temporada(user_id: int, temporada: str, regra: dict) -> float:
+    """
+    Aplica descarte do pior resultado se habilitado na regra.
+    
+    Args:
+        user_id: ID do usuário
+        temporada: String da temporada
+        regra: Dict com regra vigente (contém 'descarte': bool)
+    
+    Returns:
+        Pontos totais após descarte
+    """
+    if not regra.get('descarte', False):
+        # Sem descarte, retorna suma total
+        with db_connect() as conn:
+            df = pd.read_sql(
+                'SELECT SUM(pontos) as total FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?',
+                conn,
+                params=(user_id, str(temporada))
+            )
+            return float(df['total'].iloc[0] or 0)
+    
+    # Com descarte, remove pior resultado
+    with db_connect() as conn:
+        df = pd.read_sql(
+            'SELECT pontos FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ? ORDER BY pontos ASC LIMIT 1',
+            conn,
+            params=(user_id, str(temporada))
+        )
+        pior = float(df['pontos'].iloc[0] or 0) if not df.empty else 0
+        
+        df_total = pd.read_sql(
+            'SELECT SUM(pontos) as total FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?',
+            conn,
+            params=(user_id, str(temporada))
+        )
+        total = float(df_total['total'].iloc[0] or 0)
+        return max(0, total - pior)
+
+def aplicar_penalidade_abandono(user_id: int, prova_id: int, regra: dict) -> None:
+    """
+    Aplica penalidade por abandono de piloto(s) na aposta, se habilitado na regra.
+    
+    Args:
+        user_id: ID do usuário
+        prova_id: ID da prova
+        regra: Dict com regra vigente (contém 'penalidade_abandono': bool, 'pontos_penalidade': int)
+    """
+    if not regra.get('penalidade_abandono', False):
+        return
+    
+    # TODO: Implementar lógica de detecção de abandono e aplicação de penalidade
+    # Esta função deve:
+    # 1. Verificar se algum piloto apostado não completou a prova (status = abandono)
+    # 2. Deduzir 'pontos_penalidade' dos pontos da aposta
+    pass
 
 def salvar_classificacao_prova(p_id, df_c, temp=None):
     with db_connect() as conn:

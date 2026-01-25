@@ -104,101 +104,225 @@ def main():
             excluir_regra_form(regras_existentes)
 
 def regra_form(regra_atual=None):
-    """Formulário unificado para criar/editar regras"""
+    """
+    Formulário unificado para criar/editar regras com os 13 parâmetros exatos.
+    
+    Parâmetros:
+    1. Nome da Regra
+    2. Quantidade de Fichas
+    3. Mesma Equipe (Sim/Não)
+    4. Fichas por Piloto
+    5. Descarte (Sim/Não)
+    6. Pontos pelo 11º Colocado
+    7. Quantidade Mínima de Pilotos
+    8. Penalidade por Abandono (Sim/Não)
+    9. Pontos da Penalidade
+    10. Regra Sprint (Sim/Não)
+    11. Provas Wildcard - Pontuação Dobrada (Sim/Não)
+    12. Pontos Campeão
+    13. Pontos Vice
+    14. Pontos Equipe
+    """
     is_edit = regra_atual is not None
-    st.write(f"### {'Editar' if is_edit else 'Criar Nova'} Regra")
+    st.write(f"### {'✏️ Editar' if is_edit else '➕ Criar Nova'} Regra")
+    
+    # Documentação dos parâmetros
+    with st.expander("📋 Explicação dos 13 Parâmetros - Clique para expandir"):
+        st.markdown("""
+        **Fórmula Base de Pontuação:**
+        ```
+        Pontos por Prova = (Pontos do Piloto) × (Fichas Apostadas) + (Bônus do 11º se acertou)
+        Descarte: Se habilitado, remove o pior resultado da temporada
+        Penalidade: Se habilitada, deduz pontos por abandono do piloto
+        ```
+        
+        **Os 13 Parâmetros:**
+        
+        1. **Nome da Regra** - Identificador único (ex: "BF1 2025")
+        2. **Quantidade de Fichas** - Total por prova (ex: 15 fichas)
+        3. **Mesma Equipe** - Sim: permite 2 pilotos mesma equipe | Não: máximo 1 por equipe
+        4. **Fichas por Piloto** - Limite máximo por piloto (não pode ultrapassar total)
+        5. **Descarte** - Sim: remove pior resultado da pontuação | Não: soma todos
+        6. **Pontos pelo 11º** - Bônus (ex: 25 pontos) ao acertar 11º colocado
+        7. **Min. Pilotos** - Quantidade mínima de pilotos apostados por prova
+        8. **Penalidade por Abandono** - Sim: aplica penalidade | Não: sem penalidade
+        9. **Pontos Penalidade** - Se abandono=Sim, deduz este valor (ex: -5 pontos)
+        10. **Regra Sprint** - Sim: Sprint com 10 fichas e mín 2 pilotos | Não: mesma regra normal
+        11. **Wildcard** - Sim: Sprint com pontuação 2x | Não: pontuação 1x (requer Regra Sprint=Sim)
+        12. **Pontos Campeão** - Bônus final por acertar campeão (ex: 150)
+        13. **Pontos Vice** - Bônus final por acertar vice (ex: 100)
+        14. **Pontos Equipe** - Bônus final por acertar equipe campeã (ex: 80)
+        """)
+    
+    st.markdown("---")
     
     with st.form("form_regra"):
-        nome_regra = st.text_input("Nome da Regra *", value=regra_atual['nome_regra'] if is_edit else "", placeholder="Ex: Regra 2025")
+    
+    with st.form("form_regra"):
+        # 1. Nome da Regra
+        nome_regra = st.text_input(
+            "1️⃣ Nome da Regra *",
+            value=regra_atual['nome_regra'] if is_edit else "",
+            placeholder="Ex: BF1 2025"
+        )
         
-        col_pts1, col_pts2 = st.columns(2)
-        with col_pts1:
-            st.markdown("#### Configurações de Apostas")
-            quantidade_fichas = st.number_input("Quantidade Total de Fichas", min_value=1, value=regra_atual['quantidade_fichas'] if is_edit else 15)
-            fichas_por_piloto = st.number_input("Máximo Fichas por Piloto", min_value=1, value=regra_atual['fichas_por_piloto'] if is_edit else 15)
-            mesma_equipe = st.checkbox("Permitir apostar em pilotos da mesma equipe", value=bool(regra_atual['mesma_equipe']) if is_edit else False)
-            descarte = st.checkbox("Habilitar descarte do pior resultado", value=bool(regra_atual['descarte']) if is_edit else False)
+        # 2. Quantidade de Fichas
+        quantidade_fichas = st.number_input(
+            "2️⃣ Quantidade Total de Fichas *",
+            min_value=1,
+            value=regra_atual['quantidade_fichas'] if is_edit else 15,
+            help="Total de fichas disponível para cada prova"
+        )
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # 3. Mesma Equipe
+            mesma_equipe = st.radio(
+                "3️⃣ Permitir 2 pilotos da mesma equipe?",
+                options=[True, False],
+                format_func=lambda x: "Sim" if x else "Não",
+                index=0 if (not is_edit or regra_atual['mesma_equipe']) else 1,
+                horizontal=True,
+                help="Sim: máx 2 pilotos por equipe | Não: máx 1 piloto por equipe"
+            )
             
-            st.markdown("#### Pontuações Fixas")
-            pontos_pole = st.number_input("Pontos por Pole Position", value=regra_atual['pontos_pole'] if is_edit else 0)
-            pontos_vr = st.number_input("Pontos por Volta Rápida", value=regra_atual['pontos_vr'] if is_edit else 0)
-            pontos_11 = st.number_input("Pontos por acertar o 11º Colocado", value=regra_atual['pontos_11_colocado'] if is_edit else 25)
+            # 4. Fichas por Piloto
+            fichas_por_piloto = st.number_input(
+                "4️⃣ Máximo de Fichas por Piloto *",
+                min_value=1,
+                value=regra_atual['fichas_por_piloto'] if is_edit else 15,
+                help="Nenhum piloto pode receber mais fichas que este valor"
+            )
             
-        with col_pts2:
-            st.markdown("#### Regras Sprint")
-            regra_sprint = st.checkbox("Habilitar regras específicas para Sprint", value=bool(regra_atual['regra_sprint']) if is_edit else False)
-            pontos_sprint_pole = st.number_input("Pontos Pole Sprint", value=regra_atual['pontos_sprint_pole'] if is_edit else 0)
-            pontos_sprint_vr = st.number_input("Pontos VR Sprint", value=regra_atual['pontos_sprint_vr'] if is_edit else 0)
+            # 5. Descarte
+            descarte = st.radio(
+                "5️⃣ Habilitar Descarte do Pior Resultado?",
+                options=[True, False],
+                format_func=lambda x: "Sim" if x else "Não",
+                index=0 if (is_edit and regra_atual['descarte']) else 1,
+                horizontal=True,
+                help="Sim: remove pior resultado | Não: conta todos"
+            )
             
-            st.markdown("#### Bônus e Extras")
-            bonus_vencedor = st.number_input("Bônus por acertar o Vencedor", value=regra_atual['bonus_vencedor'] if is_edit else 0)
-            bonus_podio_exato = st.number_input("Bônus Pódio Completo (Ordem Exata)", value=regra_atual['bonus_podio_completo'] if is_edit else 0)
-            bonus_podio_qualquer = st.number_input("Bônus Pódio (Qualquer Ordem)", value=regra_atual['bonus_podio_qualquer'] if is_edit else 0)
-            pontos_dobrada = st.checkbox("Habilitar Pontuação Dobrada (Ex: Corrida Final)", value=bool(regra_atual['pontos_dobrada']) if is_edit else False)
+            # 6. Pontos pelo 11º Colocado
+            pontos_11_colocado = st.number_input(
+                "6️⃣ Pontos pelo Acerto do 11º Colocado *",
+                min_value=0,
+                value=regra_atual['pontos_11_colocado'] if is_edit else 25,
+                help="Bônus por acertar qual piloto fica em 11º lugar na prova"
+            )
             
+            # 7. Quantidade Mínima de Pilotos
+            qtd_minima_pilotos = st.number_input(
+                "7️⃣ Quantidade Mínima de Pilotos *",
+                min_value=1,
+                value=regra_atual['qtd_minima_pilotos'] if is_edit else 3,
+                help="Mínimo de pilotos que o participante deve apostar por prova"
+            )
+        
+        with col2:
+            # 8. Penalidade por Abandono
+            penalidade_abandono = st.radio(
+                "8️⃣ Penalidade por Abandono?",
+                options=[True, False],
+                format_func=lambda x: "Sim" if x else "Não",
+                index=0 if (is_edit and regra_atual['penalidade_abandono']) else 1,
+                horizontal=True,
+                help="Sim: aplica penalidade ao piloto que abandona | Não: sem penalidade"
+            )
+            
+            # 9. Pontos da Penalidade
+            pontos_penalidade = st.number_input(
+                "9️⃣ Pontos da Penalidade (se habilitada) *",
+                value=regra_atual['pontos_penalidade'] if is_edit else 0,
+                help="Quantidade de pontos deduzidos por abandono (valores negativos)"
+            )
+            
+            # 10. Regra Sprint
+            regra_sprint = st.radio(
+                "🔟 Regra Especial para Sprint?",
+                options=[True, False],
+                format_func=lambda x: "Sim (10 fichas, mín 2 pilotos)" if x else "Não (mesma regra)",
+                index=0 if (is_edit and regra_atual['regra_sprint']) else 1,
+                horizontal=True,
+                help="Sim: Sprint com restrições próprias | Não: mesma regra das provas normais"
+            )
+            
+            # 11. Provas Wildcard (Pontuação Dobrada)
+            pontos_dobrada = st.radio(
+                "1️⃣1️⃣ Pontuação Dobrada em Sprint (Wildcard)?",
+                options=[True, False],
+                format_func=lambda x: "Sim (2x pontuação)" if x else "Não (1x pontuação)",
+                index=0 if (is_edit and regra_atual['pontos_dobrada']) else 1,
+                horizontal=True,
+                help="Sprint com pontuação 2x (apenas se Regra Sprint = Sim)"
+            )
+            
+            # 12. Pontos Campeão
+            pontos_campeao = st.number_input(
+                "1️⃣2️⃣ Pontos por Acertar o Campeão *",
+                min_value=0,
+                value=regra_atual['pontos_campeao'] if is_edit else 150,
+                help="Bônus final ao final da temporada por acertar campeão"
+            )
+        
         st.markdown("---")
         
-        with st.expander("#### Pontuação por Posição (P1 a P20)"):
-            pts_pos = regra_atual['pontos_posicoes'] if is_edit and regra_atual.get('pontos_posicoes') else []
-            if not pts_pos:
-                pts_pos = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1] + [0]*10
-                
-            cols = st.columns(5)
-            novos_pts_pos = []
-            for i in range(20):
-                with cols[i % 5]:
-                    val = st.number_input(f"P{i+1}", value=pts_pos[i] if i < len(pts_pos) else 0, key=f"p{i+1}")
-                    novos_pts_pos.append(val)
-                    
-        with st.expander("#### Pontuação Sprint (P1 a P8)"):
-            pts_sp = regra_atual['pontos_sprint_posicoes'] if is_edit and regra_atual.get('pontos_sprint_posicoes') else []
-            if not pts_sp:
-                pts_sp = [8, 7, 6, 5, 4, 3, 2, 1]
-                
-            cols_sp = st.columns(4)
-            novos_pts_sp = []
-            for i in range(8):
-                with cols_sp[i % 4]:
-                    val = st.number_input(f"Sprint P{i+1}", value=pts_sp[i] if i < len(pts_sp) else 0, key=f"sp{i+1}")
-                    novos_pts_sp.append(val)
-
-        with st.expander("#### Campeonato e Penalidades"):
-            col_c1, col_c2 = st.columns(2)
-            with col_c1:
-                qto_minima_pilotos = st.number_input("Qtd Mínima de Pilotos", min_value=1, value=regra_atual['qto_minima_pilotos'] if is_edit else 3)
-                penalidade_abandono = st.checkbox("Penalidade por Abandono", value=bool(regra_atual['penalidade_abandono']) if is_edit else False)
-                pontos_penalidade = st.number_input("Pontos de Penalidade", value=regra_atual['pontos_penalidade'] if is_edit else 0)
-            with col_c2:
-                pontos_campeao = st.number_input("Pontos Campeão", value=regra_atual['pontos_campeao'] if is_edit else 150)
-                pontos_vice = st.number_input("Pontos Vice", value=regra_atual['pontos_vice'] if is_edit else 100)
-                pontos_equipe = st.number_input("Pontos Equipe", value=regra_atual['pontos_equipe'] if is_edit else 80)
-                    
-        submitted = st.form_submit_button("Salvar Regra")
+        # 13. Pontos Vice e Equipe
+        col3, col4 = st.columns(2)
+        with col3:
+            pontos_vice = st.number_input(
+                "1️⃣3️⃣ Pontos por Acertar o Vice *",
+                min_value=0,
+                value=regra_atual['pontos_vice'] if is_edit else 100,
+                help="Bônus final ao final da temporada por acertar vice"
+            )
+        
+        with col4:
+            pontos_equipe = st.number_input(
+                "1️⃣4️⃣ Pontos por Acertar a Equipe Campeã *",
+                min_value=0,
+                value=regra_atual['pontos_equipe'] if is_edit else 80,
+                help="Bônus final ao final da temporada por acertar equipe campeã"
+            )
+        
+        st.markdown("---")
+        
+        submitted = st.form_submit_button("✅ Salvar Regra", use_container_width=True)
         
         if submitted:
-            if not nome_regra:
-                st.error("Nome da regra é obrigatório!")
+            # Validações
+            if not nome_regra or nome_regra.strip() == "":
+                st.error("❌ Nome da regra é obrigatório!")
                 return
-                
+            
+            if fichas_por_piloto > quantidade_fichas:
+                st.error(f"❌ Fichas por piloto ({fichas_por_piloto}) não pode ser maior que o total ({quantidade_fichas})")
+                return
+            
+            if qtd_minima_pilotos > (quantidade_fichas // fichas_por_piloto):
+                st.warning(f"⚠️ Aviso: mínimo de {qtd_minima_pilotos} pilotos com máx {fichas_por_piloto} fichas cada pode ser impossível com {quantidade_fichas} fichas totais")
+            
             params = {
-                "nome_regra": nome_regra,
+                "nome_regra": nome_regra.strip(),
                 "quantidade_fichas": quantidade_fichas,
                 "fichas_por_piloto": fichas_por_piloto,
                 "mesma_equipe": mesma_equipe,
                 "descarte": descarte,
-                "pontos_pole": pontos_pole,
-                "pontos_vr": pontos_vr,
-                "pontos_posicoes": novos_pts_pos,
-                "pontos_11_colocado": pontos_11,
+                "pontos_pole": 0,
+                "pontos_vr": 0,
+                "pontos_posicoes": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                "pontos_11_colocado": pontos_11_colocado,
                 "regra_sprint": regra_sprint,
-                "pontos_sprint_pole": pontos_sprint_pole,
-                "pontos_sprint_vr": pontos_sprint_vr,
-                "pontos_sprint_posicoes": novos_pts_sp,
+                "pontos_sprint_pole": 0,
+                "pontos_sprint_vr": 0,
+                "pontos_sprint_posicoes": [8, 7, 6, 5, 4, 3, 2, 1],
                 "pontos_dobrada": pontos_dobrada,
-                "bonus_vencedor": bonus_vencedor,
-                "bonus_podio_completo": bonus_podio_exato,
-                "bonus_podio_qualquer": bonus_podio_qualquer,
-                "qto_minima_pilotos": qto_minima_pilotos,
+                "bonus_vencedor": 0,
+                "bonus_podio_completo": 0,
+                "bonus_podio_qualquer": 0,
+                "qtd_minima_pilotos": qtd_minima_pilotos,
                 "penalidade_abandono": penalidade_abandono,
                 "pontos_penalidade": pontos_penalidade,
                 "pontos_campeao": pontos_campeao,
@@ -206,20 +330,23 @@ def regra_form(regra_atual=None):
                 "pontos_equipe": pontos_equipe
             }
             
-            if is_edit:
-                sucesso = atualizar_regra(regra_id=regra_atual['id'], **params)
-            else:
-                sucesso = criar_regra(**params)
+            try:
+                if is_edit:
+                    sucesso = atualizar_regra(regra_id=regra_atual['id'], **params)
+                else:
+                    sucesso = criar_regra(**params)
                 
-            if sucesso:
-                st.success(f"Regra salva com sucesso!")
-                st.rerun()
-            else:
-                st.error("Erro ao salvar regra.")
+                if sucesso:
+                    st.success(f"✅ Regra '{nome_regra}' salva com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("❌ Erro ao salvar regra. Verificar se o nome já está em uso.")
+            except Exception as e:
+                st.error(f"❌ Erro ao salvar: {str(e)}")
 
 def excluir_regra_form(regras_existentes):
     """Formulário de exclusão de regra"""
-    st.write("### Excluir Regra")
+    st.write("### 🗑️ Excluir Regra")
     if not regras_existentes:
         st.warning("Nenhuma regra cadastrada.")
         return
