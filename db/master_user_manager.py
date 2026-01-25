@@ -106,9 +106,19 @@ class MasterUserManager:
             return False
     
     @staticmethod
-security: add validation to Master user creation
-
-Integrate utils.validators to ensure that the Master user is created with
+def _create_master() -> bool:
+        """
+Cria usuário Master se não existir
+        
+        Fluxo:
+        1. Lê variáveis de ambiente
+        2. Verifica se já existe
+        3. Cria com senha bcrypt
+        4. Log a ação
+        
+        Returns:
+            bool: True se criou, False se já existia ou erro
+        """Integrate utils.validators to ensure that the Master user is created with
 a valid email and a strong password. Also added a check to prevent using
 the default/insecure credentials.        """
         Cria usuário Master se não existir
