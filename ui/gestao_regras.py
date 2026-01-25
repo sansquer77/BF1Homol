@@ -86,72 +86,46 @@ def main():
     # ========== ABA: Criar/Editar Regras ==========
     with tabs[1]:
         st.subheader("Gerenciar Regras")
-        regras_existentes = listar_regras()
+        
+        try:
+            regras_existentes = listar_regras()
+        except Exception as e:
+            st.error(f"❌ Erro ao carregar regras: {e}")
+            regras_existentes = []
         
         modo = st.radio("Modo", ["Criar Nova Regra", "Editar Regra Existente", "Excluir Regra"], horizontal=True)
         
         if modo == "Criar Nova Regra":
+            st.write("---")
             regra_form(None)
         elif modo == "Editar Regra Existente":
             if not regras_existentes:
-                st.warning("Nenhuma regra cadastrada para editar.")
+                st.warning("⚠️ Nenhuma regra cadastrada para editar.")
             else:
                 regras_dict = {r['nome_regra']: r['id'] for r in regras_existentes}
                 regra_nome = st.selectbox("Selecione a Regra para Editar", list(regras_dict.keys()))
-                regra_atual = get_regra_by_id(regras_dict[regra_nome])
-                regra_form(regra_atual)
+                try:
+                    regra_atual = get_regra_by_id(regras_dict[regra_nome])
+                    st.write("---")
+                    regra_form(regra_atual)
+                except Exception as e:
+                    st.error(f"❌ Erro ao carregar regra: {e}")
         else:
+            st.write("---")
             excluir_regra_form(regras_existentes)
 
 def regra_form(regra_atual=None):
-    """
-    Formulário unificado para criar/editar regras com os 13 parâmetros exatos.
-    
-    Parâmetros:
-    1. Nome da Regra
-    2. Quantidade de Fichas
-    3. Mesma Equipe (Sim/Não)
-    4. Fichas por Piloto
-    5. Descarte (Sim/Não)
-    6. Pontos pelo 11º Colocado
-    7. Quantidade Mínima de Pilotos
-    8. Penalidade por Abandono (Sim/Não)
-    9. Pontos da Penalidade
-    10. Regra Sprint (Sim/Não)
-    11. Provas Wildcard - Pontuação Dobrada (Sim/Não)
-    12. Pontos Campeão
-    13. Pontos Vice
-    14. Pontos Equipe
-    """
+    """Formulário unificado para criar/editar regras"""
     is_edit = regra_atual is not None
     st.write(f"### {'✏️ Editar' if is_edit else '➕ Criar Nova'} Regra")
     
-    # Documentação dos parâmetros
-    with st.expander("📋 Explicação dos 13 Parâmetros - Clique para expandir"):
+    # Documentação rápida
+    with st.expander("📋 Parâmetros - Clique para expandir"):
         st.markdown("""
-        **Fórmula Base de Pontuação:**
-        ```
-        Pontos por Prova = (Pontos do Piloto) × (Fichas Apostadas) + (Bônus do 11º se acertou)
-        Descarte: Se habilitado, remove o pior resultado da temporada
-        Penalidade: Se habilitada, deduz pontos por abandono do piloto
-        ```
-        
-        **Os 13 Parâmetros:**
-        
-        1. **Nome da Regra** - Identificador único (ex: "BF1 2025")
-        2. **Quantidade de Fichas** - Total por prova (ex: 15 fichas)
-        3. **Mesma Equipe** - Sim: permite 2 pilotos mesma equipe | Não: máximo 1 por equipe
-        4. **Fichas por Piloto** - Limite máximo por piloto (não pode ultrapassar total)
-        5. **Descarte** - Sim: remove pior resultado da pontuação | Não: soma todos
-        6. **Pontos pelo 11º** - Bônus (ex: 25 pontos) ao acertar 11º colocado
-        7. **Min. Pilotos** - Quantidade mínima de pilotos apostados por prova
-        8. **Penalidade por Abandono** - Sim: aplica penalidade | Não: sem penalidade
-        9. **Pontos Penalidade** - Se abandono=Sim, deduz este valor (ex: -5 pontos)
-        10. **Regra Sprint** - Sim: Sprint com 10 fichas e mín 2 pilotos | Não: mesma regra normal
-        11. **Wildcard** - Sim: Sprint com pontuação 2x | Não: pontuação 1x (requer Regra Sprint=Sim)
-        12. **Pontos Campeão** - Bônus final por acertar campeão (ex: 150)
-        13. **Pontos Vice** - Bônus final por acertar vice (ex: 100)
-        14. **Pontos Equipe** - Bônus final por acertar equipe campeã (ex: 80)
+        **13 Parâmetros da Regra:**
+        1. Nome | 2. Fichas Total | 3. Mesma Equipe | 4. Fichas/Piloto | 5. Descarte
+        6. Pontos 11º | 7. Min Pilotos | 8. Penalidade Abandono | 9. Pontos Penalidade
+        10. Regra Sprint (10 fichas, 2 min) | 11. Wildcard (2x) | 12. Pts Campeão | 13. Pts Vice | 14. Pts Equipe
         """)
     
     st.markdown("---")
