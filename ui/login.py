@@ -106,8 +106,11 @@ def login_view():
         # ========== FORMULÁRIO ==========
         with st.form("login_form", clear_on_submit=False):
             st.subheader("Faça Login")
-            
-            email = st.text_input(
+security: add email validation to login view
+
+Use utils.validators to ensure that the email entered during login follows
+a valid format, helping to prevent certain types of injection and improving
+user feedback.            email = st.text_input(
                 "📧 Email",
                 placeholder="seu@email.com",
                 help="Email registrado no sistema"

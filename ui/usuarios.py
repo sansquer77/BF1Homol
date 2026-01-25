@@ -70,8 +70,11 @@ def main():
                         conn.commit()
                     st.success("Senha atualizada com sucesso!")
                     st.session_state["alterar_senha"] = False
-                    st.cache_data.clear()
-                    st.rerun()
+security: add email and password validation to user management
+
+Use utils.validators in the user management interface to ensure that new
+users are created with valid email formats and strong passwords. This
+addresses vulnerabilities related to predictable/default credentials.                    st.rerun()
             if st.button("Cancelar alteração de senha"):
                 st.session_state["alterar_senha"] = False
 

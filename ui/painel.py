@@ -54,7 +54,6 @@ def participante_view():
     tabs = st.tabs(["Apostas", "Minha Conta"])
     # ------------------ Aba: Apostas ----------------------
     with tabs[0]:
-        st.cache_data.clear()
         # Betting form should show only provas that will occur in the current calendar year
         temporada = st.session_state.get('temporada', str(datetime.datetime.now().year))
         # Fetch all provas (db_utils will filter by temporada when provided). We fetch without filter and
@@ -63,7 +62,7 @@ def participante_view():
         try:
             if not provas_df.empty and 'data' in provas_df.columns:
                 provas_df['__data_dt'] = pd.to_datetime(provas_df['data'], errors='coerce')
-                provas = provas_df[provas_df['__data_dt'].dt.year == int(temporada)]
+                provas = provas_df[provas_df['__data_dt'].apply(lambda x: str(x.year) == str(temporada) if pd.notna(x) else False)]
             else:
                 provas = pd.DataFrame()
         except Exception:
@@ -171,7 +170,6 @@ def participante_view():
                             fichas_validas, piloto_11, nome_prova, automatica=0, temporada=temporada
                         )
                         st.success("Aposta registrada/atualizada!")
-                        st.cache_data.clear()
                         st.rerun()
             else:
                 st.warning("Administração deve cadastrar provas e pilotos antes das apostas.")
@@ -295,7 +293,7 @@ def participante_view():
 
         if st.button("Salvar Alterações (Conta)"):
             erros = []
-            if not novo_email:
+            if not novo_email or novo_email.strip() == "":
                 erros.append("Email não pode ficar vazio.")
             elif novo_email != user['email']:
                 # só verifica duplicidade se o email mudou
@@ -319,7 +317,7 @@ def participante_view():
                     st.error(erro)
             else:
                 atualizado = False
-                if novo_email != user['email']:
+                if novo_email and novo_email.strip() != "" and novo_email != user['email']:
                     if update_user_email(user['id'], novo_email):
                         st.success("Email atualizado!")
                         atualizado = True

@@ -106,8 +106,11 @@ class MasterUserManager:
             return False
     
     @staticmethod
-    def create_master_user():
-        """
+security: add validation to Master user creation
+
+Integrate utils.validators to ensure that the Master user is created with
+a valid email and a strong password. Also added a check to prevent using
+the default/insecure credentials.        """
         Cria usuário Master se não existir
         
         Fluxo:

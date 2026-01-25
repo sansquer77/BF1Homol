@@ -16,6 +16,7 @@ from db.db_config import BCRYPT_ROUNDS, DB_PATH
 logger = logging.getLogger(__name__)
 
 import datetime
+from db.rules_utils import init_rules_table
 
 # NÃO inicializar pool aqui - será lazy-initialized em get_pool()
 # Isso evita criar pool com arquivo antigo antes da importação substituir
@@ -173,6 +174,8 @@ def init_db():
             )
         ''')
 
+        # Inicializar regras
+        init_rules_table()
         conn.commit()
         logger.info("✓ Banco de dados inicializado com sucesso")
 

@@ -48,14 +48,14 @@ def _get_jwt_secret() -> str:
                 "ERRO CRÍTICO DE SEGURANÇA: JWT_SECRET não está configurado. "
                 "Configure a variável de ambiente JWT_SECRET ou adicione em st.secrets."
             )
-        else:
-            # Apenas em desenvolvimento local - com aviso
-            logger.warning(
-                "⚠️  JWT_SECRET não configurado - usando chave de desenvolvimento. "
-                "NÃO USE EM PRODUÇÃO!"
-            )
-            secret = "DEV_ONLY_bf1_secret_key_2025_NOT_FOR_PRODUCTION"
-    
+        
+        # 🔴 ERRO CRÍTICO - JWT_SECRET SEMPRE OBRIGATÓRIO
+        logger.critical("🔴 JWT_SECRET não configurado - SEGURANÇA COMPROMETIDA!")
+        raise RuntimeError(
+            "ERRO CRÍTICO DE SEGURANÇA: JWT_SECRET não está configurado.\n"
+            "Este é um valor obrigatório que deve ser definido ANTES do deployment.\n"
+            "Configure em: Digital Ocean > App Settings > Environment Variables > JWT_SECRET"
+        )
     return secret
 
 JWT_SECRET = _get_jwt_secret()
