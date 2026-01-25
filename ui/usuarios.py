@@ -85,13 +85,13 @@ def main():
             if user_row["perfil"] == "master":
                 st.error("Não é possível excluir um usuário master.")
             else:
-                    with db_connect() as conn:
-                        c = conn.cursor()
-                        c.execute("DELETE FROM usuarios WHERE id=?", (int(user_row["id"]),))
-                        conn.commit()
-                    st.success("Usuário excluído com sucesso!")
-                    st.cache_data.clear()
-                    st.rerun()
+                with db_connect() as conn:
+                    c = conn.cursor()
+                    c.execute("DELETE FROM usuarios WHERE id=?", (int(user_row["id"]),))
+                    conn.commit()
+                st.success("Usuário excluído com sucesso!")
+                st.cache_data.clear()
+                st.rerun()
 
     st.markdown("---")
     st.markdown("### Adicionar Novo Usuário")
