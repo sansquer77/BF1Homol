@@ -166,3 +166,13 @@ class MasterUserManager:
         except Exception as e:
             logger.error(f"✗ Erro ao criar usuário Master: {e}")
             return False
+    
+    @staticmethod
+    def create_master_user() -> bool:
+        """
+        Método público para criar usuário Master na inicialização
+        
+        Returns:
+            bool: True se criou ou já existe, False se erro
+        """
+        return MasterUserManager._create_master()
