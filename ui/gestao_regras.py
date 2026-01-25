@@ -157,8 +157,6 @@ def regra_form(regra_atual=None):
     st.markdown("---")
     
     with st.form("form_regra"):
-    
-    with st.form("form_regra"):
         # 1. Nome da Regra
         nome_regra = st.text_input(
             "1️⃣ Nome da Regra *",
