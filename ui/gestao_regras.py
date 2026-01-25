@@ -132,194 +132,8 @@ def regra_form(regra_atual=None):
     
     st.divider()
     
-    # Iniciar formulário
+    # Formulário único e completo
     with st.form("form_regra", clear_on_submit=False):
-        st.write("**Configure os parâmetros da regra:**")
-        
-        # 1. Nome
-        nome_regra = st.text_input(
-            "Nome da Regra *",
-            value=regra_atual['nome_regra'] if is_edit else "",
-            placeholder="Ex: BF1 2025"
-        )
-        
-        # 2. Fichas
-        quantidade_fichas = st.number_input(
-            "Quantidade Total de Fichas *",
-            min_value=1,
-            max_value=100,
-            value=regra_atual['quantidade_fichas'] if is_edit else 15
-        )
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Configurações")
-            # 3. Mesma Equipe
-            mesma_equipe = st.selectbox(
-                "Permitir 2 pilotos mesma equipe?",
-                options=["Não", "Sim"],
-                index=0 if (not is_edit or not regra_atual['mesma_equipe']) else 1
-            )
-            mesma_equipe_bool = (mesma_equipe == "Sim")
-            
-            # 4. Fichas por Piloto
-            fichas_por_piloto = st.number_input(
-                "Máximo de Fichas por Piloto *",
-                min_value=1,
-                max_value=100,
-                value=regra_atual['fichas_por_piloto'] if is_edit else 15
-            )
-            
-            # 5. Descarte
-            descarte = st.selectbox(
-                "Descartar pior resultado?",
-                options=["Não", "Sim"],
-                index=0 if (not is_edit or not regra_atual['descarte']) else 1
-            )
-            descarte_bool = (descarte == "Sim")
-            
-            # 6. Pontos 11º
-            pontos_11 = st.number_input(
-                "Pontos por acertar 11º lugar",
-                min_value=0,
-                value=regra_atual['pontos_11_colocado'] if is_edit else 25
-            )
-            
-            # 7. Min Pilotos
-            qtd_min_pilotos = st.number_input(
-                "Quantidade Mínima de Pilotos",
-                min_value=1,
-                value=regra_atual['qtd_minima_pilotos'] if is_edit else 3
-            )
-        
-        with col2:
-            st.subheader("Penalidades & Sprint")
-            # 8. Penalidade Abandono
-            penalidade = st.selectbox(
-                "Penalidade por Abandono?",
-                options=["Não", "Sim"],
-                index=0 if (not is_edit or not regra_atual['penalidade_abandono']) else 1
-            )
-            penalidade_bool = (penalidade == "Sim")
-            
-            # 9. Pontos Penalidade
-            pts_penalidade = st.number_input(
-                "Pontos de Penalidade",
-                min_value=-100,
-                max_value=0,
-                value=regra_atual['pontos_penalidade'] if is_edit else 0,
-                step=5
-            )
-            
-            # 10. Regra Sprint
-            regra_sprint = st.selectbox(
-                "Regra Especial Sprint (10 fichas, 2 min)?",
-                options=["Não", "Sim"],
-                index=0 if (not is_edit or not regra_atual['regra_sprint']) else 1
-            )
-            regra_sprint_bool = (regra_sprint == "Sim")
-            
-            # 11. Wildcard
-            wildcard = st.selectbox(
-                "Wildcard (Sprint 2x)?",
-                options=["Não", "Sim"],
-                index=0 if (not is_edit or not regra_atual['pontos_dobrada']) else 1
-            )
-            wildcard_bool = (wildcard == "Sim")
-        
-        st.divider()
-        st.subheader("Bônus de Campeonato")
-        
-        col3, col4, col5 = st.columns(3)
-        
-        with col3:
-            pts_campeao = st.number_input(
-                "Pontos Campeão",
-                min_value=0,
-                value=regra_atual['pontos_campeao'] if is_edit else 150
-            )
-        
-        with col4:
-            pts_vice = st.number_input(
-                "Pontos Vice",
-                min_value=0,
-                value=regra_atual['pontos_vice'] if is_edit else 100
-            )
-        
-        with col5:
-            pts_equipe = st.number_input(
-                "Pontos Equipe Campeã",
-                min_value=0,
-                value=regra_atual['pontos_equipe'] if is_edit else 80
-            )
-        
-        st.divider()
-        
-        # Botão submit
-        submitted = st.form_submit_button(
-            f"{'💾 Atualizar' if is_edit else '✅ Criar'} Regra",
-            use_container_width=True
-        )
-        
-        if submitted:
-            # Validações
-            if not nome_regra or nome_regra.strip() == "":
-                st.error("❌ Nome é obrigatório")
-                return
-            
-            if fichas_por_piloto > quantidade_fichas:
-                st.error(f"❌ Fichas por piloto não pode ser maior que total")
-                return
-            
-            if qtd_min_pilotos > (quantidade_fichas // fichas_por_piloto):
-                st.warning(f"⚠️ Mínimo de pilotos pode ser impossível com esses valores")
-            
-            # Montar parâmetros
-            params = {
-                "nome_regra": nome_regra.strip(),
-                "quantidade_fichas": quantidade_fichas,
-                "fichas_por_piloto": fichas_por_piloto,
-                "mesma_equipe": mesma_equipe_bool,
-                "descarte": descarte_bool,
-                "pontos_pole": 0,
-                "pontos_vr": 0,
-                "pontos_posicoes": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                "pontos_11_colocado": pontos_11,
-                "regra_sprint": regra_sprint_bool,
-                "pontos_sprint_pole": 0,
-                "pontos_sprint_vr": 0,
-                "pontos_sprint_posicoes": [8, 7, 6, 5, 4, 3, 2, 1],
-                "pontos_dobrada": wildcard_bool,
-                "bonus_vencedor": 0,
-                "bonus_podio_completo": 0,
-                "bonus_podio_qualquer": 0,
-                "qtd_minima_pilotos": qtd_min_pilotos,
-                "penalidade_abandono": penalidade_bool,
-                "pontos_penalidade": pts_penalidade,
-                "pontos_campeao": pts_campeao,
-                "pontos_vice": pts_vice,
-                "pontos_equipe": pts_equipe
-            }
-            
-            try:
-                if is_edit:
-                    sucesso = atualizar_regra(regra_id=regra_atual['id'], **params)
-                    msg_tipo = "atualizada"
-                else:
-                    sucesso = criar_regra(**params)
-                    msg_tipo = "criada"
-                
-                if sucesso:
-                    st.success(f"✅ Regra '{nome_regra}' {msg_tipo} com sucesso!")
-                    st.balloons()
-                    st.rerun()
-                else:
-                    st.error(f"❌ Erro ao salvar. Verifique se o nome já existe.")
-            except Exception as e:
-                st.error(f"❌ Erro: {str(e)}")
-    
-    with st.form("form_regra"):
         # 1. Nome da Regra
         nome_regra = st.text_input(
             "1️⃣ Nome da Regra *",
@@ -338,12 +152,13 @@ def regra_form(regra_atual=None):
         col1, col2 = st.columns(2)
         
         with col1:
+            st.write("### ⚙️ Configurações Gerais")
             # 3. Mesma Equipe
             mesma_equipe = st.radio(
                 "3️⃣ Permitir 2 pilotos da mesma equipe?",
                 options=[True, False],
                 format_func=lambda x: "Sim" if x else "Não",
-                index=0 if (not is_edit or regra_atual['mesma_equipe']) else 1,
+                index=0 if (is_edit and regra_atual['mesma_equipe']) else 1,
                 horizontal=True,
                 help="Sim: máx 2 pilotos por equipe | Não: máx 1 piloto por equipe"
             )
@@ -383,6 +198,7 @@ def regra_form(regra_atual=None):
             )
         
         with col2:
+            st.write("### ⚡ Penalidades & Sprint")
             # 8. Penalidade por Abandono
             penalidade_abandono = st.radio(
                 "8️⃣ Penalidade por Abandono?",
@@ -429,6 +245,7 @@ def regra_form(regra_atual=None):
             )
         
         st.markdown("---")
+        st.write("### 🏆 Bônus de Campeonato")
         
         # 13. Pontos Vice e Equipe
         col3, col4 = st.columns(2)
@@ -450,7 +267,11 @@ def regra_form(regra_atual=None):
         
         st.markdown("---")
         
-        submitted = st.form_submit_button("✅ Salvar Regra", use_container_width=True)
+        submitted = st.form_submit_button(
+            f"{'💾 Atualizar' if is_edit else '✅ Criar'} Regra",
+            use_container_width=True,
+            type="primary"
+        )
         
         if submitted:
             # Validações
@@ -494,14 +315,17 @@ def regra_form(regra_atual=None):
             try:
                 if is_edit:
                     sucesso = atualizar_regra(regra_id=regra_atual['id'], **params)
+                    msg_tipo = "atualizada"
                 else:
                     sucesso = criar_regra(**params)
+                    msg_tipo = "criada"
                 
                 if sucesso:
-                    st.success(f"✅ Regra '{nome_regra}' salva com sucesso!")
+                    st.success(f"✅ Regra '{nome_regra}' {msg_tipo} com sucesso!")
+                    st.balloons()
                     st.rerun()
                 else:
-                    st.error("❌ Erro ao salvar regra. Verificar se o nome já está em uso.")
+                    st.error(f"❌ Erro ao salvar. Verifique se o nome já existe.")
             except Exception as e:
                 st.error(f"❌ Erro ao salvar: {str(e)}")
 
