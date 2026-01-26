@@ -158,11 +158,12 @@ def main():
 
     for idx, part in participantes.iterrows():
         apostas_part = apostas_df[apostas_df['usuario_id'] == part['id']].sort_values('prova_id')
-        pontos_part = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df)
+        161
+        (apostas_part, resultados_df, provas_df, temporada_descarte=season)
         total_provas = sum([p for p in pontos_part if p is not None])
         
         pontos_campeonato = 0
-        if resultado_campeonat, temporada_descarte=seasono:
+        if resultado_campeonat, temporada_descarte=season:
             aposta_camp = get_championship_bet(part['id'], season)
             if aposta_camp:
                 if resultado_campeonato.get("champion") == aposta_camp.get("champion"):
@@ -354,3 +355,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+165
+165
