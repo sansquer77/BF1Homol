@@ -369,15 +369,42 @@ def aplicar_penalidade_abandono(user_id: int, prova_id: int, regra: dict) -> Non
     pass
 
 def salvar_classificacao_prova(p_id, df_c, temp=None):
+    """
+    Salva a classificação de uma prova na tabela posicoes_participantes.
+    
+    Args:
+        p_id: ID da prova
+        df_c: DataFrame com colunas usuario_id, posicao, pontos
+        temp: Temporada (string). Se None, usa ano atual.
+    """
+    if temp is None:
+        temp = str(datetime.now().year)
+    
     with db_connect() as conn:
+        c = conn.cursor()
+        # Verificar se coluna temporada existe
+        c.execute("PRAGMA table_info('posicoes_participantes')")
+        cols = [r[1] for r in c.fetchall()]
+        has_temporada = 'temporada' in cols
+        
         for _, r in df_c.iterrows():
-            conn.execute(
-                'INSERT OR REPLACE INTO posicoes_participantes (prova_id, usuario_id, posicao, pontos, temporada) VALUES (?,?,?,?,?)',
-                (p_id, int(r['usuario_id']), int(r['posicao']), float(r['pontos']), temp or str(datetime.now().year))
-            )
+            if has_temporada:
+                c.execute(
+                    'INSERT OR REPLACE INTO posicoes_participantes (prova_id, usuario_id, posicao, pontos, temporada) VALUES (?,?,?,?,?)',
+                    (p_id, int(r['usuario_id']), int(r['posicao']), float(r['pontos']), temp)
+                )
+            else:
+                c.execute(
+                    'INSERT OR REPLACE INTO posicoes_participantes (prova_id, usuario_id, posicao, pontos) VALUES (?,?,?,?)',
+                    (p_id, int(r['usuario_id']), int(r['posicao']), float(r['pontos']))
+                )
         conn.commit()
 
 def atualizar_classificacoes_todas_as_provas():
+    """
+    Recalcula e atualiza as classificações de todas as provas com resultados cadastrados.
+    Respeita a temporada de cada prova para cálculo correto.
+    """
     with db_connect() as conn:
         usrs = pd.read_sql('SELECT * FROM usuarios WHERE status = "Ativo"', conn)
         provs = pd.read_sql('SELECT * FROM provas', conn)
@@ -387,8 +414,15 @@ def atualizar_classificacoes_todas_as_provas():
         import ast
         for _, pr in provs.iterrows():
             pid = pr['id']
+            
+            # Verificar se há resultado para esta prova
             if pid not in ress['prova_id'].values:
                 continue
+            
+            # Obter temporada da prova (usa ano atual se não existir)
+            temporada_prova = pr.get('temporada', str(datetime.now().year))
+            
+            # Filtrar apostas para esta prova
             aps = apts[apts['prova_id'] == pid]
             if aps.empty:
                 continue
@@ -398,10 +432,14 @@ def atualizar_classificacoes_todas_as_provas():
             
             tab = []
             for _, u in usrs.iterrows():
+                # Filtrar apostas do usuário para esta prova
                 ap = aps[aps['usuario_id'] == u['id']]
+                
+                # Calcular pontos usando a temporada correta
                 p_list = calcular_pontuacao_lote(ap, ress, provs)
                 p = p_list[0] if p_list and p_list[0] is not None else 0
                 
+                # Verificar acerto do 11º colocado
                 acerto_11 = 0
                 if not ap.empty:
                     if ap.iloc[0]['piloto_11'] == res_p.get(11):
@@ -412,7 +450,10 @@ def atualizar_classificacoes_todas_as_provas():
                     'pontos': p,
                     'acerto_11': acerto_11
                 })
-                
+            
+            # Ordenar por pontos (desc) e acerto_11 (desc) como desempate
             df = pd.DataFrame(tab).sort_values(by=['pontos', 'acerto_11'], ascending=False).reset_index(drop=True)
             df['posicao'] = df.index + 1
-            salvar_classificacao_prova(pid, df, pr.get('temporada'))
+            
+            # Salvar com temporada correta
+            salvar_classificacao_prova(pid, df, temporada_prova)
