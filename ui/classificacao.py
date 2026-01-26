@@ -206,7 +206,7 @@ def main():
             total_anteriores = sum([p for p in pontos_anteriores if p is not None])
             
             tabela_anterior.append({
-                "Participante": part['nome', temporada_descarte=season],
+                "Participante": part['nome'],
                 "usuario_id": part['id'],
                 "Total Geral": total_anteriores
             })
