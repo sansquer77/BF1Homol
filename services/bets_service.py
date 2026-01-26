@@ -238,14 +238,19 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
 
 def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
     """
-    Calcula pontuação usando regras dinâmicas configuradas por temporada.
-    Busca pontos_posicoes da regra associada à temporada da prova.
+    Calcula pontuação usando:
+    - Tabelas de pontos FIXAS da FIA (hardcoded)
+    - Fichas DINÂMICAS da aposta do usuário
+    - Bônus 11º DINÂMICO da regra da temporada
+    - Penalidades DINÂMICAS das regras
+    
+    Fórmula: Pontos = (Pontos_FIA x Fichas) + Bônus_11º - Penalidades
     """
     import ast
     
-    # Valores fallback caso não haja regra configurada
-    PONTOS_F1_NORMAL_FALLBACK = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
-    PONTOS_SPRINT_FALLBACK = [8, 7, 6, 5, 4, 3, 2, 1]
+    # Tabelas de pontos FIXAS da FIA (NÃO customizáveis)
+    PONTOS_F1_NORMAL = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+    PONTOS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1]
     
     ress_map = {}
     for _, r in res_df.iterrows():
@@ -269,34 +274,29 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
         tipo = tipos_prova.get(prova_id, 'Normal')
         temporada_prova = temporadas_prova.get(prova_id, str(datetime.now().year))
         
-        # Busca regras da temporada
+        # Busca REGRAS DINÂMICAS da temporada (não altera pontos FIA)
         regras = get_regras_aplicaveis(temporada_prova, tipo)
         
-        # Obtém tabela de pontos da regra
-        pontos_tabela = regras.get('pontos_posicoes', [])
-        
-        # Fallback se não houver pontos_posicoes configurado
-        if not pontos_tabela:
-            if tipo == 'Sprint':
-                pontos_tabela = PONTOS_SPRINT_FALLBACK
-                n_posicoes = 8
-            else:
-                pontos_tabela = PONTOS_F1_NORMAL_FALLBACK
-                n_posicoes = 10
+        # Seleciona tabela FIXA da FIA baseada no tipo de prova
+        if tipo == 'Sprint':
+            pontos_tabela = PONTOS_SPRINT  # FIXO: 8,7,6,5,4,3,2,1
+            n_posicoes = 8
         else:
-            # Determina quantas posições pontuam (elementos > 0)
-            n_posicoes = sum(1 for p in pontos_tabela if p > 0)
+            pontos_tabela = PONTOS_F1_NORMAL  # FIXO: 25,18,15,12,10,8,6,4,2,1
+            n_posicoes = 10
         
-        # Obtém bônus 11º da regra
+        # Bônus 11º DINÂMICO da regra
         bonus_11 = regras.get('pontos_11_colocado', 25)
         
+        # Dados da aposta (fichas são DINÂMICAS - definidas pelo usuário)
         pilotos = aposta['pilotos'].split(",")
-        fichas = list(map(int, aposta['fichas'].split(",")))
+        fichas = list(map(int, aposta['fichas'].split(",")))  # DINÂMICO
         piloto_11 = aposta['piloto_11']
         automatica = int(aposta.get('automatica', 0))
         
         piloto_para_pos = {v: int(k) for k, v in res.items()}
         
+        # Cálculo: Pontos_FIA (fixo) x Fichas (dinâmico)
         pt = 0
         for i in range(len(pilotos)):
             piloto = pilotos[i]
@@ -304,14 +304,14 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
             pos_real = piloto_para_pos.get(piloto, None)
             
             if pos_real is not None and 1 <= pos_real <= n_posicoes:
-                pt += ficha * pontos_tabela[pos_real - 1]
+                pt += ficha * pontos_tabela[pos_real - 1]  # Pontos_FIA x Fichas
         
-        # Bônus 11º colocado
+        # Bônus 11º colocado (DINÂMICO da regra)
         piloto_11_real = res.get(11, "")
         if piloto_11 == piloto_11_real:
             pt += bonus_11
         
-        # Penalidade apostas automáticas consecutivas
+        # Penalidade apostas automáticas consecutivas (DINÂMICA)
         if automatica >= 2:
             pt = round(pt * 0.75, 2)
         
