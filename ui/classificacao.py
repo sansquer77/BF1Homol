@@ -162,7 +162,7 @@ def main():
         total_provas = sum([p for p in pontos_part if p is not None])
         
         pontos_campeonato = 0
-        if resultado_campeonato:
+        if resultado_campeonat, temporada_descarte=seasono:
             aposta_camp = get_championship_bet(part['id'], season)
             if aposta_camp:
                 if resultado_campeonato.get("champion") == aposta_camp.get("champion"):
@@ -206,7 +206,7 @@ def main():
             total_anteriores = sum([p for p in pontos_anteriores if p is not None])
             
             tabela_anterior.append({
-                "Participante": part['nome'],
+                "Participante": part['nome', temporada_descarte=season],
                 "usuario_id": part['id'],
                 "Total Geral": total_anteriores
             })
