@@ -52,7 +52,8 @@ def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
 
 def salvar_aposta(
     usuario_id, prova_id, pilotos, fichas, piloto_11, nome_prova,
-    automatica=0, horario_forcado=None, temporada: str | None = None, show_errors=True
+    automatica=0, horario_forcado=None, temporada: str | None = None, show_errors=True,
+    permitir_salvar_tardia: bool = False
 ):
     try:
         usuario_id = int(usuario_id)
@@ -107,7 +108,7 @@ def salvar_aposta(
             else:
                 c.execute('DELETE FROM apostas WHERE usuario_id=? AND prova_id=?', (usuario_id, prova_id))
 
-            if tipo_aposta == 0:
+            if tipo_aposta == 0 or permitir_salvar_tardia:
                 data_envio = agora_sp.isoformat()
                 if 'temporada' in aposta_cols:
                     c.execute(
@@ -133,6 +134,11 @@ def salvar_aposta(
                             piloto_11, nome_prova_bd, automatica
                         )
                     )
+            else:
+                # Aposta tardia não salva quando não permitido
+                if show_errors:
+                    st.error("Aposta fora do horário limite.")
+                return False
             conn.commit()
 
             try:
@@ -204,31 +210,57 @@ def gerar_aposta_aleatoria(pilotos_df):
     return pilotos_sel, fichas, piloto_11
 
 def gerar_aposta_aleatoria_com_regras(pilotos_df, regras: dict):
-    """Gera aposta aleatória respeitando `quantidade_fichas`, `qtd_minima_pilotos` e `fichas_por_piloto` da regra."""
+    """Gera aposta aleatória respeitando as regras (total de fichas, mínimo de pilotos, limite por piloto).
+    Considera possibilidade de mesma equipe quando necessário para atingir o número de pilotos requerido.
+    """
     import random
+    import math
+    if pilotos_df.empty:
+        return [], [], None
     equipes_unicas = [e for e in pilotos_df['equipe'].unique().tolist() if e]
     min_pilotos = int(regras.get('qtd_minima_pilotos') or regras.get('min_pilotos', 3))
     qtd_fichas = int(regras.get('quantidade_fichas', 15))
     fichas_max = int(regras.get('fichas_por_piloto', qtd_fichas))
-    if len(equipes_unicas) < min_pilotos or pilotos_df.empty:
-        return [], [], None
+    permite_mesma_equipe = bool(regras.get('mesma_equipe', False))
 
-    equipes_selecionadas = random.sample(equipes_unicas, min(max(min_pilotos, 5), len(equipes_unicas)))
+    # Quantidade mínima de pilotos para suportar o limite por piloto
+    pilotos_necessarios_por_cap = max(1, math.ceil(qtd_fichas / max(1, fichas_max)))
+    alvo_pilotos = max(min_pilotos, pilotos_necessarios_por_cap)
+
     pilotos_sel = []
-    for equipe in equipes_selecionadas:
-        pilotos_equipe = pilotos_df[pilotos_df['equipe'] == equipe]['nome'].tolist()
-        if pilotos_equipe:
-            pilotos_sel.append(random.choice(pilotos_equipe))
-    
-    if len(pilotos_sel) < min_pilotos:
-        return [], [], None
+    if len(equipes_unicas) >= alvo_pilotos:
+        # Escolhe equipes diferentes
+        equipes_selecionadas = random.sample(equipes_unicas, alvo_pilotos)
+        for equipe in equipes_selecionadas:
+            pilotos_equipe = pilotos_df[pilotos_df['equipe'] == equipe]['nome'].tolist()
+            if pilotos_equipe:
+                pilotos_sel.append(random.choice(pilotos_equipe))
+    else:
+        # Não há equipes suficientes; se permitido, escolhe pilotos adicionais de equipes repetidas
+        if not permite_mesma_equipe:
+            return [], [], None
+        # Primeiro pega um de cada equipe
+        for equipe in equipes_unicas:
+            pilotos_equipe = pilotos_df[pilotos_df['equipe'] == equipe]['nome'].tolist()
+            if pilotos_equipe:
+                pilotos_sel.append(random.choice(pilotos_equipe))
+        # Completa com pilotos aleatórios (permitindo 2 da mesma equipe)
+        todos_pilotos = pilotos_df['nome'].tolist()
+        safety = 10000
+        while len(pilotos_sel) < alvo_pilotos and safety > 0:
+            safety -= 1
+            candidato = random.choice(todos_pilotos)
+            if candidato not in pilotos_sel:
+                pilotos_sel.append(candidato)
+        if len(pilotos_sel) < alvo_pilotos:
+            return [], [], None
 
+    # Distribuição de fichas obedecendo limite por piloto
     num_pilotos = len(pilotos_sel)
     fichas = [1] * num_pilotos
     fichas_restantes = qtd_fichas - num_pilotos
     if fichas_restantes < 0:
         return [], [], None
-    
     safety = 10000
     while fichas_restantes > 0 and safety > 0:
         safety -= 1
@@ -236,10 +268,7 @@ def gerar_aposta_aleatoria_com_regras(pilotos_df, regras: dict):
         if fichas[idx] < fichas_max:
             fichas[idx] += 1
             fichas_restantes -= 1
-        else:
-            continue
     if fichas_restantes > 0:
-        # Não foi possível distribuir devido ao limite por piloto
         return [], [], None
 
     todos_pilotos = pilotos_df['nome'].tolist()
@@ -247,6 +276,89 @@ def gerar_aposta_aleatoria_com_regras(pilotos_df, regras: dict):
     piloto_11 = random.choice(candidatos_11) if candidatos_11 else random.choice(todos_pilotos)
 
     return pilotos_sel, fichas, piloto_11
+
+def ajustar_aposta_para_regras(pilotos: list[str], fichas: list[int], regras: dict, pilotos_df: pd.DataFrame):
+    """Ajusta uma aposta existente (copiada) para obedecer regras da temporada.
+    - Garante soma de fichas conforme regra
+    - Respeita limite por piloto
+    - Garante mínimo de pilotos (adicionando pilotos se necessário)
+    Retorna (pilotos_ajustados, fichas_ajustadas) ou ([], []) se não for possível.
+    """
+    import math, random
+    if not pilotos:
+        return [], []
+    qtd_fichas = int(regras.get('quantidade_fichas', 15))
+    fichas_max = int(regras.get('fichas_por_piloto', qtd_fichas))
+    min_pilotos = int(regras.get('qtd_minima_pilotos') or regras.get('min_pilotos', 3))
+
+    # Normalizar tamanhos
+    n = min(len(pilotos), len(fichas))
+    pilotos = [p.strip() for p in pilotos[:n]]
+    fichas = [int(x) for x in fichas[:n]]
+    # Trocar zeros negativos por zero e tratar negativos
+    fichas = [max(0, x) for x in fichas]
+
+    # Garante mínimo de pilotos
+    if len(pilotos) < min_pilotos:
+        todos_pilotos = pilotos_df['nome'].tolist()
+        candidatos = [p for p in todos_pilotos if p not in set(pilotos)]
+        safety = 10000
+        while len(pilotos) < min_pilotos and candidatos and safety > 0:
+            safety -= 1
+            novo = random.choice(candidatos)
+            candidatos.remove(novo)
+            pilotos.append(novo)
+            fichas.append(0)
+        if len(pilotos) < min_pilotos:
+            return [], []
+
+    # Impõe limite por piloto
+    fichas = [min(x, fichas_max) for x in fichas]
+
+    soma = sum(fichas)
+    # Ajusta soma para o exigido
+    if soma > qtd_fichas:
+        # Reduz das maiores entradas primeiro
+        for _ in range(soma - qtd_fichas):
+            idx_max = max(range(len(fichas)), key=lambda i: fichas[i])
+            if fichas[idx_max] > 0:
+                fichas[idx_max] -= 1
+    elif soma < qtd_fichas:
+        # Aumenta respeitando limite por piloto
+        faltam = qtd_fichas - soma
+        safety = 100000
+        while faltam > 0 and safety > 0:
+            safety -= 1
+            idx = random.randint(0, len(fichas) - 1)
+            if fichas[idx] < fichas_max:
+                fichas[idx] += 1
+                faltam -= 1
+            # Se ficar travado por limite, tenta expandir pilotos
+            if safety % 1000 == 0 and faltam > 0:
+                todos_pilotos = pilotos_df['nome'].tolist()
+                candidatos = [p for p in todos_pilotos if p not in set(pilotos)]
+                if candidatos:
+                    novo = random.choice(candidatos)
+                    pilotos.append(novo)
+                    fichas.append(0)
+    # Validação final
+    if sum(fichas) != qtd_fichas or len(pilotos) < min_pilotos:
+        return [], []
+    return pilotos, fichas
+
+def _determinar_tipo_prova(prova_row: pd.Series | dict, nome_prova: str | None) -> str:
+    try:
+        if isinstance(prova_row, dict):
+            t = prova_row.get('tipo')
+        else:
+            t = prova_row['tipo'] if 'tipo' in prova_row and pd.notna(prova_row['tipo']) else None
+    except Exception:
+        t = None
+    if t and str(t).strip().lower() == 'sprint':
+        return 'Sprint'
+    if nome_prova and 'sprint' in str(nome_prova).lower():
+        return 'Sprint'
+    return 'Normal'
 
 def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas_df, temporada=None):
     try:
@@ -262,6 +374,8 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     data_prova = prova_atual['data'].iloc[0]
     horario_prova = prova_atual['horario_prova'].iloc[0]
     horario_limite = _parse_datetime_sp(data_prova, horario_prova)
+    tipo_prova = _determinar_tipo_prova(prova_atual.iloc[0], nome_prova)
+    regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova)
     
     aposta_existente = apostas_df[
         (apostas_df["usuario_id"] == usuario_id) & 
@@ -279,10 +393,15 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         pilotos_ant = [p.strip() for p in ap_ant['pilotos'].split(",")]
         fichas_ant = list(map(int, ap_ant['fichas'].split(",")))
         piloto_11_ant = ap_ant['piloto_11'].strip()
+        # Ajustar aposta copiada para obedecer regras da prova atual (ex.: Sprint x Normal)
+        pilotos_aj, fichas_aj = ajustar_aposta_para_regras(pilotos_ant, fichas_ant, regras, get_pilotos_df())
+        if not pilotos_aj:
+            # Se não conseguir ajustar, gera aleatória com regras
+            pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria_com_regras(get_pilotos_df(), regras)
+        else:
+            pilotos_ant, fichas_ant = pilotos_aj, fichas_aj
     else:
         # Gerar aposta aleatória respeitando regras da temporada e tipo da prova
-        tipo = prova_atual['tipo'].iloc[0] if 'tipo' in prova_atual.columns and pd.notna(prova_atual['tipo'].iloc[0]) else ("Sprint" if "Sprint" in (nome_prova or "") else "Normal")
-        regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo)
         pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria_com_regras(get_pilotos_df(), regras)
         
     if not pilotos_ant:
@@ -296,7 +415,8 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         
     sucesso = salvar_aposta(
         usuario_id, prova_id, pilotos_ant, fichas_ant, piloto_11_ant, nome_prova,
-        automatica=nova_auto, horario_forcado=horario_limite, temporada=temporada, show_errors=False
+        automatica=nova_auto, horario_forcado=horario_limite, temporada=temporada, show_errors=False,
+        permitir_salvar_tardia=True
     )
     
     return (True, "Aposta automática gerada!") if sucesso else (False, "Falha ao salvar.")
