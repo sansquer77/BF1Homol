@@ -267,21 +267,20 @@ def regra_form(regra_atual=None):
                     horizontal=True,
                     help="Sprint com pontuação 2x (apenas se Regra Sprint = Sim)"
                 )
-                
-                # 12. Pontos Campeão
+            
+            st.markdown("---")
+            st.write("### 🏆 Bônus de Campeonato")
+            
+            # 13. Pontos Campeão, Vice e Equipe
+            col3, c4, col5 = st.columns(3)
+            with col3:
                 pontos_campeao = st.number_input(
                     "1️⃣2️⃣ Pontos por Acertar o Campeão *",
                     min_value=0,
                     value=safe_get(regra_atual, 'pontos_campeao', 150),
                     help="Bônus final ao final da temporada por acertar campeão"
                 )
-            
-            st.markdown("---")
-            st.write("### 🏆 Bônus de Campeonato")
-            
-            # 13. Pontos Vice e Equipe
-            col3, c4, col5 = st.columns(3)
-            with col3:
+            with col4:
                 pontos_vice = st.number_input(
                     "1️⃣3️⃣ Pontos por Acertar o Vice *",
                     min_value=0,
@@ -289,7 +288,7 @@ def regra_form(regra_atual=None):
                     help="Bônus final ao final da temporada por acertar vice"
                 )
             
-            with col4:
+            with col5:
                 pontos_equipe = st.number_input(
                     "1️⃣4️⃣ Pontos por Acertar a Equipe Campeã *",
                     min_value=0,
