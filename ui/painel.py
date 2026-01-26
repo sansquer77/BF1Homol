@@ -8,8 +8,9 @@ from db.db_utils import (
     db_connect, get_user_by_id, get_provas_df, get_pilotos_df, get_apostas_df, get_resultados_df,
     update_user_email, update_user_password, get_user_by_email
 )
-from services.bets_service import salvar_aposta
+from services.bets_service import salvar_aposta, calcular_pontuacao_lote
 from services.auth_service import check_password, hash_password
+from services.rules_service import get_regras_aplicaveis
 from db.backup_utils import list_temporadas
 
 def participante_view():
@@ -242,6 +243,56 @@ def participante_view():
                     st.markdown("---")
         else:
             st.info("Nenhuma aposta registrada.")
+
+        # --- NOVA SEÇÃO: Prova de Descarte ---
+        st.subheader("⚠️ Regra de Descarte")
+        regras_temporada = get_regras_aplicaveis(temporada, "Normal")
+        descarte_ativo = regras_temporada.get('descarte', False)
+        
+        if descarte_ativo:
+            # Calcular pontuação de todas as provas do participante
+            if not apostas_part.empty:
+                pontos_por_prova = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df)
+                
+                # Criar dataframe com provas e pontuações
+                provas_pontos = []
+                for idx, (_, aposta) in enumerate(apostas_part.iterrows()):
+                    if pontos_por_prova[idx] is not None:
+                        prova_nome = aposta['nome_prova']
+                        prova_id_val = aposta['prova_id']
+                        pontos_val = pontos_por_prova[idx]
+                        provas_pontos.append({
+                            'prova_id': prova_id_val,
+                            'nome_prova': prova_nome,
+                            'pontos': pontos_val
+                        })
+                
+                if provas_pontos:
+                    df_provas_pontos = pd.DataFrame(provas_pontos)
+                    # Identificar prova com menor pontuação
+                    prova_descarte = df_provas_pontos.loc[df_provas_pontos['pontos'].idxmin()]
+                    
+                    st.info(
+                        f"✅ **Regra de Descarte ATIVA para {temporada}**\n\n"
+                        f"Sua prova com **menor pontuação** será descartada no cálculo final do campeonato:\n\n"
+                        f"**{prova_descarte['nome_prova']}** - {prova_descarte['pontos']:.2f} pontos\n\n"
+                        f"_Esta prova NÃO será contabilizada na sua pontuação final quando o resultado do campeonato for cadastrado._"
+                    )
+                else:
+                    st.info(
+                        f"✅ **Regra de Descarte ATIVA para {temporada}**\n\n"
+                        f"Quando houver resultados cadastrados, sua prova com menor pontuação será automaticamente descartada no cálculo final do campeonato."
+                    )
+            else:
+                st.info(
+                    f"✅ **Regra de Descarte ATIVA para {temporada}**\n\n"
+                    f"Quando houver resultados cadastrados, sua prova com menor pontuação será automaticamente descartada no cálculo final do campeonato."
+                )
+        else:
+            st.warning(
+                f"❌ **Regra de Descarte NÃO está vigente para {temporada}**\n\n"
+                f"Todas as provas serão contabilizadas no cálculo final do campeonato."
+            )
 
         # --------- Gráfico de evolução da posição do participante logado ---------
         st.subheader("Evolução da Posição no Campeonato")
