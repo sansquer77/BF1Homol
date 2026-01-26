@@ -16,14 +16,24 @@ from db.db_utils import (
 from services.email_service import enviar_email
 from services.rules_service import get_regras_aplicaveis
 
+def _parse_datetime_sp(date_str: str, time_str: str):
+    """Tenta parsear data e hora com ou sem segundos e retorna timezone America/Sao_Paulo."""
+    fmts = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M']
+    for fmt in fmts:
+        try:
+            dt = datetime.strptime(f"{date_str} {time_str}", fmt)
+            return dt.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+        except ValueError:
+            continue
+    # Se todas falharem, levanta erro explícito
+    raise ValueError(f"Formato de data/hora inválido: '{date_str} {time_str}'")
+
 def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
     """
     Verifica se o usuário pode fazer aposta comparando horário local com horário de São Paulo.
     """
     try:
-        horario_limite_sp = datetime.strptime(
-            f"{data_prova_str} {horario_prova_str}", '%Y-%m-%d %H:%M:%S'
-        ).replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+        horario_limite_sp = _parse_datetime_sp(data_prova_str, horario_prova_str)
 
         if horario_usuario is None:
             horario_usuario = datetime.now(ZoneInfo("America/Sao_Paulo"))
@@ -69,9 +79,7 @@ def salvar_aposta(
             st.error(f"Dados insuficientes para gerar aposta. Regra: {min_pilotos} pilotos e {quantidade_fichas} fichas.")
         return False
 
-    horario_limite = datetime.strptime(
-        f"{data_prova} {horario_prova}", '%Y-%m-%d %H:%M:%S'
-    ).replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+    horario_limite = _parse_datetime_sp(data_prova, horario_prova)
 
     agora_sp = horario_forcado or datetime.now(ZoneInfo("America/Sao_Paulo"))
     tipo_aposta = 0 if agora_sp <= horario_limite else 1
@@ -195,6 +203,51 @@ def gerar_aposta_aleatoria(pilotos_df):
     
     return pilotos_sel, fichas, piloto_11
 
+def gerar_aposta_aleatoria_com_regras(pilotos_df, regras: dict):
+    """Gera aposta aleatória respeitando `quantidade_fichas`, `qtd_minima_pilotos` e `fichas_por_piloto` da regra."""
+    import random
+    equipes_unicas = [e for e in pilotos_df['equipe'].unique().tolist() if e]
+    min_pilotos = int(regras.get('qtd_minima_pilotos') or regras.get('min_pilotos', 3))
+    qtd_fichas = int(regras.get('quantidade_fichas', 15))
+    fichas_max = int(regras.get('fichas_por_piloto', qtd_fichas))
+    if len(equipes_unicas) < min_pilotos or pilotos_df.empty:
+        return [], [], None
+
+    equipes_selecionadas = random.sample(equipes_unicas, min(max(min_pilotos, 5), len(equipes_unicas)))
+    pilotos_sel = []
+    for equipe in equipes_selecionadas:
+        pilotos_equipe = pilotos_df[pilotos_df['equipe'] == equipe]['nome'].tolist()
+        if pilotos_equipe:
+            pilotos_sel.append(random.choice(pilotos_equipe))
+    
+    if len(pilotos_sel) < min_pilotos:
+        return [], [], None
+
+    num_pilotos = len(pilotos_sel)
+    fichas = [1] * num_pilotos
+    fichas_restantes = qtd_fichas - num_pilotos
+    if fichas_restantes < 0:
+        return [], [], None
+    
+    safety = 10000
+    while fichas_restantes > 0 and safety > 0:
+        safety -= 1
+        idx = random.randint(0, num_pilotos - 1)
+        if fichas[idx] < fichas_max:
+            fichas[idx] += 1
+            fichas_restantes -= 1
+        else:
+            continue
+    if fichas_restantes > 0:
+        # Não foi possível distribuir devido ao limite por piloto
+        return [], [], None
+
+    todos_pilotos = pilotos_df['nome'].tolist()
+    candidatos_11 = [p for p in todos_pilotos if p not in pilotos_sel]
+    piloto_11 = random.choice(candidatos_11) if candidatos_11 else random.choice(todos_pilotos)
+
+    return pilotos_sel, fichas, piloto_11
+
 def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas_df, temporada=None):
     try:
         usuario_id = int(usuario_id)
@@ -208,7 +261,7 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         
     data_prova = prova_atual['data'].iloc[0]
     horario_prova = prova_atual['horario_prova'].iloc[0]
-    horario_limite = datetime.strptime(f"{data_prova} {horario_prova}", '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+    horario_limite = _parse_datetime_sp(data_prova, horario_prova)
     
     aposta_existente = apostas_df[
         (apostas_df["usuario_id"] == usuario_id) & 
@@ -227,7 +280,10 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         fichas_ant = list(map(int, ap_ant['fichas'].split(",")))
         piloto_11_ant = ap_ant['piloto_11'].strip()
     else:
-        pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria(get_pilotos_df())
+        # Gerar aposta aleatória respeitando regras da temporada e tipo da prova
+        tipo = prova_atual['tipo'].iloc[0] if 'tipo' in prova_atual.columns and pd.notna(prova_atual['tipo'].iloc[0]) else ("Sprint" if "Sprint" in (nome_prova or "") else "Normal")
+        regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo)
+        pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria_com_regras(get_pilotos_df(), regras)
         
     if not pilotos_ant:
         return False, "Não há dados válidos para gerar aposta automática."
@@ -257,9 +313,7 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
     """
     import ast
     
-    # Tabelas de pontos FIXAS da FIA (NÃO customizáveis)
-    PONTOS_F1_NORMAL = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
-    PONTOS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1]
+    # As tabelas de pontos virão das regras aplicáveis (com fallback no serviço de regras)
     
     ress_map = {}
     for _, r in res_df.iterrows():
@@ -286,13 +340,9 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
         # Busca REGRAS DINÂMICAS da temporada (não altera pontos FIA)
         regras = get_regras_aplicaveis(temporada_prova, tipo)
         
-        # Seleciona tabela FIXA da FIA baseada no tipo de prova
-        if tipo == 'Sprint':
-            pontos_tabela = PONTOS_SPRINT  # FIXO: 8,7,6,5,4,3,2,1
-            n_posicoes = 8
-        else:
-            pontos_tabela = PONTOS_F1_NORMAL  # FIXO: 25,18,15,12,10,8,6,4,2,1
-            n_posicoes = 10
+        # Seleciona tabela de pontos da regra vigente
+        pontos_tabela = regras.get('pontos_posicoes', [])
+        n_posicoes = len(pontos_tabela)
         
         # Bônus 11º DINÂMICO da regra
         bonus_11 = regras.get('pontos_11_colocado', 25)
@@ -305,7 +355,8 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
         
         piloto_para_pos = {v: int(k) for k, v in res.items()}
         
-        # Cálculo: Pontos_FIA (fixo) x Fichas (dinâmico)
+        # Cálculo: Pontos da Regra x Fichas (dinâmico)
+        sprint_multiplier = 2 if (tipo == 'Sprint' and regras.get('pontos_dobrada')) else 1
         pt = 0
         for i in range(len(pilotos)):
             piloto = pilotos[i]
@@ -313,7 +364,7 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
             pos_real = piloto_para_pos.get(piloto, None)
             
             if pos_real is not None and 1 <= pos_real <= n_posicoes:
-                pt += ficha * pontos_tabela[pos_real - 1]  # Pontos_FIA x Fichas
+                pt += ficha * pontos_tabela[pos_real - 1] * sprint_multiplier
         
         # Bônus 11º colocado (DINÂMICO da regra)
         piloto_11_real = res.get(11, "")

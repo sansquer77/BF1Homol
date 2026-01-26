@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime, timezone
 from db.db_utils import db_connect
+from services.rules_service import get_regras_aplicaveis
 
 
 def _season_or_current(season: int | None) -> int:
@@ -117,14 +118,18 @@ def calcular_pontuacao_campeonato(user_id: int, season: int | None = None) -> in
     season_val = _season_or_current(season)
     aposta = get_championship_bet(user_id, season_val)
     resultado = get_final_results(season_val)
+    regras = get_regras_aplicaveis(str(season_val), "Normal")
+    pontos_campeao = regras.get('pontos_campeao', 150)
+    pontos_vice = regras.get('pontos_vice', 100)
+    pontos_equipe = regras.get('pontos_equipe', 80)
     pontos = 0
     if aposta and resultado:
         if aposta["champion"] == resultado["champion"]:
-            pontos += 150
+            pontos += pontos_campeao
         if aposta["vice"] == resultado["vice"]:
-            pontos += 100
+            pontos += pontos_vice
         if aposta["team"] == resultado["team"]:
-            pontos += 80
+            pontos += pontos_equipe
     return pontos
 
 def get_championship_bets_df(season: int | None = None):

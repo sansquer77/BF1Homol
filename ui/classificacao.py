@@ -10,6 +10,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from db.db_utils import db_connect, get_usuarios_df, get_provas_df, get_apostas_df, get_resultados_df
 from db.backup_utils import list_temporadas
 from services.championship_service import get_final_results, get_championship_bet
+from services.rules_service import get_regras_aplicaveis
 from services.bets_service import calcular_pontuacao_lote, atualizar_classificacoes_todas_as_provas
 
 def formatar_brasileiro(valor):
@@ -138,7 +139,7 @@ def main():
     st.session_state['temporada'] = season
 
     try:
-        atualizar_classificacoes_todas_as_provas()
+        atualizar_classificacoes_todas_as_provas(temporada=season)
     except Exception as e:
         st.warning(f"⚠️ Erro ao atualizar classificações: {e}")
 
@@ -156,6 +157,12 @@ def main():
     tabela_classificacao = []
     tabela_detalhada = []
 
+    # Carregar regras da temporada selecionada para bônus de campeonato
+    regras_temporada = get_regras_aplicaveis(str(season), "Normal")
+    pontos_campeao = regras_temporada.get('pontos_campeao', 150)
+    pontos_vice = regras_temporada.get('pontos_vice', 100)
+    pontos_equipe = regras_temporada.get('pontos_equipe', 80)
+
     for idx, part in participantes.iterrows():
         apostas_part = apostas_df[apostas_df['usuario_id'] == part['id']].sort_values('prova_id')
         pontos_part = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=season)
@@ -166,11 +173,11 @@ def main():
             aposta_camp = get_championship_bet(part['id'], season)
             if aposta_camp:
                 if resultado_campeonato.get("champion") == aposta_camp.get("champion"):
-                    pontos_campeonato += 150
+                    pontos_campeonato += pontos_campeao
                 if resultado_campeonato.get("vice") == aposta_camp.get("vice"):
-                    pontos_campeonato += 100
+                    pontos_campeonato += pontos_vice
                 if resultado_campeonato.get("team") == aposta_camp.get("team"):
-                    pontos_campeonato += 80
+                    pontos_campeonato += pontos_equipe
         
         tabela_classificacao.append({
             "Participante": part['nome'],
