@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 from collections import defaultdict
+import datetime
 
 BASE_URL = "https://api.jolpi.ca/ergast/f1"
 
@@ -14,25 +15,26 @@ def get_current_season():
         data = response.json()
         season = data['MRData']['RaceTable']['season']
         return season
-    except Exception as e:
+    except Exception:
         # Fallback para ano atual
-        import datetime
         return str(datetime.datetime.now().year)
 
-# 2. Get current driver standings
-def get_current_driver_standings():
-    """Obtém classificação atual de pilotos"""
+# 2. Get driver standings by season
+def get_driver_standings(season='current'):
+    """Obtém classificação de pilotos por temporada
+    
+    Args:
+        season: Ano da temporada (ex: '2024', '1950') ou 'current' para temporada atual
+    """
     try:
-        url = f"{BASE_URL}/current/driverStandings.json"
+        url = f"{BASE_URL}/{season}/driverStandings.json"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
         
         standings_lists = data['MRData']['StandingsTable'].get('StandingsLists', [])
         
-        # Verifica se há dados disponíveis
         if not standings_lists or len(standings_lists) == 0:
-            # Retorna DataFrame vazio com estrutura correta
             return pd.DataFrame(columns=['Position', 'Driver', 'Points', 'Wins', 'Nationality', 'Constructor'])
         
         standings = standings_lists[0].get('DriverStandings', [])
@@ -55,15 +57,23 @@ def get_current_driver_standings():
             
         return pd.DataFrame(drivers)
         
-    except Exception as e:
-        # Em caso de erro, retorna DataFrame vazio
+    except Exception:
         return pd.DataFrame(columns=['Position', 'Driver', 'Points', 'Wins', 'Nationality', 'Constructor'])
 
-# 3. Get current constructor standings
-def get_current_constructor_standings():
-    """Obtém classificação atual de construtores"""
+# Alias para compatibilidade
+def get_current_driver_standings():
+    """Alias para manter compatibilidade com código existente"""
+    return get_driver_standings('current')
+
+# 3. Get constructor standings by season
+def get_constructor_standings(season='current'):
+    """Obtém classificação de construtores por temporada
+    
+    Args:
+        season: Ano da temporada (ex: '2024', '1950') ou 'current' para temporada atual
+    """
     try:
-        url = f"{BASE_URL}/current/constructorStandings.json"
+        url = f"{BASE_URL}/{season}/constructorStandings.json"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
@@ -91,12 +101,21 @@ def get_current_constructor_standings():
             
         return pd.DataFrame(constructors)
         
-    except Exception as e:
+    except Exception:
         return pd.DataFrame(columns=['Position', 'Constructor', 'Points', 'Wins', 'Nationality'])
+
+# Alias para compatibilidade
+def get_current_constructor_standings():
+    """Alias para manter compatibilidade com código existente"""
+    return get_constructor_standings('current')
 
 # 4. Get driver cumulative points by race
 def get_driver_points_by_race(season='current'):
-    """Obtém pontos acumulados dos pilotos por corrida"""
+    """Obtém pontos acumulados dos pilotos por corrida
+    
+    Args:
+        season: Ano da temporada (ex: '2024', '1950') ou 'current' para temporada atual
+    """
     try:
         # Determinar a temporada atual se necessário
         if season == 'current':
@@ -173,14 +192,18 @@ def get_driver_points_by_race(season='current'):
         
         return pd.DataFrame(data)
         
-    except Exception as e:
+    except Exception:
         return pd.DataFrame(columns=['Round', 'Race'])
 
 # 5. Get qualifying vs race position delta for last race
-def get_qualifying_vs_race_delta():
-    """Obtém diferença entre posição de classificatória e corrida"""
+def get_qualifying_vs_race_delta(season='current'):
+    """Obtém diferença entre posição de classificatória e corrida (última prova da temporada)
+    
+    Args:
+        season: Ano da temporada (ex: '2024', '1950') ou 'current' para temporada atual
+    """
     try:
-        last_race_url = f"{BASE_URL}/current/last.json"
+        last_race_url = f"{BASE_URL}/{season}/last.json"
         race_resp = requests.get(last_race_url, timeout=10)
         race_resp.raise_for_status()
         race_resp_data = race_resp.json()
@@ -191,8 +214,8 @@ def get_qualifying_vs_race_delta():
         
         round_num = races[0]['round']
 
-        race_results_url = f"{BASE_URL}/current/{round_num}/results.json"
-        qual_results_url = f"{BASE_URL}/current/{round_num}/qualifying.json"
+        race_results_url = f"{BASE_URL}/{season}/{round_num}/results.json"
+        qual_results_url = f"{BASE_URL}/{season}/{round_num}/qualifying.json"
 
         race_data = requests.get(race_results_url, timeout=10).json()
         qual_data = requests.get(qual_results_url, timeout=10).json()
@@ -225,14 +248,18 @@ def get_qualifying_vs_race_delta():
 
         return pd.DataFrame(deltas)
         
-    except Exception as e:
+    except Exception:
         return pd.DataFrame(columns=['Driver', 'Qualifying', 'Race', 'Delta'])
 
 # 6. Get fastest lap times from last race
-def get_fastest_lap_times():
-    """Obtém tempos de volta mais rápida da última corrida"""
+def get_fastest_lap_times(season='current'):
+    """Obtém tempos de volta mais rápida da última corrida
+    
+    Args:
+        season: Ano da temporada (ex: '2024', '1950') ou 'current' para temporada atual
+    """
     try:
-        url = f"{BASE_URL}/current/last/results.json"
+        url = f"{BASE_URL}/{season}/last/results.json"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
@@ -251,14 +278,20 @@ def get_fastest_lap_times():
 
         return pd.DataFrame(laps)
         
-    except Exception as e:
+    except Exception:
         return pd.DataFrame(columns=['Driver', 'Fastest Lap'])
 
 # 7. Get pit stop data for the last race
-def get_pit_stop_data():
-    """Obtém dados de pit stops da última corrida"""
+def get_pit_stop_data(season='current'):
+    """Obtém dados de pit stops da última corrida
+    
+    Args:
+        season: Ano da temporada (ex: '2024', '1950') ou 'current' para temporada atual
+    
+    Nota: Dados de pit stops estão disponíveis apenas a partir de 2011
+    """
     try:
-        race_info_resp = requests.get(f"{BASE_URL}/current/last.json", timeout=10)
+        race_info_resp = requests.get(f"{BASE_URL}/{season}/last.json", timeout=10)
         race_info_resp.raise_for_status()
         race_info = race_info_resp.json()
         
@@ -268,7 +301,7 @@ def get_pit_stop_data():
         
         round_num = races[0]['round']
 
-        url = f"{BASE_URL}/current/{round_num}/pitstops.json?limit=1000"
+        url = f"{BASE_URL}/{season}/{round_num}/pitstops.json?limit=1000"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
@@ -287,5 +320,5 @@ def get_pit_stop_data():
 
         return pd.DataFrame(result)
         
-    except Exception as e:
+    except Exception:
         return pd.DataFrame(columns=['Driver', 'Lap', 'Stop', 'Time'])
