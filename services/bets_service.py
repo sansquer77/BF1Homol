@@ -356,7 +356,7 @@ def atualizar_classificacoes_todas_as_provas():
                 else:
                     p_list = calcular_pontuacao_lote(ap, ress, provs)
 pontos_val = sum(p_list) if p_list else 0                    
-            data_envio = ap.iloc[0].get('data_envio', None)
+        data_envio = ap.iloc[0].get('data_envio', None)
                     acerto_11 = 1 if ap.iloc[0]['piloto_11'] == piloto_11_real else 0
                 
                 tab.append({
