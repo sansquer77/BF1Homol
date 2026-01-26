@@ -47,42 +47,42 @@ def main():
         regras_disponiveis = listar_regras()
         if not regras_disponiveis:
             st.warning("Nenhuma regra cadastrada. Crie uma regra na aba 'Criar/Editar Regras'.")
-            return
+            # NÃO usar return aqui - apenas não mostra o resto desta aba
+        else:
+            regras_nomes = {r['id']: r['nome_regra'] for r in regras_disponiveis}
             
-        regras_nomes = {r['id']: r['nome_regra'] for r in regras_disponiveis}
-        
-        st.write("### Configuração Atual")
-        dados_config = []
-        for temp in temporadas:
-            regra_atual = get_regra_temporada(temp)
-            dados_config.append({
-                "Temporada": temp,
-                "Regra Aplicada": regra_atual['nome_regra'] if regra_atual else "Nenhuma"
-            })
-        
-        df_config = pd.DataFrame(dados_config)
-        st.table(df_config)
-        
-        st.write("### Associar Nova Regra")
-        col_temp, col_regra = st.columns(2)
-        with col_temp:
-            temporada_selecionada = st.selectbox("Selecione a Temporada", temporadas, key="temp_associar")
-        with col_regra:
-            regra_selecionada = st.selectbox(
-                "Selecione a Regra", 
-                options=list(regras_nomes.keys()),
-                format_func=lambda x: regras_nomes[x],
-                key="regra_associar"
-            )
+            st.write("### Configuração Atual")
+            dados_config = []
+            for temp in temporadas:
+                regra_atual = get_regra_temporada(temp)
+                dados_config.append({
+                    "Temporada": temp,
+                    "Regra Aplicada": regra_atual['nome_regra'] if regra_atual else "Nenhuma"
+                })
             
-        if st.button("Associar Regra à Temporada"):
-            if regra_selecionada is None:
-                st.error("Selecione uma regra válida.")
-            elif associar_regra_temporada(temporada_selecionada, regra_selecionada):
-                st.success(f"Regra '{regras_nomes[regra_selecionada]}' associada à temporada {temporada_selecionada}!")
-                st.rerun()
-            else:
-                st.error("Erro ao associar regra à temporada.")
+            df_config = pd.DataFrame(dados_config)
+            st.table(df_config)
+            
+            st.write("### Associar Nova Regra")
+            col_temp, col_regra = st.columns(2)
+            with col_temp:
+                temporada_selecionada = st.selectbox("Selecione a Temporada", temporadas, key="temp_associar")
+            with col_regra:
+                regra_selecionada = st.selectbox(
+                    "Selecione a Regra", 
+                    options=list(regras_nomes.keys()),
+                    format_func=lambda x: regras_nomes[x],
+                    key="regra_associar"
+                )
+                
+            if st.button("Associar Regra à Temporada"):
+                if regra_selecionada is None:
+                    st.error("Selecione uma regra válida.")
+                elif associar_regra_temporada(temporada_selecionada, regra_selecionada):
+                    st.success(f"Regra '{regras_nomes[regra_selecionada]}' associada à temporada {temporada_selecionada}!")
+                    st.rerun()
+                else:
+                    st.error("Erro ao associar regra à temporada.")
                 
     # ========== ABA: Criar/Editar Regras ==========
     with tabs[1]:
