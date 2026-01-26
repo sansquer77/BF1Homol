@@ -11,7 +11,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from db.db_utils import db_connect, get_usuarios_df, get_provas_df, get_apostas_df, get_resultados_df
 from db.backup_utils import list_temporadas
 from services.championship_service import get_final_results, get_championship_bet
-from services.bets_service import calcular_pontuacao_lote
+from services.bets_service import calcular_pontuacao_lote, atualizar_classificacoes_todas_as_provas
 
 def formatar_brasileiro(valor):
     try:
@@ -145,6 +145,13 @@ def main():
     
     season = st.selectbox("Temporada", season_options, index=default_index, key="classificacao_season")
     st.session_state['temporada'] = season
+
+    # Forçar atualização das classificações ao carregar a página
+    # Isso garante que posicoes_participantes esteja sempre atualizada
+    try:
+        atualizar_classificacoes_todas_as_provas()
+    except Exception as e:
+        st.warning(f"⚠️ Erro ao atualizar classificações: {e}")
 
     usuarios_df = get_usuarios_df()
     provas_df = get_provas_df(season)
@@ -350,7 +357,7 @@ def main():
     st.subheader("Classificação de Cada Participante ao Longo do Campeonato")
     with db_connect() as conn:
         # Filter positions by selected season
-        query = 'SELECT * FROM posicoes_participantes WHERE temporada = ? OR temporada IS NULL'
+        query = 'SELECT * FROM posicoes_participantes WHERE temporada = ?'
         df_posicoes = pd.read_sql(query, conn, params=(season,))
     fig_all = go.Figure()
     for part in participantes['nome']:
