@@ -81,12 +81,25 @@ def main():
                     st.error("Selecione uma regra válida.")
                 elif associar_regra_temporada(temporada_selecionada, regra_selecionada):
                     st.success(f"Regra '{regras_nomes[regra_selecionada]}' associada à temporada {temporada_selecionada}!")
-                    if st.button("Recalcular pontuação de todas as provas agora", key="btn_recalcular_pontuacao"):
-                        atualizar_classificacoes_todas_as_provas()
-                        st.success("Pontuação recalculada para todas as provas!")
                     st.rerun()
                 else:
                     st.error("Erro ao associar regra à temporada.")
+            
+            # -- Recalcular pontuação manualmente --
+            st.markdown("---")
+            st.write("### Recalcular Classificações")
+            st.caption("Reprocessa pontos de todas as provas pela regra vigente de cada temporada.")
+            if st.button("Recalcular pontuação de todas as provas", key="btn_recalcular_pontuacao"):
+                try:
+                    # Limpar caches para garantir dados atualizados
+                    try:
+                        st.cache_data.clear()
+                    except Exception:
+                        pass
+                    atualizar_classificacoes_todas_as_provas()
+                    st.success("Pontuação recalculada para todas as provas!")
+                except Exception as e:
+                    st.error(f"Falha ao recalcular: {e}")
                 
     # ========== ABA: Criar/Editar Regras ==========
     with tabs[1]:
