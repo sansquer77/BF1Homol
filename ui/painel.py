@@ -256,7 +256,7 @@ def participante_view():
                 
                 # Criar dataframe com provas e pontuações
                 provas_pontos = []
-                for idx, (_, aposta) in enumerate(apostas_part.iterrows()):
+                for idx, (_, aposta) in enumerate(apostas_part.iterrows(), temporada_descarte=temporada):
                     if pontos_por_prova[idx] is not None:
                         prova_nome = aposta['nome_prova']
                         prova_id_val = aposta['prova_id']
