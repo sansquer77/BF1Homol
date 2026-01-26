@@ -21,19 +21,15 @@ def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
     Verifica se o usuário pode fazer aposta comparando horário local com horário de São Paulo.
     """
     try:
-        # Horário limite em São Paulo
         horario_limite_sp = datetime.strptime(
             f"{data_prova_str} {horario_prova_str}", '%Y-%m-%d %H:%M:%S'
         ).replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
 
-        # Horário do usuário (padrão: agora em SP)
         if horario_usuario is None:
             horario_usuario = datetime.now(ZoneInfo("America/Sao_Paulo"))
         elif not horario_usuario.tzinfo:
-            # Se sem timezone, assume SP
             horario_usuario = horario_usuario.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
 
-        # Converte para UTC para comparar
         horario_usuario_utc = horario_usuario.astimezone(ZoneInfo("UTC"))
         horario_limite_utc = horario_limite_sp.astimezone(ZoneInfo("UTC"))
 
@@ -48,7 +44,6 @@ def salvar_aposta(
     usuario_id, prova_id, pilotos, fichas, piloto_11, nome_prova,
     automatica=0, horario_forcado=None, temporada: str | None = None
 ):
-    # Garante tipo correto para os argumentos IDs (resolve erro de usuário não encontrado)
     try:
         usuario_id = int(usuario_id)
         prova_id = int(prova_id)
@@ -61,7 +56,6 @@ def salvar_aposta(
         st.error("Prova não encontrada ou horário/nome/data não cadastrados.")
         return False
 
-    # Obter regras para validação
     tipo_prova_regra = "Sprint" if "Sprint" in (nome_prova_bd or "") else "Normal"
     regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova_regra)
     
@@ -90,7 +84,6 @@ def salvar_aposta(
     try:
         with db_connect() as conn:
             c = conn.cursor()
-            # Detect if temporada column exists and include it in queries when present
             c.execute("PRAGMA table_info('apostas')")
             aposta_cols = [r[1] for r in c.fetchall()]
 
@@ -130,7 +123,6 @@ def salvar_aposta(
                     )
             conn.commit()
 
-            # Enviar confirmação por email (opcional, pode falhar)
             try:
                 corpo_email = f"""
 Olá {usuario['nome']},
@@ -182,7 +174,7 @@ def gerar_aposta_aleatoria(pilotos_df):
         return [], [], None
         
     fichas = [1] * 3
-    total_fichas = 12 # Assume padrão 15
+    total_fichas = 12
     for i in range(3):
         add = random.randint(0, min(9, total_fichas))
         fichas[i] += add
@@ -217,7 +209,6 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     if not aposta_existente.empty:
         return False, "Já existe aposta manual para esta prova."
         
-    # Tentar pegar aposta da prova anterior
     prova_ant_id = prova_id - 1
     ap_ant = apostas_df[(apostas_df['usuario_id'] == usuario_id) & (apostas_df['prova_id'] == prova_ant_id)]
     
@@ -247,142 +238,74 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
 
 def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
     """
-    Calcula pontuação de um lote de apostas respeitando as regras da temporada.
-    
-    Args:
-        ap_df: DataFrame de apostas
-        res_df: DataFrame de resultados
-        prov_df: DataFrame de provas
-        temporada_descarte: Temporada para aplicar descarte (None = usa aposta.temporada)
-    
-    Returns:
-        Lista de pontos calculados, respeitando:
-        - Fórmula: fichas[i] × pontos_piloto[posição[i]-1] + bônus_11
-        - Descarte: remove pior resultado se habilitado na regra
-        - Penalidade: deduz pontos por abandono
-        - Wildcard: multiplica por 2 se sprint com pontos_dobrada=Sim
+    Calcula pontuação usando pontos FIXOS conforme tabela oficial da FIA/F1.
     """
     import ast
-    ress_map = {r['prova_id']: ast.literal_eval(r['posicoes']) for _, r in res_df.iterrows()}
+    
+    PONTOS_F1_NORMAL = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+    PONTOS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1]
+    BONUS_11_COLOCADO = 25
+    
+    ress_map = {}
+    for _, r in res_df.iterrows():
+        try:
+            ress_map[r['prova_id']] = ast.literal_eval(r['posicoes'])
+        except:
+            continue
+    
     tipos_prova = dict(zip(prov_df['id'], prov_df['tipo'] if 'tipo' in prov_df.columns else ['Normal']*len(prov_df)))
     
     pontos = []
     for _, aposta in ap_df.iterrows():
         prova_id = aposta['prova_id']
+        
         if prova_id not in ress_map:
             pontos.append(None)
             continue
-            
+        
         res = ress_map[prova_id]
         tipo = tipos_prova.get(prova_id, 'Normal')
-        temp_str = str(aposta.get('temporada', datetime.now().year))
-        regras = get_regras_aplicaveis(temp_str, tipo)
+        
+        if tipo == 'Sprint':
+            pontos_tabela = PONTOS_SPRINT
+            n_posicoes = 8
+        else:
+            pontos_tabela = PONTOS_F1_NORMAL
+            n_posicoes = 10
         
         pilotos = aposta['pilotos'].split(",")
         fichas = list(map(int, aposta['fichas'].split(",")))
         piloto_11 = aposta['piloto_11']
+        automatica = int(aposta.get('automatica', 0))
         
-        pts_pos = regras.get('pontos_posicoes', [])
-        p_pos = {v: int(k) for k, v in res.items()}
+        piloto_para_pos = {v: int(k) for k, v in res.items()}
         
-        # Calculo base: fichas × pontos_posição + bônus_11
         pt = 0
-        for i in range(min(len(pilotos), len(fichas))):
+        for i in range(len(pilotos)):
             piloto = pilotos[i]
-            ficha = fichas[i]
-            if piloto in p_pos and 1 <= p_pos[piloto] <= len(pts_pos):
-                pos = p_pos[piloto]
-                pts_piloto = pts_pos[pos - 1]
-                pt += ficha * pts_piloto
+            ficha = fichas[i] if i < len(fichas) else 0
+            pos_real = piloto_para_pos.get(piloto, None)
+            
+            if pos_real is not None and 1 <= pos_real <= n_posicoes:
+                pt += ficha * pontos_tabela[pos_real - 1]
         
-        # Bônus 11º colocado
-        if piloto_11 == res.get(11):
-            pt += regras.get('pontos_11_colocado', 0)
+        piloto_11_real = res.get(11, "")
+        if piloto_11 == piloto_11_real:
+            pt += BONUS_11_COLOCADO
         
-        # Wildcard (pontuação dobrada em provas Sprint)
-        if regras.get('dobrada', False) and tipo == 'Sprint':
-            pt *= 2
+        if automatica >= 2:
+            pt = round(pt * 0.75, 2)
         
-        # Aposta automática com fator de redução (legado - manter compatibilidade)
-        if int(aposta.get('automatica', 0)) >= 2:
-            pt *= 0.75
-        
-        pontos.append(round(pt, 2))
+        pontos.append(pt)
     
     return pontos
 
-def aplicar_descarte_temporada(user_id: int, temporada: str, regra: dict) -> float:
-    """
-    Aplica descarte do pior resultado se habilitado na regra.
-    
-    Args:
-        user_id: ID do usuário
-        temporada: String da temporada
-        regra: Dict com regra vigente (contém 'descarte': bool)
-    
-    Returns:
-        Pontos totais após descarte
-    """
-    if not regra.get('descarte', False):
-        # Sem descarte, retorna suma total
-        with db_connect() as conn:
-            df = pd.read_sql(
-                'SELECT SUM(pontos) as total FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?',
-                conn,
-                params=(user_id, str(temporada))
-            )
-            return float(df['total'].iloc[0] or 0)
-    
-    # Com descarte, remove pior resultado
-    with db_connect() as conn:
-        df = pd.read_sql(
-            'SELECT pontos FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ? ORDER BY pontos ASC LIMIT 1',
-            conn,
-            params=(user_id, str(temporada))
-        )
-        pior = float(df['pontos'].iloc[0] or 0) if not df.empty else 0
-        
-        df_total = pd.read_sql(
-            'SELECT SUM(pontos) as total FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?',
-            conn,
-            params=(user_id, str(temporada))
-        )
-        total = float(df_total['total'].iloc[0] or 0)
-        return max(0, total - pior)
-
-def aplicar_penalidade_abandono(user_id: int, prova_id: int, regra: dict) -> None:
-    """
-    Aplica penalidade por abandono de piloto(s) na aposta, se habilitado na regra.
-    
-    Args:
-        user_id: ID do usuário
-        prova_id: ID da prova
-        regra: Dict com regra vigente (contém 'penalidade_abandono': bool, 'pontos_penalidade': int)
-    """
-    if not regra.get('penalidade_abandono', False):
-        return
-    
-    # TODO: Implementar lógica de detecção de abandono e aplicação de penalidade
-    # Esta função deve:
-    # 1. Verificar se algum piloto apostado não completou a prova (status = abandono)
-    # 2. Deduzir 'pontos_penalidade' dos pontos da aposta
-    pass
-
 def salvar_classificacao_prova(p_id, df_c, temp=None):
-    """
-    Salva a classificação de uma prova na tabela posicoes_participantes.
-    
-    Args:
-        p_id: ID da prova
-        df_c: DataFrame com colunas usuario_id, posicao, pontos
-        temp: Temporada (string). Se None, usa ano atual.
-    """
     if temp is None:
         temp = str(datetime.now().year)
     
     with db_connect() as conn:
         c = conn.cursor()
-        # Verificar se coluna temporada existe
         c.execute("PRAGMA table_info('posicoes_participantes')")
         cols = [r[1] for r in c.fetchall()]
         has_temporada = 'temporada' in cols
@@ -401,10 +324,6 @@ def salvar_classificacao_prova(p_id, df_c, temp=None):
         conn.commit()
 
 def atualizar_classificacoes_todas_as_provas():
-    """
-    Recalcula e atualiza as classificações de todas as provas com resultados cadastrados.
-    Respeita a temporada de cada prova para cálculo correto.
-    """
     with db_connect() as conn:
         usrs = pd.read_sql('SELECT * FROM usuarios WHERE status = "Ativo"', conn)
         provs = pd.read_sql('SELECT * FROM provas', conn)
@@ -414,46 +333,44 @@ def atualizar_classificacoes_todas_as_provas():
         import ast
         for _, pr in provs.iterrows():
             pid = pr['id']
-            
-            # Verificar se há resultado para esta prova
             if pid not in ress['prova_id'].values:
                 continue
             
-            # Obter temporada da prova (usa ano atual se não existir)
             temporada_prova = pr.get('temporada', str(datetime.now().year))
-            
-            # Filtrar apostas para esta prova
             aps = apts[apts['prova_id'] == pid]
             if aps.empty:
                 continue
                 
             res_row = ress[ress['prova_id'] == pid].iloc[0]
             res_p = ast.literal_eval(res_row['posicoes'])
+            piloto_11_real = res_p.get(11, "")
             
             tab = []
             for _, u in usrs.iterrows():
-                # Filtrar apostas do usuário para esta prova
                 ap = aps[aps['usuario_id'] == u['id']]
                 
-                # Calcular pontos usando a temporada correta
-                p_list = calcular_pontuacao_lote(ap, ress, provs)
-                p = p_list[0] if p_list and p_list[0] is not None else 0
+                if ap.empty:
+                    pontos_val = 0
+                    data_envio = None
+                    acerto_11 = 0
+                else:
+                    p_list = calcular_pontuacao_lote(ap, ress, provs)
+                    pontos_val = p_list[0] if p_list and p_list[0] is not None else 0
+                    data_envio = ap.iloc[0].get('data_envio', None)
+                    acerto_11 = 1 if ap.iloc[0]['piloto_11'] == piloto_11_real else 0
                 
-                # Verificar acerto do 11º colocado
-                acerto_11 = 0
-                if not ap.empty:
-                    if ap.iloc[0]['piloto_11'] == res_p.get(11):
-                        acerto_11 = 1
-                        
                 tab.append({
                     'usuario_id': u['id'],
-                    'pontos': p,
+                    'pontos': pontos_val,
+                    'data_envio': data_envio,
                     'acerto_11': acerto_11
                 })
             
-            # Ordenar por pontos (desc) e acerto_11 (desc) como desempate
-            df = pd.DataFrame(tab).sort_values(by=['pontos', 'acerto_11'], ascending=False).reset_index(drop=True)
+            df = pd.DataFrame(tab)
+            df['data_envio'] = pd.to_datetime(df['data_envio'], errors='coerce')
+            df = df.sort_values(
+                by=['pontos', 'acerto_11', 'data_envio'],
+                ascending=[False, False, True]
+            ).reset_index(drop=True)
             df['posicao'] = df.index + 1
-            
-            # Salvar com temporada correta
             salvar_classificacao_prova(pid, df, temporada_prova)
