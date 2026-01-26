@@ -163,15 +163,13 @@ def gerar_aposta_aleatoria(pilotos_df):
     if len(equipes_unicas) < 3 or pilotos_df.empty:
         return [], [], None
     
-    equipes_selecionadas = random.sample(equipes_unicas, 3)
-    pilotos_sel = []
+equipes_selecionadas = random.sample(equipes_unicas, min(5, len(equipes_unicas)))    pilotos_sel = []
     for equipe in equipes_selecionadas:
         pilotos_equipe = pilotos_df[pilotos_df['equipe'] == equipe]['nome'].tolist()
         if pilotos_equipe:
             pilotos_sel.append(random.choice(pilotos_equipe))
             
-    if len(pilotos_sel) < 3:
-        return [], [], None
+            if len(pilotos_sel) < 5:        return [], [], None
         
     fichas = [1] * 3
     total_fichas = 12
