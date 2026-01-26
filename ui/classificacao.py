@@ -162,7 +162,7 @@ def main():
         total_provas = sum([p for p in pontos_part if p is not None])
         
         pontos_campeonato = 0
-        if resultado_campeonao:
+        if resultado_campeonato:
             aposta_camp = get_championship_bet(part['id'], season)
             if aposta_camp:
                 if resultado_campeonato.get("champion") == aposta_camp.get("champion"):
