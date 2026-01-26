@@ -16,6 +16,7 @@ from db.rules_utils import (
     get_regra_by_id
 )
 from db.backup_utils import list_temporadas
+from services.bets_service import atualizar_classificacoes_todas_as_provas
 
 def main():
     """View principal de Gestão de Regras"""
@@ -80,6 +81,9 @@ def main():
                     st.error("Selecione uma regra válida.")
                 elif associar_regra_temporada(temporada_selecionada, regra_selecionada):
                     st.success(f"Regra '{regras_nomes[regra_selecionada]}' associada à temporada {temporada_selecionada}!")
+                    if st.button("Recalcular pontuação de todas as provas agora", key="btn_recalcular_pontuacao"):
+                        atualizar_classificacoes_todas_as_provas()
+                        st.success("Pontuação recalculada para todas as provas!")
                     st.rerun()
                 else:
                     st.error("Erro ao associar regra à temporada.")

@@ -42,18 +42,20 @@ def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
 
 def salvar_aposta(
     usuario_id, prova_id, pilotos, fichas, piloto_11, nome_prova,
-    automatica=0, horario_forcado=None, temporada: str | None = None
+    automatica=0, horario_forcado=None, temporada: str | None = None, show_errors=True
 ):
     try:
         usuario_id = int(usuario_id)
         prova_id = int(prova_id)
     except Exception as e:
-        st.error(f"IDs inválidos: usuario_id={usuario_id}, prova_id={prova_id} ({e})")
+        if show_errors:
+            st.error(f"IDs inválidos: usuario_id={usuario_id}, prova_id={prova_id} ({e})")
         return False
 
     nome_prova_bd, data_prova, horario_prova = get_horario_prova(prova_id)
     if not horario_prova or not nome_prova_bd or not data_prova:
-        st.error("Prova não encontrada ou horário/nome/data não cadastrados.")
+        if show_errors:
+            st.error("Prova não encontrada ou horário/nome/data não cadastrados.")
         return False
 
     tipo_prova_regra = "Sprint" if "Sprint" in (nome_prova_bd or "") else "Normal"
@@ -63,7 +65,8 @@ def salvar_aposta(
     min_pilotos = regras.get('min_pilotos', 3)
 
     if not pilotos or not fichas or not piloto_11 or len(pilotos) < min_pilotos or sum(fichas) != quantidade_fichas:
-        st.error(f"Dados insuficientes para gerar aposta. Regra: {min_pilotos} pilotos e {quantidade_fichas} fichas.")
+        if show_errors:
+            st.error(f"Dados insuficientes para gerar aposta. Regra: {min_pilotos} pilotos e {quantidade_fichas} fichas.")
         return False
 
     horario_limite = datetime.strptime(
@@ -78,7 +81,8 @@ def salvar_aposta(
 
     usuario = get_user_by_id(usuario_id)
     if not usuario:
-        st.error(f"Usuário não encontrado: id={usuario_id}")
+        if show_errors:
+            st.error(f"Usuário não encontrado: id={usuario_id}")
         return False
 
     try:
@@ -141,7 +145,8 @@ Boa sorte!
                 pass
 
     except Exception as e:
-        st.error(f"Erro ao salvar aposta: {str(e)}")
+        if show_errors:
+            st.error(f"Erro ao salvar aposta: {str(e)}")
         return False
 
     registrar_log_aposta(
@@ -169,16 +174,20 @@ def gerar_aposta_aleatoria(pilotos_df):
         pilotos_equipe = pilotos_df[pilotos_df['equipe'] == equipe]['nome'].tolist()
         if pilotos_equipe:
             pilotos_sel.append(random.choice(pilotos_equipe))
-            
-            if len(pilotos_sel) < 5:
-                        return [], [], None
-        
-    fichas = [1] * 3
-    total_fichas = 12
-    for i in range(3):
-        add = random.randint(0, min(9, total_fichas))
-        fichas[i] += add
-        total_fichas -= add
+    
+    # Validar se conseguimos selecionar piloto suficientes
+    if len(pilotos_sel) < 3:
+        return [], [], None
+    
+    # Gerar fichas que totalizam exatamente 15
+    num_pilotos = len(pilotos_sel)
+    fichas = [1] * num_pilotos  # Cada piloto começa com 1 ficha
+    fichas_restantes = 15 - num_pilotos  # Fichas a distribuir
+    
+    # Distribuir fichas restantes aleatoriamente
+    for _ in range(fichas_restantes):
+        idx = random.randint(0, num_pilotos - 1)
+        fichas[idx] += 1
         
     todos_pilotos = pilotos_df['nome'].tolist()
     candidatos_11 = [p for p in todos_pilotos if p not in pilotos_sel]
@@ -214,9 +223,9 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     
     if not ap_ant.empty:
         ap_ant = ap_ant.iloc[0]
-        pilotos_ant = ap_ant['pilotos'].split(",")
+        pilotos_ant = [p.strip() for p in ap_ant['pilotos'].split(",")]
         fichas_ant = list(map(int, ap_ant['fichas'].split(",")))
-        piloto_11_ant = ap_ant['piloto_11']
+        piloto_11_ant = ap_ant['piloto_11'].strip()
     else:
         pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria(get_pilotos_df())
         
@@ -231,7 +240,7 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         
     sucesso = salvar_aposta(
         usuario_id, prova_id, pilotos_ant, fichas_ant, piloto_11_ant, nome_prova,
-        automatica=nova_auto, horario_forcado=horario_limite, temporada=temporada
+        automatica=nova_auto, horario_forcado=horario_limite, temporada=temporada, show_errors=False
     )
     
     return (True, "Aposta automática gerada!") if sucesso else (False, "Falha ao salvar.")
