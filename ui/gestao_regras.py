@@ -272,7 +272,7 @@ def regra_form(regra_atual=None):
             st.write("### 🏆 Bônus de Campeonato")
             
             # 13. Pontos Campeão, Vice e Equipe
-            col3, c4, col5 = st.columns(3)
+            col3, col4, col5 = st.columns(3)
             with col3:
                 pontos_campeao = st.number_input(
                     "1️⃣2️⃣ Pontos por Acertar o Campeão *",
