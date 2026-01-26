@@ -85,19 +85,27 @@ def main():
                 else:
                     st.error("Erro ao associar regra à temporada.")
             
-            # -- Recalcular pontuação manualmente --
+            # -- Recalcular pontuação manualmente (por temporada) --
             st.markdown("---")
-            st.write("### Recalcular Classificações")
-            st.caption("Reprocessa pontos de todas as provas pela regra vigente de cada temporada.")
-            if st.button("Recalcular pontuação de todas as provas", key="btn_recalcular_pontuacao"):
+            st.write("### Recalcular Classificações (por Temporada)")
+            st.caption("Reprocessa pontos somente para a temporada selecionada.")
+            try:
+                temporadas_recalc = list_temporadas() or []
+            except Exception:
+                temporadas_recalc = []
+            if not temporadas_recalc:
+                ano_atual = datetime.datetime.now().year
+                temporadas_recalc = [str(ano_atual - 1), str(ano_atual), str(ano_atual + 1)]
+            temporada_recalc = st.selectbox("Temporada para recalcular", temporadas_recalc, key="temp_recalcular")
+            if st.button("Recalcular pontuação desta temporada", key="btn_recalcular_pontuacao_temp"):
                 try:
                     # Limpar caches para garantir dados atualizados
                     try:
                         st.cache_data.clear()
                     except Exception:
                         pass
-                    atualizar_classificacoes_todas_as_provas()
-                    st.success("Pontuação recalculada para todas as provas!")
+                    atualizar_classificacoes_todas_as_provas(temporada=temporada_recalc)
+                    st.success(f"Pontuação recalculada para todas as provas da temporada {temporada_recalc}!")
                 except Exception as e:
                     st.error(f"Falha ao recalcular: {e}")
                 

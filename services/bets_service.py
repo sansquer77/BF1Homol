@@ -338,6 +338,12 @@ def salvar_classificacao_prova(p_id, df_c, temp=None):
         cols = [r[1] for r in c.fetchall()]
         has_temporada = 'temporada' in cols
         
+        # Safeguard: limpar entradas existentes para esta prova e temporada
+        if has_temporada:
+            c.execute('DELETE FROM posicoes_participantes WHERE prova_id=? AND temporada=?', (p_id, temp))
+        else:
+            c.execute('DELETE FROM posicoes_participantes WHERE prova_id=?', (p_id,))
+        
         for _, r in df_c.iterrows():
             if has_temporada:
                 c.execute(
@@ -351,7 +357,7 @@ def salvar_classificacao_prova(p_id, df_c, temp=None):
                 )
         conn.commit()
 
-def atualizar_classificacoes_todas_as_provas():
+def atualizar_classificacoes_todas_as_provas(temporada: str | None = None):
     with db_connect() as conn:
         usrs = pd.read_sql('SELECT * FROM usuarios WHERE status = "Ativo"', conn)
         provs = pd.read_sql('SELECT * FROM provas', conn)
@@ -359,6 +365,10 @@ def atualizar_classificacoes_todas_as_provas():
         ress = pd.read_sql('SELECT * FROM resultados', conn)
         
         import ast
+        # Se temporada for fornecida, processa apenas provas dessa temporada
+        if temporada and 'temporada' in provs.columns:
+            provs = provs[provs['temporada'] == temporada]
+        
         for _, pr in provs.iterrows():
             pid = pr['id']
             if pid not in ress['prova_id'].values:
@@ -366,6 +376,9 @@ def atualizar_classificacoes_todas_as_provas():
             
             temporada_prova = pr.get('temporada', str(datetime.now().year))
             aps = apts[apts['prova_id'] == pid]
+            # Filtra apostas pela temporada se a coluna existir
+            if 'temporada' in aps.columns:
+                aps = aps[aps['temporada'] == temporada_prova]
             if aps.empty:
                 continue
                 
