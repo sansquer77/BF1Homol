@@ -6,12 +6,14 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import matplotlib.image as mpimg
 import datetime as dt
+import ast
+from zoneinfo import ZoneInfo
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from db.db_utils import db_connect, get_usuarios_df, get_provas_df, get_apostas_df, get_resultados_df
 from db.backup_utils import list_temporadas
 from services.championship_service import get_final_results, get_championship_bet
 from services.rules_service import get_regras_aplicaveis
-from services.bets_service import calcular_pontuacao_lote, atualizar_classificacoes_todas_as_provas
+from services.bets_service import calcular_pontuacao_lote, atualizar_classificacoes_todas_as_provas, _parse_datetime_sp
 
 def formatar_brasileiro(valor):
     try:
@@ -163,6 +165,59 @@ def main():
     pontos_vice = regras_temporada.get('pontos_vice', 100)
     pontos_equipe = regras_temporada.get('pontos_equipe', 80)
 
+    # Pré-calcular acertos de 11º e apostas no prazo
+    acertos_11_por_usuario = {}
+    apostas_no_prazo_por_usuario = {}
+    apostas_latest = apostas_df.copy()
+    if not apostas_latest.empty:
+        if 'data_envio' in apostas_latest.columns:
+            apostas_latest['__envio_dt'] = pd.to_datetime(apostas_latest['data_envio'], errors='coerce')
+            apostas_latest = apostas_latest.sort_values('__envio_dt')
+        apostas_latest = apostas_latest.drop_duplicates(subset=['usuario_id', 'prova_id'], keep='last')
+
+    if not resultados_df.empty and not apostas_latest.empty:
+        res_11 = []
+        for _, r in resultados_df.iterrows():
+            try:
+                posicoes = ast.literal_eval(r['posicoes'])
+                piloto_11_real = str(posicoes.get(11, '')).strip()
+            except Exception:
+                piloto_11_real = ''
+            if piloto_11_real:
+                res_11.append({'prova_id': r['prova_id'], 'piloto_11_real': piloto_11_real})
+        if res_11:
+            res_11_df = pd.DataFrame(res_11)
+            merged_11 = apostas_latest.merge(res_11_df, on='prova_id', how='inner')
+            merged_11['acerto_11'] = merged_11.apply(
+                lambda row: str(row.get('piloto_11', '')).strip() == str(row.get('piloto_11_real', '')).strip(),
+                axis=1
+            )
+            acertos_11_por_usuario = merged_11.groupby('usuario_id')['acerto_11'].sum().to_dict()
+
+    if not apostas_latest.empty and not provas_df.empty:
+        provas_map = provas_df.set_index('id').to_dict('index')
+        for _, ap in apostas_latest.iterrows():
+            prova = provas_map.get(ap['prova_id'])
+            if not prova:
+                continue
+            data_str = prova.get('data')
+            hora_str = prova.get('horario_prova', '00:00') or '00:00'
+            if not data_str:
+                continue
+            try:
+                cutoff = _parse_datetime_sp(str(data_str), str(hora_str))
+                envio = pd.to_datetime(ap.get('data_envio'), errors='coerce')
+                if pd.isna(envio):
+                    continue
+                envio_dt = envio.to_pydatetime()
+                if envio_dt.tzinfo is None:
+                    envio_dt = envio_dt.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+                if envio_dt.astimezone(ZoneInfo("UTC")) <= cutoff.astimezone(ZoneInfo("UTC")):
+                    uid = int(ap['usuario_id'])
+                    apostas_no_prazo_por_usuario[uid] = apostas_no_prazo_por_usuario.get(uid, 0) + 1
+            except Exception:
+                continue
+
     for idx, part in participantes.iterrows():
         apostas_part = apostas_df[apostas_df['usuario_id'] == part['id']].sort_values('prova_id')
         pontos_part = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=season)
@@ -171,16 +226,24 @@ def main():
         bonus_campeao = 0
         bonus_vice = 0
         bonus_equipe = 0
+        acertou_campeao = 0
+        acertou_vice = 0
+        acertou_equipe = 0
         if resultado_campeonato:
             aposta_camp = get_championship_bet(part['id'], season)
             if aposta_camp:
                 if resultado_campeonato.get("champion") == aposta_camp.get("champion"):
                     bonus_campeao = pontos_campeao
+                    acertou_campeao = 1
                 if resultado_campeonato.get("vice") == aposta_camp.get("vice"):
                     bonus_vice = pontos_vice
+                    acertou_vice = 1
                 if resultado_campeonato.get("team") == aposta_camp.get("team"):
                     bonus_equipe = pontos_equipe
+                    acertou_equipe = 1
         pontos_campeonato = bonus_campeao + bonus_vice + bonus_equipe
+        acertos_11 = int(acertos_11_por_usuario.get(part['id'], 0))
+        apostas_no_prazo = int(apostas_no_prazo_por_usuario.get(part['id'], 0))
         
         tabela_classificacao.append({
             "Participante": part['nome'],
@@ -190,7 +253,12 @@ def main():
             "Bônus Vice": bonus_vice,
             "Bônus Equipe": bonus_equipe,
             "Pontos Campeonato": pontos_campeonato,
-            "Total Geral": total_provas + pontos_campeonato
+            "Total Geral": total_provas + pontos_campeonato,
+            "Acertos 11": acertos_11,
+            "Acertou Campeao": acertou_campeao,
+            "Acertou Equipe": acertou_equipe,
+            "Acertou Vice": acertou_vice,
+            "Apostas no Prazo": apostas_no_prazo
         })
         tabela_detalhada.append({
             "Participante": part['nome'],
@@ -202,7 +270,10 @@ def main():
         st.info("Nenhuma pontuação disponível para a temporada selecionada.")
         return
     
-    df_class = df_class.sort_values("Total Geral", ascending=False).reset_index(drop=True)
+    df_class = df_class.sort_values(
+        ["Total Geral", "Acertos 11", "Acertou Campeao", "Acertou Equipe", "Acertou Vice", "Apostas no Prazo"],
+        ascending=[False, False, False, False, False, False]
+    ).reset_index(drop=True)
     df_class['Posição'] = df_class.index + 1
     
     provas_realizadas = provas_df[provas_df['id'].isin(resultados_df['prova_id'])]

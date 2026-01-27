@@ -573,7 +573,7 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
 
         # Penalidade apostas automáticas consecutivas (DINÂMICA)
         if automatica >= 2:
-            pt = round(pt * 0.75, 2)
+            pt = round(pt * 0.8, 2)
         
         pontos.append(pt)
     
@@ -611,7 +611,7 @@ def salvar_classificacao_prova(p_id, df_c, temp=None):
 def atualizar_classificacoes_todas_as_provas(temporada: str | None = None):
     with db_connect() as conn:
         usrs = pd.read_sql('SELECT id FROM usuarios WHERE status = "Ativo"', conn)
-        provs = pd.read_sql('SELECT id, nome, tipo, temporada FROM provas', conn)
+        provs = pd.read_sql('SELECT id, nome, data, tipo, temporada FROM provas', conn)
         apts = pd.read_sql('SELECT usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, automatica, temporada FROM apostas', conn)
         ress = pd.read_sql('SELECT prova_id, posicoes, abandono_pilotos FROM resultados', conn)
         
@@ -619,6 +619,25 @@ def atualizar_classificacoes_todas_as_provas(temporada: str | None = None):
         # Se temporada for fornecida, processa apenas provas dessa temporada
         if temporada and 'temporada' in provs.columns:
             provs = provs[provs['temporada'] == temporada]
+
+        # Identificar primeira prova por temporada (quando disponível)
+        primeira_prova_por_temp = {}
+        if not provs.empty:
+            if 'temporada' in provs.columns and 'data' in provs.columns:
+                provs_dt = provs.copy()
+                provs_dt['__data_dt'] = pd.to_datetime(provs_dt['data'], errors='coerce')
+                for temp_val, grp in provs_dt.groupby('temporada'):
+                    grp = grp.sort_values('__data_dt')
+                    if not grp.empty:
+                        primeira_prova_por_temp[str(temp_val)] = int(grp.iloc[0]['id'])
+            elif 'data' in provs.columns:
+                provs_dt = provs.copy()
+                provs_dt['__data_dt'] = pd.to_datetime(provs_dt['data'], errors='coerce')
+                provs_dt = provs_dt.sort_values('__data_dt')
+                if not provs_dt.empty:
+                    primeira_prova_por_temp[str(datetime.now().year)] = int(provs_dt.iloc[0]['id'])
+            elif not provs.empty:
+                primeira_prova_por_temp[str(datetime.now().year)] = int(provs.iloc[0]['id'])
         
         for _, pr in provs.iterrows():
             pid = pr['id']
@@ -638,6 +657,7 @@ def atualizar_classificacoes_todas_as_provas(temporada: str | None = None):
             piloto_11_real = res_p.get(11, "")
             
             tab = []
+            first_no_base_flags = {}
             for _, u in usrs.iterrows():
                 ap = aps[aps['usuario_id'] == u['id']]
                 
@@ -645,11 +665,21 @@ def atualizar_classificacoes_todas_as_provas(temporada: str | None = None):
                     pontos_val = 0
                     data_envio = None
                     acerto_11 = 0
+                    # Primeira prova sem base
+                    if str(pid) == str(primeira_prova_por_temp.get(str(temporada_prova), None)):
+                        first_no_base_flags[int(u['id'])] = True
                 else:
                     p_list = calcular_pontuacao_lote(ap, ress, provs)
                     pontos_val = sum(p_list) if p_list else 0
                     data_envio = ap.iloc[0].get('data_envio', None)
                     acerto_11 = 1 if ap.iloc[0]['piloto_11'] == piloto_11_real else 0
+                    # Primeira prova com aposta automática (sem base)
+                    if str(pid) == str(primeira_prova_por_temp.get(str(temporada_prova), None)):
+                        try:
+                            if int(ap.iloc[0].get('automatica', 0)) > 0:
+                                first_no_base_flags[int(u['id'])] = True
+                        except Exception:
+                            pass
                 
                 tab.append({
                     'usuario_id': u['id'],
@@ -657,6 +687,20 @@ def atualizar_classificacoes_todas_as_provas(temporada: str | None = None):
                     'data_envio': data_envio,
                     'acerto_11': acerto_11
                 })
+
+            # Aplicar regra de 85% do pior pontuador na primeira corrida sem base
+            if first_no_base_flags:
+                try:
+                    pontos_validos = [
+                        t['pontos'] for t in tab
+                        if t['pontos'] is not None and not first_no_base_flags.get(int(t['usuario_id']), False)
+                    ]
+                    pior_pontuador = min(pontos_validos) if pontos_validos else 0
+                except Exception:
+                    pior_pontuador = 0
+                for t in tab:
+                    if first_no_base_flags.get(int(t['usuario_id']), False):
+                        t['pontos'] = round(pior_pontuador * 0.85, 2)
             
             df = pd.DataFrame(tab)
             df['data_envio'] = pd.to_datetime(df['data_envio'], errors='coerce')
