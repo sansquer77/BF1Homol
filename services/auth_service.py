@@ -150,11 +150,11 @@ def clear_auth_cookies():
     cookie_manager.delete("session_token")
 
 # --- RECUPERAÇÃO DE SENHA SEGURA ---
-import random
+import secrets
 import string
 def gerar_senha_temporaria(tamanho=10):
     chars = string.ascii_letters + string.digits
-    return ''.join(random.choices(chars, k=tamanho))
+    return ''.join(secrets.choice(chars) for _ in range(tamanho))
 
 def redefinir_senha_usuario(email: str):
     usuario = get_user_by_email(email)

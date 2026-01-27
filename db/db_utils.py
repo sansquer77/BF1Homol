@@ -184,6 +184,16 @@ def init_db():
 
 # ============ OPERAÇÕES CRUD ============
 
+def _get_existing_columns(table: str, preferred: Optional[list[str]] = None) -> list[str]:
+    with db_connect() as conn:
+        c = conn.cursor()
+        c.execute(f"PRAGMA table_info('{table}')")
+        cols = [r[1] for r in c.fetchall()]
+    if preferred:
+        return [c for c in preferred if c in cols]
+    return cols
+
+
 def get_user_by_email(email: str) -> Optional[Dict]:
     """
     Retorna usuário pelo email
@@ -194,9 +204,10 @@ def get_user_by_email(email: str) -> Optional[Dict]:
     Returns:
         Dict com dados do usuário ou None
     """
+    cols = _get_existing_columns('usuarios')
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute('SELECT * FROM usuarios WHERE email = ?', (email,))
+        c.execute(f"SELECT {', '.join(cols)} FROM usuarios WHERE email = ?", (email,))
         row = c.fetchone()
         
         if row:
@@ -236,9 +247,10 @@ def get_user_by_id(user_id: int) -> Optional[Dict]:
     Returns:
         Dict com dados do usuário ou None
     """
+    cols = _get_existing_columns('usuarios')
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute('SELECT * FROM usuarios WHERE id = ?', (user_id,))
+        c.execute(f"SELECT {', '.join(cols)} FROM usuarios WHERE id = ?", (user_id,))
         row = c.fetchone()
         
         if row:
@@ -247,15 +259,17 @@ def get_user_by_id(user_id: int) -> Optional[Dict]:
 
 def get_usuarios_df() -> pd.DataFrame:
     """Retorna todos os usuários como DataFrame"""
+    cols = _get_existing_columns('usuarios')
     with db_connect() as conn:
-        return pd.read_sql_query('SELECT * FROM usuarios', conn)
+        return pd.read_sql_query(f"SELECT {', '.join(cols)} FROM usuarios", conn)
 
 def get_pilotos_df() -> pd.DataFrame:
     """Retorna todos os pilotos como DataFrame"""
+    cols = _get_existing_columns('pilotos')
     with db_connect() as conn:
-        return pd.read_sql_query('SELECT * FROM pilotos', conn)
+        return pd.read_sql_query(f"SELECT {', '.join(cols)} FROM pilotos", conn)
 
-def _read_table_df(table: str, temporada: Optional[str] = None) -> pd.DataFrame:
+def _read_table_df(table: str, temporada: Optional[str] = None, columns: Optional[list[str]] = None) -> pd.DataFrame:
     """Helper: read table into DataFrame, filtering by `temporada` when column exists.
 
     If `temporada` is None, defaults to current year as string.
@@ -263,15 +277,18 @@ def _read_table_df(table: str, temporada: Optional[str] = None) -> pd.DataFrame:
     """
     if temporada is None:
         temporada = str(datetime.datetime.now().year)
+    cols = _get_existing_columns(table, columns)
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute(f"PRAGMA table_info('{table}')")
-        cols = [r[1] for r in c.fetchall()]
         if 'temporada' in cols:
             # Include rows where temporada matches OR temporada is NULL (backward compat)
-            return pd.read_sql_query(f"SELECT * FROM {table} WHERE temporada = ? OR temporada IS NULL", conn, params=(temporada,))
+            return pd.read_sql_query(
+                f"SELECT {', '.join(cols)} FROM {table} WHERE temporada = ? OR temporada IS NULL",
+                conn,
+                params=(temporada,)
+            )
         else:
-            return pd.read_sql_query(f"SELECT * FROM {table}", conn)
+            return pd.read_sql_query(f"SELECT {', '.join(cols)} FROM {table}", conn)
 
 
 def get_provas_df(temporada: Optional[str] = None) -> pd.DataFrame:
@@ -488,11 +505,20 @@ def get_horario_prova(prova_id: int) -> tuple:
     """
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute('SELECT nome, data FROM provas WHERE id = ?', (prova_id,))
+        c.execute("PRAGMA table_info('provas')")
+        cols = [r[1] for r in c.fetchall()]
+        if 'horario_prova' in cols:
+            c.execute('SELECT nome, data, horario_prova FROM provas WHERE id = ?', (prova_id,))
+        else:
+            c.execute('SELECT nome, data FROM provas WHERE id = ?', (prova_id,))
         row = c.fetchone()
-        
+
         if row:
-            nome, data = row
-            # Retorna nome, data e um horário padrão (00:00)
-            return (nome, data, "00:00")
+            if 'horario_prova' in cols:
+                nome, data, horario = row
+            else:
+                nome, data = row
+                horario = "00:00"
+            horario = horario or "00:00"
+            return (nome, data, horario)
         return (None, None, None)

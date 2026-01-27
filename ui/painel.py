@@ -337,7 +337,7 @@ def participante_view():
         user_nome_logado = user['nome']
         try:
             with db_connect() as conn:
-                df_posicoes = pd.read_sql('SELECT * FROM posicoes_participantes', conn)
+                df_posicoes = pd.read_sql('SELECT prova_id, usuario_id, posicao, temporada FROM posicoes_participantes', conn)
         except Exception:
             st.info("Nenhum histórico de posições disponível ainda. Quando houver dados, eles aparecerão aqui.")
             df_posicoes = pd.DataFrame()

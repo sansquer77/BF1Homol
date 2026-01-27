@@ -112,10 +112,6 @@ def login_view():
         with st.form("login_form", clear_on_submit=False):
             st.subheader("Faça Login")
             
-            # TODO: add email validation to login view
-            # Use utils.validators to ensure that the email entered during login follows
-            # a valid format, helping to prevent certain types of injection and improving
-            # user feedback.
             email = st.text_input(
                 "📧 Email",
                 placeholder="seu@email.com",
@@ -140,6 +136,11 @@ def login_view():
             if not email or not senha:
                 st.error("❌ Por favor, preencha email e senha")
                 logger.warning(f"Tentativa de login com campos vazios")
+                return
+            valido_email, _ = validar_email(email)
+            if not valido_email:
+                st.error("❌ Email inválido")
+                logger.warning("Tentativa de login com email inválido")
                 return
             
             # Verificar rate limiting
@@ -254,8 +255,8 @@ def login_view():
                             nome_usuario, nova_senha = payload
                             try:
                                 enviar_email_recuperacao_senha(email_reset, nome_usuario, nova_senha)
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logger.warning(f"Falha ao enviar email de recuperação para {email_reset}: {e}")
                         # Resposta genérica para evitar enumeração
                         st.info("Se o email estiver cadastrado, você receberá uma senha temporária em instantes.")
                         registrar_tentativa_login(email_reset, False, action="password_reset")

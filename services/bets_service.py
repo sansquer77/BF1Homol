@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from db.db_utils import (
@@ -15,6 +16,8 @@ from db.db_utils import (
 )
 from services.email_service import enviar_email
 from services.rules_service import get_regras_aplicaveis
+
+logger = logging.getLogger(__name__)
 
 def _parse_datetime_sp(date_str: str, time_str: str):
     """Tenta parsear data e hora com ou sem segundos e retorna timezone America/Sao_Paulo."""
@@ -167,8 +170,8 @@ Detalhes:
 Boa sorte!
 """
                 enviar_email(usuario['email'], f"Aposta registrada - {nome_prova_bd}", corpo_email)
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Falha ao enviar email de aposta para {usuario.get('email')}: {e}")
 
     except Exception as e:
         if show_errors:
@@ -454,7 +457,7 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
     for _, r in res_df.iterrows():
         try:
             ress_map[r['prova_id']] = ast.literal_eval(r['posicoes'])
-        except:
+        except Exception:
             continue
         # Ler lista de abandonos (comma-separated), se disponível
         try:
@@ -607,10 +610,10 @@ def salvar_classificacao_prova(p_id, df_c, temp=None):
 
 def atualizar_classificacoes_todas_as_provas(temporada: str | None = None):
     with db_connect() as conn:
-        usrs = pd.read_sql('SELECT * FROM usuarios WHERE status = "Ativo"', conn)
-        provs = pd.read_sql('SELECT * FROM provas', conn)
-        apts = pd.read_sql('SELECT * FROM apostas', conn)
-        ress = pd.read_sql('SELECT * FROM resultados', conn)
+        usrs = pd.read_sql('SELECT id FROM usuarios WHERE status = "Ativo"', conn)
+        provs = pd.read_sql('SELECT id, nome, tipo, temporada FROM provas', conn)
+        apts = pd.read_sql('SELECT usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, automatica, temporada FROM apostas', conn)
+        ress = pd.read_sql('SELECT prova_id, posicoes, abandono_pilotos FROM resultados', conn)
         
         import ast
         # Se temporada for fornecida, processa apenas provas dessa temporada
