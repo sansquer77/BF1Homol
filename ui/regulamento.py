@@ -42,11 +42,11 @@ O BF1-2026 terá início, oficialmente, em 08 de março, no dia do GP da Austrá
 
 **Critérios de Desempate**
 - Caso haja empate de pontos na classificação final, as posições serão definidas nesta ordem:
-    1. Quem tiver apostado antes mais vezes no ano.
-    2. Quem mais vezes acertou o 11º lugar.
-    3. Quem acertou o campeão.
-    4. Quem acertou a equipe campeã.
-    5. Quem acertou o vice.
+    1. Quem mais vezes acertou o 11º lugar.
+    2. Quem acertou o campeão.
+    3. Quem acertou a equipe campeã.
+    4. Quem acertou o vice.
+    5. Quem tiver apostado antes mais vezes no ano.
 
 **Forma de Pagamento e Premiação**
 - A premiação será um voucher de 50% do fundo arrecadado das inscrições para o primeiro colocado, 30% para o segundo e 20% para o terceiro, que deverão ser utilizados na compra de bebidas à escolha, a serem adquiridas após definição dos vencedores.

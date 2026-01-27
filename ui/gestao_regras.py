@@ -22,6 +22,10 @@ from services.bets_service import atualizar_classificacoes_todas_as_provas
 
 def main():
     """View principal de Gestão de Regras"""
+    perfil = st.session_state.get("user_role", "participante")
+    if perfil != "master":
+        st.warning("Acesso restrito ao usuário Master.")
+        return
     col1, col2 = st.columns([1, 16])
     
     with col1:

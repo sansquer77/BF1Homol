@@ -5,19 +5,31 @@ from db.db_utils import db_connect, get_provas_df, get_apostas_df, get_resultado
 from db.backup_utils import list_temporadas
 from services.rules_service import get_regras_aplicaveis
 
-def get_apostas_por_piloto():
+def get_apostas_por_piloto(temporada: str | None = None):
     """
     Agrupa apostas por participante e piloto para análise da distribuição de apostas.
     Retorna DataFrame: participante | piloto | total_apostas
     """
     try:
         with db_connect() as conn:
-            query = '''
-                SELECT u.nome AS participante, a.pilotos
-                FROM apostas a
-                JOIN usuarios u ON a.usuario_id = u.id
-            '''
-            df = pd.read_sql(query, conn)
+            c = conn.cursor()
+            c.execute("PRAGMA table_info('apostas')")
+            cols = [r[1] for r in c.fetchall()]
+            if temporada and 'temporada' in cols:
+                query = '''
+                    SELECT u.nome AS participante, a.pilotos
+                    FROM apostas a
+                    JOIN usuarios u ON a.usuario_id = u.id
+                    WHERE a.temporada = ? OR a.temporada IS NULL
+                '''
+                df = pd.read_sql(query, conn, params=(temporada,))
+            else:
+                query = '''
+                    SELECT u.nome AS participante, a.pilotos
+                    FROM apostas a
+                    JOIN usuarios u ON a.usuario_id = u.id
+                '''
+                df = pd.read_sql(query, conn)
             if not df.empty and 'pilotos' in df.columns:
                 df['piloto'] = df['pilotos'].str.split(',')
                 df = df.explode('piloto')
@@ -29,20 +41,33 @@ def get_apostas_por_piloto():
         df = pd.DataFrame()
     return df
 
-def get_distribuicao_piloto_11():
+def get_distribuicao_piloto_11(temporada: str | None = None):
     """
     Distribuição de apostas para o 11º colocado por participante.
     Retorna DataFrame: participante | piloto_11
     """
     try:
         with db_connect() as conn:
-            query = '''
-                SELECT u.nome AS participante, a.piloto_11 AS piloto_11
-                FROM apostas a
-                JOIN usuarios u ON a.usuario_id = u.id
-                WHERE a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
-            '''
-            df = pd.read_sql(query, conn)
+            c = conn.cursor()
+            c.execute("PRAGMA table_info('apostas')")
+            cols = [r[1] for r in c.fetchall()]
+            if temporada and 'temporada' in cols:
+                query = '''
+                    SELECT u.nome AS participante, a.piloto_11 AS piloto_11
+                    FROM apostas a
+                    JOIN usuarios u ON a.usuario_id = u.id
+                    WHERE (a.temporada = ? OR a.temporada IS NULL)
+                    AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
+                '''
+                df = pd.read_sql(query, conn, params=(temporada,))
+            else:
+                query = '''
+                    SELECT u.nome AS participante, a.piloto_11 AS piloto_11
+                    FROM apostas a
+                    JOIN usuarios u ON a.usuario_id = u.id
+                    WHERE a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
+                '''
+                df = pd.read_sql(query, conn)
     except Exception as e:
         st.error(f"Erro ao buscar distribuição do 11º colocado: {str(e)}")
         df = pd.DataFrame()
@@ -61,8 +86,8 @@ def main():
         season_options = [str(dt.datetime.now().year)]
     season = st.selectbox("Temporada", season_options, key="analysis_season")
 
-    apostas_pilotos = get_apostas_por_piloto()
-    df_11 = get_distribuicao_piloto_11()
+    apostas_pilotos = get_apostas_por_piloto(season)
+    df_11 = get_distribuicao_piloto_11(season)
 
     if apostas_pilotos.empty and df_11.empty:
         st.info("Ainda não há apostas cadastradas para análise.")

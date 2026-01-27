@@ -186,7 +186,6 @@ def menu_admin():
         "Gestão de Apostas",
         "Gestão de Pilotos",
         "Gestão de Provas",
-        "Gestão de Regras",
         "Análise de Apostas",
         "Atualização de resultados",
         "Apostas Campeonato",

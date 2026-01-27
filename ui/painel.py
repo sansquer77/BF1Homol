@@ -190,7 +190,12 @@ def participante_view():
             resultados_df = get_resultados_df(temporada)
             provas_df = get_provas_df(temporada)
 
-            apostas_part = apostas_df[apostas_df['usuario_id'] == user['id']].sort_values('prova_id')
+            apostas_part = apostas_df[apostas_df['usuario_id'] == user['id']]
+            if 'temporada' in apostas_part.columns:
+                apostas_part = apostas_part[apostas_part['temporada'] == temporada]
+            if not provas_df.empty and 'id' in provas_df.columns:
+                apostas_part = apostas_part[apostas_part['prova_id'].isin(provas_df['id'])]
+            apostas_part = apostas_part.sort_values('prova_id')
             pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
             pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]
 
