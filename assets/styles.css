@@ -711,6 +711,34 @@ img {
     padding: 16px !important;
 }
 
+/* Ícones com cor contextual */
+.stSuccess svg {
+    color: var(--success-color) !important;
+}
+
+.stWarning svg {
+    color: var(--warning-color) !important;
+}
+
+.stError svg {
+    color: var(--error-color) !important;
+}
+
+.stInfo svg {
+    color: #5aa9ff !important;
+}
+
+/* Ícones de botões e inputs */
+.stButton svg,
+.stNumberInput svg,
+.stSelectbox svg,
+.stTextInput svg,
+.stMultiSelect svg,
+.stDateInput svg,
+.stTimeInput svg {
+    color: var(--text-secondary) !important;
+}
+
 /* ============ NUMBER INPUT BUTTONS ============ */
 .stNumberInput button {
     background: var(--glass-bg) !important;

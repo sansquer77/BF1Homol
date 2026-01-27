@@ -59,6 +59,29 @@ def participante_view():
     else:
         tabs = st.tabs(["Apostas", "Minha Conta"])
 
+    def _on_prova_change():
+        keys = [f"piloto_aposta_{i}" for i in range(10)] + [f"fichas_aposta_{i}" for i in range(10)] + ["piloto_11"]
+        for key in keys:
+            if key in st.session_state:
+                del st.session_state[key]
+
+    @st.dialog("Regras vigentes")
+    def _mostrar_regras_dialog(regras, temporada_sel, tipo_prova_sel):
+        st.markdown(f"**Temporada:** {temporada_sel}")
+        st.markdown(f"**Tipo de prova:** {tipo_prova_sel}")
+        st.markdown(f"**Fichas:** {regras.get('quantidade_fichas', 15)}")
+        st.markdown(f"**Mín. pilotos:** {regras.get('qtd_minima_pilotos', regras.get('min_pilotos', 3))}")
+        st.markdown(f"**Fichas por piloto:** {regras.get('fichas_por_piloto', '-')}")
+        st.markdown(f"**Bônus 11º:** {regras.get('pontos_11_colocado', 25)}")
+        st.markdown(f"**Pontos dobrados (Sprint):** {'Sim' if regras.get('pontos_dobrada') else 'Não'}")
+        st.markdown(f"**Penalidade abandono:** {'Sim' if regras.get('penalidade_abandono') else 'Não'}")
+        if regras.get('penalidade_abandono'):
+            st.markdown(f"**Pontos penalidade:** {regras.get('pontos_penalidade', 0)}")
+        pts = regras.get('pontos_posicoes', []) or []
+        if pts:
+            st.markdown("**Tabela de pontos:**")
+            st.write(", ".join(map(str, pts)))
+
     # ------------------ Aba: Apostas ----------------------
     if not force_change:
         with tabs[0]:
@@ -93,11 +116,22 @@ def participante_view():
 
             if user['status'] == "Ativo":
                 if len(provas) > 0 and len(pilotos_df) > 2:
-                    prova_id = st.selectbox(
-                        "Escolha a prova",
-                        provas['id'],
-                        format_func=lambda x: provas[provas['id'] == x]['nome'].values[0]
-                    )
+                    col_sel, col_btn = st.columns([4, 1])
+                    with col_sel:
+                        prova_id = st.selectbox(
+                            "Escolha a prova",
+                            provas['id'],
+                            format_func=lambda x: f"{x} - {provas[provas['id'] == x]['nome'].values[0]}"[:40],
+                            key="sel_prova_aposta",
+                            on_change=_on_prova_change
+                        )
+                    with col_btn:
+                        if st.button("Ver regras", use_container_width=True):
+                            prova_nome_sel = provas[provas['id'] == prova_id]['nome'].values[0]
+                            tipo_raw = provas[provas['id'] == prova_id]['tipo'].values[0] if not provas[provas['id'] == prova_id].empty else 'Normal'
+                            tipo_sel = 'Sprint' if str(tipo_raw).strip().lower() == 'sprint' or 'sprint' in str(prova_nome_sel).lower() else 'Normal'
+                            regras_sel = get_regras_aplicaveis(temporada, tipo_sel)
+                            _mostrar_regras_dialog(regras_sel, temporada, tipo_sel)
                     nome_prova = provas[provas['id'] == prova_id]['nome'].values[0]
                     apostas_df = get_apostas_df(temporada)
                     aposta_existente = apostas_df[
@@ -158,20 +192,21 @@ def participante_view():
                         index=pilotos_11_opcoes.index(piloto_11_ant) if piloto_11_ant in pilotos_11_opcoes else 0
                     )
 
-                    erro = None
                     if st.button("Efetivar Aposta"):
+                        erros = []
                         if len(set(pilotos_validos)) != len(pilotos_validos):
-                            erro = "Não é permitido apostar em dois pilotos iguais."
+                            erros.append("Não é permitido apostar em dois pilotos iguais.")
                         elif len(set(equipes_apostadas)) < len(equipes_apostadas):
-                            erro = "Não é permitido apostar em dois pilotos da mesma equipe."
+                            erros.append("Não é permitido apostar em dois pilotos da mesma equipe.")
                         elif len(pilotos_validos) < 3:
-                            erro = "Você deve apostar em pelo menos 3 pilotos de equipes diferentes."
+                            erros.append("Você deve apostar em pelo menos 3 pilotos de equipes diferentes.")
                         elif total_fichas != 15:
-                            erro = "A soma das fichas deve ser exatamente 15."
+                            erros.append("A soma das fichas deve ser exatamente 15.")
                         elif piloto_11 in pilotos_validos:
-                            erro = "O 11º colocado não pode ser um dos pilotos apostados."
-                        if erro:
-                            st.error(erro)
+                            erros.append("O 11º colocado não pode ser um dos pilotos apostados.")
+                        if erros:
+                            for msg in erros:
+                                st.error(msg)
                         else:
                             salvar_aposta(
                                 user['id'], prova_id, pilotos_validos,
