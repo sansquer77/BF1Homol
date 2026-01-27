@@ -138,11 +138,12 @@ def init_db():
             )
         ''')
 
-        # Tabela de resultados (posicoes como texto serializado)
+        # Tabela de resultados (posicoes como texto serializado + abandonos)
         c.execute('''
             CREATE TABLE IF NOT EXISTS resultados (
                 prova_id INTEGER PRIMARY KEY,
                 posicoes TEXT,
+                abandono_pilotos TEXT,
                 FOREIGN KEY(prova_id) REFERENCES provas(id)
             )
         ''')

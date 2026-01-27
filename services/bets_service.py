@@ -69,15 +69,27 @@ def salvar_aposta(
             st.error("Prova não encontrada ou horário/nome/data não cadastrados.")
         return False
 
-    tipo_prova_regra = "Sprint" if "Sprint" in (nome_prova_bd or "") else "Normal"
+    # Determinar tipo da prova usando coluna `tipo` quando disponível; fallback por nome
+    try:
+        prov_df = get_provas_df(temporada)
+        tipo_col = None
+        if not prov_df.empty:
+            row = prov_df[prov_df['id'] == prova_id]
+            if not row.empty and 'tipo' in row.columns and pd.notna(row.iloc[0]['tipo']):
+                tipo_col = str(row.iloc[0]['tipo']).strip()
+        tipo_prova_regra = 'Sprint' if (tipo_col and tipo_col.lower() == 'sprint') or ('sprint' in str(nome_prova_bd).lower()) else 'Normal'
+    except Exception:
+        tipo_prova_regra = 'Sprint' if 'sprint' in str(nome_prova_bd).lower() else 'Normal'
     regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova_regra)
     
     quantidade_fichas = regras.get('quantidade_fichas', 15)
     min_pilotos = regras.get('min_pilotos', 3)
+    max_por_piloto = int(regras.get('fichas_por_piloto', quantidade_fichas))
 
-    if not pilotos or not fichas or not piloto_11 or len(pilotos) < min_pilotos or sum(fichas) != quantidade_fichas:
+    if not pilotos or not fichas or not piloto_11 or len(pilotos) < min_pilotos or sum(fichas) != quantidade_fichas or (fichas and max(fichas) > max_por_piloto):
         if show_errors:
-            st.error(f"Dados insuficientes para gerar aposta. Regra: {min_pilotos} pilotos e {quantidade_fichas} fichas.")
+            msg = f"Regra exige: mín {min_pilotos} pilotos, total {quantidade_fichas} fichas, máx {max_por_piloto} por piloto."
+            st.error(f"Dados inválidos para aposta. {msg}")
         return False
 
     horario_limite = _parse_datetime_sp(data_prova, horario_prova)
@@ -433,14 +445,30 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
     """
     import ast
     
-    # As tabelas de pontos virão das regras aplicáveis (com fallback no serviço de regras)
+    # Tabelas de pontos FIXAS da FIA
+    PONTOS_F1_NORMAL = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+    PONTOS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1]
     
     ress_map = {}
+    abandonos_map = {}
     for _, r in res_df.iterrows():
         try:
             ress_map[r['prova_id']] = ast.literal_eval(r['posicoes'])
         except:
             continue
+        # Ler lista de abandonos (comma-separated), se disponível
+        try:
+            if 'abandono_pilotos' in res_df.columns:
+                raw = r.get('abandono_pilotos', '')
+                if raw is None:
+                    raw = ''
+                # Normaliza string -> lista de nomes limpos
+                aband_list = [p.strip() for p in str(raw).split(',') if p and p.strip()]
+                abandonos_map[r['prova_id']] = set(aband_list)
+            else:
+                abandonos_map[r['prova_id']] = set()
+        except Exception:
+            abandonos_map[r['prova_id']] = set()
     
     # Mapear tipo de prova com fallback pelo nome (contém "Sprint")
     tipos = []
@@ -475,10 +503,10 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
         # Busca REGRAS DINÂMICAS da temporada (não altera pontos FIA)
         regras = get_regras_aplicaveis(temporada_prova, tipo)
         
-        # Seleciona tabela de pontos da regra vigente (fallback para padrão)
-        pontos_tabela = regras.get('pontos_posicoes', [])
+        # Seleciona tabela de pontos da REGRA (fallback para FIA hardcoded se vazio)
+        pontos_tabela = regras.get('pontos_posicoes') or ([])
         if not pontos_tabela:
-            pontos_tabela = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+            pontos_tabela = PONTOS_SPRINT if tipo == 'Sprint' else PONTOS_F1_NORMAL
         n_posicoes = len(pontos_tabela)
         
         # Bônus 11º DINÂMICO da regra
@@ -492,7 +520,8 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
         
         piloto_para_pos = {v: int(k) for k, v in res.items()}
         
-        # Cálculo: Pontos da Regra x Fichas (dinâmico)
+        # Cálculo base: Pontos da Regra x Fichas (dinâmico)
+        # Observação: multiplicador de sprint será aplicado APÓS bônus e penalidades
         sprint_multiplier = 2 if (tipo == 'Sprint' and regras.get('pontos_dobrada')) else 1
         pt = 0
         for i in range(len(pilotos)):
@@ -501,13 +530,29 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
             pos_real = piloto_para_pos.get(piloto, None)
             
             if pos_real is not None and 1 <= pos_real <= n_posicoes:
-                pt += ficha * pontos_tabela[pos_real - 1] * sprint_multiplier
+                base = pontos_tabela[pos_real - 1]
+                pt += ficha * base
         
         # Bônus 11º colocado (DINÂMICO da regra)
         piloto_11_real = res.get(11, "")
         if piloto_11 == piloto_11_real:
             pt += bonus_11
         
+        # Penalidade por abandono (DINÂMICA da regra):
+        # Deduz `pontos_penalidade` por cada piloto apostado que esteja na lista de abandonos
+        if regras.get('penalidade_abandono'):
+            aband_prova = abandonos_map.get(prova_id, set())
+            if aband_prova:
+                # Conta apenas abandonos dentre os pilotos apostados (exclui palpite do 11º)
+                num_aband_apostados = sum(1 for p in pilotos if p in aband_prova)
+                deduz = regras.get('pontos_penalidade', 0) * num_aband_apostados
+                if deduz:
+                    pt -= deduz
+
+        # Aplicar multiplicador de sprint APÓS bônus e penalidades
+        if tipo == 'Sprint' and regras.get('pontos_dobrada'):
+            pt = pt * 2
+
         # Penalidade apostas automáticas consecutivas (DINÂMICA)
         if automatica >= 2:
             pt = round(pt * 0.75, 2)

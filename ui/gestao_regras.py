@@ -13,7 +13,9 @@ from db.rules_utils import (
     listar_regras,
     associar_regra_temporada,
     get_regra_temporada,
-    get_regra_by_id
+    get_regra_by_id,
+    listar_temporadas_por_regra,
+    clonar_regra
 )
 from db.backup_utils import list_temporadas
 from services.bets_service import atualizar_classificacoes_todas_as_provas
@@ -30,7 +32,7 @@ def main():
     
     st.markdown("---")
     
-    tabs = st.tabs(["Regras por Temporada", "Criar/Editar Regras"])
+    tabs = st.tabs(["Regras por Temporada", "Criar/Editar Regras", "Pontuação por Posição"])    
     
     # ========== ABA: Regras por Temporada ==========
     with tabs[0]:
@@ -147,6 +149,116 @@ def main():
         else:
             st.write("---")
             excluir_regra_form(regras_existentes)
+
+    # ========== ABA: Pontuação por Posição ==========
+    with tabs[2]:
+        st.subheader("Definir Pontos por Posição (Normal & Sprint)")
+        try:
+            regras_existentes = listar_regras()
+        except Exception as e:
+            st.error(f"❌ Erro ao carregar regras: {e}")
+            regras_existentes = []
+
+        if not regras_existentes:
+            st.warning("Nenhuma regra cadastrada. Crie uma regra primeiro.")
+        else:
+            # Selecionar temporada primeiro e carregar a regra associada
+            try:
+                temporadas = list_temporadas() or []
+            except Exception:
+                temporadas = []
+            if not temporadas:
+                ano_atual = datetime.datetime.now().year
+                temporadas = [str(ano_atual - 1), str(ano_atual), str(ano_atual + 1)]
+            temporada_sel = st.selectbox("Temporada", temporadas, key="pont_temp_select")
+            regra_atual = get_regra_temporada(temporada_sel)
+            if not regra_atual:
+                st.warning("Nenhuma regra associada à temporada selecionada. Associe uma regra na aba 'Regras por Temporada'.")
+                st.stop()
+            st.info(f"Regra atual da temporada {temporada_sel}: {regra_atual['nome_regra']}")
+            tipo_prova = st.selectbox("Tipo de Prova", ["Normal", "Sprint"], key="pont_tipo_select")
+            # Carrega lista atual
+            pts_lista = regra_atual.get('pontos_sprint_posicoes' if tipo_prova == 'Sprint' else 'pontos_posicoes', [])
+            if not isinstance(pts_lista, list):
+                try:
+                    pts_lista = json.loads(pts_lista)
+                except Exception:
+                    pts_lista = []
+            # Número de posições que pontuam
+            qtd_default = len([x for x in pts_lista if x and int(x) > 0]) or (8 if tipo_prova == 'Sprint' else 10)
+            qtd_positions = st.number_input("Quantidade de posições que pontuam", min_value=1, max_value=20, value=qtd_default)
+            # Preparar lista com zeros até 20
+            pts_lista_pad = (pts_lista + [0]*20)[:20]
+            # Inputs dinâmicos
+            st.markdown("Insira os pontos por posição:")
+            cols = st.columns(5)
+            novos_pontos = []
+            for i in range(qtd_positions):
+                col = cols[i % 5]
+                with col:
+                    val = st.number_input(f"{i+1}º", min_value=0, max_value=1000, value=int(pts_lista_pad[i]), key=f"pt_pos_{tipo_prova}_{i+1}")
+                    novos_pontos.append(int(val))
+            # Preenche o restante com zeros
+            while len(novos_pontos) < 20:
+                novos_pontos.append(0)
+
+            if st.button("Salvar Tabela de Pontos (apenas para esta temporada)", type="primary", key="btn_salvar_pontos_posicoes"):
+                try:
+                    # Se a regra é compartilhada entre múltiplas temporadas, clonar antes de atualizar
+                    temporadas_usando = listar_temporadas_por_regra(regra_atual['id'])
+                    regra_id_target = regra_atual['id']
+                    if len(temporadas_usando) > 1 and temporada_sel in temporadas_usando:
+                        novo_nome = f"{regra_atual['nome_regra']} - {temporada_sel}"
+                        new_id = clonar_regra(regra_atual['id'], novo_nome)
+                        if not new_id:
+                            st.error("Falha ao clonar regra para atualização específica da temporada.")
+                            st.stop()
+                        # Reassocia a temporada selecionada ao clone
+                        if not associar_regra_temporada(temporada_sel, new_id):
+                            st.error("Falha ao associar regra clonada à temporada.")
+                            st.stop()
+                        regra_id_target = new_id
+                        st.info(f"Regra clonada: {novo_nome}")
+                    # Montar payload de atualização preservando outros campos
+                    params = {
+                        'regra_id': regra_id_target,
+                        'nome_regra': regra_atual['nome_regra'],
+                        'quantidade_fichas': regra_atual['quantidade_fichas'],
+                        'fichas_por_piloto': regra_atual['fichas_por_piloto'],
+                        'mesma_equipe': bool(regra_atual['mesma_equipe']),
+                        'descarte': bool(regra_atual['descarte']),
+                        'pontos_pole': regra_atual.get('pontos_pole', 0),
+                        'pontos_vr': regra_atual.get('pontos_vr', 0),
+                        'pontos_posicoes': regra_atual.get('pontos_posicoes', []),
+                        'pontos_11_colocado': regra_atual['pontos_11_colocado'],
+                        'regra_sprint': bool(regra_atual['regra_sprint']),
+                        'pontos_sprint_pole': regra_atual.get('pontos_sprint_pole', 0),
+                        'pontos_sprint_vr': regra_atual.get('pontos_sprint_vr', 0),
+                        'pontos_sprint_posicoes': regra_atual.get('pontos_sprint_posicoes', []),
+                        'pontos_dobrada': bool(regra_atual['pontos_dobrada']),
+                        'bonus_vencedor': regra_atual.get('bonus_vencedor', 0),
+                        'bonus_podio_completo': regra_atual.get('bonus_podio_completo', 0),
+                        'bonus_podio_qualquer': regra_atual.get('bonus_podio_qualquer', 0),
+                        'qtd_minima_pilotos': regra_atual['qtd_minima_pilotos'],
+                        'penalidade_abandono': bool(regra_atual['penalidade_abandono']),
+                        'pontos_penalidade': regra_atual.get('pontos_penalidade', 0),
+                        'pontos_campeao': regra_atual['pontos_campeao'],
+                        'pontos_vice': regra_atual['pontos_vice'],
+                        'pontos_equipe': regra_atual['pontos_equipe']
+                    }
+                    if tipo_prova == 'Sprint':
+                        params['pontos_sprint_posicoes'] = novos_pontos
+                    else:
+                        params['pontos_posicoes'] = novos_pontos
+                    sucesso = atualizar_regra(**params)
+                    if sucesso:
+                        st.success("Tabela de pontos atualizada!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("Falha ao atualizar regra.")
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
 
 def safe_get(regra, key, default):
     """Helper para acessar valores de forma segura"""

@@ -97,6 +97,16 @@ def resultados_view():
     if piloto_11:
         posicoes[11] = piloto_11
 
+    # Pilotos que abandonaram a prova
+    st.markdown("**Pilotos que abandonaram a prova (DNF):**")
+    abandono_opcoes = pilotos
+    abandono_pilotos = st.multiselect(
+        "Selecione todos os pilotos que abandonaram",
+        abandono_opcoes,
+        default=[],
+        key="res_abandonos"
+    )
+
     erro = None
     if st.button("Salvar resultado"):
         # Validação dos campos
@@ -106,15 +116,34 @@ def resultados_view():
             erro = "Não é permitido repetir piloto entre 1º e 10º colocado."
         elif not posicoes.get(11):
             erro = "Selecione o piloto para 11º colocado."
+        # Validação opcional: alertar se algum abandonou e também está em top 11
+        conflitos = set(abandono_pilotos) & set([posicoes.get(p) for p in range(1, 12) if posicoes.get(p)])
+        if conflitos:
+            st.warning(f"Pilotos em conflito (posicionados e como abandono): {', '.join(sorted(conflitos))}")
         if erro:
             st.error(erro)
         else:
             with db_connect() as conn:
                 c = conn.cursor()
-                c.execute(
-                    'REPLACE INTO resultados (prova_id, posicoes) VALUES (?, ?)',
-                    (prova_id, str(posicoes))
-                )
+                # Detecta colunas existentes para inserir corretamente
+                c.execute("PRAGMA table_info('resultados')")
+                cols = [r[1] for r in c.fetchall()]
+                abandono_str = ','.join(abandono_pilotos) if abandono_pilotos else ''
+                if 'temporada' in cols and 'abandono_pilotos' in cols:
+                    c.execute(
+                        'REPLACE INTO resultados (prova_id, posicoes, abandono_pilotos, temporada) VALUES (?, ?, ?, ?)',
+                        (prova_id, str(posicoes), abandono_str, temporada_selecionada)
+                    )
+                elif 'abandono_pilotos' in cols:
+                    c.execute(
+                        'REPLACE INTO resultados (prova_id, posicoes, abandono_pilotos) VALUES (?, ?, ?)',
+                        (prova_id, str(posicoes), abandono_str)
+                    )
+                else:
+                    c.execute(
+                        'REPLACE INTO resultados (prova_id, posicoes) VALUES (?, ?)',
+                        (prova_id, str(posicoes))
+                    )
                 conn.commit()
             st.success("Resultado salvo!")
             st.cache_data.clear()
@@ -137,6 +166,9 @@ def resultados_view():
             }
             for pos in range(1, 12):
                 linha[f"{pos}º"] = posicoes_dict.get(pos, "")
+            # Adicionar lista de abandonos se disponível
+            if 'abandono_pilotos' in resultados_df.columns:
+                linha["Abandonos"] = res.iloc[0].get('abandono_pilotos', '')
             provas_resultados.append(linha)
     if provas_resultados:
         st.dataframe(pd.DataFrame(provas_resultados))

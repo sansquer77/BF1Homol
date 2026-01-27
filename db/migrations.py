@@ -50,6 +50,27 @@ def add_temporada_columns_if_missing():
         conn.commit()
 
 
+def add_abandono_column_if_missing():
+    """
+    Adiciona coluna `abandono_pilotos` à tabela `resultados` para registrar pilotos que abandonaram.
+    Idempotente: não faz nada se a coluna já existe.
+    """
+    pool = get_pool()
+    with pool.get_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA table_info('resultados')")
+            cols = [r[1] for r in cursor.fetchall()]
+            if 'abandono_pilotos' not in cols:
+                cursor.execute("ALTER TABLE resultados ADD COLUMN abandono_pilotos TEXT DEFAULT ''")
+                logger.info("✓ Coluna `abandono_pilotos` adicionada a `resultados`")
+            else:
+                logger.debug("  Coluna `abandono_pilotos` já existe em `resultados`, pulando...")
+            conn.commit()
+        except Exception as e:
+            logger.debug(f"Erro ao adicionar coluna abandono_pilotos: {e}")
+            conn.rollback()
+
 def add_legacy_columns_if_missing():
     """
     Adiciona colunas presentes no schema legado mas que podem faltar em bancos antigos:
@@ -323,6 +344,8 @@ def run_migrations():
             create_missing_tables_if_needed()
             # Adicionar colunas temporada (plurianual support)
             add_temporada_columns_if_missing()
+            # Adicionar coluna de abandonos em resultados
+            add_abandono_column_if_missing()
             # Adicionar colunas legadas que podem faltar em bancos antigos
             add_legacy_columns_if_missing()
             

@@ -219,6 +219,47 @@ def get_regra_by_nome(nome_regra: str) -> Optional[Dict]:
             return d
         return None
 
+def listar_temporadas_por_regra(regra_id: int) -> List[str]:
+    """Retorna lista de temporadas associadas a uma regra específica."""
+    with get_pool().get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT temporada FROM temporadas_regras WHERE regra_id = ?', (regra_id,))
+        rows = c.fetchall()
+        return [str(r[0]) for r in rows] if rows else []
+
+def clonar_regra(regra_id: int, novo_nome: str) -> Optional[int]:
+    """Clona uma regra existente com um novo nome. Retorna o novo ID ou None."""
+    regra = get_regra_by_id(regra_id)
+    if not regra:
+        return None
+    try:
+        with get_pool().get_connection() as conn:
+            c = conn.cursor()
+            c.execute('''
+                INSERT INTO regras (
+                    nome_regra, quantidade_fichas, fichas_por_piloto, mesma_equipe,
+                    descarte, pontos_pole, pontos_vr, pontos_posicoes, pontos_11_colocado,
+                    regra_sprint, pontos_sprint_pole, pontos_sprint_vr, pontos_sprint_posicoes,
+                    pontos_dobrada, bonus_vencedor, bonus_podio_completo, bonus_podio_qualquer,
+                    qtd_minima_pilotos, penalidade_abandono, pontos_penalidade,
+                    pontos_campeao, pontos_vice, pontos_equipe
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                novo_nome,
+                regra['quantidade_fichas'], regra['fichas_por_piloto'], int(regra['mesma_equipe']),
+                int(regra['descarte']), regra.get('pontos_pole', 0), regra.get('pontos_vr', 0), json.dumps(regra.get('pontos_posicoes', [])), regra['pontos_11_colocado'],
+                int(regra['regra_sprint']), regra.get('pontos_sprint_pole', 0), regra.get('pontos_sprint_vr', 0), json.dumps(regra.get('pontos_sprint_posicoes', [])),
+                int(regra['pontos_dobrada']), regra.get('bonus_vencedor', 0), regra.get('bonus_podio_completo', 0), regra.get('bonus_podio_qualquer', 0),
+                regra['qtd_minima_pilotos'], int(regra['penalidade_abandono']), regra.get('pontos_penalidade', 0),
+                regra['pontos_campeao'], regra['pontos_vice'], regra['pontos_equipe']
+            ))
+            new_id = c.lastrowid
+            conn.commit()
+            return new_id
+    except Exception as e:
+        logger.error(f"Erro ao clonar regra: {e}")
+        return None
+
 def listar_regras():
     """Lista todas as regras cadastradas"""
     with get_pool().get_connection() as conn:
