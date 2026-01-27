@@ -487,6 +487,7 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
             tipos_resolvidos.append('Normal')
     tipos_prova = dict(zip(prov_df['id'], tipos_resolvidos))
     temporadas_prova = dict(zip(prov_df['id'], prov_df['temporada'] if 'temporada' in prov_df.columns else [str(datetime.now().year)]*len(prov_df)))
+    has_temp_aposta = 'temporada' in ap_df.columns
     
     pontos = []
     for _, aposta in ap_df.iterrows():
@@ -498,7 +499,16 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
         
         res = ress_map[prova_id]
         tipo = tipos_prova.get(prova_id, 'Normal')
-        temporada_prova = temporadas_prova.get(prova_id, str(datetime.now().year))
+        temporada_aposta = None
+        if has_temp_aposta:
+            try:
+                temporada_aposta = aposta.get('temporada', None)
+            except Exception:
+                temporada_aposta = None
+        if temporada_aposta is not None and str(temporada_aposta).strip() != "" and not pd.isna(temporada_aposta):
+            temporada_prova = str(temporada_aposta)
+        else:
+            temporada_prova = temporadas_prova.get(prova_id, str(datetime.now().year))
         
         # Busca REGRAS DINÂMICAS da temporada (não altera pontos FIA)
         regras = get_regras_aplicaveis(temporada_prova, tipo)

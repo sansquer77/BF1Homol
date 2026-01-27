@@ -168,8 +168,8 @@ def main():
             except Exception:
                 temporadas = []
             if not temporadas:
-                ano_atual = datetime.datetime.now().year
-                temporadas = [str(ano_atual - 1), str(ano_atual), str(ano_atual + 1)]
+                st.warning("Nenhuma temporada cadastrada na tabela 'temporadas'. Crie a temporada antes de definir pontos por posição.")
+                st.stop()
             temporada_sel = st.selectbox("Temporada", temporadas, key="pont_temp_select")
             regra_atual = get_regra_temporada(temporada_sel)
             if not regra_atual:

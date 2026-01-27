@@ -106,7 +106,7 @@ def participante_view():
                     fichas_ant = []
                     piloto_11_ant = ""
 
-                st.write("Escolha seus pilotos e distribua 15 fichas entre eles (mínimo 3 pilotos de equipes diferentes):")
+                st.write("Escolha seus pilotos e distribua suas fichas entre eles de acordo com as regras:")
                 max_linhas = 10
                 pilotos_aposta, fichas_aposta = [], []
                 for i in range(max_linhas):
