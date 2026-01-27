@@ -165,7 +165,15 @@ def redefinir_senha_usuario(email: str):
     # Atualiza a senha no banco
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute("UPDATE usuarios SET senha_hash=? WHERE email=?", (senha_hash, email))
+        c.execute("PRAGMA table_info('usuarios')")
+        cols = [r[1] for r in c.fetchall()]
+        if 'must_change_password' in cols:
+            c.execute(
+                "UPDATE usuarios SET senha_hash=?, must_change_password=1 WHERE email=?",
+                (senha_hash, email)
+            )
+        else:
+            c.execute("UPDATE usuarios SET senha_hash=? WHERE email=?", (senha_hash, email))
         conn.commit()
     return True, (usuario[1], nova_senha)  # nome, nova_senha
 

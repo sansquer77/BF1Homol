@@ -95,6 +95,7 @@ def init_db():
                 perfil TEXT,
                 status TEXT DEFAULT 'Ativo',
                 faltas INTEGER DEFAULT 0,
+                must_change_password INTEGER DEFAULT 0,
                 criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -171,7 +172,8 @@ def init_db():
                 email TEXT NOT NULL,
                 tentativa_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 sucesso BOOLEAN DEFAULT 0,
-                ip_address TEXT
+                ip_address TEXT,
+                action TEXT DEFAULT 'login'
             )
         ''')
 
@@ -452,10 +454,21 @@ def update_user_email(user_id: int, novo_email: str) -> bool:
 def update_user_password(user_id: int, nova_senha: str) -> bool:
     """Atualiza a senha do usuário"""
     try:
-        senha_hash = hash_password(nova_senha)
+        if isinstance(nova_senha, str) and nova_senha.startswith("$2"):
+            senha_hash = nova_senha
+        else:
+            senha_hash = hash_password(nova_senha)
         with db_connect() as conn:
             c = conn.cursor()
-            c.execute('UPDATE usuarios SET senha_hash = ? WHERE id = ?', (senha_hash, user_id))
+            c.execute("PRAGMA table_info('usuarios')")
+            cols = [r[1] for r in c.fetchall()]
+            if 'must_change_password' in cols:
+                c.execute(
+                    'UPDATE usuarios SET senha_hash = ?, must_change_password = 0 WHERE id = ?',
+                    (senha_hash, user_id)
+                )
+            else:
+                c.execute('UPDATE usuarios SET senha_hash = ? WHERE id = ?', (senha_hash, user_id))
             conn.commit()
             logger.info(f"✓ Senha do usuário {user_id} atualizada")
             return True
