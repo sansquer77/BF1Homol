@@ -168,21 +168,27 @@ def main():
         pontos_part = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=season)
         total_provas = sum([p for p in pontos_part if p is not None])
         
-        pontos_campeonato = 0
+        bonus_campeao = 0
+        bonus_vice = 0
+        bonus_equipe = 0
         if resultado_campeonato:
             aposta_camp = get_championship_bet(part['id'], season)
             if aposta_camp:
                 if resultado_campeonato.get("champion") == aposta_camp.get("champion"):
-                    pontos_campeonato += pontos_campeao
+                    bonus_campeao = pontos_campeao
                 if resultado_campeonato.get("vice") == aposta_camp.get("vice"):
-                    pontos_campeonato += pontos_vice
+                    bonus_vice = pontos_vice
                 if resultado_campeonato.get("team") == aposta_camp.get("team"):
-                    pontos_campeonato += pontos_equipe
+                    bonus_equipe = pontos_equipe
+        pontos_campeonato = bonus_campeao + bonus_vice + bonus_equipe
         
         tabela_classificacao.append({
             "Participante": part['nome'],
             "usuario_id": part['id'],
             "Pontos Provas": total_provas,
+            "Bônus Campeão": bonus_campeao,
+            "Bônus Vice": bonus_vice,
+            "Bônus Equipe": bonus_equipe,
             "Pontos Campeonato": pontos_campeonato,
             "Total Geral": total_provas + pontos_campeonato
         })
@@ -246,12 +252,31 @@ def main():
     df_class["Diferença"] = ["-" if i == 0 else formatar_brasileiro(d) for i, d in enumerate(diferencas)]
     
     df_display = df_class.copy()
-    for col in ["Pontos Provas", "Pontos Campeonato", "Total Geral"]:
+    for col in ["Pontos Provas", "Bônus Campeão", "Bônus Vice", "Bônus Equipe", "Pontos Campeonato", "Total Geral"]:
         df_display[col] = df_display[col].apply(lambda x: formatar_brasileiro(float(x)))
     
-    colunas_ordem = ["Posição", "Participante", "Pontos Provas", "Pontos Campeonato", "Total Geral", "Diferença", "Movimentação"]
+    colunas_ordem = [
+        "Posição",
+        "Participante",
+        "Pontos Provas",
+        "Bônus Campeão",
+        "Bônus Vice",
+        "Bônus Equipe",
+        "Pontos Campeonato",
+        "Total Geral",
+        "Diferença",
+        "Movimentação"
+    ]
     st.subheader("Classificação Geral (Provas + Campeonato)")
     st.table(df_display[colunas_ordem])
+
+    csv_classificacao = df_display[colunas_ordem].to_csv(index=False)
+    st.download_button(
+        label="Baixar tabela da classificação (CSV)",
+        data=csv_classificacao,
+        file_name="classificacao_geral.csv",
+        mime="text/csv"
+    )
 
     if perfil_usuario in ['admin', 'master']:
         imagem_buffer = gerar_imagem_tabela_ajustada(df_display, colunas_ordem)
