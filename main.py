@@ -128,6 +128,7 @@ from ui.login import login_view
 from ui.painel import participante_view
 from ui.usuarios import main as usuarios_view
 from ui.gestao_resultados import resultados_view
+from ui.calendario import main as calendario_view
 from ui.championship_bets import main as championship_bets_view
 from ui.championship_results import main as championship_results_view
 from ui.gestao_apostas import main as gestao_apostas_view
@@ -151,9 +152,13 @@ if 'token' not in st.session_state:
     st.session_state['token'] = None
 
 # ============ MENUS POR PERFIL ============
+def _calendario_label():
+    return f"Calendário ({datetime.datetime.now().year})"
+
 def menu_master():
     return [
         "Painel do Participante",
+        _calendario_label(),
         "Gestão de Usuários",
         "Gestão de Pilotos",
         "Gestão de Provas",
@@ -176,6 +181,7 @@ def menu_master():
 def menu_admin():
     return [
         "Painel do Participante",
+        _calendario_label(),
         "Gestão de Apostas",
         "Gestão de Pilotos",
         "Gestão de Provas",
@@ -196,6 +202,7 @@ def menu_admin():
 def menu_participante():
     return [
         "Painel do Participante",
+        _calendario_label(),
         "Apostas Campeonato",
         "Análise de Apostas",
         "Log de Apostas",
@@ -223,6 +230,7 @@ def get_payload():
 PAGES = {
     "Login": login_view,
     "Painel do Participante": participante_view,
+    _calendario_label(): calendario_view,
     "Gestão de Usuários": usuarios_view,
     "Gestão de Pilotos": gestao_pilotos_view,
     "Gestão de Provas": gestao_provas_view,
