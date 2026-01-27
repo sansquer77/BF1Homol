@@ -252,13 +252,23 @@ def participante_view():
                                 total_pontos -= penalidade_abandono
                     if tipo_prova == 'Sprint' and regras.get('pontos_dobrada'):
                         total_pontos = total_pontos * 2
+                    penalidade_auto = 0
                     if automatica and int(automatica) >= 2:
-                        total_pontos = round(total_pontos * 0.75, 2)
+                        desconto = round(total_pontos * 0.75, 2)
+                        penalidade_auto = round(total_pontos - desconto, 2)
+                        total_pontos = desconto
                     st.markdown(f"#### {prova_nome} ({tipo_prova})")
+                    if tipo_prova == 'Sprint':
+                        if regras.get('pontos_dobrada'):
+                            st.write("**Sprint com pontuação dobrada:** Sim")
+                        else:
+                            st.write("**Sprint com pontuação dobrada:** Não")
                     st.dataframe(pd.DataFrame(dados), hide_index=True)
                     st.write(f"**11º Apostado:** {piloto_11_apostado} | **11º Real:** {piloto_11_real} | **Pontos 11º:** {pontos_11_col}")
                     if penalidade_abandono:
                         st.write(f"**Penalidade por abandono:** -{penalidade_abandono}")
+                    if penalidade_auto:
+                        st.write(f"**Penalidade aposta automática:** -{penalidade_auto:.2f}")
                     st.write(f"**Total de Pontos na Prova:** {total_pontos:.2f}")
                     st.markdown("---")
         else:
@@ -327,11 +337,19 @@ def participante_view():
 
         # Verifica se as colunas existem e só então faz o filtro
         if not df_posicoes.empty and {'usuario_id', 'prova_id', 'posicao'}.issubset(df_posicoes.columns):
-            posicoes_part = df_posicoes[df_posicoes['usuario_id'] == user_id_logado].sort_values('prova_id')
+            posicoes_part = df_posicoes[df_posicoes['usuario_id'] == user_id_logado]
+            if 'temporada' in df_posicoes.columns:
+                posicoes_part = posicoes_part[(posicoes_part['temporada'] == temporada) | (posicoes_part['temporada'].isna())]
+            else:
+                provas_ids_temp = set(provas_df['id'].tolist())
+                posicoes_part = posicoes_part[posicoes_part['prova_id'].isin(provas_ids_temp)]
+            posicoes_part = posicoes_part.sort_values('prova_id')
             if not posicoes_part.empty:
-                # Load all provas without temporada filter to resolve names for any prova_id in position history
-                provas_df_all = get_provas_df(None)
-                provas_nomes = [provas_df_all[provas_df_all['id'] == pid]['nome'].values[0] if len(provas_df_all[provas_df_all['id'] == pid]) > 0 else f"Prova {pid}" for pid in posicoes_part['prova_id']]
+                provas_nomes = [
+                    provas_df[provas_df['id'] == pid]['nome'].values[0]
+                    if len(provas_df[provas_df['id'] == pid]) > 0 else f"Prova {pid}"
+                    for pid in posicoes_part['prova_id']
+                ]
                 fig_pos = go.Figure()
                 fig_pos.add_trace(go.Scatter(
                     x=provas_nomes,
