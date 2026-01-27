@@ -1,18 +1,18 @@
 import streamlit as st
 
 def main():
-    st.title("📜 Regulamento BF1-2025 (Completo e Oficial)")
+    st.title("📜 Regulamento BF1-2026 (Completo e Oficial)")
 
     st.markdown("""
-REGULAMENTO BF1-2025
+REGULAMENTO BF1-2026
 
-O BF1-2025 terá início, oficialmente, em 16 de março, no dia do GP da Austrália e término em 07 de dezembro, quando será disputado o último GP, o de Abu Dhabi.
+O BF1-2026 terá início, oficialmente, em 08 de março, no dia do GP da Austrália e término em 06 de dezembro, quando será disputado o último GP, o de Abu Dhabi.
 
 **Inscrições**
 - Inscrições para o BF1 estão liberadas a partir de qualquer etapa.
 - A inscrição é de R$200,00 a ser pago no ato da inscrição via PIX.
 - Em caso de desistência durante o campeonato a taxa de inscrição não será devolvida.
-- Cabe ressaltar que a pontuação do novo participante será 80% da pontuação do participante mais mal colocado no bolão no momento da inscrição e terá 0 pontos na aposta de campeão, caso ocorra após o início do campeonato.
+- Cabe ressaltar que a pontuação do novo participante será 85% da pontuação do participante mais mal colocado no bolão no momento da inscrição e terá 0 pontos na aposta de campeão, caso ocorra após o início do campeonato.
 
 **Apostas dos Participantes**
 - As apostas devem ser efetuadas até o horário programado da corrida e compartilhadas via formulário padrão que está no grupo do WhatsApp.
@@ -24,36 +24,31 @@ c. Os horários das corridas deste ano são:
 
 | Grande Prêmio                         | Data             | Horário |
 |---------------------------------------|------------------|---------|
-| 1  GP da Austrália                    | 16 de março      | 01:00   |
-| 2  GP da China Sprint                 | 22 de março      | 00:00   |
-| 3  GP da China                        | 23 de março      | 04:00   |
-| 4  GP do Japão                        | 6 de abril       | 02:00   |
-| 5  GP do Bahrain                      | 13 de abril      | 12:00   |
-| 6  GP da Arábia Saudita               | 20 de abril      | 14:00   |
-| 7  GP de Miami Sprint                 | 3 de maio        | 13:00   |
-| 8  GP de Miami                        | 4 de maio        | 17:00   |
-| 9  GP da Emília-Romanha               | 18 de maio       | 10:00   |
-| 10 GP de Mônaco                       | 25 de maio       | 10:00   |
-| 11 GP da Espanha                      | 1 de junho       | 10:00   |
-| 12 GP do Canadá                       | 15 de junho      | 15:00   |
-| 13 GP da Áustria                      | 29 de junho      | 10:00   |
-| 14 GP da Grã-Bretanha                 | 6 de julho       | 11:00   |
-| 15 GP da Bélgica Sprint               | 26 de julho      | 07:00   |
-| 16 GP da Bélgica                      | 27 de julho      | 10:00   |
-| 17 GP da Hungria                      | 3 de agosto      | 10:00   |
-| 18 GP dos Países Baixos               | 31 de agosto     | 10:00   |
-| 19 GP da Itália                       | 7 de setembro    | 10:00   |
-| 20 GP do Azerbaijão                   | 21 de setembro   | 08:00   |
-| 21 GP de Singapura                    | 5 de outubro     | 09:00   |
-| 22 GP dos EUA Sprint                  | 18 de outubro    | 14:00   |
-| 23 GP dos EUA                         | 19 de outubro    | 16:00   |
-| 24 GP da Cidade do México             | 26 de outubro    | 17:00   |
-| 25 GP de São Paulo Sprint             | 8 de novembro    | 11:00   |
-| 26 GP de São Paulo                    | 9 de novembro    | 14:00   |
-| 27 GP de Las Vegas                    | 22 de novembro   | 01:00   |
-| 28 GP do Catar Sprint                 | 29 de novembro   | 11:00   |
-| 29 GP do Catar                        | 30 de novembro   | 13:00   |
-| 30 GP de Abu Dhabi                    | 7 de dezembro    | 10:00   |
+| 1  GP da Austrália                    | 8 de março       | 01:00   |
+| 2  GP da China (Sprint)               | 14 de março      | 00:00   |
+| 3  GP da China                        | 15 de março      | 04:00   |           
+| 3  GP do Japão                        | 29 de março      | 14:00   |
+| 4  GP do Bahrain                      | 12 de abril      | 18:00   |
+| 5  GP da Arábia Saudita               | 19 de abril      | 20:00   |
+| 6  GP de Miami (Sprint)               | 3 de maio        | 16:00   |
+| 7  GP do Canadá (Sprint)              | 24 de maio       | 16:00   |
+| 8  GP de Mônaco                       | 7 de junho       | 15:00   |
+| 9  GP da Espanha (Barcelona)          | 14 de junho      | 15:00   |
+| 10 GP da Áustria                      | 28 de junho      | 15:00   |
+| 11 GP da Grã-Bretanha (Sprint)        | 5 de julho       | 15:00   |
+| 12 GP da Bélgica                      | 19 de julho      | 15:00   |
+| 13 GP da Hungria                      | 26 de julho      | 15:00   |
+| 14 GP dos Países Baixos (Sprint)      | 23 de agosto     | 15:00   |
+| 15 GP da Itália                       | 6 de setembro    | 15:00   |
+| 16 GP da Espanha (Madrid)             | 13 de setembro   | 15:00   |
+| 17 GP do Azerbaijão                   | 26 de setembro   | 15:00   |
+| 18 GP de Singapura (Sprint)           | 11 de outubro    | 20:00   |
+| 19 GP dos EUA                         | 25 de outubro    | 15:00   |
+| 20 GP da Cidade do México             | 1 de novembro    | 14:00   |
+| 21 GP de São Paulo                    | 8 de novembro    | 14:00   |
+| 22 GP de Las Vegas                    | 21 de novembro   | 20:00   |
+| 23 GP do Catar                        | 29 de novembro   | 19:00   |
+| 24 GP de Abu Dhabi                    | 6 de dezembro    | 17:00   |
 
 **Ausências e Penalizações**
 - O participante que não efetuar a aposta ATÉ O PRAZO irá concorrer com a mesma aposta da última corrida.
