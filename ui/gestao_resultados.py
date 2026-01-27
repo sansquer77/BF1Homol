@@ -56,6 +56,27 @@ def resultados_view():
     st.info(f"Tipo da prova selecionada: {tipo_prova}")
     pilotos = pilotos_ativos_df['nome'].tolist()
 
+    # Pré-preencher formulário com resultado existente
+    resultado_atual = resultados_df[resultados_df['prova_id'] == prova_id]
+    posicoes_existentes = {}
+    abandonos_existentes = []
+    if not resultado_atual.empty:
+        try:
+            posicoes_existentes = ast.literal_eval(resultado_atual.iloc[0]['posicoes']) or {}
+        except Exception:
+            posicoes_existentes = {}
+        if 'abandono_pilotos' in resultados_df.columns:
+            raw_aband = resultado_atual.iloc[0].get('abandono_pilotos', '')
+            if raw_aband is None:
+                raw_aband = ''
+            abandonos_existentes = [p.strip() for p in str(raw_aband).split(',') if p and p.strip()]
+
+    if st.session_state.get('resultados_prova_sel') != prova_id:
+        st.session_state['resultados_prova_sel'] = prova_id
+        for pos in range(1, 12):
+            st.session_state[f"res_pos_{pos}"] = posicoes_existentes.get(pos, "")
+        st.session_state["res_abandonos"] = abandonos_existentes
+
     posicoes = {}
     st.markdown("**Informe o piloto para cada posição:**")
     col1, col2 = st.columns(2)
@@ -63,7 +84,8 @@ def resultados_view():
     # 1º ao 5º colocados
     for pos in range(1, 6):
         with col1:
-            opcoes = [""] + [p for p in pilotos if p not in pilotos_usados]
+            atual = st.session_state.get(f"res_pos_{pos}", "")
+            opcoes = [""] + [p for p in pilotos if p not in pilotos_usados or p == atual]
             piloto_sel = st.selectbox(
                 f"{pos}º colocado",
                 opcoes,
@@ -76,7 +98,8 @@ def resultados_view():
     # 6º ao 10º colocados
     for pos in range(6, 11):
         with col2:
-            opcoes = [""] + [p for p in pilotos if p not in pilotos_usados]
+            atual = st.session_state.get(f"res_pos_{pos}", "")
+            opcoes = [""] + [p for p in pilotos if p not in pilotos_usados or p == atual]
             piloto_sel = st.selectbox(
                 f"{pos}º colocado",
                 opcoes,
@@ -103,7 +126,7 @@ def resultados_view():
     abandono_pilotos = st.multiselect(
         "Selecione todos os pilotos que abandonaram",
         abandono_opcoes,
-        default=[],
+        default=abandonos_existentes,
         key="res_abandonos"
     )
 
@@ -129,21 +152,57 @@ def resultados_view():
                 c.execute("PRAGMA table_info('resultados')")
                 cols = [r[1] for r in c.fetchall()]
                 abandono_str = ','.join(abandono_pilotos) if abandono_pilotos else ''
-                if 'temporada' in cols and 'abandono_pilotos' in cols:
-                    c.execute(
-                        'REPLACE INTO resultados (prova_id, posicoes, abandono_pilotos, temporada) VALUES (?, ?, ?, ?)',
-                        (prova_id, str(posicoes), abandono_str, temporada_selecionada)
-                    )
-                elif 'abandono_pilotos' in cols:
-                    c.execute(
-                        'REPLACE INTO resultados (prova_id, posicoes, abandono_pilotos) VALUES (?, ?, ?)',
-                        (prova_id, str(posicoes), abandono_str)
-                    )
+
+                if 'temporada' in cols:
+                    c.execute('SELECT 1 FROM resultados WHERE prova_id=? AND (temporada=? OR temporada IS NULL)', (prova_id, temporada_selecionada))
+                    existe = c.fetchone() is not None
+                    if 'abandono_pilotos' in cols:
+                        if existe:
+                            c.execute(
+                                'UPDATE resultados SET posicoes=?, abandono_pilotos=?, temporada=? WHERE prova_id=?',
+                                (str(posicoes), abandono_str, temporada_selecionada, prova_id)
+                            )
+                        else:
+                            c.execute(
+                                'INSERT INTO resultados (prova_id, posicoes, abandono_pilotos, temporada) VALUES (?, ?, ?, ?)',
+                                (prova_id, str(posicoes), abandono_str, temporada_selecionada)
+                            )
+                    else:
+                        if existe:
+                            c.execute(
+                                'UPDATE resultados SET posicoes=?, temporada=? WHERE prova_id=?',
+                                (str(posicoes), temporada_selecionada, prova_id)
+                            )
+                        else:
+                            c.execute(
+                                'INSERT INTO resultados (prova_id, posicoes, temporada) VALUES (?, ?, ?)',
+                                (prova_id, str(posicoes), temporada_selecionada)
+                            )
                 else:
-                    c.execute(
-                        'REPLACE INTO resultados (prova_id, posicoes) VALUES (?, ?)',
-                        (prova_id, str(posicoes))
-                    )
+                    c.execute('SELECT 1 FROM resultados WHERE prova_id=?', (prova_id,))
+                    existe = c.fetchone() is not None
+                    if 'abandono_pilotos' in cols:
+                        if existe:
+                            c.execute(
+                                'UPDATE resultados SET posicoes=?, abandono_pilotos=? WHERE prova_id=?',
+                                (str(posicoes), abandono_str, prova_id)
+                            )
+                        else:
+                            c.execute(
+                                'INSERT INTO resultados (prova_id, posicoes, abandono_pilotos) VALUES (?, ?, ?)',
+                                (prova_id, str(posicoes), abandono_str)
+                            )
+                    else:
+                        if existe:
+                            c.execute(
+                                'UPDATE resultados SET posicoes=? WHERE prova_id=?',
+                                (str(posicoes), prova_id)
+                            )
+                        else:
+                            c.execute(
+                                'INSERT INTO resultados (prova_id, posicoes) VALUES (?, ?)',
+                                (prova_id, str(posicoes))
+                            )
                 conn.commit()
             st.success("Resultado salvo!")
             st.cache_data.clear()

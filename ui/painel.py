@@ -186,7 +186,6 @@ def participante_view():
         apostas_part = apostas_df[apostas_df['usuario_id'] == user['id']].sort_values('prova_id')
         pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
         pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]
-        bonus_11 = 25
 
         if not apostas_part.empty:
             nomes_abas = [f"{ap['nome_prova']} ({ap['prova_id']})" for _, ap in apostas_part.iterrows()]
@@ -199,7 +198,9 @@ def participante_view():
                     pilotos_apostados = aposta['pilotos'].split(',')
                     piloto_11_apostado = aposta['piloto_11']
                     automatica = aposta.get('automatica', 0)
-                    tipo_prova = provas_df[provas_df['id'] == prova_id]['tipo'].values[0] if not provas_df[provas_df['id'] == prova_id].empty else 'Normal'
+                    tipo_raw = provas_df[provas_df['id'] == prova_id]['tipo'].values[0] if not provas_df[provas_df['id'] == prova_id].empty else 'Normal'
+                    tipo_prova = 'Sprint' if str(tipo_raw).strip().lower() == 'sprint' or 'sprint' in str(prova_nome).lower() else 'Normal'
+                    regras = get_regras_aplicaveis(temporada, tipo_prova)
                     resultado_row = resultados_df[resultados_df['prova_id'] == prova_id]
                     if not resultado_row.empty:
                         try:
@@ -211,16 +212,19 @@ def participante_view():
                     dados = []
                     total_pontos = 0
                     if tipo_prova == 'Sprint':
-                        pontos_lista = pontos_sprint
-                        n_pos = 8
+                        pontos_lista = regras.get('pontos_sprint_posicoes') or []
+                        if not pontos_lista:
+                            pontos_lista = pontos_sprint
                     else:
-                        pontos_lista = pontos_f1
-                        n_pos = 10
-                    piloto_para_pos = {v: int(k) for k, v in posicoes_dict.items()}
+                        pontos_lista = regras.get('pontos_posicoes') or []
+                        if not pontos_lista:
+                            pontos_lista = pontos_f1
+                    n_pos = len(pontos_lista)
+                    piloto_para_pos = {str(v).strip(): int(k) for k, v in posicoes_dict.items()}
                     for i in range(n_pos):
                         aposta_piloto = pilotos_apostados[i] if i < len(pilotos_apostados) else ""
                         ficha = fichas[i] if i < len(fichas) else 0
-                        pos_real = piloto_para_pos.get(aposta_piloto, None)
+                        pos_real = piloto_para_pos.get(str(aposta_piloto).strip(), None)
                         pontos = 0
                         if pos_real is not None and 1 <= pos_real <= n_pos:
                             pontos = ficha * pontos_lista[pos_real - 1]
@@ -231,14 +235,30 @@ def participante_view():
                             "Posição Real": pos_real if pos_real is not None else "-",
                             "Pontos": f"{pontos:.2f}"
                         })
-                    piloto_11_real = posicoes_dict.get(11, "")
-                    pontos_11_col = bonus_11 if piloto_11_apostado == piloto_11_real else 0
+                    piloto_11_real = str(posicoes_dict.get(11, "")).strip()
+                    bonus_11 = regras.get('pontos_11_colocado', 25)
+                    pontos_11_col = bonus_11 if str(piloto_11_apostado).strip() == piloto_11_real else 0
                     total_pontos += pontos_11_col
+                    penalidade_abandono = 0
+                    if regras.get('penalidade_abandono') and not resultado_row.empty and 'abandono_pilotos' in resultado_row.columns:
+                        raw_aband = resultado_row.iloc[0].get('abandono_pilotos', '')
+                        if raw_aband is None:
+                            raw_aband = ''
+                        abandonos = {p.strip() for p in str(raw_aband).split(',') if p and p.strip()}
+                        if abandonos:
+                            num_aband = sum(1 for p in pilotos_apostados if p.strip() in abandonos)
+                            penalidade_abandono = int(regras.get('pontos_penalidade', 0)) * num_aband
+                            if penalidade_abandono:
+                                total_pontos -= penalidade_abandono
+                    if tipo_prova == 'Sprint' and regras.get('pontos_dobrada'):
+                        total_pontos = total_pontos * 2
                     if automatica and int(automatica) >= 2:
                         total_pontos = round(total_pontos * 0.75, 2)
                     st.markdown(f"#### {prova_nome} ({tipo_prova})")
                     st.dataframe(pd.DataFrame(dados), hide_index=True)
                     st.write(f"**11º Apostado:** {piloto_11_apostado} | **11º Real:** {piloto_11_real} | **Pontos 11º:** {pontos_11_col}")
+                    if penalidade_abandono:
+                        st.write(f"**Penalidade por abandono:** -{penalidade_abandono}")
                     st.write(f"**Total de Pontos na Prova:** {total_pontos:.2f}")
                     st.markdown("---")
         else:
@@ -252,11 +272,11 @@ def participante_view():
         if descarte_ativo:
             # Calcular pontuação de todas as provas do participante
             if not apostas_part.empty:
-                pontos_por_prova = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df)
+                pontos_por_prova = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=temporada)
                 
                 # Criar dataframe com provas e pontuações
                 provas_pontos = []
-                for idx, (_, aposta) in enumerate(apostas_part.iterrows(), temporada_descarte=temporada):
+                for idx, (_, aposta) in enumerate(apostas_part.iterrows()):
                     if pontos_por_prova[idx] is not None:
                         prova_nome = aposta['nome_prova']
                         prova_id_val = aposta['prova_id']
