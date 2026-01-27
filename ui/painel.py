@@ -278,8 +278,8 @@ def participante_view():
                             st.write(f"**Penalidade aposta automática:** -{penalidade_auto:.2f}")
                         st.write(f"**Total de Pontos na Prova:** {total_pontos:.2f}")
                         st.markdown("---")
-        else:
-            st.info("Nenhuma aposta registrada.")
+            else:
+                st.info("Nenhuma aposta registrada.")
 
         # --- NOVA SEÇÃO: Prova de Descarte ---
         st.subheader("⚠️ Regra de Descarte")
