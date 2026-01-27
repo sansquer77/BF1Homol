@@ -267,9 +267,33 @@ def main():
         st.warning("Acesso restrito a administradores.")
         return
     
-    # Buscar TODAS as provas (sem filtro de temporada) para gestão
+    # Filtro por temporada
+    current_year = str(datetime.now().year)
+    try:
+        temporadas = list_temporadas() or []
+    except Exception:
+        temporadas = []
+    if not temporadas:
+        temporadas = [current_year]
+    if current_year in temporadas:
+        default_index = temporadas.index(current_year)
+    else:
+        default_index = 0
+    temporada_sel = st.selectbox("Temporada", temporadas, index=default_index, key="gestao_provas_temporada")
+
+    # Buscar provas filtradas por temporada (ordenadas por data crescente)
     with db_connect() as conn:
-        df = pd.read_sql_query("SELECT * FROM provas ORDER BY data DESC", conn)
+        c = conn.cursor()
+        c.execute("PRAGMA table_info('provas')")
+        cols = [r[1] for r in c.fetchall()]
+        if 'temporada' in cols:
+            df = pd.read_sql_query(
+                "SELECT * FROM provas WHERE temporada = ? OR temporada IS NULL ORDER BY data ASC",
+                conn,
+                params=(temporada_sel,)
+            )
+        else:
+            df = pd.read_sql_query("SELECT * FROM provas ORDER BY data ASC", conn)
     
     # Criar abas
     tab_editar, tab_adicionar = st.tabs(["✏️ Editar Provas", "➕ Adicionar Nova Prova"])

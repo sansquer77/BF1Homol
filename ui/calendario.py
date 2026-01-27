@@ -31,13 +31,15 @@ def main():
 
     df = provas_df.copy()
     if 'data' in df.columns:
-        df['data'] = pd.to_datetime(df['data'], errors='coerce').dt.strftime('%d/%m/%Y')
+        df['data_dt'] = pd.to_datetime(df['data'], errors='coerce')
+        df = df.sort_values('data_dt')
+        df['data'] = df['data_dt'].dt.strftime('%d/%m/%Y')
     if 'horario_prova' not in df.columns:
         df['horario_prova'] = ""
     if 'tipo' not in df.columns:
         df['tipo'] = "Normal"
 
-    df = df.sort_values('data') if 'data' in df.columns else df
+    df = df.drop(columns=['data_dt'], errors='ignore')
 
     colunas = {
         'nome': 'Nome',
