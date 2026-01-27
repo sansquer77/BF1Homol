@@ -442,7 +442,22 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
         except:
             continue
     
-    tipos_prova = dict(zip(prov_df['id'], prov_df['tipo'] if 'tipo' in prov_df.columns else ['Normal']*len(prov_df)))
+    # Mapear tipo de prova com fallback pelo nome (contém "Sprint")
+    tipos = []
+    if 'tipo' in prov_df.columns:
+        tipos = prov_df['tipo'].fillna('').astype(str).tolist()
+    else:
+        tipos = [''] * len(prov_df)
+    nomes = prov_df['nome'].fillna('').astype(str).tolist() if 'nome' in prov_df.columns else [''] * len(prov_df)
+    tipos_resolvidos = []
+    for i in range(len(prov_df)):
+        t = tipos[i].strip().lower()
+        n = nomes[i].strip().lower()
+        if t == 'sprint' or ('sprint' in n):
+            tipos_resolvidos.append('Sprint')
+        else:
+            tipos_resolvidos.append('Normal')
+    tipos_prova = dict(zip(prov_df['id'], tipos_resolvidos))
     temporadas_prova = dict(zip(prov_df['id'], prov_df['temporada'] if 'temporada' in prov_df.columns else [str(datetime.now().year)]*len(prov_df)))
     
     pontos = []
@@ -460,8 +475,10 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
         # Busca REGRAS DINÂMICAS da temporada (não altera pontos FIA)
         regras = get_regras_aplicaveis(temporada_prova, tipo)
         
-        # Seleciona tabela de pontos da regra vigente
+        # Seleciona tabela de pontos da regra vigente (fallback para padrão)
         pontos_tabela = regras.get('pontos_posicoes', [])
+        if not pontos_tabela:
+            pontos_tabela = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
         n_posicoes = len(pontos_tabela)
         
         # Bônus 11º DINÂMICO da regra
