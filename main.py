@@ -10,6 +10,7 @@ Melhorias:
 import streamlit as st
 import os
 import logging
+import datetime
 from pathlib import Path
 
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
