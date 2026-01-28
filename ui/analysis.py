@@ -8,24 +8,23 @@ def get_apostas_por_piloto():
     Agrupa apostas por participante e piloto para análise da distribuição de apostas.
     Retorna DataFrame: participante | piloto | total_apostas
     """
-    conn = db_connect()
-    query = '''
-        SELECT u.nome AS participante, a.pilotos
-        FROM apostas a
-        JOIN usuarios u ON a.usuario_id = u.id
-    '''
     try:
-        df = pd.read_sql(query, conn)
-        if not df.empty and 'pilotos' in df.columns:
-            df['piloto'] = df['pilotos'].str.split(',')
-            df = df.explode('piloto')
-            df = df.groupby(['participante', 'piloto']).size().reset_index(name='total_apostas')
-        else:
-            df = pd.DataFrame()
+        with db_connect() as conn:
+            query = '''
+                SELECT u.nome AS participante, a.pilotos
+                FROM apostas a
+                JOIN usuarios u ON a.usuario_id = u.id
+            '''
+            df = pd.read_sql(query, conn)
+            if not df.empty and 'pilotos' in df.columns:
+                df['piloto'] = df['pilotos'].str.split(',')
+                df = df.explode('piloto')
+                df = df.groupby(['participante', 'piloto']).size().reset_index(name='total_apostas')
+            else:
+                df = pd.DataFrame()
     except Exception as e:
         st.error(f"Erro ao buscar apostas por piloto: {str(e)}")
         df = pd.DataFrame()
-    conn.close()
     return df
 
 def get_distribuicao_piloto_11():
@@ -33,19 +32,18 @@ def get_distribuicao_piloto_11():
     Distribuição de apostas para o 11º colocado por participante.
     Retorna DataFrame: participante | piloto_11
     """
-    conn = db_connect()
-    query = '''
-        SELECT u.nome AS participante, a.piloto_11 AS piloto_11
-        FROM apostas a
-        JOIN usuarios u ON a.usuario_id = u.id
-        WHERE a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
-    '''
     try:
-        df = pd.read_sql(query, conn)
+        with db_connect() as conn:
+            query = '''
+                SELECT u.nome AS participante, a.piloto_11 AS piloto_11
+                FROM apostas a
+                JOIN usuarios u ON a.usuario_id = u.id
+                WHERE a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
+            '''
+            df = pd.read_sql(query, conn)
     except Exception as e:
         st.error(f"Erro ao buscar distribuição do 11º colocado: {str(e)}")
         df = pd.DataFrame()
-    conn.close()
     return df
 
 def main():

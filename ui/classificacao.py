@@ -5,9 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from io import BytesIO
 import matplotlib.image as mpimg
+import datetime as dt
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 from db.db_utils import db_connect, get_usuarios_df, get_provas_df, get_apostas_df, get_resultados_df
+from db.backup_utils import list_temporadas
 from services.championship_service import get_final_results, get_championship_bet
 from services.bets_service import calcular_pontuacao_lote
 
@@ -122,10 +124,32 @@ def main():
     with col2:
         st.title("Classificação Geral do Bolão")
 
+    # Season selector - read from temporadas table
+    current_year = dt.datetime.now().year
+    current_year_str = str(current_year)
+    
+    try:
+        season_options = list_temporadas() or []
+    except Exception:
+        season_options = []
+    
+    # Fallback to fixed options if temporadas table is empty
+    if not season_options:
+        season_options = ["2025", "2026"]
+    
+    # Default to current year when present, otherwise first option
+    if current_year_str in season_options:
+        default_index = season_options.index(current_year_str)
+    else:
+        default_index = 0
+    
+    season = st.selectbox("Temporada", season_options, index=default_index, key="classificacao_season")
+    st.session_state['temporada'] = season
+
     usuarios_df = get_usuarios_df()
-    provas_df = get_provas_df()
-    apostas_df = get_apostas_df()
-    resultados_df = get_resultados_df()
+    provas_df = get_provas_df(season)
+    apostas_df = get_apostas_df(season)
+    resultados_df = get_resultados_df(season)
 
     participantes = usuarios_df[(usuarios_df['status'] == 'Ativo') & (usuarios_df['nome'] != 'Master')]
     provas_df = provas_df.sort_values('data')
@@ -148,6 +172,9 @@ def main():
         })
 
     df_class = pd.DataFrame(tabela_classificacao)
+    if df_class.empty:
+        st.info("Nenhuma pontuação disponível para a temporada selecionada.")
+        return
     df_class = df_class.sort_values("Pontos Provas", ascending=False).reset_index(drop=True)
     df_class["Pontos Provas"] = df_class["Pontos Provas"].apply(lambda x: formatar_brasileiro(float(x)))
     df_class['Posição'] = df_class.index + 1
@@ -321,9 +348,10 @@ def main():
         st.info("Sem dados para exibir o gráfico de evolução.")
 
     st.subheader("Classificação de Cada Participante ao Longo do Campeonato")
-    conn = db_connect()
-    df_posicoes = pd.read_sql('SELECT * FROM posicoes_participantes', conn)
-    conn.close()
+    with db_connect() as conn:
+        # Filter positions by selected season
+        query = 'SELECT * FROM posicoes_participantes WHERE temporada = ? OR temporada IS NULL'
+        df_posicoes = pd.read_sql(query, conn, params=(season,))
     fig_all = go.Figure()
     for part in participantes['nome']:
         usuario_id = participantes[participantes['nome'] == part].iloc[0]['id']

@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import ast
+import datetime
 
 from db.db_utils import (
     db_connect, get_user_by_id, get_provas_df, get_pilotos_df, get_apostas_df, get_resultados_df,
@@ -9,6 +10,7 @@ from db.db_utils import (
 )
 from services.bets_service import salvar_aposta
 from services.auth_service import check_password, hash_password
+from db.backup_utils import list_temporadas
 
 def participante_view():
     if 'token' not in st.session_state or 'user_id' not in st.session_state:
@@ -25,22 +27,64 @@ def participante_view():
         st.image("BF1.jpg", width=75)
     with col2:
         st.title("Painel do Participante")
+        # Season selector (temporada) - read temporadas from the backup-managed table when available
+        current_year = datetime.datetime.now().year
+        current_year_str = str(current_year)
+
+        try:
+            season_options = list_temporadas() or []
+        except Exception:
+            season_options = []
+
+        # If the temporadas table is empty or missing, fallback to fixed options
+        if not season_options:
+            season_options = ["2025", "2026"]
+
+        # Default to current year when present, otherwise first option
+        if current_year_str in season_options:
+            default_index = season_options.index(current_year_str)
+        else:
+            default_index = 0
+
+        season = st.selectbox("Temporada", season_options, index=default_index)
+        st.session_state['temporada'] = season
     
-    st.write(f"Bem-vindo, {user[1]} ({user[2]}) - Status: {user[4]}")
+    st.write(f"Bem-vindo, {user['nome']} ({user['email']}) - Status: {user['perfil']}")
 
     tabs = st.tabs(["Apostas", "Minha Conta"])
-
     # ------------------ Aba: Apostas ----------------------
     with tabs[0]:
         st.cache_data.clear()
-        provas = get_provas_df()
+        # Betting form should show only provas that will occur in the current calendar year
+        temporada = st.session_state.get('temporada', str(datetime.datetime.now().year))
+        # Fetch all provas (db_utils will filter by temporada when provided). We fetch without filter and
+        # then restrict by the prova date to ensure only upcoming/current-year events are shown.
+        provas_df = get_provas_df(temporada)
+        try:
+            if not provas_df.empty and 'data' in provas_df.columns:
+                provas_df['__data_dt'] = pd.to_datetime(provas_df['data'], errors='coerce')
+                provas = provas_df[provas_df['__data_dt'].dt.year == int(temporada)]
+            else:
+                provas = pd.DataFrame()
+        except Exception:
+            provas = pd.DataFrame()
         pilotos_df = get_pilotos_df()
-        pilotos_ativos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
-        pilotos = pilotos_ativos_df['nome'].tolist()
-        equipes = pilotos_ativos_df['equipe'].tolist()
-        pilotos_equipe = dict(zip(pilotos, equipes))
+        # Filtrar pilotos ativos (com validação de coluna)
+        if not pilotos_df.empty:
+            if 'status' in pilotos_df.columns:
+                pilotos_ativos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
+            else:
+                pilotos_ativos_df = pilotos_df
+            
+            pilotos = pilotos_ativos_df['nome'].tolist() if not pilotos_ativos_df.empty else []
+            equipes = pilotos_ativos_df['equipe'].tolist() if not pilotos_ativos_df.empty else []
+            pilotos_equipe = dict(zip(pilotos, equipes))
+        else:
+            pilotos = []
+            equipes = []
+            pilotos_equipe = {}
 
-        if user[5] == "Ativo":
+        if user['status'] == "Ativo":
             if len(provas) > 0 and len(pilotos_df) > 2:
                 prova_id = st.selectbox(
                     "Escolha a prova",
@@ -48,9 +92,9 @@ def participante_view():
                     format_func=lambda x: provas[provas['id'] == x]['nome'].values[0]
                 )
                 nome_prova = provas[provas['id'] == prova_id]['nome'].values[0]
-                apostas_df = get_apostas_df()
+                apostas_df = get_apostas_df(temporada)
                 aposta_existente = apostas_df[
-                    (apostas_df['usuario_id'] == user[0]) & (apostas_df['prova_id'] == prova_id)
+                    (apostas_df['usuario_id'] == user['id']) & (apostas_df['prova_id'] == prova_id)
                 ]
                 pilotos_apostados_ant, fichas_ant, piloto_11_ant = [], [], ""
                 if not aposta_existente.empty:
@@ -123,8 +167,8 @@ def participante_view():
                         st.error(erro)
                     else:
                         salvar_aposta(
-                            user[0], prova_id, pilotos_validos,
-                            fichas_validas, piloto_11, nome_prova, automatica=0
+                            user['id'], prova_id, pilotos_validos,
+                            fichas_validas, piloto_11, nome_prova, automatica=0, temporada=temporada
                         )
                         st.success("Aposta registrada/atualizada!")
                         st.cache_data.clear()
@@ -136,11 +180,11 @@ def participante_view():
 
         # --- Exibição detalhada das apostas do participante ---
         st.subheader("Minhas apostas detalhadas")
-        apostas_df = get_apostas_df()
-        resultados_df = get_resultados_df()
-        provas_df = get_provas_df()
+        apostas_df = get_apostas_df(temporada)
+        resultados_df = get_resultados_df(temporada)
+        provas_df = get_provas_df(temporada)
 
-        apostas_part = apostas_df[apostas_df['usuario_id'] == user[0]].sort_values('prova_id')
+        apostas_part = apostas_df[apostas_df['usuario_id'] == user['id']].sort_values('prova_id')
         pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
         pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]
         bonus_11 = 25
@@ -203,21 +247,22 @@ def participante_view():
 
         # --------- Gráfico de evolução da posição do participante logado ---------
         st.subheader("Evolução da Posição no Campeonato")
-        user_id_logado = user[0]
-        user_nome_logado = user[1]
-        conn = db_connect()
+        user_id_logado = user['id']
+        user_nome_logado = user['nome']
         try:
-            df_posicoes = pd.read_sql('SELECT * FROM posicoes_participantes', conn)
+            with db_connect() as conn:
+                df_posicoes = pd.read_sql('SELECT * FROM posicoes_participantes', conn)
         except Exception:
             st.info("Nenhum histórico de posições disponível ainda. Quando houver dados, eles aparecerão aqui.")
             df_posicoes = pd.DataFrame()
-        conn.close()
 
         # Verifica se as colunas existem e só então faz o filtro
         if not df_posicoes.empty and {'usuario_id', 'prova_id', 'posicao'}.issubset(df_posicoes.columns):
             posicoes_part = df_posicoes[df_posicoes['usuario_id'] == user_id_logado].sort_values('prova_id')
             if not posicoes_part.empty:
-                provas_nomes = [provas_df[provas_df['id'] == pid]['nome'].values[0] for pid in posicoes_part['prova_id']]
+                # Load all provas without temporada filter to resolve names for any prova_id in position history
+                provas_df_all = get_provas_df(None)
+                provas_nomes = [provas_df_all[provas_df_all['id'] == pid]['nome'].values[0] if len(provas_df_all[provas_df_all['id'] == pid]) > 0 else f"Prova {pid}" for pid in posicoes_part['prova_id']]
                 fig_pos = go.Figure()
                 fig_pos.add_trace(go.Scatter(
                     x=provas_nomes,
@@ -241,8 +286,8 @@ def participante_view():
     # ---------------- Aba: Minha Conta ----------------------
     with tabs[1]:
         st.header("Gestão da Minha Conta")
-        st.write(f"Usuário: **{user[1]}**")
-        novo_email = st.text_input("Email cadastrado", value=user[2])
+        st.write(f"Usuário: **{user['nome']}**")
+        novo_email = st.text_input("Email cadastrado", value=user['email'])
         st.subheader("Alterar Senha")
         senha_atual = st.text_input("Senha Atual", type="password", key="senha_atual")
         nova_senha = st.text_input("Nova Senha", type="password", key="nova_senha")
@@ -252,17 +297,17 @@ def participante_view():
             erros = []
             if not novo_email:
                 erros.append("Email não pode ficar vazio.")
-            elif novo_email != user[2]:
+            elif novo_email != user['email']:
                 # só verifica duplicidade se o email mudou
                 email_cadastrado = get_user_by_email(novo_email)
-                if email_cadastrado and email_cadastrado[0] != user[0]:
+                if email_cadastrado and email_cadastrado['id'] != user['id']:
                     erros.append("O email informado já está em uso por outro usuário.")
 
             # Troca de senha (opcional)
             if senha_atual or nova_senha or confirma_senha:
                 if not senha_atual:
                     erros.append("Informe a senha atual para alterar a senha.")
-                elif not check_password(senha_atual, user[3]):
+                elif not check_password(senha_atual, user['senha_hash']):
                     erros.append("Senha atual incorreta.")
                 elif not nova_senha:
                     erros.append("Informe a nova senha.")
@@ -274,15 +319,15 @@ def participante_view():
                     st.error(erro)
             else:
                 atualizado = False
-                if novo_email != user[2]:
-                    if update_user_email(user[0], novo_email):
+                if novo_email != user['email']:
+                    if update_user_email(user['id'], novo_email):
                         st.success("Email atualizado!")
                         atualizado = True
                     else:
                         st.error("Falha ao atualizar email.")
                 if nova_senha:
                     senha_hash = hash_password(nova_senha)
-                    if update_user_password(user[0], senha_hash):
+                    if update_user_password(user['id'], senha_hash):
                         st.success("Senha alterada!")
                         atualizado = True
                     else:

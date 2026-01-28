@@ -7,6 +7,8 @@ from services.championship_service import (
     get_championship_bets_df
 )
 from db.db_utils import get_pilotos_df, get_usuarios_df
+from db.backup_utils import list_temporadas
+from datetime import datetime
 
 def main():
     st.title("📣 Apostas do Campeonato")
@@ -28,10 +30,27 @@ def main():
     pilotos = sorted(pilotos_df['nome'].unique().tolist())
     equipes = sorted(pilotos_df['equipe'].unique().tolist())
 
-    # Busca aposta anterior (se houver)
-    aposta_atual = get_championship_bet(user_id)
+    # Temporada selecionada
+    temporadas = list_temporadas()
+    current_year = datetime.now().year
+    if str(current_year) not in temporadas:
+        temporadas.append(str(current_year))
+    temporadas = sorted(temporadas)
+    temporada_sel = st.selectbox(
+        "Temporada",
+        temporadas,
+        index=temporadas.index(str(current_year)) if str(current_year) in temporadas else 0,
+        help="As apostas e logs são salvos por temporada"
+    )
+    if temporada_sel is None:
+        st.error("Nenhuma temporada disponível.")
+        st.stop()
+    temporada_int = int(temporada_sel)
 
-    st.subheader("Faça sua aposta para o Campeonato 2025")
+    # Busca aposta anterior (se houver) na temporada selecionada
+    aposta_atual = get_championship_bet(user_id, temporada_int)
+
+    st.subheader(f"Faça sua aposta para o Campeonato {temporada_int}")
 
     with st.form("form_aposta_campeonato"):
         champion = st.selectbox(
@@ -52,18 +71,20 @@ def main():
         submitted = st.form_submit_button("Salvar aposta")
 
         if submitted:
-            if champion == vice:
+            if not champion or not vice or not team:
+                st.error("Por favor, selecione todas as opções.")
+            elif champion == vice:
                 st.error("Campeão e vice não podem ser o mesmo piloto.")
             else:
-                ok = save_championship_bet(user_id, user_nome, champion, vice, team)
+                ok = save_championship_bet(user_id, user_nome, champion, vice, team, season=temporada_int)
                 if ok:
                     st.success("Aposta de campeonato salva com sucesso!")
                 else:
                     st.error("Erro ao registrar aposta.")
 
     # Exibir aposta atual e log
-    aposta_atualizada = get_championship_bet(user_id)
-    st.markdown("## Sua aposta atual")
+    aposta_atualizada = get_championship_bet(user_id, temporada_int)
+    st.markdown(f"## Sua aposta atual ({temporada_int})")
     if aposta_atualizada:
         st.info(
             f"**Piloto Campeão:** {aposta_atualizada['champion']}  \n"
@@ -74,12 +95,12 @@ def main():
     else:
         st.info("Nenhuma aposta registrada ainda.")
 
-    st.markdown("## Histórico de apostas no campeonato")
-    log = get_championship_bet_log(user_id)
+    st.markdown(f"## Histórico de apostas no campeonato ({temporada_int})")
+    log = get_championship_bet_log(user_id, temporada_int)
     if log:
         df_log = pd.DataFrame(
             log,
-            columns=["Nome", "Campeão", "Vice", "Equipe", "Data/Hora"]
+            columns=["Nome", "Campeão", "Vice", "Equipe", "Temporada", "Data/Hora"]
         )
         st.dataframe(df_log, use_container_width=True, hide_index=True)
     else:
@@ -88,11 +109,11 @@ def main():
     # Se perfil master/admin, mostra todas as apostas
     perfil = st.session_state.get("user_role", "participante")
     if perfil in ("master", "admin"):
-        st.markdown("## 📑 Todas as apostas do campeonato (admin)")
-        apostas_df = get_championship_bets_df()
+        st.markdown(f"## 📑 Todas as apostas do campeonato ({temporada_int}) (admin)")
+        apostas_df = get_championship_bets_df(temporada_int)
         if not apostas_df.empty:
-            apostas_df = apostas_df[["user_nome", "champion", "vice", "team", "bet_time"]]
-            apostas_df.columns = ["Participante", "Campeão", "Vice", "Equipe", "Data/Hora"]
+            apostas_df = apostas_df[["user_nome", "champion", "vice", "team", "season", "bet_time"]]
+            apostas_df.columns = ["Participante", "Campeão", "Vice", "Equipe", "Temporada", "Data/Hora"]
             st.dataframe(apostas_df, use_container_width=True)
         else:
             st.info("Nenhuma aposta registrada por nenhum participante.")
