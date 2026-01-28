@@ -1,104 +1,68 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from db.db_utils import db_connect, get_provas_df, get_apostas_df, get_resultados_df
-from db.backup_utils import list_temporadas
-from services.rules_service import get_regras_aplicaveis
+from db.db_utils import db_connect
 
-def get_apostas_por_piloto(temporada: str | None = None):
+def get_apostas_por_piloto():
     """
     Agrupa apostas por participante e piloto para análise da distribuição de apostas.
     Retorna DataFrame: participante | piloto | total_apostas
     """
+    conn = db_connect()
+    query = '''
+        SELECT u.nome AS participante, a.pilotos
+        FROM apostas a
+        JOIN usuarios u ON a.usuario_id = u.id
+    '''
     try:
-        with db_connect() as conn:
-            c = conn.cursor()
-            c.execute("PRAGMA table_info('apostas')")
-            cols = [r[1] for r in c.fetchall()]
-            if temporada and 'temporada' in cols:
-                query = '''
-                    SELECT u.nome AS participante, a.pilotos
-                    FROM apostas a
-                    JOIN usuarios u ON a.usuario_id = u.id
-                    WHERE a.temporada = ? OR a.temporada IS NULL
-                '''
-                df = pd.read_sql(query, conn, params=(temporada,))
-            else:
-                query = '''
-                    SELECT u.nome AS participante, a.pilotos
-                    FROM apostas a
-                    JOIN usuarios u ON a.usuario_id = u.id
-                '''
-                df = pd.read_sql(query, conn)
-            if not df.empty and 'pilotos' in df.columns:
-                df['piloto'] = df['pilotos'].str.split(',')
-                df = df.explode('piloto')
-                df = df.groupby(['participante', 'piloto']).size().reset_index(name='total_apostas')
-            else:
-                df = pd.DataFrame()
+        df = pd.read_sql(query, conn)
+        if not df.empty and 'pilotos' in df.columns:
+            df['piloto'] = df['pilotos'].str.split(',')
+            df = df.explode('piloto')
+            df = df.groupby(['participante', 'piloto']).size().reset_index(name='total_apostas')
+        else:
+            df = pd.DataFrame()
     except Exception as e:
         st.error(f"Erro ao buscar apostas por piloto: {str(e)}")
         df = pd.DataFrame()
+    conn.close()
     return df
 
-def get_distribuicao_piloto_11(temporada: str | None = None):
+def get_distribuicao_piloto_11():
     """
     Distribuição de apostas para o 11º colocado por participante.
     Retorna DataFrame: participante | piloto_11
     """
+    conn = db_connect()
+    query = '''
+        SELECT u.nome AS participante, a.piloto_11 AS piloto_11
+        FROM apostas a
+        JOIN usuarios u ON a.usuario_id = u.id
+        WHERE a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
+    '''
     try:
-        with db_connect() as conn:
-            c = conn.cursor()
-            c.execute("PRAGMA table_info('apostas')")
-            cols = [r[1] for r in c.fetchall()]
-            if temporada and 'temporada' in cols:
-                query = '''
-                    SELECT u.nome AS participante, a.piloto_11 AS piloto_11
-                    FROM apostas a
-                    JOIN usuarios u ON a.usuario_id = u.id
-                    WHERE (a.temporada = ? OR a.temporada IS NULL)
-                    AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
-                '''
-                df = pd.read_sql(query, conn, params=(temporada,))
-            else:
-                query = '''
-                    SELECT u.nome AS participante, a.piloto_11 AS piloto_11
-                    FROM apostas a
-                    JOIN usuarios u ON a.usuario_id = u.id
-                    WHERE a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
-                '''
-                df = pd.read_sql(query, conn)
+        df = pd.read_sql(query, conn)
     except Exception as e:
         st.error(f"Erro ao buscar distribuição do 11º colocado: {str(e)}")
         df = pd.DataFrame()
+    conn.close()
     return df
 
 def main():
     st.title("📊 Análise Detalhada das Apostas")
 
-    # Seletor de temporada para diagnósticos
-    try:
-        season_options = list_temporadas() or []
-    except Exception:
-        season_options = []
-    if not season_options:
-        import datetime as dt
-        season_options = [str(dt.datetime.now().year)]
-    season = st.selectbox("Temporada", season_options, key="analysis_season")
-
-    apostas_pilotos = get_apostas_por_piloto(season)
-    df_11 = get_distribuicao_piloto_11(season)
+    apostas_pilotos = get_apostas_por_piloto()
+    df_11 = get_distribuicao_piloto_11()
 
     if apostas_pilotos.empty and df_11.empty:
         st.info("Ainda não há apostas cadastradas para análise.")
         return
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "Distribuição por Piloto (Individual)",
         "Apostas no 11º (Individual)",
         "Consolidado Pilotos",
-        "Consolidado 11º",
-        "Diagnóstico Regras/Provas"
+        "Consolidado 11º"
     ])
 
     with tab1:
@@ -158,49 +122,6 @@ def main():
             st.dataframe(consolidado_11)
         else:
             st.info("Nenhuma aposta registrada para o 11º colocado.")
-
-    with tab5:
-        st.subheader("Diagnóstico de Tipos de Prova e Regras Aplicadas")
-        provas_df = get_provas_df(season)
-        resultados_df = get_resultados_df(season)
-        apostas_df = get_apostas_df(season)
-        if provas_df.empty:
-            st.info("Nenhuma prova cadastrada para a temporada selecionada.")
-        else:
-            # Resolver tipo Sprint/Normal por linha
-            tipos_resolvidos = []
-            for _, pr in provas_df.iterrows():
-                tipo = pr['tipo'] if 'tipo' in provas_df.columns and pd.notna(pr.get('tipo')) else None
-                nome = pr.get('nome', '')
-                is_sprint = (str(tipo).strip().lower() == 'sprint') or ('sprint' in str(nome).lower())
-                tipos_resolvidos.append('Sprint' if is_sprint else 'Normal')
-            provas_df = provas_df.copy()
-            provas_df['tipo_resolvido'] = tipos_resolvidos
-
-            linhas = []
-            for _, pr in provas_df.iterrows():
-                rid = pr['id']
-                tipo = pr['tipo_resolvido']
-                regra = get_regras_aplicaveis(str(season), tipo)
-                pts = regra.get('pontos_posicoes', [])
-                linhas.append({
-                    'prova_id': rid,
-                    'nome': pr.get('nome', ''),
-                    'data': pr.get('data', ''),
-                    'tipo_resolvido': tipo,
-                    'regra_nome': regra.get('nome_regra', ''),
-                    'quantidade_fichas': regra.get('quantidade_fichas', ''),
-                    'min_pilotos': regra.get('qtd_minima_pilotos', regra.get('min_pilotos', '')),
-                    'fichas_por_piloto': regra.get('fichas_por_piloto', ''),
-                    'pontos_dobrada': regra.get('pontos_dobrada', False),
-                    'pontos_posicoes_len': len(pts),
-                    'pontos_posicoes_preview': ','.join(map(str, pts[:10])) if pts else '',
-                    'tem_resultado': rid in resultados_df['prova_id'].values if not resultados_df.empty else False,
-                    'qtd_apostas': int(apostas_df[apostas_df['prova_id'] == rid].shape[0]) if not apostas_df.empty else 0
-                })
-            diag = pd.DataFrame(linhas)
-            st.dataframe(diag, use_container_width=True)
-            st.caption("Tipo resolvido usa coluna 'tipo' ou contém 'Sprint' no nome. Pontos e parâmetros vêm das regras da temporada.")
 
 if __name__ == "__main__":
     main()

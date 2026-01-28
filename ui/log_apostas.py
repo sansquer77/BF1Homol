@@ -1,25 +1,14 @@
 import streamlit as st
 import pandas as pd
-import datetime as dt
-import logging
 from db.db_utils import db_connect
-from db.backup_utils import list_temporadas
-import extra_streamlit_components as stx # type: ignore
+import extra_streamlit_components as stx
 import jwt
 import os
 
-logger = logging.getLogger(__name__)
-
-def carregar_logs(temporada=None):
-    """Carrega logs de apostas, opcionalmente filtrando por temporada"""
-    with db_connect() as conn:
-        if temporada:
-            query = '''SELECT id, data, horario, apostador, nome_prova, pilotos, aposta, piloto_11, tipo_aposta, automatica, temporada FROM log_apostas 
-                       WHERE (temporada = ? OR temporada IS NULL)
-                       ORDER BY id DESC'''
-            df = pd.read_sql(query, conn, params=(temporada,))
-        else:
-            df = pd.read_sql('SELECT id, data, horario, apostador, nome_prova, pilotos, aposta, piloto_11, tipo_aposta, automatica, temporada FROM log_apostas ORDER BY id DESC', conn)
+def carregar_logs():
+    conn = db_connect()
+    df = pd.read_sql('SELECT * FROM log_apostas ORDER BY id DESC', conn)
+    conn.close()
     return df
 
 def get_nome_from_cookie():
@@ -32,36 +21,14 @@ def get_nome_from_cookie():
             JWT_SECRET = st.secrets["JWT_SECRET"] or os.environ.get("JWT_SECRET")
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             nome_do_cookie = payload.get("nome")
-        except Exception as e:
-            logger.warning(f"Falha ao ler token da sessão: {e}")
+        except Exception:
+            pass
     return nome_do_cookie
 
 def main():
     st.title("📜 Log de Apostas")
 
     perfil = st.session_state.get("user_role", "participante")
-
-    # Season selector - read from temporadas table
-    current_year = dt.datetime.now().year
-    current_year_str = str(current_year)
-    
-    try:
-        season_options = list_temporadas() or []
-    except Exception:
-        season_options = []
-    
-    # Fallback to fixed options if temporadas table is empty
-    if not season_options:
-        season_options = ["2025", "2026"]
-    
-    # Default to current year when present, otherwise first option
-    if current_year_str in season_options:
-        default_index = season_options.index(current_year_str)
-    else:
-        default_index = 0
-    
-    season = st.selectbox("Temporada", season_options, index=default_index, key="log_apostas_season")
-    st.session_state['temporada'] = season
 
     # Usa o nome do cookie se não for perfil admin/master
     nome_usuario = None
@@ -70,7 +37,7 @@ def main():
     else:
         nome_usuario = st.session_state.get("user_name")  # ou pode não usar, depende dos filtros
 
-    df = carregar_logs(season)
+    df = carregar_logs()
     if df.empty:
         st.warning("Nenhum registro no log de apostas.")
         return
@@ -130,16 +97,9 @@ def main():
     filtro_show = filtro.copy()
     filtro_show["Tipo de Aposta"] = filtro["tipo_aposta"].map(tipos_map)
     filtro_show["Automática"] = filtro["automatica"].apply(lambda x: "Sim" if x > 0 else "Não")
-    if "pilotos" in filtro_show.columns:
-        filtro_show["Pilotos/Fichas"] = filtro_show.apply(
-            lambda r: f"{r.get('pilotos', '')} | {r.get('aposta', '')}".strip(" |"),
-            axis=1
-        )
-    else:
-        filtro_show["Pilotos/Fichas"] = filtro_show["aposta"]
 
     colunas_exibir = [
-        "data", "horario", "apostador", "nome_prova", "Pilotos/Fichas", "piloto_11", "Tipo de Aposta", "Automática"
+        "data", "horario", "apostador", "nome_prova", "aposta", "piloto_11", "Tipo de Aposta", "Automática"
     ]
     if "automatica" in filtro_show.columns and "tipo_aposta" in filtro_show.columns:
         st.dataframe(
@@ -148,7 +108,7 @@ def main():
                 "horario": "Horário",
                 "apostador": "Apostador",
                 "nome_prova": "Prova",
-                "Pilotos/Fichas": "Pilotos/Fichas",
+                "aposta": "Pilotos/Fichas",
                 "piloto_11": "11º Colocado"
             }),
             use_container_width=True

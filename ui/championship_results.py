@@ -5,8 +5,6 @@ from db.db_utils import db_connect, get_pilotos_df
 from services.championship_service import (
     get_final_results, save_final_results
 )
-from db.backup_utils import list_temporadas
-from datetime import datetime
 
 def main():
     st.title("Cadastrar/Atualizar Resultado Oficial do Campeonato")
@@ -16,25 +14,8 @@ def main():
     pilotos = sorted(pilotos_df["nome"].unique())
     equipes = sorted(pilotos_df["equipe"].unique())
 
-    # Temporada selecionada
-    temporadas = list_temporadas()
-    current_year = datetime.now().year
-    if str(current_year) not in temporadas:
-        temporadas.append(str(current_year))
-    temporadas = sorted(temporadas)
-    temporada_sel = st.selectbox(
-        "Temporada",
-        temporadas,
-        index=temporadas.index(str(current_year)) if str(current_year) in temporadas else 0,
-        help="Resultado oficial é registrado por temporada"
-    )
-    if temporada_sel is None:
-        st.error("Selecione uma temporada válida.")
-        st.stop()
-    temporada_int = int(temporada_sel)
-
     # Resultado atual salvo, se houver
-    resultado_atual = get_final_results(temporada_int)
+    resultado_atual = get_final_results()
 
     st.subheader("Resultado Oficial")
 
@@ -66,8 +47,8 @@ def main():
             erro = "Campeão e vice não podem ser o mesmo piloto."
         if erro:
             st.error(erro)
-        elif champion and vice and team:
-            save_final_results(champion, vice, team, season=temporada_int)
+        else:
+            save_final_results(champion, vice, team)
             st.success("Resultado oficial salvo/atualizado com sucesso!")
             st.rerun()
 
@@ -78,8 +59,7 @@ def main():
             <div style='background-color:#d4edda;padding:1em;border-radius:0.5em;color:black;'>
             🏆 <b>Campeão:</b> {resultado_atual['champion']}<br>
             🥈 <b>Vice:</b> {resultado_atual['vice']}<br>
-            🏭 <b>Equipe Campeã:</b> {resultado_atual['team']}<br>
-            📅 <b>Temporada:</b> {temporada_int}
+            🏭 <b>Equipe Campeã:</b> {resultado_atual['team']}
             </div>
             """,
             unsafe_allow_html=True

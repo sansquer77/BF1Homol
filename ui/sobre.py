@@ -8,7 +8,7 @@ def main():
 
     **BF1** é um sistema digital de bolão esportivo dedicado à Fórmula 1, criado para proporcionar organização, transparência e diversão para grupos de amigos e entusiastas da categoria. O aplicativo centraliza apostas, classificação, estatísticas e comunicação em uma plataforma intuitiva, segura e acessível via web.
 
-    ### ✒️ Funcionalidades principais (v3.0)
+    ### ✒️ Funcionalidades principais
 
     - Cadastro e gestão de apostas para cada corrida
     - Aposta especial do campeonato (campeão, vice e equipe)
@@ -17,14 +17,10 @@ def main():
     - Painel de usuários e administração completa
     - Exportação/importação de dados e backup seguro
     - Regulamento oficial, gestão de provas e pilotos
-    - Registro de abandonos (DNF) com penalidade automática
-    - Pontuação de Sprint ajustada por regra e opção de pontos dobrados
-    - Pontos por posição por temporada (com histórico preservado)
-    - Classificação com bônus de campeonato detalhados e exportação da tabela
 
     ### 👨‍💻 Desenvolvimento
 
-    - **Desenvolvedor:** Cristiano Gaspar (administração e código).
+    - **Desenvolvedor:** Cristiano Gaspar (administração e código), colaboração de usuários-masters.
     - **Tecnologias:** Python, Streamlit, SQLite, pandas, Plotly, bcrypt, JWT, extra-streamlit-components
 
     ### 💡 Missão e inspiração
@@ -43,10 +39,8 @@ def main():
     O BF1 está hospedado em ambiente cloud, utilizando serviços como Digital Ocean para performance, redundância e automação de backups.
 
     ---
-    <small>Versão atual: 3.0-2026. Todos os direitos reservados.</small>
-
-    <a href="https://www.digitalocean.com/?refcode=7a57329868da&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge"><img src="https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%201.svg" alt="DigitalOcean Referral Badge" /></a>
-    """, unsafe_allow_html=True)
+    <small>Versão atual: 2.0-2025. Todos os direitos reservados.</small>
+    """)
 
 if __name__ == "__main__":
     main()

@@ -1,12 +1,18 @@
 import streamlit as st
-from db.backup_utils import download_db, upload_db, download_tabela, upload_tabela, create_next_temporada, list_temporadas
+from db.backup_utils import download_db, upload_db, download_tabela, upload_tabela
 
 def main():
+    st.set_page_config(
+        page_title="💾 Backup do Banco de Dados BF1",
+        page_icon=":floppy_disk:",
+        layout="wide"
+    )
+
     st.title("💾 Backup e Restauração do Banco de Dados BF1")
     st.markdown("""
     Com este painel, você pode:
     - Baixar o banco de dados consolidado completo (.db)
-    - Fazer upload ("restaurar") um banco de dados SQLite consolidado (.db)
+    - Fazer upload (“restaurar”) um banco de dados SQLite consolidado (.db)
     - Exportar e importar tabelas específicas do banco no formato Excel (.xlsx)
     """)
 
@@ -24,23 +30,6 @@ def main():
         download_tabela()
     with tab2:
         upload_tabela()
-
-    st.divider()
-    st.header("Temporadas")
-    st.write("Gerencie as temporadas visíveis no sistema. A criação de uma nova temporada fará com que ela possa aparecer em seletores que leem a tabela `temporadas`.")
-    col_a, col_b = st.columns([2, 8])
-    with col_a:
-        if st.button("➕ Criar próxima temporada", use_container_width=True):
-            new_year = create_next_temporada()
-            st.success(f"✅ Temporada {new_year} criada/registrada com sucesso.")
-            st.rerun()
-    with col_b:
-        existing = list_temporadas()
-        if existing:
-            st.write("Temporadas cadastradas:")
-            st.write(", ".join(existing))
-        else:
-            st.info("Nenhuma temporada cadastrada. Botão acima cria a próxima temporada.")
 
 if __name__ == "__main__":
     main()

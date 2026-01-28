@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
 import ast
-from datetime import datetime
 
 from db.db_utils import db_connect, get_provas_df, get_pilotos_df, get_resultados_df
-from db.backup_utils import list_temporadas
 from services.bets_service import atualizar_classificacoes_todas_as_provas
 
 def resultados_view():
@@ -15,33 +13,10 @@ def resultados_view():
 
     st.title("Atualizar Resultado Manualmente")
 
-    # Seletor de temporada
-    current_year = datetime.now().year
-    current_year_str = str(current_year)
-    try:
-        temporadas = list_temporadas() or []
-    except Exception:
-        temporadas = []
-    if not temporadas:
-        temporadas = [current_year_str]
-    if current_year_str not in temporadas:
-        temporadas.append(current_year_str)
-    temporadas = sorted(temporadas, reverse=True)
-    default_index = temporadas.index(current_year_str) if current_year_str in temporadas else 0
-    
-    temporada_selecionada = st.selectbox(
-        "🗓️ Temporada",
-        temporadas,
-        index=default_index,
-        key="resultados_temporada"
-    )
-    st.session_state["temporada"] = temporada_selecionada
-
-    # Buscar dados filtrados por temporada
-    provas = get_provas_df(temporada_selecionada)
+    provas = get_provas_df()
     pilotos_df = get_pilotos_df()
     pilotos_ativos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
-    resultados_df = get_resultados_df(temporada_selecionada)
+    resultados_df = get_resultados_df()
 
     if len(provas) == 0 or len(pilotos_ativos_df) == 0:
         st.warning("Cadastre provas e pilotos ativos antes de lançar resultados.")
@@ -56,27 +31,6 @@ def resultados_view():
     st.info(f"Tipo da prova selecionada: {tipo_prova}")
     pilotos = pilotos_ativos_df['nome'].tolist()
 
-    # Pré-preencher formulário com resultado existente
-    resultado_atual = resultados_df[resultados_df['prova_id'] == prova_id]
-    posicoes_existentes = {}
-    abandonos_existentes = []
-    if not resultado_atual.empty:
-        try:
-            posicoes_existentes = ast.literal_eval(resultado_atual.iloc[0]['posicoes']) or {}
-        except Exception:
-            posicoes_existentes = {}
-        if 'abandono_pilotos' in resultados_df.columns:
-            raw_aband = resultado_atual.iloc[0].get('abandono_pilotos', '')
-            if raw_aband is None:
-                raw_aband = ''
-            abandonos_existentes = [p.strip() for p in str(raw_aband).split(',') if p and p.strip()]
-
-    if st.session_state.get('resultados_prova_sel') != prova_id:
-        st.session_state['resultados_prova_sel'] = prova_id
-        for pos in range(1, 12):
-            st.session_state[f"res_pos_{pos}"] = posicoes_existentes.get(pos, "")
-        st.session_state["res_abandonos"] = abandonos_existentes
-
     posicoes = {}
     st.markdown("**Informe o piloto para cada posição:**")
     col1, col2 = st.columns(2)
@@ -84,8 +38,7 @@ def resultados_view():
     # 1º ao 5º colocados
     for pos in range(1, 6):
         with col1:
-            atual = st.session_state.get(f"res_pos_{pos}", "")
-            opcoes = [""] + [p for p in pilotos if p not in pilotos_usados or p == atual]
+            opcoes = [""] + [p for p in pilotos if p not in pilotos_usados]
             piloto_sel = st.selectbox(
                 f"{pos}º colocado",
                 opcoes,
@@ -98,8 +51,7 @@ def resultados_view():
     # 6º ao 10º colocados
     for pos in range(6, 11):
         with col2:
-            atual = st.session_state.get(f"res_pos_{pos}", "")
-            opcoes = [""] + [p for p in pilotos if p not in pilotos_usados or p == atual]
+            opcoes = [""] + [p for p in pilotos if p not in pilotos_usados]
             piloto_sel = st.selectbox(
                 f"{pos}º colocado",
                 opcoes,
@@ -120,16 +72,6 @@ def resultados_view():
     if piloto_11:
         posicoes[11] = piloto_11
 
-    # Pilotos que abandonaram a prova
-    st.markdown("**Pilotos que abandonaram a prova (DNF):**")
-    abandono_opcoes = pilotos
-    abandono_pilotos = st.multiselect(
-        "Selecione todos os pilotos que abandonaram",
-        abandono_opcoes,
-        default=abandonos_existentes,
-        key="res_abandonos"
-    )
-
     erro = None
     if st.button("Salvar resultado"):
         # Validação dos campos
@@ -139,71 +81,17 @@ def resultados_view():
             erro = "Não é permitido repetir piloto entre 1º e 10º colocado."
         elif not posicoes.get(11):
             erro = "Selecione o piloto para 11º colocado."
-        # Validação opcional: alertar se algum abandonou e também está em top 11
-        conflitos = set(abandono_pilotos) & set([posicoes.get(p) for p in range(1, 12) if posicoes.get(p)])
-        if conflitos:
-            st.warning(f"Pilotos em conflito (posicionados e como abandono): {', '.join(sorted(conflitos))}")
         if erro:
             st.error(erro)
         else:
-            with db_connect() as conn:
-                c = conn.cursor()
-                # Detecta colunas existentes para inserir corretamente
-                c.execute("PRAGMA table_info('resultados')")
-                cols = [r[1] for r in c.fetchall()]
-                abandono_str = ','.join(abandono_pilotos) if abandono_pilotos else ''
-
-                if 'temporada' in cols:
-                    c.execute('SELECT 1 FROM resultados WHERE prova_id=? AND (temporada=? OR temporada IS NULL)', (prova_id, temporada_selecionada))
-                    existe = c.fetchone() is not None
-                    if 'abandono_pilotos' in cols:
-                        if existe:
-                            c.execute(
-                                'UPDATE resultados SET posicoes=?, abandono_pilotos=?, temporada=? WHERE prova_id=?',
-                                (str(posicoes), abandono_str, temporada_selecionada, prova_id)
-                            )
-                        else:
-                            c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes, abandono_pilotos, temporada) VALUES (?, ?, ?, ?)',
-                                (prova_id, str(posicoes), abandono_str, temporada_selecionada)
-                            )
-                    else:
-                        if existe:
-                            c.execute(
-                                'UPDATE resultados SET posicoes=?, temporada=? WHERE prova_id=?',
-                                (str(posicoes), temporada_selecionada, prova_id)
-                            )
-                        else:
-                            c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes, temporada) VALUES (?, ?, ?)',
-                                (prova_id, str(posicoes), temporada_selecionada)
-                            )
-                else:
-                    c.execute('SELECT 1 FROM resultados WHERE prova_id=?', (prova_id,))
-                    existe = c.fetchone() is not None
-                    if 'abandono_pilotos' in cols:
-                        if existe:
-                            c.execute(
-                                'UPDATE resultados SET posicoes=?, abandono_pilotos=? WHERE prova_id=?',
-                                (str(posicoes), abandono_str, prova_id)
-                            )
-                        else:
-                            c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes, abandono_pilotos) VALUES (?, ?, ?)',
-                                (prova_id, str(posicoes), abandono_str)
-                            )
-                    else:
-                        if existe:
-                            c.execute(
-                                'UPDATE resultados SET posicoes=? WHERE prova_id=?',
-                                (str(posicoes), prova_id)
-                            )
-                        else:
-                            c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes) VALUES (?, ?)',
-                                (prova_id, str(posicoes))
-                            )
-                conn.commit()
+            conn = db_connect()
+            c = conn.cursor()
+            c.execute(
+                'REPLACE INTO resultados (prova_id, posicoes) VALUES (?, ?)',
+                (prova_id, str(posicoes))
+            )
+            conn.commit()
+            conn.close()
             st.success("Resultado salvo!")
             st.cache_data.clear()
             # Atualiza todas as classificações após editar resultados
@@ -211,8 +99,8 @@ def resultados_view():
             st.rerun()
 
     st.markdown("---")
-    st.subheader(f"Resultados cadastrados - Temporada {temporada_selecionada}")
-    resultados_df = get_resultados_df(temporada_selecionada)
+    st.subheader("Resultados cadastrados")
+    resultados_df = get_resultados_df()
     provas_resultados = []
     for _, prova in provas.iterrows():
         res = resultados_df[resultados_df['prova_id'] == prova['id']]
@@ -225,9 +113,6 @@ def resultados_view():
             }
             for pos in range(1, 12):
                 linha[f"{pos}º"] = posicoes_dict.get(pos, "")
-            # Adicionar lista de abandonos se disponível
-            if 'abandono_pilotos' in resultados_df.columns:
-                linha["Abandonos"] = res.iloc[0].get('abandono_pilotos', '')
             provas_resultados.append(linha)
     if provas_resultados:
         st.dataframe(pd.DataFrame(provas_resultados))
