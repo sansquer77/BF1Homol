@@ -54,7 +54,7 @@ def download_db():
                 data=db_data,
                 file_name=f"bolao_f1_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db",
                 mime="application/octet-stream",
-                use_container_width=True,
+                width="stretch",
                 help="Banco de dados validado, consolidado e livre de corrupção WAL"
             )
             
@@ -74,7 +74,7 @@ def download_db():
                 data=db_data,
                 file_name=DB_PATH.name,
                 mime="application/octet-stream",
-                use_container_width=True
+                width="stretch"
             )
     else:
         st.warning(f"⚠️ Arquivo do banco de dados não encontrado: {DB_PATH}")
@@ -496,7 +496,7 @@ def download_tabela():
     
     tabela = st.selectbox("Selecione a tabela para exportar", tabelas, key="select_export")
     
-    if st.button("📊 Exportar para Excel", use_container_width=True, type="primary"):
+    if st.button("📊 Exportar para Excel", width="stretch", type="primary"):
         try:
             excel_buffer = exportar_tabela_excel(tabela)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -506,7 +506,7 @@ def download_tabela():
                 data=excel_buffer,
                 file_name=f"{tabela}_{timestamp}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+                width="stretch"
             )
             st.success(f"✅ Tabela '{tabela}' exportada com sucesso!")
         except Exception as e:
@@ -541,7 +541,7 @@ def upload_tabela():
         st.write(f"👀 Prévia dos dados ({len(df)} linhas):")
         st.dataframe(df.head(10))
 
-        if st.button("✅ Confirmar Importação - SOBRESCREVER TODOS OS DADOS", type="primary", use_container_width=True):
+        if st.button("✅ Confirmar Importação - SOBRESCREVER TODOS OS DADOS", type="primary", width="stretch"):
             try:
                 # Fechar todas as conexões do pool antes de operação crítica
                 from db.connection_pool import get_pool

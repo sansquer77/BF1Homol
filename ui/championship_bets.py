@@ -102,7 +102,7 @@ def main():
             log,
             columns=["Nome", "Campeão", "Vice", "Equipe", "Temporada", "Data/Hora"]
         )
-        st.dataframe(df_log, use_container_width=True, hide_index=True)
+        st.dataframe(df_log, width="stretch", hide_index=True)
     else:
         st.info("Nenhum histórico de apostas para este usuário.")
 
@@ -114,7 +114,7 @@ def main():
         if not apostas_df.empty:
             apostas_df = apostas_df[["user_nome", "champion", "vice", "team", "season", "bet_time"]]
             apostas_df.columns = ["Participante", "Campeão", "Vice", "Equipe", "Temporada", "Data/Hora"]
-            st.dataframe(apostas_df, use_container_width=True)
+            st.dataframe(apostas_df, width="stretch")
         else:
             st.info("Nenhuma aposta registrada por nenhum participante.")
 

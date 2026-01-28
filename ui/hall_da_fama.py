@@ -107,7 +107,7 @@ def hall_da_fama():
         st.subheader("📅 Classificações Históricas")
         st.dataframe(
             df_hall.set_index('Participante'),
-            use_container_width=True,
+            width="stretch",
             column_config={season: st.column_config.TextColumn() for season in seasons}
         )
         
@@ -171,7 +171,7 @@ def hall_da_fama():
         if season_stats:
             st.dataframe(
                 pd.DataFrame(season_stats),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True
             )
         
@@ -193,7 +193,7 @@ def hall_da_fama():
             pivot = df_pos_counts.pivot_table(index='nome', columns='posicao', aggfunc=len, fill_value=0)
             # Sort columns by position
             pivot = pivot.reindex(sorted(pivot.columns), axis=1)
-            st.dataframe(pivot, use_container_width=True)
+            st.dataframe(pivot, width="stretch")
 
             # Stacked bar chart: X=participante, Y=contagem de cada posição (empilhadas)
             try:
@@ -210,7 +210,7 @@ def hall_da_fama():
                     barmode='stack'
                 )
                 fig.update_layout(xaxis_tickangle=-45)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
             except Exception as e:
                 st.info(f'Gráfico indisponível: {str(e)}')
         else:
@@ -321,7 +321,7 @@ def render_admin_panel(conn, seasons):
         col_btn1, col_btn2 = st.columns(2)
         
         with col_btn1:
-            if st.button("✅ Salvar Resultados", type="primary", use_container_width=True):
+            if st.button("✅ Salvar Resultados", type="primary", width="stretch"):
                 if not entries:
                     st.error("❌ Por favor, preencha pelo menos um participante e posição.")
                 else:
@@ -368,7 +368,7 @@ def render_admin_panel(conn, seasons):
                             st.write(error)
         
         with col_btn2:
-            if st.button("🔄 Limpar Formulário", use_container_width=True):
+            if st.button("🔄 Limpar Formulário", width="stretch"):
                 st.session_state.hall_fama_rows = [{'user': None, 'position': None}] * 3
                 st.rerun()
     

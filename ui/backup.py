@@ -30,7 +30,7 @@ def main():
     st.write("Gerencie as temporadas visíveis no sistema. A criação de uma nova temporada fará com que ela possa aparecer em seletores que leem a tabela `temporadas`.")
     col_a, col_b = st.columns([2, 8])
     with col_a:
-        if st.button("➕ Criar próxima temporada", use_container_width=True):
+        if st.button("➕ Criar próxima temporada", width="stretch"):
             new_year = create_next_temporada()
             st.success(f"✅ Temporada {new_year} criada/registrada com sucesso.")
             st.rerun()

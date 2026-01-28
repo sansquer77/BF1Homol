@@ -48,14 +48,14 @@ def _get_jwt_secret() -> str:
                 "ERRO CRÍTICO DE SEGURANÇA: JWT_SECRET não está configurado. "
                 "Configure a variável de ambiente JWT_SECRET ou adicione em st.secrets."
             )
-        else:
-            # Apenas em desenvolvimento local - com aviso
-            logger.warning(
-                "⚠️  JWT_SECRET não configurado - usando chave de desenvolvimento. "
-                "NÃO USE EM PRODUÇÃO!"
-            )
-            secret = "DEV_ONLY_bf1_secret_key_2025_NOT_FOR_PRODUCTION"
-    
+        
+        # 🔴 ERRO CRÍTICO - JWT_SECRET SEMPRE OBRIGATÓRIO
+        logger.critical("🔴 JWT_SECRET não configurado - SEGURANÇA COMPROMETIDA!")
+        raise RuntimeError(
+            "ERRO CRÍTICO DE SEGURANÇA: JWT_SECRET não está configurado.\n"
+            "Este é um valor obrigatório que deve ser definido ANTES do deployment.\n"
+            "Configure em: Digital Ocean > App Settings > Environment Variables > JWT_SECRET"
+        )
     return secret
 
 JWT_SECRET = _get_jwt_secret()
@@ -150,11 +150,11 @@ def clear_auth_cookies():
     cookie_manager.delete("session_token")
 
 # --- RECUPERAÇÃO DE SENHA SEGURA ---
-import random
+import secrets
 import string
 def gerar_senha_temporaria(tamanho=10):
     chars = string.ascii_letters + string.digits
-    return ''.join(random.choices(chars, k=tamanho))
+    return ''.join(secrets.choice(chars) for _ in range(tamanho))
 
 def redefinir_senha_usuario(email: str):
     usuario = get_user_by_email(email)
@@ -165,7 +165,15 @@ def redefinir_senha_usuario(email: str):
     # Atualiza a senha no banco
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute("UPDATE usuarios SET senha_hash=? WHERE email=?", (senha_hash, email))
+        c.execute("PRAGMA table_info('usuarios')")
+        cols = [r[1] for r in c.fetchall()]
+        if 'must_change_password' in cols:
+            c.execute(
+                "UPDATE usuarios SET senha_hash=?, must_change_password=1 WHERE email=?",
+                (senha_hash, email)
+            )
+        else:
+            c.execute("UPDATE usuarios SET senha_hash=? WHERE email=?", (senha_hash, email))
         conn.commit()
     return True, (usuario[1], nova_senha)  # nome, nova_senha
 

@@ -41,6 +41,8 @@ from db.db_config import (
     SESSION_TIMEOUT,
     MAX_LOGIN_ATTEMPTS,
     LOCKOUT_DURATION,
+    MAX_RESET_ATTEMPTS,
+    RESET_LOCKOUT_DURATION,
     INDICES
 )
 
@@ -129,7 +131,7 @@ atexit.register(cleanup_on_exit)
 __all__ = [
     'init_pool', 'get_pool', 'close_pool', 'ConnectionPool',
     'DB_PATH', 'POOL_SIZE', 'DB_TIMEOUT', 'CACHE_TTL_CURTO', 'CACHE_TTL_MEDIO', 'CACHE_TTL_LONGO',
-    'BCRYPT_ROUNDS', 'SESSION_TIMEOUT', 'MAX_LOGIN_ATTEMPTS', 'LOCKOUT_DURATION', 'INDICES',
+    'BCRYPT_ROUNDS', 'SESSION_TIMEOUT', 'MAX_LOGIN_ATTEMPTS', 'LOCKOUT_DURATION', 'MAX_RESET_ATTEMPTS', 'RESET_LOCKOUT_DURATION', 'INDICES',
     'init_db', 'db_connect', 'hash_password', 'check_password', 'get_user_by_email', 'get_user_by_id',
     'get_master_user', 'cadastrar_usuario', 'autenticar_usuario', 'get_usuarios_df', 'get_pilotos_df',
     'get_provas_df', 'get_apostas_df', 'get_resultados_df', 'registrar_log_aposta', 'log_aposta_existe',

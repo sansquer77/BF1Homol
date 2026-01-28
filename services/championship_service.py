@@ -1,6 +1,10 @@
 import pandas as pd
+import logging
 from datetime import datetime, timezone
 from db.db_utils import db_connect
+from services.rules_service import get_regras_aplicaveis
+
+logger = logging.getLogger(__name__)
 
 
 def _season_or_current(season: int | None) -> int:
@@ -15,7 +19,8 @@ def get_user_name(user_id: int) -> str:
             cursor.execute("SELECT nome FROM usuarios WHERE id = ?", (user_id,))
             result = cursor.fetchone()
         return result[0] if result else "Nome não encontrado"
-    except Exception:
+    except Exception as e:
+        logger.exception(f"Erro ao buscar nome do usuário {user_id}: {e}")
         return "Erro ao buscar nome"
 
 def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str, team: str, season: int | None = None) -> bool:
@@ -41,7 +46,8 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
             )
             conn.commit()
             return True
-    except Exception:
+    except Exception as e:
+        logger.exception(f"Erro ao salvar aposta de campeonato (user_id={user_id}, season={season_val}): {e}")
         return False
 
 def get_championship_bet(user_id: int, season: int | None = None):
@@ -92,7 +98,8 @@ def save_final_results(champion: str, vice: str, team: str, season: int | None =
             )
             conn.commit()
             return True
-    except Exception:
+    except Exception as e:
+        logger.exception(f"Erro ao salvar resultado final do campeonato (season={season_val}): {e}")
         return False
 
 def get_final_results(season: int | None = None):
@@ -117,39 +124,43 @@ def calcular_pontuacao_campeonato(user_id: int, season: int | None = None) -> in
     season_val = _season_or_current(season)
     aposta = get_championship_bet(user_id, season_val)
     resultado = get_final_results(season_val)
+    regras = get_regras_aplicaveis(str(season_val), "Normal")
+    pontos_campeao = regras.get('pontos_campeao', 150)
+    pontos_vice = regras.get('pontos_vice', 100)
+    pontos_equipe = regras.get('pontos_equipe', 80)
     pontos = 0
     if aposta and resultado:
         if aposta["champion"] == resultado["champion"]:
-            pontos += 150
+            pontos += pontos_campeao
         if aposta["vice"] == resultado["vice"]:
-            pontos += 100
+            pontos += pontos_vice
         if aposta["team"] == resultado["team"]:
-            pontos += 80
+            pontos += pontos_equipe
     return pontos
 
 def get_championship_bets_df(season: int | None = None):
     """Retorna apostas de campeonato; se season informado, filtra."""
     with db_connect() as conn:
         if season is None:
-            df = pd.read_sql('SELECT * FROM championship_bets', conn)
+            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets', conn)
         else:
-            df = pd.read_sql('SELECT * FROM championship_bets WHERE season = ?', conn, params=(season,))
+            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets WHERE season = ?', conn, params=(season,))
     return df
 
 def get_championship_bets_log_df(season: int | None = None):
     """Retorna log de apostas; se season informado, filtra."""
     with db_connect() as conn:
         if season is None:
-            df = pd.read_sql('SELECT * FROM championship_bets_log', conn)
+            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log', conn)
         else:
-            df = pd.read_sql('SELECT * FROM championship_bets_log WHERE season = ?', conn, params=(season,))
+            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log WHERE season = ?', conn, params=(season,))
     return df
 
 def get_championship_results_df(season: int | None = None):
     """Retorna resultados oficiais; se season informado, filtra."""
     with db_connect() as conn:
         if season is None:
-            df = pd.read_sql('SELECT * FROM championship_results', conn)
+            df = pd.read_sql('SELECT season, champion, vice, team FROM championship_results', conn)
         else:
-            df = pd.read_sql('SELECT * FROM championship_results WHERE season = ?', conn, params=(season,))
+            df = pd.read_sql('SELECT season, champion, vice, team FROM championship_results WHERE season = ?', conn, params=(season,))
     return df

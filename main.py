@@ -7,10 +7,10 @@ Melhorias:
 - Rate limiting
 - Tema Liquid Glass (responsivo mobile/desktop)
 """
-
 import streamlit as st
 import os
 import logging
+import datetime
 from pathlib import Path
 
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
@@ -45,56 +45,54 @@ def load_pwa_meta_tags():
             icon_base64 = base64.b64encode(f.read()).decode()
     
     # Usar JavaScript para injetar as meta tags no <head> do documento
-    # Isso é necessário porque st.markdown coloca conteúdo no body
     if icon_base64:
         icon_data_uri = f"data:image/png;base64,{icon_base64}"
         st.markdown(f"""
             <script>
-                (function() {{
-                    // Remover meta tags antigas se existirem
-                    document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(el => el.remove());
-                    
-                    // Criar e adicionar novas meta tags no head
-                    var head = document.getElementsByTagName('head')[0];
-                    
-                    // Apple Touch Icon
-                    var link = document.createElement('link');
-                    link.rel = 'apple-touch-icon';
-                    link.href = '{icon_data_uri}';
-                    head.appendChild(link);
-                    
-                    var link180 = document.createElement('link');
-                    link180.rel = 'apple-touch-icon';
-                    link180.sizes = '180x180';
-                    link180.href = '{icon_data_uri}';
-                    head.appendChild(link180);
-                    
-                    // Verificar/adicionar meta tags PWA
-                    if (!document.querySelector('meta[name="apple-mobile-web-app-capable"]')) {{
-                        var meta1 = document.createElement('meta');
-                        meta1.name = 'apple-mobile-web-app-capable';
-                        meta1.content = 'yes';
-                        head.appendChild(meta1);
-                    }}
-                    
-                    if (!document.querySelector('meta[name="apple-mobile-web-app-title"]')) {{
-                        var meta2 = document.createElement('meta');
-                        meta2.name = 'apple-mobile-web-app-title';
-                        meta2.content = 'BF1';
-                        head.appendChild(meta2);
-                    }}
-                    
-                    if (!document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')) {{
-                        var meta3 = document.createElement('meta');
-                        meta3.name = 'apple-mobile-web-app-status-bar-style';
-                        meta3.content = 'black-translucent';
-                        head.appendChild(meta3);
-                    }}
-                }})();
+            (function() {{
+                // Remover meta tags antigas se existirem
+                document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(el => el.remove());
+                
+                // Criar e adicionar novas meta tags no head
+                var head = document.getElementsByTagName('head')[0];
+                
+                // Apple Touch Icon
+                var link = document.createElement('link');
+                link.rel = 'apple-touch-icon';
+                link.href = '{icon_data_uri}';
+                head.appendChild(link);
+                
+                var link180 = document.createElement('link');
+                link180.rel = 'apple-touch-icon';
+                link180.sizes = '180x180';
+                link180.href = '{icon_data_uri}';
+                head.appendChild(link180);
+                
+                // Verificar/adicionar meta tags PWA
+                if (!document.querySelector('meta[name="apple-mobile-web-app-capable"]')) {{
+                    var meta1 = document.createElement('meta');
+                    meta1.name = 'apple-mobile-web-app-capable';
+                    meta1.content = 'yes';
+                    head.appendChild(meta1);
+                }}
+                
+                if (!document.querySelector('meta[name="apple-mobile-web-app-title"]')) {{
+                    var meta2 = document.createElement('meta');
+                    meta2.name = 'apple-mobile-web-app-title';
+                    meta2.content = 'BF1';
+                    head.appendChild(meta2);
+                }}
+                
+                if (!document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')) {{
+                    var meta3 = document.createElement('meta');
+                    meta3.name = 'apple-mobile-web-app-status-bar-style';
+                    meta3.content = 'black-translucent';
+                    head.appendChild(meta3);
+                }}
+            }})();
             </script>
         """, unsafe_allow_html=True)
     
-    # Meta tags básicas que funcionam no body também
     st.markdown("""
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="theme-color" content="#0a0a0f">
@@ -116,18 +114,14 @@ from db.migrations import run_migrations
 from db.master_user_manager import MasterUserManager
 
 logger.info("🚀 Inicializando BF1 3.0...")
-
-# Inicializar banco de dados
 init_db()
 logger.info("✓ Banco de dados inicializado")
 
-# Executar migrations (criar índices)
 try:
     run_migrations()
 except Exception as e:
-    logger.warning(f"⚠️  Migrations já executadas: {e}")
+    logger.warning(f"⚠️ Migrations já executadas: {e}")
 
-# Criar usuário Master automaticamente
 MasterUserManager.create_master_user()
 
 # ============ IMPORTAÇÃO DAS VIEWS ============
@@ -135,6 +129,7 @@ from ui.login import login_view
 from ui.painel import participante_view
 from ui.usuarios import main as usuarios_view
 from ui.gestao_resultados import resultados_view
+from ui.calendario import main as calendario_view
 from ui.championship_bets import main as championship_bets_view
 from ui.championship_results import main as championship_results_view
 from ui.gestao_apostas import main as gestao_apostas_view
@@ -143,6 +138,7 @@ from ui.regulamento import main as regulamento_view
 from ui.classificacao import main as classificacao_view
 from ui.log_apostas import main as log_apostas_view
 from ui.gestao_provas import main as gestao_provas_view
+from ui.gestao_regras import main as gestao_regras_view
 from ui.gestao_pilotos import main as gestao_pilotos_view
 from ui.backup import main as backup_view
 from ui.dashboard import main as dashboard_view
@@ -157,14 +153,18 @@ if 'token' not in st.session_state:
     st.session_state['token'] = None
 
 # ============ MENUS POR PERFIL ============
+def _calendario_label():
+    return f"Calendário ({datetime.datetime.now().year})"
+
 def menu_master():
     return [
         "Painel do Participante",
+        _calendario_label(),
         "Gestão de Usuários",
         "Gestão de Pilotos",
         "Gestão de Provas",
+        "Gestão de Regras",
         "Gestão de Apostas",
-        "Gestão de Resultados",
         "Análise de Apostas",
         "Atualização de resultados",
         "Apostas Campeonato",
@@ -182,10 +182,10 @@ def menu_master():
 def menu_admin():
     return [
         "Painel do Participante",
+        _calendario_label(),
         "Gestão de Apostas",
         "Gestão de Pilotos",
         "Gestão de Provas",
-        "Gestão de Resultados",
         "Análise de Apostas",
         "Atualização de resultados",
         "Apostas Campeonato",
@@ -202,6 +202,7 @@ def menu_admin():
 def menu_participante():
     return [
         "Painel do Participante",
+        _calendario_label(),
         "Apostas Campeonato",
         "Análise de Apostas",
         "Log de Apostas",
@@ -229,11 +230,12 @@ def get_payload():
 PAGES = {
     "Login": login_view,
     "Painel do Participante": participante_view,
+    _calendario_label(): calendario_view,
     "Gestão de Usuários": usuarios_view,
     "Gestão de Pilotos": gestao_pilotos_view,
     "Gestão de Provas": gestao_provas_view,
     "Gestão de Apostas": gestao_apostas_view,
-    "Gestão de Resultados": resultados_view,
+    "Gestão de Regras": gestao_regras_view,
     "Análise de Apostas": analysis_view,
     "Atualização de resultados": resultados_view,
     "Apostas Campeonato": championship_bets_view,

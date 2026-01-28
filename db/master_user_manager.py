@@ -64,9 +64,9 @@ class MasterUserManager:
                             'senha': senha,
                             'telegram': MasterUserManager._get_env_value(MasterUserManager.ENV_VAR_TELEGRAM, secrets_dict)
                         }
-            except:
+            except (AttributeError, Exception) as e:
                 # Se st.secrets falhar, continua com variáveis de ambiente
-                pass
+                logger.debug(f"st.secrets não disponível ou erro: {e}")
             
             # Fallback para variáveis de ambiente (Digital Ocean App Platform)
             env_dict = dict(os.environ)
@@ -102,11 +102,12 @@ class MasterUserManager:
             # Fallback para email padrão
             user = get_user_by_email('master@sistema.local')
             return user is not None
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Erro ao verificar existência do Master: {e}")
             return False
     
     @staticmethod
-    def create_master_user():
+    def _create_master() -> bool:
         """
         Cria usuário Master se não existir
         
@@ -165,3 +166,13 @@ class MasterUserManager:
         except Exception as e:
             logger.error(f"✗ Erro ao criar usuário Master: {e}")
             return False
+    
+    @staticmethod
+    def create_master_user() -> bool:
+        """
+        Método público para criar usuário Master na inicialização
+        
+        Returns:
+            bool: True se criou ou já existe, False se erro
+        """
+        return MasterUserManager._create_master()

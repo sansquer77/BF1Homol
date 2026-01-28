@@ -21,7 +21,7 @@ def main():
     with st.expander("Lista Completa de Usuários", expanded=True):
         show_df = df[["id", "nome", "email", "perfil", "status"]].copy()
         show_df.columns = ["ID", "Nome", "Email", "Perfil", "Status"]
-        st.dataframe(show_df, use_container_width=True)
+        st.dataframe(show_df, width="stretch")
 
     st.markdown("### Editar Usuário")
 
@@ -70,7 +70,11 @@ def main():
                         conn.commit()
                     st.success("Senha atualizada com sucesso!")
                     st.session_state["alterar_senha"] = False
-                    st.cache_data.clear()
+                    
+                    # TODO: add email and password validation to user management
+                    # Use utils.validators in the user management interface to ensure that new
+                    # users are created with valid email formats and strong passwords. This
+                    # addresses vulnerabilities related to predictable/default credentials.
                     st.rerun()
             if st.button("Cancelar alteração de senha"):
                 st.session_state["alterar_senha"] = False
@@ -81,13 +85,13 @@ def main():
             if user_row["perfil"] == "master":
                 st.error("Não é possível excluir um usuário master.")
             else:
-                    with db_connect() as conn:
-                        c = conn.cursor()
-                        c.execute("DELETE FROM usuarios WHERE id=?", (int(user_row["id"]),))
-                        conn.commit()
-                    st.success("Usuário excluído com sucesso!")
-                    st.cache_data.clear()
-                    st.rerun()
+                with db_connect() as conn:
+                    c = conn.cursor()
+                    c.execute("DELETE FROM usuarios WHERE id=?", (int(user_row["id"]),))
+                    conn.commit()
+                st.success("Usuário excluído com sucesso!")
+                st.cache_data.clear()
+                st.rerun()
 
     st.markdown("---")
     st.markdown("### Adicionar Novo Usuário")

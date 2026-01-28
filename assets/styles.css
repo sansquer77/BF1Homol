@@ -274,10 +274,7 @@ h1, h2, h3 {
 
 h1 {
     font-size: clamp(1.8rem, 5vw, 2.5rem) !important;
-    background: linear-gradient(135deg, #ffffff, #E13427) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    background-clip: text !important;
+    color: var(--text-primary) !important;
     margin-bottom: 1rem !important;
 }
 
@@ -709,6 +706,34 @@ img {
 .stSuccess, .stError, .stWarning, .stInfo {
     border-radius: var(--border-radius-sm) !important;
     padding: 16px !important;
+}
+
+/* Ícones com cor contextual */
+.stSuccess svg {
+    color: var(--success-color) !important;
+}
+
+.stWarning svg {
+    color: var(--warning-color) !important;
+}
+
+.stError svg {
+    color: var(--error-color) !important;
+}
+
+.stInfo svg {
+    color: #5aa9ff !important;
+}
+
+/* Ícones de botões e inputs */
+.stButton svg,
+.stNumberInput svg,
+.stSelectbox svg,
+.stTextInput svg,
+.stMultiSelect svg,
+.stDateInput svg,
+.stTimeInput svg {
+    color: var(--text-secondary) !important;
 }
 
 /* ============ NUMBER INPUT BUTTONS ============ */

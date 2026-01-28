@@ -1,22 +1,25 @@
 import streamlit as st
 import pandas as pd
 import datetime as dt
+import logging
 from db.db_utils import db_connect
 from db.backup_utils import list_temporadas
 import extra_streamlit_components as stx # type: ignore
 import jwt
 import os
 
+logger = logging.getLogger(__name__)
+
 def carregar_logs(temporada=None):
     """Carrega logs de apostas, opcionalmente filtrando por temporada"""
     with db_connect() as conn:
         if temporada:
-            query = '''SELECT * FROM log_apostas 
+            query = '''SELECT id, data, horario, apostador, nome_prova, pilotos, aposta, piloto_11, tipo_aposta, automatica, temporada FROM log_apostas 
                        WHERE (temporada = ? OR temporada IS NULL)
                        ORDER BY id DESC'''
             df = pd.read_sql(query, conn, params=(temporada,))
         else:
-            df = pd.read_sql('SELECT * FROM log_apostas ORDER BY id DESC', conn)
+            df = pd.read_sql('SELECT id, data, horario, apostador, nome_prova, pilotos, aposta, piloto_11, tipo_aposta, automatica, temporada FROM log_apostas ORDER BY id DESC', conn)
     return df
 
 def get_nome_from_cookie():
@@ -29,8 +32,8 @@ def get_nome_from_cookie():
             JWT_SECRET = st.secrets["JWT_SECRET"] or os.environ.get("JWT_SECRET")
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             nome_do_cookie = payload.get("nome")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Falha ao ler token da sessão: {e}")
     return nome_do_cookie
 
 def main():
@@ -127,9 +130,16 @@ def main():
     filtro_show = filtro.copy()
     filtro_show["Tipo de Aposta"] = filtro["tipo_aposta"].map(tipos_map)
     filtro_show["Automática"] = filtro["automatica"].apply(lambda x: "Sim" if x > 0 else "Não")
+    if "pilotos" in filtro_show.columns:
+        filtro_show["Pilotos/Fichas"] = filtro_show.apply(
+            lambda r: f"{r.get('pilotos', '')} | {r.get('aposta', '')}".strip(" |"),
+            axis=1
+        )
+    else:
+        filtro_show["Pilotos/Fichas"] = filtro_show["aposta"]
 
     colunas_exibir = [
-        "data", "horario", "apostador", "nome_prova", "aposta", "piloto_11", "Tipo de Aposta", "Automática"
+        "data", "horario", "apostador", "nome_prova", "Pilotos/Fichas", "piloto_11", "Tipo de Aposta", "Automática"
     ]
     if "automatica" in filtro_show.columns and "tipo_aposta" in filtro_show.columns:
         st.dataframe(
@@ -138,13 +148,13 @@ def main():
                 "horario": "Horário",
                 "apostador": "Apostador",
                 "nome_prova": "Prova",
-                "aposta": "Pilotos/Fichas",
+                "Pilotos/Fichas": "Pilotos/Fichas",
                 "piloto_11": "11º Colocado"
             }),
-            use_container_width=True
+            width="stretch"
         )
     else:
-        st.dataframe(filtro_show, use_container_width=True)
+        st.dataframe(filtro_show, width="stretch")
 
     st.caption("*O campo 'Automática' indica apostas geradas automaticamente pelo sistema (qualquer valor > 0 no campo).*")
 
