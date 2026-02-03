@@ -14,7 +14,8 @@ from db.db_utils import (
     get_provas_df,
     get_resultados_df
 )
-from services.email_service import enviar_email
+from services.email_service import enviar_email, gerar_previsao_sarcastica
+import html
 from services.rules_service import get_regras_aplicaveis
 
 logger = logging.getLogger(__name__)
@@ -157,18 +158,29 @@ def salvar_aposta(
             conn.commit()
 
             try:
-                corpo_email = f"""
-Olá {usuario['nome']},
+                previsao = gerar_previsao_sarcastica(
+                    usuario.get('nome', ''),
+                    nome_prova_bd,
+                    pilotos,
+                    fichas,
+                    piloto_11
+                )
+                previsao_html = ""
+                if previsao:
+                    previsao_html = "<p><b>Previsão divertida:</b><br>" + "<br>".join(html.escape(previsao).splitlines()) + "</p>"
 
-Sua aposta para a prova **{nome_prova_bd}** foi registrada com sucesso.
-
-Detalhes:
-* Pilotos: {', '.join(pilotos)}
-* Fichas: {', '.join(map(str, fichas))}
-* Palpite para 11º colocado: {piloto_11}
-
-Boa sorte!
-"""
+                corpo_email = (
+                    f"<p>Olá {html.escape(usuario['nome'])},</p>"
+                    f"<p>Sua aposta para a prova <b>{html.escape(nome_prova_bd)}</b> foi registrada com sucesso.</p>"
+                    "<p><b>Detalhes:</b></p>"
+                    "<ul>"
+                    f"<li>Pilotos: {html.escape(', '.join(pilotos))}</li>"
+                    f"<li>Fichas: {html.escape(', '.join(map(str, fichas)))}</li>"
+                    f"<li>Palpite para 11º colocado: {html.escape(piloto_11)}</li>"
+                    "</ul>"
+                    f"{previsao_html}"
+                    "<p>Boa sorte!</p>"
+                )
                 enviar_email(usuario['email'], f"Aposta registrada - {nome_prova_bd}", corpo_email)
             except Exception as e:
                 logger.warning(f"Falha ao enviar email de aposta para {usuario.get('email')}: {e}")
