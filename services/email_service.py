@@ -4,6 +4,7 @@ import os
 import logging
 import html
 import httpx
+from typing import Optional
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -11,38 +12,41 @@ logger = logging.getLogger(__name__)
 
 # Tentar obter credenciais de email de secrets ou environment variables
 try:
-    EMAIL_REMETENTE = st.secrets.get("EMAIL_REMETENTE")
+    EMAIL_REMETENTE_RAW: Optional[str] = st.secrets.get("EMAIL_REMETENTE")
 except (FileNotFoundError, KeyError):
-    EMAIL_REMETENTE = None
+    EMAIL_REMETENTE_RAW = None
 
 try:
-    SENHA_REMETENTE = st.secrets.get("SENHA_EMAIL")
+    SENHA_REMETENTE_RAW: Optional[str] = st.secrets.get("SENHA_EMAIL")
 except (FileNotFoundError, KeyError):
-    SENHA_REMETENTE = None
+    SENHA_REMETENTE_RAW = None
 
 try:
-    EMAIL_ADMIN = st.secrets.get("EMAIL_ADMIN")
+    EMAIL_ADMIN_RAW: Optional[str] = st.secrets.get("EMAIL_ADMIN")
 except (FileNotFoundError, KeyError):
-    EMAIL_ADMIN = None
+    EMAIL_ADMIN_RAW = None
 
 try:
-    PERPLEXITY_API_KEY = st.secrets.get("PERPLEXITY_API_KEY")
+    PERPLEXITY_API_KEY_RAW: Optional[str] = st.secrets.get("PERPLEXITY_API_KEY")
 except (FileNotFoundError, KeyError):
-    PERPLEXITY_API_KEY = None
+    PERPLEXITY_API_KEY_RAW = None
 
 try:
-    PERPLEXITY_MODEL = st.secrets.get("PERPLEXITY_MODEL")
+    PERPLEXITY_MODEL_RAW: Optional[str] = st.secrets.get("PERPLEXITY_MODEL")
 except (FileNotFoundError, KeyError):
-    PERPLEXITY_MODEL = None
+    PERPLEXITY_MODEL_RAW = None
 
-EMAIL_REMETENTE = EMAIL_REMETENTE or os.environ.get("EMAIL_REMETENTE", "")
-SENHA_REMETENTE = SENHA_REMETENTE or os.environ.get("SENHA_EMAIL", "")
-EMAIL_ADMIN = EMAIL_ADMIN or os.environ.get("EMAIL_ADMIN", "")
-PERPLEXITY_API_KEY = PERPLEXITY_API_KEY or os.environ.get("PERPLEXITY_API_KEY", "")
-PERPLEXITY_MODEL = PERPLEXITY_MODEL or os.environ.get("PERPLEXITY_MODEL", "sonar")
+EMAIL_REMETENTE: str = EMAIL_REMETENTE_RAW or os.environ.get("EMAIL_REMETENTE", "")
+SENHA_REMETENTE: str = SENHA_REMETENTE_RAW or os.environ.get("SENHA_EMAIL", "")
+EMAIL_ADMIN: str = EMAIL_ADMIN_RAW or os.environ.get("EMAIL_ADMIN", "")
+PERPLEXITY_API_KEY: str = PERPLEXITY_API_KEY_RAW or os.environ.get("PERPLEXITY_API_KEY", "")
+PERPLEXITY_MODEL: str = PERPLEXITY_MODEL_RAW or os.environ.get("PERPLEXITY_MODEL", "sonar")
 
 def enviar_email(destinatario: str, assunto: str, corpo_html: str) -> bool:
     """Envia um e-mail HTML para o destinatário informado."""
+    if not EMAIL_REMETENTE or not SENHA_REMETENTE:
+        st.error("Credenciais de e-mail não configuradas.")
+        return False
     msg = MIMEMultipart()
     msg['From'] = EMAIL_REMETENTE
     msg['To'] = destinatario
@@ -76,8 +80,8 @@ def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[
                 {
                     "role": "system",
                     "content": (
-                        "Você é um especialista em F1 divertido e levemente sarcástico. "
-                        "Faça uma previsão humorada e amigável sobre a aposta do participante, "
+                        "Você é um especialista em F1 divertido e sarcástico. "
+                        "Faça uma previsão bem-humorada e ácida sobre a aposta do participante analisando os pilotos escolhidos e as fichas apostadas, "
                         "sem ofensas pessoais, sem palavrões e sem humilhações. "
                         "Use 1 a 2 frases curtas."
                     )
