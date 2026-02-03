@@ -64,6 +64,8 @@ def participante_view():
         for key in keys:
             if key in st.session_state:
                 del st.session_state[key]
+        if "aposta_erros" in st.session_state:
+            del st.session_state["aposta_erros"]
 
     @st.dialog("Regras vigentes")
     def _mostrar_regras_dialog(regras, temporada_sel, tipo_prova_sel):
@@ -137,6 +139,13 @@ def participante_view():
                             regras_sel = get_regras_aplicaveis(temporada, tipo_sel)
                             _mostrar_regras_dialog(regras_sel, temporada, tipo_sel)
                     nome_prova = provas[provas['id'] == prova_id]['nome'].values[0]
+                    tipo_raw = provas[provas['id'] == prova_id]['tipo'].values[0] if not provas[provas['id'] == prova_id].empty else 'Normal'
+                    tipo_prova = 'Sprint' if str(tipo_raw).strip().lower() == 'sprint' or 'sprint' in str(nome_prova).lower() else 'Normal'
+                    regras = get_regras_aplicaveis(temporada, tipo_prova)
+                    quantidade_fichas = int(regras.get('quantidade_fichas', 15))
+                    min_pilotos_regra = int(regras.get('qtd_minima_pilotos', regras.get('min_pilotos', 3)))
+                    fichas_max_por_piloto = int(regras.get('fichas_por_piloto', quantidade_fichas))
+                    permite_mesma_equipe = bool(regras.get('mesma_equipe', False))
                     apostas_df = get_apostas_df(temporada)
                     aposta_existente = apostas_df[
                         (apostas_df['usuario_id'] == user['id']) & (apostas_df['prova_id'] == prova_id)
@@ -151,6 +160,13 @@ def participante_view():
                         fichas_ant = []
                         piloto_11_ant = ""
 
+                    erros_box = st.empty()
+                    erros_atuais = st.session_state.get("aposta_erros", [])
+                    if erros_atuais:
+                        with erros_box:
+                            for msg in erros_atuais:
+                                st.error(msg)
+
                     st.write("Escolha seus pilotos e distribua suas fichas entre eles de acordo com as regras:")
                     max_linhas = 10
                     pilotos_aposta, fichas_aposta = [], []
@@ -158,7 +174,7 @@ def participante_view():
                         mostrar = False
                         if i < 3:
                             mostrar = True
-                        elif i < max_linhas and len([p for p in pilotos_aposta if p != "Nenhum"]) == i and sum(fichas_aposta) < 15:
+                        elif i < max_linhas and len([p for p in pilotos_aposta if p != "Nenhum"]) == i and sum(fichas_aposta) < quantidade_fichas:
                             mostrar = True
                         if mostrar:
                             col1, col2 = st.columns([3, 1])
@@ -172,7 +188,7 @@ def participante_view():
                             with col2:
                                 if piloto_sel != "Nenhum":
                                     valor_ficha = st.number_input(
-                                        f"Fichas para {piloto_sel}", min_value=0, max_value=15,
+                                        f"Fichas para {piloto_sel}", min_value=0, max_value=quantidade_fichas,
                                         value=fichas_ant[i] if len(fichas_ant) > i else 0,
                                         key=f"fichas_aposta_{i}"
                                     )
@@ -200,18 +216,25 @@ def participante_view():
                         erros = []
                         if len(set(pilotos_validos)) != len(pilotos_validos):
                             erros.append("Não é permitido apostar em dois pilotos iguais.")
-                        elif len(set(equipes_apostadas)) < len(equipes_apostadas):
+                        if not permite_mesma_equipe and len(set(equipes_apostadas)) < len(equipes_apostadas):
                             erros.append("Não é permitido apostar em dois pilotos da mesma equipe.")
-                        elif len(pilotos_validos) < 3:
-                            erros.append("Você deve apostar em pelo menos 3 pilotos de equipes diferentes.")
-                        elif total_fichas != 15:
-                            erros.append("A soma das fichas deve ser exatamente 15.")
-                        elif piloto_11 in pilotos_validos:
+                        if len(pilotos_validos) < min_pilotos_regra:
+                            erros.append(f"Você deve apostar em pelo menos {min_pilotos_regra} pilotos.")
+                        if total_fichas != quantidade_fichas:
+                            erros.append(f"A soma das fichas deve ser exatamente {quantidade_fichas}.")
+                        if fichas_validas and max(fichas_validas) > fichas_max_por_piloto:
+                            erros.append(f"Máximo de {fichas_max_por_piloto} fichas por piloto.")
+                        if piloto_11 in pilotos_validos:
                             erros.append("O 11º colocado não pode ser um dos pilotos apostados.")
+
                         if erros:
-                            for msg in erros:
-                                st.error(msg)
+                            st.session_state["aposta_erros"] = erros
+                            with erros_box:
+                                for msg in erros:
+                                    st.error(msg)
                         else:
+                            if "aposta_erros" in st.session_state:
+                                del st.session_state["aposta_erros"]
                             salvar_aposta(
                                 user['id'], prova_id, pilotos_validos,
                                 fichas_validas, piloto_11, nome_prova, automatica=0, temporada=temporada
