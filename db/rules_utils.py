@@ -47,6 +47,7 @@ def init_rules_table():
                 qtd_minima_pilotos INTEGER NOT NULL DEFAULT 3,
                 penalidade_abandono INTEGER NOT NULL DEFAULT 0,
                 pontos_penalidade INTEGER DEFAULT 0,
+                penalidade_auto_percent INTEGER NOT NULL DEFAULT 20,
                 pontos_campeao INTEGER NOT NULL DEFAULT 150,
                 pontos_vice INTEGER NOT NULL DEFAULT 100,
                 pontos_equipe INTEGER NOT NULL DEFAULT 80,
@@ -88,6 +89,7 @@ def criar_regra(
     qtd_minima_pilotos: int = 3,
     penalidade_abandono: bool = False,
     pontos_penalidade: int = 0,
+    penalidade_auto_percent: int = 20,
     pontos_campeao: int = 150,
     pontos_vice: int = 100,
     pontos_equipe: int = 80
@@ -107,15 +109,15 @@ def criar_regra(
                     descarte, pontos_pole, pontos_vr, pontos_posicoes, pontos_11_colocado,
                     regra_sprint, pontos_sprint_pole, pontos_sprint_vr, pontos_sprint_posicoes,
                     pontos_dobrada, bonus_vencedor, bonus_podio_completo, bonus_podio_qualquer,
-                    qtd_minima_pilotos, penalidade_abandono, pontos_penalidade,
+                    qtd_minima_pilotos, penalidade_abandono, pontos_penalidade, penalidade_auto_percent,
                     pontos_campeao, pontos_vice, pontos_equipe
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 nome_regra, quantidade_fichas, fichas_por_piloto, int(mesma_equipe),
                 int(descarte), pontos_pole, pontos_vr, json.dumps(pontos_posicoes), pontos_11_colocado,
                 int(regra_sprint), pontos_sprint_pole, pontos_sprint_vr, json.dumps(pontos_sprint_posicoes),
                 int(pontos_dobrada), bonus_vencedor, bonus_podio_completo, bonus_podio_qualquer,
-                qtd_minima_pilotos, int(penalidade_abandono), pontos_penalidade,
+                qtd_minima_pilotos, int(penalidade_abandono), pontos_penalidade, penalidade_auto_percent,
                 pontos_campeao, pontos_vice, pontos_equipe
             ))
             conn.commit()
@@ -146,6 +148,7 @@ def atualizar_regra(
     qtd_minima_pilotos: int,
     penalidade_abandono: bool,
     pontos_penalidade: int,
+    penalidade_auto_percent: int,
     pontos_campeao: int,
     pontos_vice: int,
     pontos_equipe: int
@@ -160,7 +163,7 @@ def atualizar_regra(
                     descarte = ?, pontos_pole = ?, pontos_vr = ?, pontos_posicoes = ?, pontos_11_colocado = ?,
                     regra_sprint = ?, pontos_sprint_pole = ?, pontos_sprint_vr = ?, pontos_sprint_posicoes = ?,
                     pontos_dobrada = ?, bonus_vencedor = ?, bonus_podio_completo = ?, bonus_podio_qualquer = ?,
-                    qtd_minima_pilotos = ?, penalidade_abandono = ?, pontos_penalidade = ?,
+                    qtd_minima_pilotos = ?, penalidade_abandono = ?, pontos_penalidade = ?, penalidade_auto_percent = ?,
                     pontos_campeao = ?, pontos_vice = ?, pontos_equipe = ?,
                     atualizado_em = CURRENT_TIMESTAMP
                 WHERE id = ?
@@ -169,7 +172,7 @@ def atualizar_regra(
                 int(descarte), pontos_pole, pontos_vr, json.dumps(pontos_posicoes), pontos_11_colocado,
                 int(regra_sprint), pontos_sprint_pole, pontos_sprint_vr, json.dumps(pontos_sprint_posicoes),
                 int(pontos_dobrada), bonus_vencedor, bonus_podio_completo, bonus_podio_qualquer,
-                qtd_minima_pilotos, int(penalidade_abandono), pontos_penalidade,
+                qtd_minima_pilotos, int(penalidade_abandono), pontos_penalidade, penalidade_auto_percent,
                 pontos_campeao, pontos_vice, pontos_equipe, regra_id
             ))
             conn.commit()
@@ -241,16 +244,16 @@ def clonar_regra(regra_id: int, novo_nome: str) -> Optional[int]:
                     descarte, pontos_pole, pontos_vr, pontos_posicoes, pontos_11_colocado,
                     regra_sprint, pontos_sprint_pole, pontos_sprint_vr, pontos_sprint_posicoes,
                     pontos_dobrada, bonus_vencedor, bonus_podio_completo, bonus_podio_qualquer,
-                    qtd_minima_pilotos, penalidade_abandono, pontos_penalidade,
+                    qtd_minima_pilotos, penalidade_abandono, pontos_penalidade, penalidade_auto_percent,
                     pontos_campeao, pontos_vice, pontos_equipe
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 novo_nome,
                 regra['quantidade_fichas'], regra['fichas_por_piloto'], int(regra['mesma_equipe']),
                 int(regra['descarte']), regra.get('pontos_pole', 0), regra.get('pontos_vr', 0), json.dumps(regra.get('pontos_posicoes', [])), regra['pontos_11_colocado'],
                 int(regra['regra_sprint']), regra.get('pontos_sprint_pole', 0), regra.get('pontos_sprint_vr', 0), json.dumps(regra.get('pontos_sprint_posicoes', [])),
                 int(regra['pontos_dobrada']), regra.get('bonus_vencedor', 0), regra.get('bonus_podio_completo', 0), regra.get('bonus_podio_qualquer', 0),
-                regra['qtd_minima_pilotos'], int(regra['penalidade_abandono']), regra.get('pontos_penalidade', 0),
+                regra['qtd_minima_pilotos'], int(regra['penalidade_abandono']), regra.get('pontos_penalidade', 0), regra.get('penalidade_auto_percent', 20),
                 regra['pontos_campeao'], regra['pontos_vice'], regra['pontos_equipe']
             ))
             new_id = c.lastrowid

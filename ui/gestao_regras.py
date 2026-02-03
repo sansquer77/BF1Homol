@@ -246,6 +246,7 @@ def main():
                         'qtd_minima_pilotos': regra_atual['qtd_minima_pilotos'],
                         'penalidade_abandono': bool(regra_atual['penalidade_abandono']),
                         'pontos_penalidade': regra_atual.get('pontos_penalidade', 0),
+                        'penalidade_auto_percent': regra_atual.get('penalidade_auto_percent', 20),
                         'pontos_campeao': regra_atual['pontos_campeao'],
                         'pontos_vice': regra_atual['pontos_vice'],
                         'pontos_equipe': regra_atual['pontos_equipe']
@@ -289,7 +290,7 @@ def regra_form(regra_atual=None):
         
         Parâmetros: 1) Nome 2) Fichas 3) Mesma Equipe 4) Fichas/Piloto 5) Descarte
         6) Pontos 11º 7) Min Pilotos 8) Penalidade 9) Pts Penalidade
-        10) Regra Sprint 11) Wildcard 12) Pts Campeão 13) Pts Vice 14) Pts Equipe
+        10) Penalidade Aposta Automática (%) 11) Regra Sprint 12) Wildcard 13) Pts Campeão 14) Pts Vice 15) Pts Equipe
         """)
     
     st.divider()
@@ -386,11 +387,20 @@ def regra_form(regra_atual=None):
                     value=safe_get(regra_atual, 'pontos_penalidade', 0),
                     help="Quantidade de pontos deduzidos por abandono (valores negativos)"
                 )
+
+                # 10. Penalidade por Aposta Automática (percentual)
+                penalidade_auto_percent = st.number_input(
+                    "🔟 Penalidade por Aposta Automática (% na 2ª+ aposta) *",
+                    min_value=0,
+                    max_value=100,
+                    value=safe_get(regra_atual, 'penalidade_auto_percent', 20),
+                    help="Percentual de redução aplicado quando a aposta é automática pela 2ª vez ou mais"
+                )
                 
-                # 10. Regra Sprint
+                # 11. Regra Sprint
                 sprint_default = safe_get(regra_atual, 'regra_sprint', False)
                 regra_sprint = st.radio(
-                    "🔟 Regra Especial para Sprint?",
+                    "1️⃣1️⃣ Regra Especial para Sprint?",
                     options=[True, False],
                     format_func=lambda x: "Sim (10 fichas, mín 2 pilotos)" if x else "Não (mesma regra)",
                     index=0 if sprint_default else 1,
@@ -398,10 +408,10 @@ def regra_form(regra_atual=None):
                     help="Sim: Sprint com restrições próprias | Não: mesma regra das provas normais"
                 )
                 
-                # 11. Provas Wildcard (Pontuação Dobrada)
+                # 12. Provas Wildcard (Pontuação Dobrada)
                 wildcard_default = safe_get(regra_atual, 'pontos_dobrada', False)
                 pontos_dobrada = st.radio(
-                    "1️⃣1️⃣ Pontuação Dobrada em Sprint (Wildcard)?",
+                    "1️⃣2️⃣ Pontuação Dobrada em Sprint (Wildcard)?",
                     options=[True, False],
                     format_func=lambda x: "Sim (2x pontuação)" if x else "Não (1x pontuação)",
                     index=0 if wildcard_default else 1,
@@ -416,14 +426,14 @@ def regra_form(regra_atual=None):
             col3, col4, col5 = st.columns(3)
             with col3:
                 pontos_campeao = st.number_input(
-                    "1️⃣2️⃣ Pontos por Acertar o Campeão *",
+                    "1️⃣3️⃣ Pontos por Acertar o Campeão *",
                     min_value=0,
                     value=safe_get(regra_atual, 'pontos_campeao', 150),
                     help="Bônus final ao final da temporada por acertar campeão"
                 )
             with col4:
                 pontos_vice = st.number_input(
-                    "1️⃣3️⃣ Pontos por Acertar o Vice *",
+                    "1️⃣4️⃣ Pontos por Acertar o Vice *",
                     min_value=0,
                     value=safe_get(regra_atual, 'pontos_vice', 100),
                     help="Bônus final ao final da temporada por acertar vice"
@@ -431,7 +441,7 @@ def regra_form(regra_atual=None):
             
             with col5:
                 pontos_equipe = st.number_input(
-                    "1️⃣4️⃣ Pontos por Acertar a Equipe Campeã *",
+                    "1️⃣5️⃣ Pontos por Acertar a Equipe Campeã *",
                     min_value=0,
                     value=safe_get(regra_atual, 'pontos_equipe', 80),
                     help="Bônus final ao final da temporada por acertar equipe campeã"
@@ -480,6 +490,7 @@ def regra_form(regra_atual=None):
                     "qtd_minima_pilotos": qtd_minima_pilotos,
                     "penalidade_abandono": penalidade_abandono,
                     "pontos_penalidade": pontos_penalidade,
+                    "penalidade_auto_percent": penalidade_auto_percent,
                     "pontos_campeao": pontos_campeao,
                     "pontos_vice": pontos_vice,
                     "pontos_equipe": pontos_equipe

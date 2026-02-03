@@ -573,7 +573,9 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
 
         # Penalidade apostas automáticas consecutivas (DINÂMICA)
         if automatica >= 2:
-            pt = round(pt * 0.8, 2)
+            penalidade_auto_percent = regras.get('penalidade_auto_percent', 20)
+            fator = max(0, 1 - (float(penalidade_auto_percent) / 100))
+            pt = round(pt * fator, 2)
         
         pontos.append(pt)
     

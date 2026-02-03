@@ -146,6 +146,24 @@ def add_login_attempts_action_if_missing():
             logger.debug(f"Erro ao adicionar coluna action em login_attempts: {e}")
             conn.rollback()
 
+def add_penalidade_auto_percent_if_missing():
+    """Adiciona coluna `penalidade_auto_percent` à tabela `regras`."""
+    pool = get_pool()
+    with pool.get_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA table_info('regras')")
+            cols = [r[1] for r in cursor.fetchall()]
+            if 'penalidade_auto_percent' not in cols:
+                cursor.execute("ALTER TABLE regras ADD COLUMN penalidade_auto_percent INTEGER NOT NULL DEFAULT 20")
+                logger.info("✓ Coluna `penalidade_auto_percent` adicionada a `regras`")
+            else:
+                logger.debug("  Coluna `penalidade_auto_percent` já existe em `regras`, pulando...")
+            conn.commit()
+        except Exception as e:
+            logger.debug(f"Erro ao adicionar coluna penalidade_auto_percent: {e}")
+            conn.rollback()
+
 def create_missing_tables_if_needed():
     """
     Cria tabelas faltando se necessário (championship_bets, championship_results, log_apostas).
@@ -388,6 +406,8 @@ def run_migrations():
             add_password_reset_flag_if_missing()
             # Adicionar action nas tentativas de login
             add_login_attempts_action_if_missing()
+            # Adicionar penalidade automática percentual nas regras
+            add_penalidade_auto_percent_if_missing()
             
             # Criar índices para usuários
             for idx in INDICES.get("usuarios", []):

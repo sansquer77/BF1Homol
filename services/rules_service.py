@@ -23,6 +23,7 @@ def get_regras_aplicaveis(temporada: str, tipo_prova: str = "Normal") -> Dict:
     - qtd_minima_pilotos: Mínimo de pilotos apostados
     - penalidade_abandono: Bool - aplica penalidade
     - pontos_penalidade: Quantidade de pontos deuzidos
+    - penalidade_auto_percent: Percentual de penalidade para aposta automática (2ª+)
     - regra_sprint: Bool - regra especial para sprint
     - pontos_dobrada: Bool - sprint com 2x pontuação
     - pontos_posicoes: Lista de pontos P1-P20 (ou P1-P8 se sprint)
@@ -48,6 +49,7 @@ def get_regras_aplicaveis(temporada: str, tipo_prova: str = "Normal") -> Dict:
             "qtd_minima_pilotos": 3,
             "penalidade_abandono": False,
             "pontos_penalidade": 0,
+            "penalidade_auto_percent": 20,
             "regra_sprint": False,
             "pontos_dobrada": False,
             "pontos_campeao": 150,
@@ -77,6 +79,7 @@ def get_regras_aplicaveis(temporada: str, tipo_prova: str = "Normal") -> Dict:
         "qtd_minima_pilotos": min_pilotos,
         "penalidade_abandono": bool(regra['penalidade_abandono']),
         "pontos_penalidade": regra.get('pontos_penalidade', 0),
+        "penalidade_auto_percent": regra.get('penalidade_auto_percent', 20),
         "regra_sprint": bool(regra['regra_sprint']),
         "pontos_dobrada": bool(regra['pontos_dobrada']),
         "dobrada": bool(regra['pontos_dobrada']),  # Alias para compatibilidade
