@@ -451,13 +451,42 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     if not aposta_existente.empty:
         return False, "Já existe aposta manual para esta prova."
         
-    prova_ant_id = prova_id - 1
-    ap_ant = apostas_df[(apostas_df['usuario_id'] == usuario_id) & (apostas_df['prova_id'] == prova_ant_id)]
+    ap_ant = pd.DataFrame()
     prova_id_min = None
     try:
         prova_id_min = int(provas_df['id'].min()) if not provas_df.empty else None
     except Exception:
         prova_id_min = None
+
+    # Encontrar a prova anterior pela data/horario (na mesma temporada)
+    try:
+        provas_tmp = provas_df.copy()
+        if 'data' in provas_tmp.columns:
+            provas_tmp['__data_dt'] = pd.to_datetime(provas_tmp['data'], errors='coerce')
+        else:
+            provas_tmp['__data_dt'] = pd.NaT
+        provas_tmp['__hora_str'] = provas_tmp.get('horario_prova', '00:00')
+        provas_tmp['__hora_dt'] = pd.to_datetime(provas_tmp['__hora_str'], format='%H:%M:%S', errors='coerce')
+        provas_tmp['__hora_dt'] = provas_tmp['__hora_dt'].fillna(
+            pd.to_datetime('00:00', format='%H:%M')
+        )
+        provas_tmp['__prova_dt'] = provas_tmp['__data_dt'] + pd.to_timedelta(
+            provas_tmp['__hora_dt'].dt.hour, unit='h'
+        ) + pd.to_timedelta(provas_tmp['__hora_dt'].dt.minute, unit='m')
+        provas_tmp = provas_tmp.sort_values(['__prova_dt', 'id'])
+
+        prova_atual_row = provas_tmp[provas_tmp['id'] == prova_id]
+        if not prova_atual_row.empty:
+            prova_atual_dt = prova_atual_row.iloc[0]['__prova_dt']
+            provas_anteriores = provas_tmp[provas_tmp['__prova_dt'] < prova_atual_dt]
+            if not provas_anteriores.empty:
+                prova_ant_id = int(provas_anteriores.iloc[-1]['id'])
+                ap_ant = apostas_df[
+                    (apostas_df['usuario_id'] == usuario_id) &
+                    (apostas_df['prova_id'] == prova_ant_id)
+                ]
+    except Exception:
+        ap_ant = pd.DataFrame()
     
     pilotos_df = get_pilotos_df()
     if not pilotos_df.empty and 'status' in pilotos_df.columns:
