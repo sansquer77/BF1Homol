@@ -1,7 +1,7 @@
 import pandas as pd
 import logging
 from datetime import datetime, timezone
-from db.db_utils import db_connect
+from db.db_utils import db_connect, get_user_by_id
 from services.rules_service import get_regras_aplicaveis
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,12 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     season_val = _season_or_current(season)
     try:
+        usuario = get_user_by_id(user_id)
+        if not usuario:
+            return False
+        status_usuario = str(usuario.get('status', '')).strip().lower()
+        if status_usuario and status_usuario != 'ativo':
+            return False
         with db_connect() as conn:
             cursor = conn.cursor()
             cursor.execute(

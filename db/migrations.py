@@ -164,6 +164,46 @@ def add_penalidade_auto_percent_if_missing():
             logger.debug(f"Erro ao adicionar coluna penalidade_auto_percent: {e}")
             conn.rollback()
 
+
+def create_usuarios_status_historico_if_missing():
+    """Cria tabela de historico de status e faz backfill inicial se necessario."""
+    pool = get_pool()
+    with pool.get_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS usuarios_status_historico (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    usuario_id INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    inicio_em TIMESTAMP NOT NULL,
+                    fim_em TIMESTAMP,
+                    alterado_por INTEGER,
+                    motivo TEXT,
+                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+                )
+            ''')
+
+            # Backfill inicial para usuarios sem historico
+            cursor.execute("PRAGMA table_info('usuarios')")
+            user_cols = [r[1] for r in cursor.fetchall()]
+            created_col = 'criado_em' if 'criado_em' in user_cols else None
+            created_expr = 'criado_em' if created_col else 'CURRENT_TIMESTAMP'
+
+            cursor.execute('''
+                INSERT INTO usuarios_status_historico (usuario_id, status, inicio_em, fim_em, alterado_por, motivo)
+                SELECT u.id, u.status, {created_expr}, NULL, NULL, 'backfill'
+                FROM usuarios u
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM usuarios_status_historico h WHERE h.usuario_id = u.id
+                )
+            '''.format(created_expr=created_expr))
+
+            conn.commit()
+        except Exception as e:
+            logger.debug(f"Erro ao criar historico de status de usuarios: {e}")
+            conn.rollback()
+
 def create_missing_tables_if_needed():
     """
     Cria tabelas faltando se necessário (championship_bets, championship_results, log_apostas).
@@ -408,6 +448,8 @@ def run_migrations():
             add_login_attempts_action_if_missing()
             # Adicionar penalidade automática percentual nas regras
             add_penalidade_auto_percent_if_missing()
+            # Criar historico de status de usuarios
+            create_usuarios_status_historico_if_missing()
             
             # Criar índices para usuários
             for idx in INDICES.get("usuarios", []):

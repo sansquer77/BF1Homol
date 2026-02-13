@@ -10,7 +10,8 @@ import plotly.express as px
 from datetime import datetime as dt_datetime
 from db.db_utils import (
     db_connect,
-    get_usuarios_df
+    get_usuarios_df,
+    get_participantes_temporada_df
 )
 
 
@@ -228,7 +229,7 @@ def render_admin_panel(conn, seasons):
     st.caption("🔒 Esta área é visível apenas para usuários Master")
     
     c = conn.cursor()
-    usuarios = get_usuarios_df()
+    usuarios = get_participantes_temporada_df(str(season_year))
     
     if usuarios.empty:
         st.error("❌ Não há usuários cadastrados no sistema. Cadastre usuários primeiro na seção 'Gestão de Usuários'.")

@@ -9,7 +9,7 @@ import datetime as dt
 import ast
 from zoneinfo import ZoneInfo
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from db.db_utils import db_connect, get_usuarios_df, get_provas_df, get_apostas_df, get_resultados_df
+from db.db_utils import db_connect, get_participantes_temporada_df, get_provas_df, get_apostas_df, get_resultados_df
 from db.backup_utils import list_temporadas
 from services.championship_service import get_final_results, get_championship_bet
 from services.rules_service import get_regras_aplicaveis
@@ -41,7 +41,7 @@ def gerar_imagem_tabela_ajustada(df, colunas):
     except Exception:
         pass
     tabela = ax.table(
-        cellText=df[colunas].values,
+        cellText=df[colunas].astype(str).values.tolist(),
         colLabels=colunas,
         cellLoc='center',
         loc='center'
@@ -74,8 +74,8 @@ def gerar_imagem_prova(df_cruzada, prova_selecionada):
     except Exception:
         pass
     table = ax.table(
-        cellText=df_prova.values,
-        rowLabels=df_prova.index,
+        cellText=df_prova.astype(str).values.tolist(),
+        rowLabels=df_prova.index.astype(str).tolist(),
         colLabels=[prova_selecionada],
         cellLoc='center',
         loc='center'
@@ -139,22 +139,26 @@ def main():
     
     season = st.selectbox("Temporada", season_options, index=default_index, key="classificacao_season")
     st.session_state['temporada'] = season
+    try:
+        season_int = int(season)
+    except (TypeError, ValueError):
+        season_int = current_year
 
     try:
         atualizar_classificacoes_todas_as_provas(temporada=season)
     except Exception as e:
         st.warning(f"⚠️ Erro ao atualizar classificações: {e}")
 
-    usuarios_df = get_usuarios_df()
+    usuarios_df = get_participantes_temporada_df(season)
     provas_df = get_provas_df(season)
     apostas_df = get_apostas_df(season)
     resultados_df = get_resultados_df(season)
 
-    participantes = usuarios_df[(usuarios_df['status'] == 'Ativo') & (usuarios_df['nome'] != 'Master')]
+    participantes = usuarios_df[usuarios_df['nome'] != 'Master']
     provas_df = provas_df.sort_values('data')
     perfil_usuario = st.session_state.get("user_role", "usuario").strip().lower()
     
-    resultado_campeonato = get_final_results(season)
+    resultado_campeonato = get_final_results(season_int)
     
     tabela_classificacao = []
     tabela_detalhada = []
@@ -206,7 +210,10 @@ def main():
                 continue
             try:
                 cutoff = _parse_datetime_sp(str(data_str), str(hora_str))
-                envio = pd.to_datetime(ap.get('data_envio'), errors='coerce')
+                raw_envio = ap.get('data_envio')
+                if raw_envio is None:
+                    continue
+                envio = pd.to_datetime([str(raw_envio)], errors='coerce')[0]
                 if pd.isna(envio):
                     continue
                 envio_dt = envio.to_pydatetime()
@@ -230,7 +237,7 @@ def main():
         acertou_vice = 0
         acertou_equipe = 0
         if resultado_campeonato:
-            aposta_camp = get_championship_bet(part['id'], season)
+            aposta_camp = get_championship_bet(part['id'], season_int)
             if aposta_camp:
                 if resultado_campeonato.get("champion") == aposta_camp.get("champion"):
                     bonus_campeao = pontos_campeao
@@ -457,5 +464,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-165
-165

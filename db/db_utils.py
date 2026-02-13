@@ -263,6 +263,95 @@ def get_usuarios_df() -> pd.DataFrame:
     with db_connect() as conn:
         return pd.read_sql_query(f"SELECT {', '.join(cols)} FROM usuarios", conn)
 
+
+def _usuarios_status_historico_exists(conn) -> bool:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='usuarios_status_historico'"
+    )
+    return cursor.fetchone() is not None
+
+
+def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFrame:
+    """Retorna participantes ativos na temporada selecionada.
+
+    Se a tabela de historico de status existir, considera o status ativo no periodo.
+    Caso contrario, retorna todos os usuarios (para manter compatibilidade).
+    """
+    if temporada is None:
+        temporada = str(datetime.datetime.now().year)
+    season_start = f"{temporada}-01-01 00:00:00"
+    season_end = f"{temporada}-12-31 23:59:59"
+
+    cols = _get_existing_columns('usuarios')
+    with db_connect() as conn:
+        if not _usuarios_status_historico_exists(conn):
+            return pd.read_sql_query(f"SELECT {', '.join(cols)} FROM usuarios", conn)
+
+        query = f"""
+            SELECT DISTINCT u.{', u.'.join(cols)}
+            FROM usuarios u
+            JOIN usuarios_status_historico h ON h.usuario_id = u.id
+            WHERE h.status = 'Ativo'
+              AND datetime(h.inicio_em) <= datetime(?)
+              AND (h.fim_em IS NULL OR datetime(h.fim_em) >= datetime(?))
+        """
+        return pd.read_sql_query(query, conn, params=(season_end, season_start))
+
+
+def registrar_historico_status_usuario(
+    usuario_id: int,
+    novo_status: str,
+    alterado_por: Optional[int] = None,
+    motivo: Optional[str] = None,
+    data_referencia: Optional[str] = None,
+) -> None:
+    """Registra alteracao de status do usuario no historico.
+
+    Fecha o periodo anterior e abre um novo registro com o status informado.
+    """
+    if data_referencia is None:
+        data_referencia = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with db_connect() as conn:
+        cursor = conn.cursor()
+        if not _usuarios_status_historico_exists(conn):
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS usuarios_status_historico (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    usuario_id INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    inicio_em TIMESTAMP NOT NULL,
+                    fim_em TIMESTAMP,
+                    alterado_por INTEGER,
+                    motivo TEXT,
+                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+                )
+            ''')
+
+        cursor.execute(
+            "SELECT id, status FROM usuarios_status_historico WHERE usuario_id = ? AND fim_em IS NULL ORDER BY inicio_em DESC LIMIT 1",
+            (usuario_id,)
+        )
+        row = cursor.fetchone()
+        if row and row[1] == novo_status:
+            return
+
+        if row:
+            cursor.execute(
+                "UPDATE usuarios_status_historico SET fim_em = ? WHERE id = ?",
+                (data_referencia, row[0])
+            )
+
+        cursor.execute(
+            """
+            INSERT INTO usuarios_status_historico (usuario_id, status, inicio_em, fim_em, alterado_por, motivo)
+            VALUES (?, ?, ?, NULL, ?, ?)
+            """,
+            (usuario_id, novo_status, data_referencia, alterado_por, motivo)
+        )
+        conn.commit()
+
 def get_pilotos_df() -> pd.DataFrame:
     """Retorna todos os pilotos como DataFrame"""
     cols = _get_existing_columns('pilotos')

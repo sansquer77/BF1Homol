@@ -109,6 +109,11 @@ def salvar_aposta(
         if show_errors:
             st.error(f"Usuário não encontrado: id={usuario_id}")
         return False
+    status_usuario = str(usuario.get('status', '')).strip().lower()
+    if status_usuario and status_usuario != 'ativo':
+        if show_errors:
+            st.error("Usuário inativo não pode efetuar apostas.")
+        return False
 
     try:
         with db_connect() as conn:

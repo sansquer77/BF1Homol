@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from db.db_utils import get_usuarios_df, db_connect
+from db.db_utils import get_usuarios_df, db_connect, registrar_historico_status_usuario
 from services.auth_service import hash_password
 
 def main():
@@ -39,6 +39,7 @@ def main():
 
     with col1:
         if st.button("Atualizar usuário"):
+            status_anterior = str(user_row["status"]).strip()
             with db_connect() as conn:
                 c = conn.cursor()
                 c.execute(
@@ -46,6 +47,14 @@ def main():
                     (novo_nome, novo_email, novo_perfil, novo_status, int(user_row["id"]))
                 )
                 conn.commit()
+            if status_anterior != novo_status:
+                alterado_por = st.session_state.get("user_id")
+                registrar_historico_status_usuario(
+                    int(user_row["id"]),
+                    novo_status,
+                    alterado_por=alterado_por,
+                    motivo="gestao_usuarios"
+                )
             st.success("Usuário atualizado!")
             st.cache_data.clear()
             st.rerun()

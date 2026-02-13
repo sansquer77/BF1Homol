@@ -1,6 +1,6 @@
 import streamlit as st
 import datetime as dt
-from db.db_utils import get_usuarios_df, get_provas_df, get_apostas_df
+from db.db_utils import get_participantes_temporada_df, get_provas_df, get_apostas_df
 from db.backup_utils import list_temporadas
 from services.bets_service import gerar_aposta_automatica
 
@@ -27,10 +27,10 @@ def main():
     st.session_state["temporada"] = season
 
     # Dados filtrados por temporada
-    usuarios_df = get_usuarios_df()
+    usuarios_df = get_participantes_temporada_df(season)
     provas_df = get_provas_df(season)
     apostas_df = get_apostas_df(season)
-    participantes = usuarios_df[usuarios_df["status"] == "Ativo"].copy()
+    participantes = usuarios_df.copy()
     provas_df = provas_df.sort_values("data") if not provas_df.empty else provas_df
 
     st.markdown("### Apostas dos Participantes")
