@@ -159,6 +159,36 @@ def salvar_aposta(
                 # Aposta tardia não salva quando não permitido
                 if show_errors:
                     st.error("Aposta fora do horário limite.")
+                try:
+                    tentativa_str = agora_sp.strftime('%d/%m/%Y %H:%M:%S')
+                    limite_str = horario_limite.strftime('%d/%m/%Y %H:%M:%S')
+                    corpo_email = (
+                        f"<p>Olá {html.escape(usuario['nome'])},</p>"
+                        f"<p>Sua aposta para a prova <b>{html.escape(nome_prova_bd)}</b> não foi efetivada.</p>"
+                        "<p><b>Motivo:</b> prazo encerrado (aposta fora do horário limite).</p>"
+                        f"<p><b>Horário limite:</b> {limite_str} (America/Sao_Paulo)</p>"
+                        f"<p><b>Horário da tentativa:</b> {tentativa_str} (America/Sao_Paulo)</p>"
+                        "<p>Se precisar de ajuda, fale com a administração.</p>"
+                    )
+                    enviar_email(usuario['email'], f"Aposta não efetivada - {nome_prova_bd}", corpo_email)
+                except Exception as e:
+                    logger.warning(f"Falha ao enviar email de aposta rejeitada para {usuario.get('email')}: {e}")
+                try:
+                    registrar_log_aposta(
+                        usuario_id=usuario_id,
+                        prova_id=prova_id,
+                        apostador=usuario['nome'],
+                        pilotos=dados_pilotos,
+                        aposta=dados_fichas,
+                        nome_prova=nome_prova_bd,
+                        piloto_11=piloto_11,
+                        tipo_aposta=tipo_aposta,
+                        automatica=automatica,
+                        horario=agora_sp,
+                        temporada=temporada
+                    )
+                except Exception as e:
+                    logger.warning(f"Falha ao registrar log de aposta rejeitada para {usuario.get('email')}: {e}")
                 return False
             conn.commit()
 

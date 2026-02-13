@@ -427,6 +427,8 @@ def registrar_log_aposta(*args, **kwargs):
         automatica = kwargs.get('automatica')
         horario = kwargs.get('horario')
         temporada = kwargs.get('temporada', str(datetime.datetime.now().year))
+        usuario_id = kwargs.get('usuario_id')
+        prova_id = kwargs.get('prova_id')
 
         # Derivar data/horario strings
         data_str = None
@@ -467,16 +469,29 @@ def registrar_log_aposta(*args, **kwargs):
             # Check if temporada column exists
             c.execute("PRAGMA table_info('log_apostas')")
             cols = [r[1] for r in c.fetchall()]
+            insert_cols = [
+                'apostador', 'aposta', 'nome_prova', 'pilotos', 'piloto_11',
+                'tipo_aposta', 'automatica', 'data', 'horario'
+            ]
+            insert_vals = [
+                apostador, aposta, nome_prova, pilotos, piloto_11,
+                tipo_aposta, automatica, data_str, horario_str
+            ]
+            if 'usuario_id' in cols:
+                insert_cols.insert(0, 'usuario_id')
+                insert_vals.insert(0, usuario_id)
+            if 'prova_id' in cols:
+                insert_cols.insert(1, 'prova_id')
+                insert_vals.insert(1, prova_id)
             if 'temporada' in cols:
-                c.execute(
-                    'INSERT INTO log_apostas (apostador, aposta, nome_prova, pilotos, piloto_11, tipo_aposta, automatica, data, horario, temporada) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    (apostador, aposta, nome_prova, pilotos, piloto_11, tipo_aposta, automatica, data_str, horario_str, temporada)
-                )
-            else:
-                c.execute(
-                    'INSERT INTO log_apostas (apostador, aposta, nome_prova, pilotos, piloto_11, tipo_aposta, automatica, horario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                    (apostador, aposta, nome_prova, pilotos, piloto_11, tipo_aposta, automatica, horario_str)
-                )
+                insert_cols.append('temporada')
+                insert_vals.append(temporada)
+            placeholders = ', '.join(['?'] * len(insert_cols))
+            cols_sql = ', '.join(insert_cols)
+            c.execute(
+                f'INSERT INTO log_apostas ({cols_sql}) VALUES ({placeholders})',
+                tuple(insert_vals)
+            )
             conn.commit()
             logger.info(f"✓ Aposta log registrada (log_apostas): {apostador} - {nome_prova}")
         return

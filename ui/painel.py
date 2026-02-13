@@ -235,12 +235,13 @@ def participante_view():
                         else:
                             if "aposta_erros" in st.session_state:
                                 del st.session_state["aposta_erros"]
-                            salvar_aposta(
+                            ok = salvar_aposta(
                                 user['id'], prova_id, pilotos_validos,
                                 fichas_validas, piloto_11, nome_prova, automatica=0, temporada=temporada
                             )
-                            st.success("Aposta registrada/atualizada!")
-                            st.rerun()
+                            if ok:
+                                st.success("Aposta registrada/atualizada!")
+                                st.rerun()
                 else:
                     st.warning("Administração deve cadastrar provas e pilotos antes das apostas.")
             else:

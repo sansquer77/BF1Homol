@@ -228,6 +228,21 @@ def render_admin_panel(conn, seasons):
     st.header("⚙️ Administração - Gestão de Resultados")
     st.caption("🔒 Esta área é visível apenas para usuários Master")
     
+    if 'hall_fama_season' not in st.session_state:
+        st.session_state.hall_fama_season = dt_datetime.now().year
+
+    # Season selector (shared by both tabs)
+    col_season = st.columns(1)[0]
+    season_year = st.number_input(
+        "📅 Ano/Temporada *",
+        min_value=1990,
+        max_value=dt_datetime.now().year + 1,
+        value=st.session_state.hall_fama_season,
+        key="hall_fama_season_input",
+        help="Digite o ano da temporada (ex: 2024)"
+    )
+    st.session_state.hall_fama_season = season_year
+
     c = conn.cursor()
     usuarios = get_participantes_temporada_df(str(season_year))
     
@@ -246,21 +261,6 @@ def render_admin_panel(conn, seasons):
         # Initialize session state for dynamic rows
         if 'hall_fama_rows' not in st.session_state:
             st.session_state.hall_fama_rows = [{'user': None, 'position': None}] * 3
-        
-        if 'hall_fama_season' not in st.session_state:
-            st.session_state.hall_fama_season = dt_datetime.now().year
-        
-        # Season selector
-        col_season = st.columns(1)[0]
-        season_year = st.number_input(
-            "📅 Ano/Temporada *",
-            min_value=1990,
-            max_value=dt_datetime.now().year + 1,
-            value=st.session_state.hall_fama_season,
-            key="hall_fama_season_input",
-            help="Digite o ano da temporada (ex: 2024)"
-        )
-        st.session_state.hall_fama_season = season_year
         
         st.write("**Participantes e Posições:**")
         st.write("*Preencha quantas linhas forem necessárias. Novas linhas aparecerão automaticamente.*")
