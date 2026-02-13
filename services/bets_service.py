@@ -453,6 +453,11 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         
     prova_ant_id = prova_id - 1
     ap_ant = apostas_df[(apostas_df['usuario_id'] == usuario_id) & (apostas_df['prova_id'] == prova_ant_id)]
+    prova_id_min = None
+    try:
+        prova_id_min = int(provas_df['id'].min()) if not provas_df.empty else None
+    except Exception:
+        prova_id_min = None
     
     pilotos_df = get_pilotos_df()
     if not pilotos_df.empty and 'status' in pilotos_df.columns:
@@ -471,7 +476,9 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         else:
             pilotos_ant, fichas_ant = pilotos_aj, fichas_aj
     else:
-        # Gerar aposta aleatória respeitando regras da temporada e tipo da prova
+        # Gerar aleatoria apenas na primeira prova do campeonato
+        if prova_id_min is not None and prova_id != prova_id_min:
+            return False, "Sem aposta anterior para copiar. Gere apenas na primeira prova."
         pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria_com_regras(pilotos_df, regras)
         
     if not pilotos_ant:

@@ -22,6 +22,49 @@ def _get_participantes_temporada(temporada: str | None = None) -> pd.DataFrame:
     return participantes_df
 
 
+def _get_log_apostas_df(
+    conn,
+    temporada: str | None,
+    participantes_ids: list[int],
+    participantes_nomes: list[str],
+    campos: list[str]
+) -> pd.DataFrame:
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info('log_apostas')")
+    cols = [r[1] for r in cursor.fetchall()]
+    if not cols:
+        return pd.DataFrame()
+
+    conditions = ["tipo_aposta = 0"]
+    params: list = []
+
+    if temporada and 'temporada' in cols:
+        conditions.append("temporada = ?")
+        params.append(temporada)
+
+    id_placeholders = ','.join(['?'] * len(participantes_ids)) if participantes_ids else ''
+    nome_placeholders = ','.join(['?'] * len(participantes_nomes)) if participantes_nomes else ''
+
+    if participantes_ids and 'usuario_id' in cols and participantes_nomes and 'apostador' in cols:
+        conditions.append(f"(usuario_id IN ({id_placeholders}) OR apostador IN ({nome_placeholders}))")
+        params.extend(participantes_ids)
+        params.extend(participantes_nomes)
+    elif participantes_ids and 'usuario_id' in cols:
+        conditions.append(f"usuario_id IN ({id_placeholders})")
+        params.extend(participantes_ids)
+    elif participantes_nomes and 'apostador' in cols:
+        conditions.append(f"apostador IN ({nome_placeholders})")
+        params.extend(participantes_nomes)
+
+    if not conditions:
+        return pd.DataFrame()
+
+    select_cols = ', '.join(campos)
+    where_sql = ' AND '.join(conditions)
+    query = f"SELECT {select_cols} FROM log_apostas WHERE {where_sql}"
+    return pd.read_sql(query, conn, params=tuple(params))
+
+
 def get_apostas_por_piloto(temporada: str | None = None, participantes_df: pd.DataFrame | None = None):
     """
     Agrupa apostas por participante e piloto para análise da distribuição de apostas.
@@ -33,6 +76,7 @@ def get_apostas_por_piloto(temporada: str | None = None, participantes_df: pd.Da
         if participantes_df.empty:
             return pd.DataFrame()
         participantes_ids = participantes_df['id'].astype(int).tolist()
+        participantes_nomes = participantes_df['nome'].astype(str).tolist()
 
         with db_connect() as conn:
             c = conn.cursor()
@@ -55,6 +99,14 @@ def get_apostas_por_piloto(temporada: str | None = None, participantes_df: pd.Da
                     WHERE a.usuario_id IN ({})
                 '''
                 df = pd.read_sql(query.format(placeholders), conn, params=tuple(participantes_ids))
+            if df.empty:
+                df = _get_log_apostas_df(
+                    conn,
+                    temporada,
+                    participantes_ids,
+                    participantes_nomes,
+                    ['apostador AS participante', 'pilotos']
+                )
             if not df.empty and 'pilotos' in df.columns:
                 df['piloto'] = df['pilotos'].str.split(',')
                 df = df.explode('piloto')
@@ -77,6 +129,7 @@ def get_distribuicao_piloto_11(temporada: str | None = None, participantes_df: p
         if participantes_df.empty:
             return pd.DataFrame()
         participantes_ids = participantes_df['id'].astype(int).tolist()
+        participantes_nomes = participantes_df['nome'].astype(str).tolist()
 
         with db_connect() as conn:
             c = conn.cursor()
@@ -101,6 +154,14 @@ def get_distribuicao_piloto_11(temporada: str | None = None, participantes_df: p
                     AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
                 '''
                 df = pd.read_sql(query.format(placeholders), conn, params=tuple(participantes_ids))
+            if df.empty:
+                df = _get_log_apostas_df(
+                    conn,
+                    temporada,
+                    participantes_ids,
+                    participantes_nomes,
+                    ['apostador AS participante', 'piloto_11']
+                )
     except Exception as e:
         st.error(f"Erro ao buscar distribuição do 11º colocado: {str(e)}")
         df = pd.DataFrame()
