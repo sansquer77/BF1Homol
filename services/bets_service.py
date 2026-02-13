@@ -185,7 +185,8 @@ def salvar_aposta(
                         tipo_aposta=tipo_aposta,
                         automatica=automatica,
                         horario=agora_sp,
-                        temporada=temporada
+                        temporada=temporada,
+                        status='Rejeitada'
                     )
                 except Exception as e:
                     logger.warning(f"Falha ao registrar log de aposta rejeitada para {usuario.get('email')}: {e}")
@@ -226,6 +227,8 @@ def salvar_aposta(
         return False
 
     registrar_log_aposta(
+        usuario_id=usuario_id,
+        prova_id=prova_id,
         apostador=usuario['nome'],
         pilotos=dados_pilotos,
         aposta=dados_fichas,
@@ -234,7 +237,8 @@ def salvar_aposta(
         tipo_aposta=tipo_aposta,
         automatica=automatica,
         horario=agora_sp,
-        temporada=temporada
+        temporada=temporada,
+        status='Registrada'
     )
     return True
 
@@ -465,14 +469,18 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
             provas_tmp['__data_dt'] = pd.to_datetime(provas_tmp['data'], errors='coerce')
         else:
             provas_tmp['__data_dt'] = pd.NaT
-        provas_tmp['__hora_str'] = provas_tmp.get('horario_prova', '00:00')
+        provas_tmp['__hora_str'] = provas_tmp.get('horario_prova', '00:00:00')
         provas_tmp['__hora_dt'] = pd.to_datetime(provas_tmp['__hora_str'], format='%H:%M:%S', errors='coerce')
         provas_tmp['__hora_dt'] = provas_tmp['__hora_dt'].fillna(
-            pd.to_datetime('00:00', format='%H:%M')
+            pd.to_datetime('00:00:00', format='%H:%M:%S')
         )
         provas_tmp['__prova_dt'] = provas_tmp['__data_dt'] + pd.to_timedelta(
             provas_tmp['__hora_dt'].dt.hour, unit='h'
-        ) + pd.to_timedelta(provas_tmp['__hora_dt'].dt.minute, unit='m')
+        ) + pd.to_timedelta(
+            provas_tmp['__hora_dt'].dt.minute, unit='m'
+        ) + pd.to_timedelta(
+            provas_tmp['__hora_dt'].dt.second, unit='s'
+        )
         provas_tmp = provas_tmp.sort_values(['__prova_dt', 'id'])
 
         prova_atual_row = provas_tmp[provas_tmp['id'] == prova_id]
@@ -487,6 +495,19 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
                 ]
     except Exception:
         ap_ant = pd.DataFrame()
+
+    if ap_ant.empty:
+        try:
+            provas_sorted = provas_df.sort_values('id')
+            prev_rows = provas_sorted[provas_sorted['id'] < prova_id]
+            if not prev_rows.empty:
+                prova_ant_id = int(prev_rows.iloc[-1]['id'])
+                ap_ant = apostas_df[
+                    (apostas_df['usuario_id'] == usuario_id) &
+                    (apostas_df['prova_id'] == prova_ant_id)
+                ]
+        except Exception:
+            ap_ant = pd.DataFrame()
     
     pilotos_df = get_pilotos_df()
     if not pilotos_df.empty and 'status' in pilotos_df.columns:

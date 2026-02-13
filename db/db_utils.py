@@ -427,6 +427,7 @@ def registrar_log_aposta(*args, **kwargs):
         automatica = kwargs.get('automatica')
         horario = kwargs.get('horario')
         temporada = kwargs.get('temporada', str(datetime.datetime.now().year))
+        status = kwargs.get('status', 'Registrada')
         usuario_id = kwargs.get('usuario_id')
         prova_id = kwargs.get('prova_id')
 
@@ -486,6 +487,9 @@ def registrar_log_aposta(*args, **kwargs):
             if 'temporada' in cols:
                 insert_cols.append('temporada')
                 insert_vals.append(temporada)
+            if 'status' in cols:
+                insert_cols.append('status')
+                insert_vals.append(status)
             placeholders = ', '.join(['?'] * len(insert_cols))
             cols_sql = ', '.join(insert_cols)
             c.execute(
