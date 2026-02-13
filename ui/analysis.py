@@ -1,35 +1,60 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from db.db_utils import db_connect, get_provas_df, get_apostas_df, get_resultados_df
+from db.db_utils import (
+    db_connect,
+    get_provas_df,
+    get_apostas_df,
+    get_resultados_df,
+    get_participantes_temporada_df
+)
 from db.backup_utils import list_temporadas
 from services.rules_service import get_regras_aplicaveis
 
-def get_apostas_por_piloto(temporada: str | None = None):
+def _get_participantes_temporada(temporada: str | None = None) -> pd.DataFrame:
+    participantes_df = get_participantes_temporada_df(temporada)
+    if participantes_df.empty:
+        return participantes_df
+    if 'perfil' in participantes_df.columns:
+        participantes_df = participantes_df[participantes_df['perfil'].str.lower() != 'master']
+    else:
+        participantes_df = participantes_df[participantes_df['nome'] != 'Master']
+    return participantes_df
+
+
+def get_apostas_por_piloto(temporada: str | None = None, participantes_df: pd.DataFrame | None = None):
     """
     Agrupa apostas por participante e piloto para análise da distribuição de apostas.
     Retorna DataFrame: participante | piloto | total_apostas
     """
     try:
+        if participantes_df is None:
+            participantes_df = _get_participantes_temporada(temporada)
+        if participantes_df.empty:
+            return pd.DataFrame()
+        participantes_ids = participantes_df['id'].astype(int).tolist()
+
         with db_connect() as conn:
             c = conn.cursor()
             c.execute("PRAGMA table_info('apostas')")
             cols = [r[1] for r in c.fetchall()]
+            placeholders = ','.join(['?'] * len(participantes_ids))
             if temporada and 'temporada' in cols:
                 query = '''
                     SELECT u.nome AS participante, a.pilotos
                     FROM apostas a
                     JOIN usuarios u ON a.usuario_id = u.id
-                    WHERE a.temporada = ? OR a.temporada IS NULL
+                    WHERE a.usuario_id IN ({}) AND a.temporada = ?
                 '''
-                df = pd.read_sql(query, conn, params=(temporada,))
+                df = pd.read_sql(query.format(placeholders), conn, params=(*participantes_ids, temporada))
             else:
                 query = '''
                     SELECT u.nome AS participante, a.pilotos
                     FROM apostas a
                     JOIN usuarios u ON a.usuario_id = u.id
+                    WHERE a.usuario_id IN ({})
                 '''
-                df = pd.read_sql(query, conn)
+                df = pd.read_sql(query.format(placeholders), conn, params=tuple(participantes_ids))
             if not df.empty and 'pilotos' in df.columns:
                 df['piloto'] = df['pilotos'].str.split(',')
                 df = df.explode('piloto')
@@ -41,33 +66,41 @@ def get_apostas_por_piloto(temporada: str | None = None):
         df = pd.DataFrame()
     return df
 
-def get_distribuicao_piloto_11(temporada: str | None = None):
+def get_distribuicao_piloto_11(temporada: str | None = None, participantes_df: pd.DataFrame | None = None):
     """
     Distribuição de apostas para o 11º colocado por participante.
     Retorna DataFrame: participante | piloto_11
     """
     try:
+        if participantes_df is None:
+            participantes_df = _get_participantes_temporada(temporada)
+        if participantes_df.empty:
+            return pd.DataFrame()
+        participantes_ids = participantes_df['id'].astype(int).tolist()
+
         with db_connect() as conn:
             c = conn.cursor()
             c.execute("PRAGMA table_info('apostas')")
             cols = [r[1] for r in c.fetchall()]
+            placeholders = ','.join(['?'] * len(participantes_ids))
             if temporada and 'temporada' in cols:
                 query = '''
                     SELECT u.nome AS participante, a.piloto_11 AS piloto_11
                     FROM apostas a
                     JOIN usuarios u ON a.usuario_id = u.id
-                    WHERE (a.temporada = ? OR a.temporada IS NULL)
+                    WHERE a.usuario_id IN ({}) AND a.temporada = ?
                     AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
                 '''
-                df = pd.read_sql(query, conn, params=(temporada,))
+                df = pd.read_sql(query.format(placeholders), conn, params=(*participantes_ids, temporada))
             else:
                 query = '''
                     SELECT u.nome AS participante, a.piloto_11 AS piloto_11
                     FROM apostas a
                     JOIN usuarios u ON a.usuario_id = u.id
-                    WHERE a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
+                    WHERE a.usuario_id IN ({})
+                    AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
                 '''
-                df = pd.read_sql(query, conn)
+                df = pd.read_sql(query.format(placeholders), conn, params=tuple(participantes_ids))
     except Exception as e:
         st.error(f"Erro ao buscar distribuição do 11º colocado: {str(e)}")
         df = pd.DataFrame()
@@ -85,9 +118,10 @@ def main():
         import datetime as dt
         season_options = [str(dt.datetime.now().year)]
     season = st.selectbox("Temporada", season_options, key="analysis_season")
+    participantes_df = _get_participantes_temporada(season)
 
-    apostas_pilotos = get_apostas_por_piloto(season)
-    df_11 = get_distribuicao_piloto_11(season)
+    apostas_pilotos = get_apostas_por_piloto(season, participantes_df)
+    df_11 = get_distribuicao_piloto_11(season, participantes_df)
 
     if apostas_pilotos.empty and df_11.empty:
         st.info("Ainda não há apostas cadastradas para análise.")
@@ -164,6 +198,8 @@ def main():
         provas_df = get_provas_df(season)
         resultados_df = get_resultados_df(season)
         apostas_df = get_apostas_df(season)
+        if not apostas_df.empty and 'temporada' in apostas_df.columns:
+            apostas_df = apostas_df[apostas_df['temporada'] == season]
         if provas_df.empty:
             st.info("Nenhuma prova cadastrada para a temporada selecionada.")
         else:

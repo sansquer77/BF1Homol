@@ -240,6 +240,8 @@ def salvar_aposta(
 
 def gerar_aposta_aleatoria(pilotos_df):
     import random
+    if not pilotos_df.empty and 'status' in pilotos_df.columns:
+        pilotos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
     equipes_unicas = [e for e in pilotos_df['equipe'].unique().tolist() if e]
     if len(equipes_unicas) < 3 or pilotos_df.empty:
         return [], [], None
@@ -277,6 +279,8 @@ def gerar_aposta_aleatoria_com_regras(pilotos_df, regras: dict):
     """
     import random
     import math
+    if not pilotos_df.empty and 'status' in pilotos_df.columns:
+        pilotos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
     if pilotos_df.empty:
         return [], [], None
     equipes_unicas = [e for e in pilotos_df['equipe'].unique().tolist() if e]
@@ -450,21 +454,25 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     prova_ant_id = prova_id - 1
     ap_ant = apostas_df[(apostas_df['usuario_id'] == usuario_id) & (apostas_df['prova_id'] == prova_ant_id)]
     
+    pilotos_df = get_pilotos_df()
+    if not pilotos_df.empty and 'status' in pilotos_df.columns:
+        pilotos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
+
     if not ap_ant.empty:
         ap_ant = ap_ant.iloc[0]
         pilotos_ant = [p.strip() for p in ap_ant['pilotos'].split(",")]
         fichas_ant = list(map(int, ap_ant['fichas'].split(",")))
         piloto_11_ant = ap_ant['piloto_11'].strip()
         # Ajustar aposta copiada para obedecer regras da prova atual (ex.: Sprint x Normal)
-        pilotos_aj, fichas_aj = ajustar_aposta_para_regras(pilotos_ant, fichas_ant, regras, get_pilotos_df())
+        pilotos_aj, fichas_aj = ajustar_aposta_para_regras(pilotos_ant, fichas_ant, regras, pilotos_df)
         if not pilotos_aj:
             # Se não conseguir ajustar, gera aleatória com regras
-            pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria_com_regras(get_pilotos_df(), regras)
+            pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria_com_regras(pilotos_df, regras)
         else:
             pilotos_ant, fichas_ant = pilotos_aj, fichas_aj
     else:
         # Gerar aposta aleatória respeitando regras da temporada e tipo da prova
-        pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria_com_regras(get_pilotos_df(), regras)
+        pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria_com_regras(pilotos_df, regras)
         
     if not pilotos_ant:
         return False, "Não há dados válidos para gerar aposta automática."
