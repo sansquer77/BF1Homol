@@ -40,7 +40,7 @@ def main():
 
     ### ☁️ Infraestrutura
 
-    O BF1 está hospedado em ambiente cloud, utilizando serviços como Digital Ocean para performance, redundância e automação de backups.
+    O BF1 está hospedado em ambiente cloud, e serveless utilizando serviços como Digital Ocean para performance, redundância e automação de backups.
 
     ---
     <small>Versão atual: 3.0-2026. Todos os direitos reservados.</small>
