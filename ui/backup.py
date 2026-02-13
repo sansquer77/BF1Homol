@@ -2,6 +2,11 @@ import streamlit as st
 from db.backup_utils import download_db, upload_db, download_tabela, upload_tabela, create_next_temporada, list_temporadas
 
 def main():
+    perfil = st.session_state.get("user_role", "participante")
+    if perfil != "master":
+        st.warning("Acesso restrito ao usuário master.")
+        return
+
     st.title("💾 Backup e Restauração do Banco de Dados BF1")
     st.markdown("""
     Com este painel, você pode:

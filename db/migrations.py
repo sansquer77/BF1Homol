@@ -184,6 +184,16 @@ def create_usuarios_status_historico_if_missing():
                 )
             ''')
 
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ush_usuario_id ON usuarios_status_historico(usuario_id)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ush_status ON usuarios_status_historico(status)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ush_periodo ON usuarios_status_historico(inicio_em, fim_em)"
+            )
+
             # Backfill inicial para usuarios sem historico
             cursor.execute("PRAGMA table_info('usuarios')")
             user_cols = [r[1] for r in cursor.fetchall()]

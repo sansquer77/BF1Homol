@@ -10,8 +10,16 @@ from datetime import datetime
 from db.db_utils import db_connect
 from db.db_config import DB_PATH  # Importar caminho correto do banco
 
+
+def _require_master_access():
+    perfil = st.session_state.get("user_role", "participante")
+    if perfil != "master":
+        st.warning("Acesso restrito ao usuário master.")
+        st.stop()
+
 def download_db():
     """Permite fazer o download do arquivo inteiro do banco de dados SQLite (versão limpa e consolidada)."""
+    _require_master_access()
     if DB_PATH.exists():
         import tempfile
         
@@ -82,6 +90,7 @@ def download_db():
 
 def upload_db():
     """Permite upload de um novo arquivo .db ou .sql, substituindo o banco atual."""
+    _require_master_access()
     
     # Mostrar mensagem de sucesso se houver importação recente
     if 'import_success' in st.session_state:
@@ -488,6 +497,7 @@ def exportar_tabela_excel(tabela):
 
 def download_tabela():
     """Interface para download de tabela específica."""
+    _require_master_access()
     tabelas = listar_tabelas()
     
     if not tabelas:
@@ -514,6 +524,7 @@ def download_tabela():
 
 def upload_tabela():
     """Interface para upload/importação de tabela específica."""
+    _require_master_access()
     tabelas = listar_tabelas()
     
     if not tabelas:
@@ -607,7 +618,14 @@ def upload_tabela():
                 
                 # Inserir novos dados
                 cursor.execute("BEGIN IMMEDIATE")
-                df_alinhado.to_sql(tabela, conn, if_exists='append', index=False, method='multi')
+                df_alinhado.to_sql(
+                    tabela,
+                    conn,
+                    if_exists='append',
+                    index=False,
+                    method='multi',
+                    chunksize=500
+                )
                 conn.commit()  # Commit do INSERT
                 
                 count_after_insert = cursor.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
