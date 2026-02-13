@@ -563,6 +563,7 @@ def upload_tabela():
                     conn.close()
                     raise ValueError(f"Tabela '{tabela}' não encontrada no banco.")
                 db_cols = [r[1] for r in cols_info]
+                db_col_types = {r[1]: (r[2] or '').upper() for r in cols_info}
 
                 missing_cols = [c for c in db_cols if c not in df.columns]
                 extra_cols = [c for c in df.columns if c not in db_cols]
@@ -571,7 +572,28 @@ def upload_tabela():
                     raise ValueError(f"Colunas faltantes no Excel: {missing_cols}")
                 if extra_cols:
                     st.info(f"ℹ️ Colunas extras no Excel serão ignoradas: {extra_cols}")
-                df_alinhado = df[db_cols]
+                df_alinhado = df[db_cols].copy()
+
+                # Coerce types to avoid SQLite datatype mismatch
+                for col_name in db_cols:
+                    col_type = db_col_types.get(col_name, '')
+                    series = df_alinhado[col_name]
+
+                    if "INT" in col_type or "BOOL" in col_type:
+                        coerced = pd.to_numeric(series, errors='coerce').astype('Int64')
+                        df_alinhado[col_name] = coerced.where(~coerced.isna(), None)
+                        continue
+                    if any(t in col_type for t in ["REAL", "FLOA", "DOUB", "NUM", "DEC"]):
+                        coerced = pd.to_numeric(series, errors='coerce')
+                        df_alinhado[col_name] = coerced.where(~coerced.isna(), None)
+                        continue
+                    if any(t in col_type for t in ["DATE", "TIME"]):
+                        coerced = pd.to_datetime(series, errors='coerce', dayfirst=True)
+                        formatted = coerced.dt.strftime('%Y-%m-%d %H:%M:%S')
+                        df_alinhado[col_name] = formatted.where(coerced.notna(), None)
+                        continue
+
+                df_alinhado = df_alinhado.where(pd.notnull(df_alinhado), None)
 
                 # Contar registros atuais antes de deletar
                 count_before = cursor.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]
