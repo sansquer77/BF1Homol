@@ -8,7 +8,7 @@ from db.db_utils import (
     db_connect, get_user_by_id, get_provas_df, get_pilotos_df, get_apostas_df, get_resultados_df,
     update_user_email, update_user_password, get_user_by_email
 )
-from services.bets_service import salvar_aposta, calcular_pontuacao_lote
+from services.bets_service import salvar_aposta, calcular_pontuacao_lote, gerar_aposta_sem_ideias
 from services.auth_service import check_password, hash_password
 from services.rules_service import get_regras_aplicaveis
 from db.backup_utils import list_temporadas
@@ -122,7 +122,7 @@ def participante_view():
 
             if user['status'] == "Ativo":
                 if len(provas) > 0 and len(pilotos_df) > 2:
-                    col_sel, col_btn = st.columns([4, 1])
+                    col_sel, col_btn, col_sem_ideias = st.columns([4, 1, 1])
                     with col_sel:
                         prova_id = st.selectbox(
                             "Escolha a prova",
@@ -138,6 +138,20 @@ def participante_view():
                             tipo_sel = 'Sprint' if str(tipo_raw).strip().lower() == 'sprint' or 'sprint' in str(prova_nome_sel).lower() else 'Normal'
                             regras_sel = get_regras_aplicaveis(temporada, tipo_sel)
                             _mostrar_regras_dialog(regras_sel, temporada, tipo_sel)
+                    with col_sem_ideias:
+                        if st.button("Sem ideias", width="stretch"):
+                            nome_prova_sem_ideias = provas[provas['id'] == prova_id]['nome'].values[0]
+                            ok_auto, msg_auto = gerar_aposta_sem_ideias(
+                                usuario_id=user['id'],
+                                prova_id=prova_id,
+                                nome_prova=nome_prova_sem_ideias,
+                                temporada=temporada,
+                            )
+                            if ok_auto:
+                                st.success(msg_auto)
+                                st.rerun()
+                            else:
+                                st.error(msg_auto)
                     nome_prova = provas[provas['id'] == prova_id]['nome'].values[0]
                     tipo_raw = provas[provas['id'] == prova_id]['tipo'].values[0] if not provas[provas['id'] == prova_id].empty else 'Normal'
                     tipo_prova = 'Sprint' if str(tipo_raw).strip().lower() == 'sprint' or 'sprint' in str(nome_prova).lower() else 'Normal'
