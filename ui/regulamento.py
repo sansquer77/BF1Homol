@@ -18,7 +18,7 @@ O BF1-2026 terá início, oficialmente, em 08 de março, no dia do GP da Austrá
 **Apostas dos Participantes**
 - As apostas devem ser efetuadas até o horário oficial da prova e que está programado dentro do app.
 - O app tem log e timestamp de todas as apostas efetuadas, além de enviar confirmação por e-mail.
-- O participante pode enviar quantas apostas quiser até o horário limite, sendo válida a última enviada.  
+- O participante pode enviar quantas apostas quiser, sendo válida a última enviada até o horário limite.  
 - Apostas registradas após o horário da largada, por exemplo 09:01 sendo a corrida às 09h, serão desconsideradas (E isso fica logado)  
 - Os horários das corridas deste ano estão listados no menu - Calendário 2026.
 
@@ -34,13 +34,13 @@ O BF1-2026 terá início, oficialmente, em 08 de março, no dia do GP da Austrá
 
 **Aposta de Corrida**
 - Cada participante possui 15 (quinze) fichas para serem apostadas a cada corrida:
-    - A aposta deve conter no mínimo 5 pilotos de equipes diferentes (apostou no Hamilton, não pode apostar também no Leclerc).
+    - A aposta deve conter no mínimo 5 pilotos de equipes diferentes (apostou no Hamilton, não pode apostar no Leclerc).
     - Limite de 5 fichas por piloto.
-    - As corridas Sprint seguem a mesma regra e são consideradas provas válidas, mas terão a pontuação dobrada.
+    - As corridas Sprint seguem a mesma regra e são consideradas provas válidas e terão a pontuação dobrada.
     - Deve ser indicado o piloto que irá chegar em 11º lugar em todas as provas; em caso de acerto, serão computados 50 pontos extras.
     - Caso o piloto apostado não termine a prova, o participante receberá uma punição de 10 pontos por piloto, que serão descontados da pontuação total do participante.      
 - A pontuação do participante será a multiplicação das fichas apostadas em cada piloto pelo número de pontos que ele obteve na prova (fichas x pontos) mais a pontuação do 11º lugar e menos as punições por não terminar a prova.
-- As apostas e apurações ficam neste sistema, sendo o placar atualizado publicado no grupo e WhatsApp após as corridas.
+- As apostas e apurações ficam neste sistema, sendo o placar atualizado publicado no grupo do WhatsApp após as corridas.
 
 **Regra de Descarte**
 - Ao final do campeonato, cada participante terá o direito de descartar a pontuação de sua pior corrida, ou seja, aquela em que obteve a menor pontuação.

@@ -4,7 +4,8 @@ from services.championship_service import (
     save_championship_bet,
     get_championship_bet,
     get_championship_bet_log,
-    get_championship_bets_df
+    get_championship_bets_df,
+    can_place_championship_bet
 )
 from db.db_utils import get_pilotos_df, get_usuarios_df
 from db.backup_utils import list_temporadas
@@ -52,6 +53,14 @@ def main():
 
     st.subheader(f"Faça sua aposta para o Campeonato {temporada_int}")
 
+    pode_apostar, msg_prazo, deadline = can_place_championship_bet(temporada_int)
+    if deadline is not None:
+        st.caption(f"Prazo: {deadline.strftime('%d/%m/%Y %H:%M:%S')} (SP)")
+    if not pode_apostar:
+        st.error(msg_prazo)
+    else:
+        st.info(msg_prazo)
+
     with st.form("form_aposta_campeonato"):
         champion = st.selectbox(
             "Piloto Campeão",
@@ -68,7 +77,7 @@ def main():
             equipes,
             index=equipes.index(aposta_atual["team"]) if aposta_atual else 0
         )
-        submitted = st.form_submit_button("Salvar aposta")
+        submitted = st.form_submit_button("Salvar aposta", disabled=not pode_apostar)
 
         if submitted:
             if not champion or not vice or not team:
