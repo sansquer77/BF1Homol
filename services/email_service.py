@@ -4,6 +4,8 @@ import os
 import logging
 import html
 import httpx
+import hashlib
+import random
 from typing import Optional
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -42,6 +44,31 @@ EMAIL_ADMIN: str = EMAIL_ADMIN_RAW or os.environ.get("EMAIL_ADMIN", "")
 PERPLEXITY_API_KEY: str = PERPLEXITY_API_KEY_RAW or os.environ.get("PERPLEXITY_API_KEY", "")
 PERPLEXITY_MODEL: str = PERPLEXITY_MODEL_RAW or os.environ.get("PERPLEXITY_MODEL", "sonar")
 
+
+def _gerar_previsao_fallback(nome_usuario: str, nome_prova: str, pilotos: list[str], fichas: list[int], piloto_11: str) -> str:
+    """Gera previsão local quando a API externa não estiver disponível."""
+    pilotos_fmt = ", ".join([p for p in pilotos if p])
+    fichas_fmt = ", ".join([str(f) for f in fichas])
+    assinatura = f"{nome_usuario}|{nome_prova}|{pilotos_fmt}|{fichas_fmt}|{piloto_11}"
+    seed = int(hashlib.sha256(assinatura.encode("utf-8")).hexdigest()[:8], 16)
+    rng = random.Random(seed)
+
+    modelos = [
+        "{nome}, essa aposta para {prova} está com cara de gênio incompreendido: {pilotos}. Se der certo, vai ter discurso; se der errado, vai culpar a aerodinâmica.",
+        "{nome}, o pacote em {prova} veio ousado: {pilotos}. Com fichas [{fichas}], você escolheu emoção em vez de paz de espírito.",
+        "Em {prova}, {nome} foi full estratégia alternativa: {pilotos}. O palpite de 11º em {p11} é o toque de caos controlado.",
+        "{nome}, sua combinação para {prova} parece laboratório de corrida: {pilotos} com fichas [{fichas}]. Pode virar obra-prima ou meme histórico.",
+        "Previsão para {nome} em {prova}: {pilotos}. Se {p11} bater no 11º, você merece no mínimo um pódio moral.",
+    ]
+    template = modelos[rng.randrange(len(modelos))]
+    return template.format(
+        nome=nome_usuario or "Participante",
+        prova=nome_prova or "a prova",
+        pilotos=pilotos_fmt or "sem pilotos",
+        fichas=fichas_fmt or "sem fichas",
+        p11=piloto_11 or "(sem palpite)",
+    )
+
 def enviar_email(destinatario: str, assunto: str, corpo_html: str, cco: Optional[list[str]] = None) -> bool:
     """Envia um e-mail HTML para o destinatário informado com opção de CCO."""
     if not EMAIL_REMETENTE or not SENHA_REMETENTE:
@@ -75,10 +102,11 @@ def enviar_email(destinatario: str, assunto: str, corpo_html: str, cco: Optional
 def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[str], fichas: list[int], piloto_11: str) -> str:
     """Gera um texto divertido e sarcástico usando a API da Perplexity.
 
-    Retorna string vazia quando a API não estiver configurada ou em caso de erro.
+    Faz fallback local quando a API não estiver configurada ou em caso de erro.
     """
     if not PERPLEXITY_API_KEY:
-        return ""
+        logger.warning("PERPLEXITY_API_KEY não configurada. Usando fallback local para previsão sarcástica.")
+        return _gerar_previsao_fallback(nome_usuario, nome_prova, pilotos, fichas, piloto_11)
 
     try:
         pilotos_fmt = ", ".join([html.escape(p) for p in pilotos])
@@ -112,16 +140,31 @@ def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[
             "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
             "Content-Type": "application/json"
         }
-        with httpx.Client(timeout=10.0) as client:
-            resp = client.post("https://api.perplexity.ai/chat/completions", headers=headers, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
+        data = None
+        last_error = None
+        for _ in range(2):
+            try:
+                with httpx.Client(timeout=10.0) as client:
+                    resp = client.post("https://api.perplexity.ai/chat/completions", headers=headers, json=payload)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    break
+            except Exception as retry_error:
+                last_error = retry_error
+
+        if data is None:
+            raise RuntimeError(str(last_error) if last_error else "Falha sem detalhes da API")
 
         texto = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        return texto.strip()
+        texto = (texto or "").strip()
+        if texto:
+            return texto
+
+        logger.warning("Perplexity retornou resposta vazia. Usando fallback local.")
+        return _gerar_previsao_fallback(nome_usuario, nome_prova, pilotos, fichas, piloto_11)
     except Exception as e:
         logger.warning(f"Falha ao gerar previsão sarcástica: {e}")
-        return ""
+        return _gerar_previsao_fallback(nome_usuario, nome_prova, pilotos, fichas, piloto_11)
 
 def enviar_email_recuperacao_senha(email_usuario: str, nome_usuario: str, nova_senha: str):
     """Envia e-mail com senha temporária para o usuário."""
