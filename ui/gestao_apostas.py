@@ -1,6 +1,6 @@
 import streamlit as st
 import datetime as dt
-from db.db_utils import get_participantes_temporada_df, get_provas_df, get_apostas_df
+from db.db_utils import get_participantes_temporada_df, get_provas_df, get_apostas_df, usuarios_status_historico_disponivel
 from db.backup_utils import list_temporadas
 from services.bets_service import gerar_aposta_automatica
 from services.email_service import enviar_email
@@ -27,15 +27,17 @@ def main():
     season = st.selectbox("Temporada", season_options, index=default_index, key="gestao_apostas_season")
     st.session_state["temporada"] = season
 
+    if not usuarios_status_historico_disponivel():
+        st.warning(
+            "⚠️ Aviso técnico: histórico de status de usuários indisponível. "
+            "A seleção de participantes por temporada pode considerar apenas o status atual."
+        )
+
     # Dados filtrados por temporada
     usuarios_df = get_participantes_temporada_df(season)
     provas_df = get_provas_df(season)
     apostas_df = get_apostas_df(season)
     participantes = usuarios_df.copy()
-    if not participantes.empty and "status" in participantes.columns:
-        participantes = participantes[
-            participantes["status"].astype(str).str.strip().str.lower() == "ativo"
-        ]
     provas_df = provas_df.sort_values("data") if not provas_df.empty else provas_df
 
     st.markdown("### Apostas dos Participantes")

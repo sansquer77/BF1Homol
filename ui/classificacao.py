@@ -9,7 +9,7 @@ import datetime as dt
 import ast
 from zoneinfo import ZoneInfo
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from db.db_utils import db_connect, get_participantes_temporada_df, get_provas_df, get_apostas_df, get_resultados_df
+from db.db_utils import db_connect, get_participantes_temporada_df, get_provas_df, get_apostas_df, get_resultados_df, usuarios_status_historico_disponivel
 from db.backup_utils import list_temporadas
 from services.championship_service import get_final_results, get_championship_bet
 from services.rules_service import get_regras_aplicaveis
@@ -139,6 +139,13 @@ def main():
     
     season = st.selectbox("Temporada", season_options, index=default_index, key="classificacao_season")
     st.session_state['temporada'] = season
+
+    if not usuarios_status_historico_disponivel():
+        st.warning(
+            "⚠️ Aviso técnico: histórico de status de usuários indisponível. "
+            "Para temporadas anteriores, os participantes podem refletir o status atual."
+        )
+
     try:
         season_int = int(season)
     except (TypeError, ValueError):

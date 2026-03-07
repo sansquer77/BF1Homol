@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from db.db_utils import get_usuarios_df, db_connect, registrar_historico_status_usuario
 from services.auth_service import hash_password
-from db.db_utils import get_participantes_temporada_df
+from db.db_utils import get_participantes_temporada_df, usuarios_status_historico_disponivel
 from db.backup_utils import list_temporadas
 from services.email_service import enviar_email
 from datetime import datetime
@@ -20,6 +20,14 @@ def _ensure_gestao_financeira_table() -> None:
                 atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(usuario_id, temporada),
                 FOREIGN KEY(usuario_id) REFERENCES usuarios(id)
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS financeiro_config_temporada (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                temporada TEXT NOT NULL UNIQUE,
+                valor_taxa REAL NOT NULL DEFAULT 0,
+                atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         conn.commit()
@@ -52,6 +60,46 @@ def _salvar_pagamentos_temporada(temporada: str, pagamentos: dict[int, bool]) ->
                 (int(usuario_id), str(temporada), 1 if pago else 0)
             )
         conn.commit()
+
+
+def _get_valor_taxa_temporada(temporada: str) -> float:
+    _ensure_gestao_financeira_table()
+    with db_connect() as conn:
+        c = conn.cursor()
+        c.execute(
+            "SELECT valor_taxa FROM financeiro_config_temporada WHERE temporada = ? LIMIT 1",
+            (str(temporada),),
+        )
+        row = c.fetchone()
+    if not row:
+        return 0.0
+    try:
+        return float(row[0])
+    except Exception:
+        return 0.0
+
+
+def _salvar_valor_taxa_temporada(temporada: str, valor_taxa: float) -> None:
+    _ensure_gestao_financeira_table()
+    with db_connect() as conn:
+        c = conn.cursor()
+        c.execute(
+            '''
+            INSERT INTO financeiro_config_temporada (temporada, valor_taxa, atualizado_em)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(temporada)
+            DO UPDATE SET valor_taxa = excluded.valor_taxa, atualizado_em = CURRENT_TIMESTAMP
+            ''',
+            (str(temporada), float(valor_taxa)),
+        )
+        conn.commit()
+
+
+def _fmt_brl(valor: float) -> str:
+    try:
+        return f"R$ {float(valor):,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
+    except Exception:
+        return "R$ 0,00"
 
 
 def _render_gestao_usuarios_tab(perfil: str):
@@ -170,6 +218,12 @@ def _render_gestao_usuarios_tab(perfil: str):
 def _render_gestao_financeira_tab():
     st.subheader("Gestão financeira")
 
+    if not usuarios_status_historico_disponivel():
+        st.warning(
+            "⚠️ Aviso técnico: a tabela de histórico de status de usuários não foi encontrada. "
+            "Para temporadas anteriores, a lista pode refletir o status atual em vez do status histórico da temporada."
+        )
+
     current_year = str(datetime.now().year)
     try:
         season_options = list_temporadas() or []
@@ -185,11 +239,20 @@ def _render_gestao_financeira_tab():
         key="usuarios_finance_temporada",
     )
 
+    valor_taxa_atual = _get_valor_taxa_temporada(temporada)
+    valor_taxa = st.number_input(
+        "Valor da taxa",
+        min_value=0.0,
+        value=float(valor_taxa_atual),
+        step=5.0,
+        format="%.2f",
+        key=f"finance_taxa_{temporada}",
+    )
+    if st.button("Salvar valor da taxa", key=f"finance_save_taxa_{temporada}"):
+        _salvar_valor_taxa_temporada(temporada, valor_taxa)
+        st.success("Valor da taxa salvo com sucesso!")
+
     participantes = get_participantes_temporada_df(temporada)
-    if not participantes.empty and "status" in participantes.columns:
-        participantes = participantes[
-            participantes["status"].astype(str).str.strip().str.lower() == "ativo"
-        ]
     if not participantes.empty and "perfil" in participantes.columns:
         participantes = participantes[
             participantes["perfil"].astype(str).str.strip().str.lower() != "master"
@@ -218,17 +281,21 @@ def _render_gestao_financeira_tab():
             continue
         email = str(part.get("email", "") or "").strip()
         pago_default = bool(pagamentos_db.get(usuario_id, False))
+        checkbox_key = f"finance_pago_{temporada}_{usuario_id}"
+        if checkbox_key not in st.session_state:
+            st.session_state[checkbox_key] = pago_default
+        pago_atual = bool(st.session_state.get(checkbox_key, pago_default))
 
-        if mostrar_apenas_devendo and pago_default:
-            continue
+        if not (mostrar_apenas_devendo and pago_atual):
+            st.checkbox(
+                f"{part.get('nome', 'Participante')} ({email if email else 'sem e-mail'})",
+                value=pago_atual,
+                key=checkbox_key,
+            )
+            pago_atual = bool(st.session_state.get(checkbox_key, pago_atual))
 
-        pago_tela = st.checkbox(
-            f"{part.get('nome', 'Participante')} ({email if email else 'sem e-mail'})",
-            value=pago_default,
-            key=f"finance_pago_{temporada}_{usuario_id}",
-        )
-        pagamentos_tela[usuario_id] = pago_tela
-        if not pago_tela:
+        pagamentos_tela[usuario_id] = pago_atual
+        if not pago_atual:
             destinatarios_pendentes.append({
                 "Nome": str(part.get("nome", "Participante")),
                 "E-mail": email,
@@ -243,11 +310,36 @@ def _render_gestao_financeira_tab():
     c2.metric("Pagaram", total_pagos)
     c3.metric("Devendo", total_devendo)
 
+    total_arrecadado = total_pagos * float(valor_taxa)
+    total_geral = total_ativos * float(valor_taxa)
+    saldo_receber = total_geral - total_arrecadado
+    premio_vencedor = total_geral * 0.40
+    premio_vice = total_geral * 0.30
+    premio_terceiro = total_geral * 0.20
+    taxa_admin = total_geral * 0.10
+
     col_save, col_mail = st.columns(2)
     with col_save:
         if st.button("Salvar status de pagamento", key="finance_save"):
             _salvar_pagamentos_temporada(temporada, pagamentos_tela)
             st.success("Status financeiro salvo com sucesso!")
+
+    st.markdown("### Resumo financeiro")
+    r1, r2, r3 = st.columns(3)
+    r1.metric("Total arrecadado (pagantes)", _fmt_brl(total_arrecadado))
+    r2.metric("Saldo a receber", _fmt_brl(saldo_receber))
+    r3.metric("Total geral", _fmt_brl(total_geral))
+
+    resumo_premios = pd.DataFrame(
+        [
+            {"Destino": "1º colocado (40%)", "Valor": _fmt_brl(premio_vencedor)},
+            {"Destino": "2º colocado (30%)", "Valor": _fmt_brl(premio_vice)},
+            {"Destino": "3º colocado (20%)", "Valor": _fmt_brl(premio_terceiro)},
+            {"Destino": "Taxa de administração (10%)", "Valor": _fmt_brl(taxa_admin)},
+        ]
+    )
+    st.markdown("### Resumo dos prêmios")
+    st.dataframe(resumo_premios, width="stretch", hide_index=True)
 
     pendentes_preview = [d for d in destinatarios_pendentes if d["E-mail"]]
     st.markdown("### Pendentes para lembrete")

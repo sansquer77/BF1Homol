@@ -272,6 +272,12 @@ def _usuarios_status_historico_exists(conn) -> bool:
     return cursor.fetchone() is not None
 
 
+def usuarios_status_historico_disponivel() -> bool:
+    """Indica se há histórico de status de usuários para filtros sazonais confiáveis."""
+    with db_connect() as conn:
+        return _usuarios_status_historico_exists(conn)
+
+
 def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFrame:
     """Retorna participantes ativos na temporada selecionada.
 

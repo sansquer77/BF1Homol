@@ -11,7 +11,8 @@ from datetime import datetime as dt_datetime
 from db.db_utils import (
     db_connect,
     get_usuarios_df,
-    get_participantes_temporada_df
+    get_participantes_temporada_df,
+    usuarios_status_historico_disponivel
 )
 
 
@@ -227,6 +228,11 @@ def render_admin_panel(conn, seasons):
     st.markdown("---")
     st.header("⚙️ Administração - Gestão de Resultados")
     st.caption("🔒 Esta área é visível apenas para usuários Master")
+    if not usuarios_status_historico_disponivel():
+        st.warning(
+            "⚠️ Aviso técnico: histórico de status de usuários indisponível. "
+            "A listagem de participantes por temporada pode considerar apenas o status atual."
+        )
     
     if 'hall_fama_season' not in st.session_state:
         st.session_state.hall_fama_season = dt_datetime.now().year

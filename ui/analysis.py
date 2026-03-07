@@ -6,7 +6,8 @@ from db.db_utils import (
     get_provas_df,
     get_apostas_df,
     get_resultados_df,
-    get_participantes_temporada_df
+    get_participantes_temporada_df,
+    usuarios_status_historico_disponivel
 )
 from db.backup_utils import list_temporadas
 from services.rules_service import get_regras_aplicaveis
@@ -169,6 +170,12 @@ def get_distribuicao_piloto_11(temporada: str | None = None, participantes_df: p
 
 def main():
     st.title("📊 Análise Detalhada das Apostas")
+
+    if not usuarios_status_historico_disponivel():
+        st.warning(
+            "⚠️ Aviso técnico: histórico de status de usuários indisponível. "
+            "As análises por temporada podem considerar o status atual de participantes."
+        )
 
     # Seletor de temporada para diagnósticos
     try:
