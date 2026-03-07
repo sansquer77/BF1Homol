@@ -276,7 +276,7 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
     """Retorna participantes ativos na temporada selecionada.
 
     Se a tabela de historico de status existir, considera o status ativo no periodo.
-    Caso contrario, retorna todos os usuarios (para manter compatibilidade).
+    Caso contrario, usa o status atual do cadastro de usuarios.
     """
     if temporada is None:
         temporada = str(datetime.datetime.now().year)
@@ -286,13 +286,22 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
     cols = _get_existing_columns('usuarios')
     with db_connect() as conn:
         if not _usuarios_status_historico_exists(conn):
+            if 'status' in cols:
+                return pd.read_sql_query(
+                    f"""
+                    SELECT {', '.join(cols)}
+                    FROM usuarios
+                    WHERE lower(trim(coalesce(status, ''))) = 'ativo'
+                    """,
+                    conn,
+                )
             return pd.read_sql_query(f"SELECT {', '.join(cols)} FROM usuarios", conn)
 
         query = f"""
             SELECT DISTINCT u.{', u.'.join(cols)}
             FROM usuarios u
             JOIN usuarios_status_historico h ON h.usuario_id = u.id
-            WHERE h.status = 'Ativo'
+                        WHERE lower(trim(coalesce(h.status, ''))) = 'ativo'
               AND datetime(h.inicio_em) <= datetime(?)
               AND (h.fim_em IS NULL OR datetime(h.fim_em) >= datetime(?))
         """

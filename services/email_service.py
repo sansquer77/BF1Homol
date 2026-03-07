@@ -42,23 +42,34 @@ EMAIL_ADMIN: str = EMAIL_ADMIN_RAW or os.environ.get("EMAIL_ADMIN", "")
 PERPLEXITY_API_KEY: str = PERPLEXITY_API_KEY_RAW or os.environ.get("PERPLEXITY_API_KEY", "")
 PERPLEXITY_MODEL: str = PERPLEXITY_MODEL_RAW or os.environ.get("PERPLEXITY_MODEL", "sonar")
 
-def enviar_email(destinatario: str, assunto: str, corpo_html: str) -> bool:
-    """Envia um e-mail HTML para o destinatário informado."""
+def enviar_email(destinatario: str, assunto: str, corpo_html: str, cco: Optional[list[str]] = None) -> bool:
+    """Envia um e-mail HTML para o destinatário informado com opção de CCO."""
     if not EMAIL_REMETENTE or not SENHA_REMETENTE:
         st.error("Credenciais de e-mail não configuradas.")
         return False
+
+    cco = [e.strip() for e in (cco or []) if str(e).strip()]
+    destinatarios_envio = []
+    if destinatario and str(destinatario).strip():
+        destinatarios_envio.append(str(destinatario).strip())
+    destinatarios_envio.extend(cco)
+
+    if not destinatarios_envio:
+        st.error("Nenhum destinatário válido para envio de e-mail.")
+        return False
+
     msg = MIMEMultipart()
     msg['From'] = EMAIL_REMETENTE
-    msg['To'] = destinatario
+    msg['To'] = destinatario if destinatario and str(destinatario).strip() else EMAIL_REMETENTE
     msg['Subject'] = assunto
     msg.attach(MIMEText(corpo_html, 'html'))
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(EMAIL_REMETENTE, SENHA_REMETENTE)
-            server.send_message(msg)
+            server.sendmail(EMAIL_REMETENTE, destinatarios_envio, msg.as_string())
         return True
     except Exception as e:
-        st.error(f"Erro no envio para {destinatario}: {str(e)}")
+        st.error(f"Erro no envio para {', '.join(destinatarios_envio)}: {str(e)}")
         return False
 
 def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[str], fichas: list[int], piloto_11: str) -> str:
