@@ -37,13 +37,17 @@ INDICES = {
         "CREATE INDEX IF NOT EXISTS idx_apostas_usuario ON apostas(usuario_id)",
         "CREATE INDEX IF NOT EXISTS idx_apostas_prova ON apostas(prova_id)",
         "CREATE INDEX IF NOT EXISTS idx_apostas_data ON apostas(data_envio)",
+        "CREATE INDEX IF NOT EXISTS idx_apostas_temporada ON apostas(temporada)",
+        "CREATE INDEX IF NOT EXISTS idx_apostas_usuario_prova_temporada ON apostas(usuario_id, prova_id, temporada)",
     ],
     "provas": [
         "CREATE INDEX IF NOT EXISTS idx_provas_data ON provas(data)",
         "CREATE INDEX IF NOT EXISTS idx_provas_status ON provas(status)",
+        "CREATE INDEX IF NOT EXISTS idx_provas_temporada_data ON provas(temporada, data)",
     ],
     "resultados": [
         "CREATE INDEX IF NOT EXISTS idx_resultados_prova ON resultados(prova_id)",
+        "CREATE INDEX IF NOT EXISTS idx_resultados_prova_temporada ON resultados(prova_id, temporada)",
     ],
 }
 

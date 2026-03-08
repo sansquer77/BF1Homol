@@ -3,9 +3,9 @@ import pandas as pd
 from db.db_utils import get_usuarios_df, db_connect, registrar_historico_status_usuario
 from services.auth_service import hash_password
 from db.db_utils import get_participantes_temporada_df, usuarios_status_historico_disponivel
-from db.backup_utils import list_temporadas
 from services.email_service import enviar_email
 from datetime import datetime
+from utils.season_utils import get_default_season_index, get_season_options
 
 
 def _ensure_gestao_financeira_table() -> None:
@@ -230,17 +230,11 @@ def _render_gestao_financeira_tab():
         )
 
     current_year = str(datetime.now().year)
-    try:
-        season_options = list_temporadas() or []
-    except Exception:
-        season_options = []
-    if current_year not in season_options:
-        season_options.append(current_year)
-    season_options = sorted({str(s) for s in season_options})
+    season_options = get_season_options()
     temporada = st.selectbox(
         "Temporada",
         season_options,
-        index=season_options.index(current_year) if current_year in season_options else 0,
+        index=get_default_season_index(season_options, current_year=current_year),
         key="usuarios_finance_temporada",
     )
 

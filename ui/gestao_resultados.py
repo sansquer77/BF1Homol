@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
 import ast
-from datetime import datetime
 
 from db.db_utils import db_connect, get_provas_df, get_pilotos_df, get_resultados_df
-from db.backup_utils import list_temporadas
 from services.bets_service import atualizar_classificacoes_todas_as_provas
+from utils.season_utils import get_current_year_str, get_default_season_index, get_season_options
 
 def resultados_view():
     # Verificação de permissão (apenas admin/master)
@@ -16,18 +15,9 @@ def resultados_view():
     st.title("Atualizar Resultado Manualmente")
 
     # Seletor de temporada
-    current_year = datetime.now().year
-    current_year_str = str(current_year)
-    try:
-        temporadas = list_temporadas() or []
-    except Exception:
-        temporadas = []
-    if not temporadas:
-        temporadas = [current_year_str]
-    if current_year_str not in temporadas:
-        temporadas.append(current_year_str)
-    temporadas = sorted(temporadas, reverse=True)
-    default_index = temporadas.index(current_year_str) if current_year_str in temporadas else 0
+    current_year_str = get_current_year_str()
+    temporadas = get_season_options(descending=True)
+    default_index = get_default_season_index(temporadas, current_year=current_year_str)
     
     temporada_selecionada = st.selectbox(
         "🗓️ Temporada",

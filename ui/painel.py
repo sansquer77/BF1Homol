@@ -11,7 +11,7 @@ from db.db_utils import (
 from services.bets_service import salvar_aposta, calcular_pontuacao_lote, gerar_aposta_sem_ideias
 from services.auth_service import check_password, hash_password
 from services.rules_service import get_regras_aplicaveis
-from db.backup_utils import list_temporadas
+from utils.season_utils import get_default_season_index, get_season_options
 
 def participante_view():
     if 'token' not in st.session_state or 'user_id' not in st.session_state:
@@ -28,24 +28,8 @@ def participante_view():
         st.image("BF1.jpg", width=75)
     with col2:
         st.title("Painel do Participante")
-        # Season selector (temporada) - read temporadas from the backup-managed table when available
-        current_year = datetime.datetime.now().year
-        current_year_str = str(current_year)
-
-        try:
-            season_options = list_temporadas() or []
-        except Exception:
-            season_options = []
-
-        # If the temporadas table is empty or missing, fallback to fixed options
-        if not season_options:
-            season_options = ["2025", "2026"]
-
-        # Default to current year when present, otherwise first option
-        if current_year_str in season_options:
-            default_index = season_options.index(current_year_str)
-        else:
-            default_index = 0
+        season_options = get_season_options(fallback_years=["2025", "2026"])
+        default_index = get_default_season_index(season_options)
 
         season = st.selectbox("Temporada", season_options, index=default_index)
         st.session_state['temporada'] = season

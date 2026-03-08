@@ -21,6 +21,7 @@ from db.db_utils import (
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
 import html
 from services.rules_service import get_regras_aplicaveis
+from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, parse_datetime_sao_paulo
 
 logger = logging.getLogger(__name__)
 
@@ -209,15 +210,7 @@ def _gerar_aposta_perplexity(pilotos_df: pd.DataFrame, regras: dict, nome_prova:
 
 def _parse_datetime_sp(date_str: str, time_str: str):
     """Tenta parsear data e hora com ou sem segundos e retorna timezone America/Sao_Paulo."""
-    fmts = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M']
-    for fmt in fmts:
-        try:
-            dt = datetime.strptime(f"{date_str} {time_str}", fmt)
-            return dt.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
-        except ValueError:
-            continue
-    # Se todas falharem, levanta erro explícito
-    raise ValueError(f"Formato de data/hora inválido: '{date_str} {time_str}'")
+    return parse_datetime_sao_paulo(date_str, time_str)
 
 def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
     """
@@ -227,9 +220,9 @@ def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
         horario_limite_sp = _parse_datetime_sp(data_prova_str, horario_prova_str)
 
         if horario_usuario is None:
-            horario_usuario = datetime.now(ZoneInfo("America/Sao_Paulo"))
+            horario_usuario = now_sao_paulo()
         elif not horario_usuario.tzinfo:
-            horario_usuario = horario_usuario.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+            horario_usuario = horario_usuario.replace(tzinfo=SAO_PAULO_TZ)
 
         horario_usuario_utc = horario_usuario.astimezone(ZoneInfo("UTC"))
         horario_limite_utc = horario_limite_sp.astimezone(ZoneInfo("UTC"))
@@ -285,7 +278,7 @@ def salvar_aposta(
 
     horario_limite = _parse_datetime_sp(data_prova, horario_prova)
 
-    agora_sp = horario_forcado or datetime.now(ZoneInfo("America/Sao_Paulo"))
+    agora_sp = horario_forcado or now_sao_paulo()
     tipo_aposta = 0 if agora_sp <= horario_limite else 1
 
     dados_pilotos = ', '.join(pilotos)

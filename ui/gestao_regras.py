@@ -17,8 +17,8 @@ from db.rules_utils import (
     listar_temporadas_por_regra,
     clonar_regra
 )
-from db.backup_utils import list_temporadas
 from services.bets_service import atualizar_classificacoes_todas_as_provas
+from utils.season_utils import get_current_year_str, get_season_options
 
 def main():
     """View principal de Gestão de Regras"""
@@ -42,14 +42,11 @@ def main():
     with tabs[0]:
         st.subheader("Associar Regras às Temporadas")
         
-        try:
-            temporadas = list_temporadas() or []
-        except Exception:
-            temporadas = []
-            
-        if not temporadas:
-            ano_atual = datetime.datetime.now().year
-            temporadas = [str(ano_atual - 1), str(ano_atual), str(ano_atual + 1)]
+        current_year = int(get_current_year_str())
+        temporadas = get_season_options(
+            fallback_years=[str(current_year - 1), str(current_year), str(current_year + 1)],
+            include_current_year=True,
+        )
             
         regras_disponiveis = listar_regras()
         if not regras_disponiveis:
@@ -95,13 +92,11 @@ def main():
             st.markdown("---")
             st.write("### Recalcular Classificações (por Temporada)")
             st.caption("Reprocessa pontos somente para a temporada selecionada.")
-            try:
-                temporadas_recalc = list_temporadas() or []
-            except Exception:
-                temporadas_recalc = []
-            if not temporadas_recalc:
-                ano_atual = datetime.datetime.now().year
-                temporadas_recalc = [str(ano_atual - 1), str(ano_atual), str(ano_atual + 1)]
+            current_year = int(get_current_year_str())
+            temporadas_recalc = get_season_options(
+                fallback_years=[str(current_year - 1), str(current_year), str(current_year + 1)],
+                include_current_year=True,
+            )
             temporada_recalc = st.selectbox("Temporada para recalcular", temporadas_recalc, key="temp_recalcular")
             if st.button("Recalcular pontuação desta temporada", key="btn_recalcular_pontuacao_temp"):
                 try:
@@ -167,10 +162,7 @@ def main():
             st.warning("Nenhuma regra cadastrada. Crie uma regra primeiro.")
         else:
             # Selecionar temporada primeiro e carregar a regra associada
-            try:
-                temporadas = list_temporadas() or []
-            except Exception:
-                temporadas = []
+            temporadas = get_season_options(include_current_year=False)
             if not temporadas:
                 st.warning("Nenhuma temporada cadastrada na tabela 'temporadas'. Crie a temporada antes de definir pontos por posição.")
                 st.stop()

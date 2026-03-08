@@ -8,7 +8,6 @@ Melhorias:
 - Tema Liquid Glass (responsivo mobile/desktop)
 """
 import streamlit as st
-import os
 import logging
 import datetime
 from pathlib import Path
@@ -113,16 +112,17 @@ from db.db_utils import init_db
 from db.migrations import run_migrations
 from db.master_user_manager import MasterUserManager
 
-logger.info("🚀 Inicializando BF1 3.0...")
-init_db()
-logger.info("✓ Banco de dados inicializado")
-
-try:
+@st.cache_resource(show_spinner=False)
+def bootstrap_app() -> bool:
+    logger.info("🚀 Inicializando BF1 3.0...")
+    init_db()
+    logger.info("✓ Banco de dados inicializado")
     run_migrations()
-except Exception as e:
-    logger.warning(f"⚠️ Migrations já executadas: {e}")
+    MasterUserManager.create_master_user()
+    return True
 
-MasterUserManager.create_master_user()
+
+bootstrap_app()
 
 # ============ IMPORTAÇÃO DAS VIEWS ============
 from ui.login import login_view

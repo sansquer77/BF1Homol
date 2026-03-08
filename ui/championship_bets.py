@@ -8,8 +8,7 @@ from services.championship_service import (
     can_place_championship_bet
 )
 from db.db_utils import get_pilotos_df, get_usuarios_df
-from db.backup_utils import list_temporadas
-from datetime import datetime
+from utils.season_utils import get_default_season_index, get_season_options
 
 def main():
     st.title("📣 Apostas do Campeonato")
@@ -32,15 +31,11 @@ def main():
     equipes = sorted(pilotos_df['equipe'].unique().tolist())
 
     # Temporada selecionada
-    temporadas = list_temporadas()
-    current_year = datetime.now().year
-    if str(current_year) not in temporadas:
-        temporadas.append(str(current_year))
-    temporadas = sorted(temporadas)
+    temporadas = get_season_options()
     temporada_sel = st.selectbox(
         "Temporada",
         temporadas,
-        index=temporadas.index(str(current_year)) if str(current_year) in temporadas else 0,
+        index=get_default_season_index(temporadas),
         help="As apostas e logs são salvos por temporada"
     )
     if temporada_sel is None:

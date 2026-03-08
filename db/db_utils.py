@@ -9,6 +9,7 @@ from pathlib import Path
 import bcrypt
 import logging
 import os
+from functools import lru_cache
 from typing import Optional, Dict
 from db.connection_pool import get_pool, init_pool
 from db.db_config import BCRYPT_ROUNDS, DB_PATH
@@ -180,15 +181,22 @@ def init_db():
         # Inicializar regras
         init_rules_table()
         conn.commit()
+        _get_existing_columns_cached.cache_clear()
         logger.info("✓ Banco de dados inicializado com sucesso")
 
 # ============ OPERAÇÕES CRUD ============
 
-def _get_existing_columns(table: str, preferred: Optional[list[str]] = None) -> list[str]:
+@lru_cache(maxsize=64)
+def _get_existing_columns_cached(table: str) -> tuple[str, ...]:
     with db_connect() as conn:
         c = conn.cursor()
         c.execute(f"PRAGMA table_info('{table}')")
-        cols = [r[1] for r in c.fetchall()]
+        cols = tuple(r[1] for r in c.fetchall())
+    return cols
+
+
+def _get_existing_columns(table: str, preferred: Optional[list[str]] = None) -> list[str]:
+    cols = list(_get_existing_columns_cached(table))
     if preferred:
         return [c for c in preferred if c in cols]
     return cols

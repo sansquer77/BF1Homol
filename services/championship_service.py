@@ -1,12 +1,11 @@
 import pandas as pd
 import logging
-import re
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 import html
 from db.db_utils import db_connect, get_user_by_id, get_provas_df
 from services.rules_service import get_regras_aplicaveis
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
+from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, normalize_time_string, parse_datetime_sao_paulo
 
 logger = logging.getLogger(__name__)
 
@@ -15,35 +14,9 @@ def _season_or_current(season: int | None) -> int:
     """Retorna a temporada fornecida ou o ano corrente."""
     return season if season is not None else datetime.now().year
 
-def _normalize_time_str(time_str: str | None) -> str | None:
-    if not time_str:
-        return None
-    raw = str(time_str).strip().lower()
-    if not raw:
-        return None
-    raw = raw.replace("h", ":")
-    match = re.search(r"(\d{1,2}:\d{2}(?::\d{2})?)", raw)
-    if not match:
-        return None
-    value = match.group(1)
-    parts = value.split(":")
-    if len(parts[0]) == 1:
-        parts[0] = parts[0].zfill(2)
-    return ":".join(parts)
-
 def _parse_datetime_sp(date_str: str, time_str: str) -> datetime:
     """Parseia data/hora e retorna datetime com timezone America/Sao_Paulo."""
-    normalized_time = _normalize_time_str(time_str)
-    if not normalized_time:
-        raise ValueError(f"Formato de hora invalido: '{time_str}'")
-    fmts = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
-    for fmt in fmts:
-        try:
-            dt = datetime.strptime(f"{date_str} {normalized_time}", fmt)
-            return dt.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
-        except ValueError:
-            continue
-    raise ValueError(f"Formato de data/hora invalido: '{date_str} {normalized_time}'")
+    return parse_datetime_sao_paulo(date_str, time_str)
 
 def can_place_championship_bet(season: int | None = None, now: datetime | None = None) -> tuple[bool, str, datetime | None]:
     """Valida se apostas do campeonato estao abertas para a temporada.
@@ -70,13 +43,13 @@ def can_place_championship_bet(season: int | None = None, now: datetime | None =
             horario_str = str(horario_raw or "").strip()
             if not data_str:
                 continue
-            normalized_time = _normalize_time_str(horario_str)
+            normalized_time = normalize_time_string(horario_str)
             try:
                 if normalized_time in ("00:00", "00:00:00", None):
                     dt_list_fallback.append(_parse_datetime_sp(data_str, "00:00:00"))
                 else:
                     dt_list.append(_parse_datetime_sp(data_str, horario_str))
-            except Exception:
+            except ValueError:
                 continue
 
         if not dt_list and dt_list_fallback:
@@ -88,9 +61,9 @@ def can_place_championship_bet(season: int | None = None, now: datetime | None =
         primeira_prova = min(dt_list)
         deadline = primeira_prova + timedelta(minutes=1)
 
-        now_sp = now or datetime.now(ZoneInfo("America/Sao_Paulo"))
+        now_sp = now or now_sao_paulo()
         if now_sp.tzinfo is None:
-            now_sp = now_sp.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+            now_sp = now_sp.replace(tzinfo=SAO_PAULO_TZ)
 
         if now_sp > deadline:
             msg = f"Apostas bloqueadas. Prazo encerrou em {deadline.strftime('%d/%m/%Y %H:%M:%S')} (SP)."
@@ -116,7 +89,7 @@ def get_user_name(user_id: int) -> str:
 
 def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str, team: str, season: int | None = None) -> bool:
     """Salva ou atualiza a aposta do usuário para o campeonato e registra no log, por temporada."""
-    now_sp = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    now_sp = now_sao_paulo()
     now = now_sp.strftime("%Y-%m-%d %H:%M:%S")
     season_val = _season_or_current(season)
     try:

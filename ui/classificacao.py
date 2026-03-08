@@ -10,10 +10,10 @@ import ast
 from zoneinfo import ZoneInfo
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from db.db_utils import db_connect, get_participantes_temporada_df, get_provas_df, get_apostas_df, get_resultados_df, usuarios_status_historico_disponivel
-from db.backup_utils import list_temporadas
-from services.championship_service import get_final_results, get_championship_bet
+from services.championship_service import get_championship_bets_df, get_final_results
 from services.rules_service import get_regras_aplicaveis
 from services.bets_service import calcular_pontuacao_lote, atualizar_classificacoes_todas_as_provas, _parse_datetime_sp
+from utils.season_utils import get_default_season_index, get_season_options
 
 def formatar_brasileiro(valor):
     try:
@@ -122,20 +122,8 @@ def main():
         st.title("Classificação Geral do Bolão")
 
     current_year = dt.datetime.now().year
-    current_year_str = str(current_year)
-    
-    try:
-        season_options = list_temporadas() or []
-    except Exception:
-        season_options = []
-    
-    if not season_options:
-        season_options = ["2025", "2026"]
-    
-    if current_year_str in season_options:
-        default_index = season_options.index(current_year_str)
-    else:
-        default_index = 0
+    season_options = get_season_options(fallback_years=["2025", "2026"])
+    default_index = get_default_season_index(season_options, current_year=str(current_year))
     
     season = st.selectbox("Temporada", season_options, index=default_index, key="classificacao_season")
     st.session_state['temporada'] = season
@@ -166,6 +154,18 @@ def main():
     perfil_usuario = st.session_state.get("user_role", "usuario").strip().lower()
     
     resultado_campeonato = get_final_results(season_int)
+    championship_bets_map = {}
+    if resultado_campeonato:
+        championship_bets_df = get_championship_bets_df(season_int)
+        if not championship_bets_df.empty:
+            championship_bets_map = {
+                int(row['user_id']): {
+                    'champion': row.get('champion'),
+                    'vice': row.get('vice'),
+                    'team': row.get('team'),
+                }
+                for _, row in championship_bets_df.iterrows()
+            }
     
     tabela_classificacao = []
     tabela_detalhada = []
@@ -229,7 +229,7 @@ def main():
                 if envio_dt.astimezone(ZoneInfo("UTC")) <= cutoff.astimezone(ZoneInfo("UTC")):
                     uid = int(ap['usuario_id'])
                     apostas_no_prazo_por_usuario[uid] = apostas_no_prazo_por_usuario.get(uid, 0) + 1
-            except Exception:
+            except (TypeError, ValueError, KeyError):
                 continue
 
     for idx, part in participantes.iterrows():
@@ -244,7 +244,7 @@ def main():
         acertou_vice = 0
         acertou_equipe = 0
         if resultado_campeonato:
-            aposta_camp = get_championship_bet(part['id'], season_int)
+            aposta_camp = championship_bets_map.get(int(part['id']))
             if aposta_camp:
                 if resultado_campeonato.get("champion") == aposta_camp.get("champion"):
                     bonus_campeao = pontos_campeao

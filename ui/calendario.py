@@ -1,26 +1,14 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 from db.db_utils import get_provas_df
-from db.backup_utils import list_temporadas
+from utils.season_utils import get_default_season_index, get_season_options
 
 
 def main():
     st.title("📅 Calendário da Temporada")
 
-    current_year = str(datetime.now().year)
-    try:
-        temporadas = list_temporadas() or []
-    except Exception:
-        temporadas = []
-
-    if not temporadas:
-        temporadas = [current_year]
-
-    if current_year in temporadas:
-        default_index = temporadas.index(current_year)
-    else:
-        default_index = 0
+    temporadas = get_season_options()
+    default_index = get_default_season_index(temporadas)
 
     temporada = st.selectbox("Temporada", temporadas, index=default_index, key="calendario_temporada")
 

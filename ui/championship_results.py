@@ -5,8 +5,7 @@ from db.db_utils import db_connect, get_pilotos_df
 from services.championship_service import (
     get_final_results, save_final_results
 )
-from db.backup_utils import list_temporadas
-from datetime import datetime
+from utils.season_utils import get_default_season_index, get_season_options
 
 def main():
     st.title("Cadastrar/Atualizar Resultado Oficial do Campeonato")
@@ -17,15 +16,11 @@ def main():
     equipes = sorted(pilotos_df["equipe"].unique())
 
     # Temporada selecionada
-    temporadas = list_temporadas()
-    current_year = datetime.now().year
-    if str(current_year) not in temporadas:
-        temporadas.append(str(current_year))
-    temporadas = sorted(temporadas)
+    temporadas = get_season_options()
     temporada_sel = st.selectbox(
         "Temporada",
         temporadas,
-        index=temporadas.index(str(current_year)) if str(current_year) in temporadas else 0,
+        index=get_default_season_index(temporadas),
         help="Resultado oficial é registrado por temporada"
     )
     if temporada_sel is None:

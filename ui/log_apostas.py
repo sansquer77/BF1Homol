@@ -1,12 +1,11 @@
 import streamlit as st
 import pandas as pd
-import datetime as dt
 import logging
 from db.db_utils import db_connect
-from db.backup_utils import list_temporadas
 import extra_streamlit_components as stx # type: ignore
 import jwt
 import os
+from utils.season_utils import get_default_season_index, get_season_options
 
 logger = logging.getLogger(__name__)
 
@@ -42,23 +41,8 @@ def main():
     perfil = st.session_state.get("user_role", "participante")
 
     # Season selector - read from temporadas table
-    current_year = dt.datetime.now().year
-    current_year_str = str(current_year)
-    
-    try:
-        season_options = list_temporadas() or []
-    except Exception:
-        season_options = []
-    
-    # Fallback to fixed options if temporadas table is empty
-    if not season_options:
-        season_options = ["2025", "2026"]
-    
-    # Default to current year when present, otherwise first option
-    if current_year_str in season_options:
-        default_index = season_options.index(current_year_str)
-    else:
-        default_index = 0
+    season_options = get_season_options(fallback_years=["2025", "2026"])
+    default_index = get_default_season_index(season_options)
     
     season = st.selectbox("Temporada", season_options, index=default_index, key="log_apostas_season")
     st.session_state['temporada'] = season

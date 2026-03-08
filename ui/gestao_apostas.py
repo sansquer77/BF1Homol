@@ -1,9 +1,8 @@
 import streamlit as st
-import datetime as dt
 from db.db_utils import get_participantes_temporada_df, get_provas_df, get_apostas_df, usuarios_status_historico_disponivel
-from db.backup_utils import list_temporadas
 from services.bets_service import gerar_aposta_automatica
 from services.email_service import enviar_email
+from utils.season_utils import get_default_season_index, get_season_options
 
 
 def main():
@@ -15,15 +14,8 @@ def main():
         return
 
     # Seletor de temporada (usa temporadas da tabela; fallback fixo)
-    current_year = dt.datetime.now().year
-    current_year_str = str(current_year)
-    try:
-        season_options = list_temporadas() or []
-    except Exception:
-        season_options = []
-    if not season_options:
-        season_options = ["2025", "2026"]
-    default_index = season_options.index(current_year_str) if current_year_str in season_options else 0
+    season_options = get_season_options(fallback_years=["2025", "2026"])
+    default_index = get_default_season_index(season_options)
     season = st.selectbox("Temporada", season_options, index=default_index, key="gestao_apostas_season")
     st.session_state["temporada"] = season
 

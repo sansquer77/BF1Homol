@@ -9,7 +9,7 @@ import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from db.db_utils import get_provas_df, db_connect
-from db.backup_utils import list_temporadas
+from utils.season_utils import get_default_season_index, get_season_options
 
 
 def _on_prova_change():
@@ -92,15 +92,9 @@ def _render_aba_editar(df: pd.DataFrame):
     status_atual = prova_row.get("status", "Ativa")
     tipo_atual = prova_row.get("tipo", "Normal")
     
-    current_year = datetime.now().year
-    temporadas = list_temporadas()
-    if str(current_year) not in temporadas:
-        temporadas.append(str(current_year))
-    temporadas = sorted(temporadas)
+    current_year = str(datetime.now().year)
     temporada_atual = str(prova_row.get("temporada", current_year))
-    if temporada_atual not in temporadas:
-        temporadas.append(temporada_atual)
-        temporadas = sorted(temporadas)
+    temporadas = get_season_options(ensure_values=[temporada_atual])
     
     # Formulário de edição - usar key única baseada no ID da prova
     novo_nome = st.text_input(
@@ -206,12 +200,9 @@ def _render_aba_adicionar():
     tipo_novo = st.selectbox("Tipo", ["Normal", "Sprint"], key="novo_tipo_prova")
     
     # Temporada
-    temporadas_add = list_temporadas()
-    current_year = datetime.now().year
-    if str(current_year) not in temporadas_add:
-        temporadas_add.append(str(current_year))
-    temporadas_add = sorted(temporadas_add)
-    temporada_index_add = temporadas_add.index(str(current_year)) if str(current_year) in temporadas_add else 0
+    current_year = str(datetime.now().year)
+    temporadas_add = get_season_options()
+    temporada_index_add = get_default_season_index(temporadas_add, current_year=current_year)
     temporada_nova = st.selectbox("Temporada", temporadas_add, index=temporada_index_add, key="nova_temporada_prova")
     
     if st.button("➕ Adicionar prova", key="btn_add_prova", type="primary"):
@@ -268,17 +259,9 @@ def main():
         return
     
     # Filtro por temporada
-    current_year = str(datetime.now().year)
-    try:
-        temporadas = list_temporadas() or []
-    except Exception:
-        temporadas = []
-    if not temporadas:
-        temporadas = [current_year]
-    if current_year in temporadas:
-        default_index = temporadas.index(current_year)
-    else:
-        default_index = 0
+        current_year = str(datetime.now().year)
+        temporadas = get_season_options()
+        default_index = get_default_season_index(temporadas, current_year=current_year)
     temporada_sel = st.selectbox("Temporada", temporadas, index=default_index, key="gestao_provas_temporada")
 
     # Buscar provas filtradas por temporada (ordenadas por data crescente)
