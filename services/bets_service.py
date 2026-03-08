@@ -304,12 +304,12 @@ def salvar_aposta(
             if temporada is None:
                 temporada = str(datetime.now().year)
 
-            if 'temporada' in aposta_cols:
-                c.execute('DELETE FROM apostas WHERE usuario_id=? AND prova_id=? AND temporada=?', (usuario_id, prova_id, temporada))
-            else:
-                c.execute('DELETE FROM apostas WHERE usuario_id=? AND prova_id=?', (usuario_id, prova_id))
-
             if tipo_aposta == 0 or permitir_salvar_tardia:
+                if 'temporada' in aposta_cols:
+                    c.execute('DELETE FROM apostas WHERE usuario_id=? AND prova_id=? AND temporada=?', (usuario_id, prova_id, temporada))
+                else:
+                    c.execute('DELETE FROM apostas WHERE usuario_id=? AND prova_id=?', (usuario_id, prova_id))
+
                 data_envio = agora_sp.isoformat()
                 if 'temporada' in aposta_cols:
                     c.execute(
