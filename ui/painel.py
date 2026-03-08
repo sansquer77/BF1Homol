@@ -60,10 +60,7 @@ def participante_view():
         tabs = st.tabs(["Apostas", "Minha Conta"])
 
     def _on_prova_change():
-        keys = [f"piloto_aposta_{i}" for i in range(10)] + [f"fichas_aposta_{i}" for i in range(10)] + ["piloto_11"]
-        for key in keys:
-            if key in st.session_state:
-                del st.session_state[key]
+        st.session_state["aposta_form_force_reload"] = True
         if "aposta_erros" in st.session_state:
             del st.session_state["aposta_erros"]
 
@@ -149,6 +146,7 @@ def participante_view():
                             )
                             if ok_auto:
                                 st.success(msg_auto)
+                                st.session_state["aposta_form_force_reload"] = True
                                 st.rerun()
                             else:
                                 st.error(msg_auto)
@@ -164,6 +162,7 @@ def participante_view():
                     aposta_existente = apostas_df[
                         (apostas_df['usuario_id'] == user['id']) & (apostas_df['prova_id'] == prova_id)
                     ]
+                    max_linhas = 10
                     pilotos_apostados_ant, fichas_ant, piloto_11_ant = [], [], ""
                     if not aposta_existente.empty:
                         aposta_existente = aposta_existente.iloc[0]
@@ -174,6 +173,25 @@ def participante_view():
                         fichas_ant = []
                         piloto_11_ant = ""
 
+                    prova_id_form = st.session_state.get("aposta_form_prova_id")
+                    force_reload_form = bool(st.session_state.get("aposta_form_force_reload", False))
+                    if prova_id_form != prova_id or force_reload_form:
+                        for i in range(max_linhas):
+                            st.session_state[f"piloto_aposta_{i}"] = (
+                                pilotos_apostados_ant[i]
+                                if i < len(pilotos_apostados_ant) and pilotos_apostados_ant[i] in pilotos
+                                else "Nenhum"
+                            )
+                            st.session_state[f"fichas_aposta_{i}"] = int(fichas_ant[i]) if i < len(fichas_ant) else 0
+
+                        if piloto_11_ant in pilotos:
+                            st.session_state["piloto_11"] = piloto_11_ant
+                        elif pilotos:
+                            st.session_state["piloto_11"] = pilotos[0]
+
+                        st.session_state["aposta_form_prova_id"] = prova_id
+                        st.session_state["aposta_form_force_reload"] = False
+
                     erros_box = st.empty()
                     erros_atuais = st.session_state.get("aposta_erros", [])
                     if erros_atuais:
@@ -182,7 +200,6 @@ def participante_view():
                                 st.error(msg)
 
                     st.write("Escolha seus pilotos e distribua suas fichas entre eles de acordo com as regras:")
-                    max_linhas = 10
                     pilotos_aposta, fichas_aposta = [], []
                     for i in range(max_linhas):
                         mostrar = False
@@ -221,9 +238,12 @@ def participante_view():
                     pilotos_11_opcoes = [p for p in pilotos if p not in pilotos_validos]
                     if not pilotos_11_opcoes:
                         pilotos_11_opcoes = pilotos
+                    if pilotos_11_opcoes:
+                        if st.session_state.get("piloto_11") not in pilotos_11_opcoes:
+                            st.session_state["piloto_11"] = pilotos_11_opcoes[0]
                     piloto_11 = st.selectbox(
                         "Palpite para 11º colocado", pilotos_11_opcoes,
-                        index=pilotos_11_opcoes.index(piloto_11_ant) if piloto_11_ant in pilotos_11_opcoes else 0
+                        key="piloto_11"
                     )
 
                     if st.button("Efetivar Aposta"):

@@ -140,11 +140,16 @@ def _render_gestao_usuarios_tab(perfil: str):
                 conn.commit()
             if status_anterior != novo_status:
                 alterado_por = st.session_state.get("user_id")
+                data_referencia_status = None
+                if str(novo_status).strip().lower() == "inativo":
+                    ano_anterior = datetime.now().year - 1
+                    data_referencia_status = f"{ano_anterior}-12-31 23:59:59"
                 registrar_historico_status_usuario(
                     int(user_row["id"]),
                     novo_status,
                     alterado_por=alterado_por,
-                    motivo="gestao_usuarios"
+                    motivo="gestao_usuarios",
+                    data_referencia=data_referencia_status,
                 )
             st.success("Usuário atualizado!")
             st.cache_data.clear()
