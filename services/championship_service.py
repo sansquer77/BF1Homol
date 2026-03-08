@@ -1,10 +1,12 @@
 import pandas as pd
 import logging
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import html
 from db.db_utils import db_connect, get_user_by_id, get_provas_df
 from services.rules_service import get_regras_aplicaveis
+from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +116,8 @@ def get_user_name(user_id: int) -> str:
 
 def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str, team: str, season: int | None = None) -> bool:
     """Salva ou atualiza a aposta do usuário para o campeonato e registra no log, por temporada."""
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    now_sp = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    now = now_sp.strftime("%Y-%m-%d %H:%M:%S")
     season_val = _season_or_current(season)
     try:
         pode, _, _ = can_place_championship_bet(season_val)
@@ -143,6 +146,43 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
                 ''', (user_id, user_nome, champion, vice, team, season_val, now)
             )
             conn.commit()
+
+        try:
+            analise = gerar_analise_aposta_com_probabilidade(
+                nome_usuario=user_nome,
+                contexto_aposta=f"Campeonato F1 {season_val}",
+                detalhes_aposta=f"Campeão: {champion}; Vice: {vice}; Equipe campeã: {team}",
+            )
+            comentario = str(analise.get("comentario", "")).strip()
+            probabilidade = analise.get("probabilidade")
+            resumo = str(analise.get("resumo", "")).strip()
+
+            bloco_analise = ""
+            if comentario:
+                bloco_analise += "<p><b>Comentário sarcástico:</b><br>" + "<br>".join(html.escape(comentario).splitlines()) + "</p>"
+            if probabilidade is not None:
+                bloco_analise += f"<p><b>Probabilidade estimada de acerto:</b> {int(probabilidade)}%</p>"
+            if resumo:
+                bloco_analise += "<p><b>Base da estimativa:</b> " + html.escape(resumo) + "</p>"
+
+            corpo_email = (
+                f"<p>Olá {html.escape(user_nome)},</p>"
+                f"<p>Sua aposta do campeonato <b>{season_val}</b> foi registrada com sucesso.</p>"
+                "<p><b>Detalhes:</b></p>"
+                "<ul>"
+                f"<li>Campeão: {html.escape(champion)}</li>"
+                f"<li>Vice-campeão: {html.escape(vice)}</li>"
+                f"<li>Equipe campeã: {html.escape(team)}</li>"
+                f"<li>Data/Hora do registro (Brasília): {html.escape(now)}</li>"
+                "</ul>"
+                f"{bloco_analise}"
+                "<p><small><b>Aviso de estimativa:</b> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</small></p>"
+                "<p>Boa sorte!</p>"
+            )
+            enviar_email(usuario.get('email', ''), f"Aposta de campeonato registrada - {season_val}", corpo_email)
+        except Exception as mail_error:
+            logger.warning(f"Falha ao enviar email de confirmação da aposta de campeonato (user_id={user_id}): {mail_error}")
+
             return True
     except Exception as e:
         logger.exception(f"Erro ao salvar aposta de campeonato (user_id={user_id}, season={season_val}): {e}")

@@ -18,7 +18,7 @@ from db.db_utils import (
     get_provas_df,
     get_resultados_df
 )
-from services.email_service import enviar_email, gerar_previsao_sarcastica
+from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
 import html
 from services.rules_service import get_regras_aplicaveis
 
@@ -381,16 +381,26 @@ def salvar_aposta(
             conn.commit()
 
             try:
-                previsao = gerar_previsao_sarcastica(
-                    usuario.get('nome', ''),
-                    nome_prova_bd,
-                    pilotos,
-                    fichas,
-                    piloto_11
+                analise = gerar_analise_aposta_com_probabilidade(
+                    nome_usuario=usuario.get('nome', ''),
+                    contexto_aposta=f"Prova {nome_prova_bd}",
+                    detalhes_aposta=(
+                        f"Pilotos: {', '.join(pilotos)}; "
+                        f"Fichas: {', '.join(map(str, fichas))}; "
+                        f"11º: {piloto_11}"
+                    ),
                 )
+                comentario = str(analise.get("comentario", "")).strip()
+                probabilidade = analise.get("probabilidade")
+                resumo = str(analise.get("resumo", "")).strip()
+
                 previsao_html = ""
-                if previsao:
-                    previsao_html = "<p><b>Previsão divertida:</b><br>" + "<br>".join(html.escape(previsao).splitlines()) + "</p>"
+                if comentario:
+                    previsao_html += "<p><b>Comentário sarcástico:</b><br>" + "<br>".join(html.escape(comentario).splitlines()) + "</p>"
+                if probabilidade is not None:
+                    previsao_html += f"<p><b>Probabilidade estimada de acerto:</b> {int(probabilidade)}%</p>"
+                if resumo:
+                    previsao_html += "<p><b>Base da estimativa:</b> " + html.escape(resumo) + "</p>"
 
                 corpo_email = (
                     f"<p>Olá {html.escape(usuario['nome'])},</p>"
@@ -402,6 +412,7 @@ def salvar_aposta(
                     f"<li>Palpite para 11º colocado: {html.escape(piloto_11)}</li>"
                     "</ul>"
                     f"{previsao_html}"
+                    "<p><small><b>Aviso de estimativa:</b> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</small></p>"
                     "<p>Boa sorte!</p>"
                 )
                 enviar_email(usuario['email'], f"Aposta registrada - {nome_prova_bd}", corpo_email)

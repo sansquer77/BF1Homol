@@ -6,6 +6,7 @@ import html
 import httpx
 import hashlib
 import random
+import json
 from typing import Optional
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -165,6 +166,118 @@ def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[
     except Exception as e:
         logger.warning(f"Falha ao gerar previsão sarcástica: {e}")
         return _gerar_previsao_fallback(nome_usuario, nome_prova, pilotos, fichas, piloto_11)
+
+
+def _extrair_json_texto(raw_text: str) -> dict | None:
+    if not raw_text:
+        return None
+    txt = raw_text.strip()
+    try:
+        return json.loads(txt)
+    except Exception:
+        pass
+    ini = txt.find('{')
+    fim = txt.rfind('}')
+    if ini == -1 or fim == -1 or fim <= ini:
+        return None
+    try:
+        return json.loads(txt[ini:fim + 1])
+    except Exception:
+        return None
+
+
+def _probabilidade_fallback(seed_texto: str) -> int:
+    assinatura = hashlib.sha256(seed_texto.encode("utf-8")).hexdigest()
+    base = int(assinatura[:8], 16)
+    return 20 + (base % 61)  # 20..80
+
+
+def gerar_analise_aposta_com_probabilidade(
+    nome_usuario: str,
+    contexto_aposta: str,
+    detalhes_aposta: str,
+) -> dict:
+    """Gera comentário sarcástico e probabilidade estimada de acerto (0-100).
+
+    Retorna dict com: comentario, probabilidade, resumo.
+    """
+    seed_texto = f"{nome_usuario}|{contexto_aposta}|{detalhes_aposta}"
+    fallback_prob = _probabilidade_fallback(seed_texto)
+    fallback_comment = (
+        f"{nome_usuario or 'Participante'}, sua aposta em {contexto_aposta} está ousada: "
+        "tem potencial de glória ou de virar material de zoeira no grupo."
+    )
+    fallback_resumo = "Análise em fallback local (sem acesso à API de notícias)."
+
+    if not PERPLEXITY_API_KEY:
+        return {
+            "comentario": fallback_comment,
+            "probabilidade": fallback_prob,
+            "resumo": fallback_resumo,
+        }
+
+    payload = {
+        "model": PERPLEXITY_MODEL,
+        "temperature": 0.5,
+        "max_tokens": 260,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Você é analista de F1 com humor sarcástico leve. "
+                    "Use notícias recentes de F1 para estimar chance de acerto de uma aposta de bolão. "
+                    "Responda APENAS JSON válido sem markdown com o formato: "
+                    "{\"comentario\":\"...\",\"probabilidade\":55,\"resumo\":\"...\"}. "
+                    "A probabilidade deve ser número inteiro entre 0 e 100. "
+                    "Não use conteúdo ofensivo, sexual, violento ou discriminatório."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Participante: {nome_usuario}. "
+                    f"Contexto da aposta: {contexto_aposta}. "
+                    f"Detalhes: {detalhes_aposta}. "
+                    "Faça uma estimativa plausível e curta."
+                ),
+            },
+        ],
+    }
+    headers = {
+        "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        with httpx.Client(timeout=12.0) as client:
+            resp = client.post("https://api.perplexity.ai/chat/completions", headers=headers, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        parsed = _extrair_json_texto(content)
+        if not parsed:
+            raise ValueError("Resposta sem JSON válido")
+
+        comentario = str(parsed.get("comentario", "")).strip() or fallback_comment
+        resumo = str(parsed.get("resumo", "")).strip() or "Estimativa baseada em contexto recente de F1."
+        try:
+            prob = int(float(parsed.get("probabilidade", fallback_prob)))
+        except Exception:
+            prob = fallback_prob
+        prob = max(0, min(100, prob))
+
+        return {
+            "comentario": comentario,
+            "probabilidade": prob,
+            "resumo": resumo,
+        }
+    except Exception as e:
+        logger.warning(f"Falha ao gerar análise com probabilidade via Perplexity: {e}")
+        return {
+            "comentario": fallback_comment,
+            "probabilidade": fallback_prob,
+            "resumo": fallback_resumo,
+        }
 
 def enviar_email_recuperacao_senha(email_usuario: str, nome_usuario: str, nova_senha: str):
     """Envia e-mail com senha temporária para o usuário."""
