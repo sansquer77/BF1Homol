@@ -259,9 +259,9 @@ def main():
         return
     
     # Filtro por temporada
-        current_year = str(datetime.now().year)
-        temporadas = get_season_options()
-        default_index = get_default_season_index(temporadas, current_year=current_year)
+    current_year = str(datetime.now().year)
+    temporadas = get_season_options()
+    default_index = get_default_season_index(temporadas, current_year=current_year)
     temporada_sel = st.selectbox("Temporada", temporadas, index=default_index, key="gestao_provas_temporada")
 
     # Buscar provas filtradas por temporada (ordenadas por data crescente)
