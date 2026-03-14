@@ -32,6 +32,9 @@ def main():
 
     # Temporada selecionada
     temporadas = get_season_options()
+    if not temporadas:
+        st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
+        st.stop()
     temporada_sel = st.selectbox(
         "Temporada",
         temporadas,
@@ -114,11 +117,24 @@ def main():
     perfil = st.session_state.get("user_role", "participante")
     if perfil in ("master", "admin"):
         st.markdown(f"## 📑 Todas as apostas do campeonato ({temporada_int}) (admin)")
-        apostas_df = get_championship_bets_df(temporada_int)
+        apostas_raw = get_championship_bets_df(temporada_int)
+        if not isinstance(apostas_raw, pd.DataFrame):
+            st.error("Formato de dados inválido para apostas do campeonato.")
+            return
+
+        apostas_df = apostas_raw
         if not apostas_df.empty:
-            apostas_df = apostas_df[["user_nome", "champion", "vice", "team", "season", "bet_time"]]
-            apostas_df.columns = ["Participante", "Campeão", "Vice", "Equipe", "Temporada", "Data/Hora"]
-            st.dataframe(apostas_df, width="stretch")
+            apostas_exibicao = pd.DataFrame(
+                {
+                    "Participante": apostas_df["user_nome"],
+                    "Campeão": apostas_df["champion"],
+                    "Vice": apostas_df["vice"],
+                    "Equipe": apostas_df["team"],
+                    "Temporada": apostas_df["season"],
+                    "Data/Hora": apostas_df["bet_time"],
+                }
+            )
+            st.dataframe(apostas_exibicao, width="stretch")
         else:
             st.info("Nenhuma aposta registrada por nenhum participante.")
 

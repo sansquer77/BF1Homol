@@ -2,6 +2,7 @@ import pandas as pd
 import logging
 from datetime import datetime, timedelta
 import html
+from typing import Optional
 from db.db_utils import db_connect, get_user_by_id, get_provas_df
 from services.rules_service import get_regras_aplicaveis
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
@@ -10,7 +11,7 @@ from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, normalize_time_str
 logger = logging.getLogger(__name__)
 
 
-def _season_or_current(season: int | None) -> int:
+def _season_or_current(season: Optional[int]) -> int:
     """Retorna a temporada fornecida ou o ano corrente."""
     return season if season is not None else datetime.now().year
 
@@ -18,7 +19,7 @@ def _parse_datetime_sp(date_str: str, time_str: str) -> datetime:
     """Parseia data/hora e retorna datetime com timezone America/Sao_Paulo."""
     return parse_datetime_sao_paulo(date_str, time_str)
 
-def can_place_championship_bet(season: int | None = None, now: datetime | None = None) -> tuple[bool, str, datetime | None]:
+def can_place_championship_bet(season: Optional[int] = None, now: Optional[datetime] = None) -> tuple[bool, str, Optional[datetime]]:
     """Valida se apostas do campeonato estao abertas para a temporada.
 
     Regra: bloqueia a partir de 1 minuto apos o horario da primeira prova.
@@ -87,7 +88,7 @@ def get_user_name(user_id: int) -> str:
         logger.exception(f"Erro ao buscar nome do usuário {user_id}: {e}")
         return "Erro ao buscar nome"
 
-def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str, team: str, season: int | None = None) -> bool:
+def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str, team: str, season: Optional[int] = None) -> bool:
     """Salva ou atualiza a aposta do usuário para o campeonato e registra no log, por temporada."""
     now_sp = now_sao_paulo()
     now = now_sp.strftime("%Y-%m-%d %H:%M:%S")
@@ -152,16 +153,21 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
                 "<p><small><b>Aviso de estimativa:</b> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</small></p>"
                 "<p>Boa sorte!</p>"
             )
-            enviar_email(usuario.get('email', ''), f"Aposta de campeonato registrada - {season_val}", corpo_email)
+            email_ok = enviar_email(usuario.get('email', ''), f"Aposta de campeonato registrada - {season_val}", corpo_email)
+            if not email_ok:
+                logger.warning(
+                    "Email de confirmação da aposta de campeonato não foi enviado (user_id=%s, season=%s)",
+                    user_id,
+                    season_val,
+                )
         except Exception as mail_error:
             logger.warning(f"Falha ao enviar email de confirmação da aposta de campeonato (user_id={user_id}): {mail_error}")
-
-            return True
+        return True
     except Exception as e:
         logger.exception(f"Erro ao salvar aposta de campeonato (user_id={user_id}, season={season_val}): {e}")
         return False
 
-def get_championship_bet(user_id: int, season: int | None = None):
+def get_championship_bet(user_id: int, season: Optional[int] = None):
     """Retorna a última aposta válida do usuário no campeonato para a temporada informada."""
     season_val = _season_or_current(season)
     with db_connect() as conn:
@@ -178,7 +184,7 @@ def get_championship_bet(user_id: int, season: int | None = None):
         return {"champion": result[0], "vice": result[1], "team": result[2], "bet_time": result[3]}
     return None
 
-def get_championship_bet_log(user_id: int, season: int | None = None):
+def get_championship_bet_log(user_id: int, season: Optional[int] = None):
     """Retorna o histórico de apostas do usuário no campeonato (mais recente primeiro) para a temporada."""
     season_val = _season_or_current(season)
     with db_connect() as conn:
@@ -194,7 +200,7 @@ def get_championship_bet_log(user_id: int, season: int | None = None):
         result = cursor.fetchall()
     return result
 
-def save_final_results(champion: str, vice: str, team: str, season: int | None = None) -> bool:
+def save_final_results(champion: str, vice: str, team: str, season: Optional[int] = None) -> bool:
     """Salva ou atualiza o resultado oficial do campeonato por temporada."""
     season_val = _season_or_current(season)
     try:
@@ -213,7 +219,7 @@ def save_final_results(champion: str, vice: str, team: str, season: int | None =
         logger.exception(f"Erro ao salvar resultado final do campeonato (season={season_val}): {e}")
         return False
 
-def get_final_results(season: int | None = None):
+def get_final_results(season: Optional[int] = None):
     """Retorna o resultado oficial do campeonato para a temporada informada."""
     season_val = _season_or_current(season)
     with db_connect() as conn:
@@ -230,7 +236,7 @@ def get_final_results(season: int | None = None):
         return {"champion": result[0], "vice": result[1], "team": result[2]}
     return None
 
-def calcular_pontuacao_campeonato(user_id: int, season: int | None = None) -> int:
+def calcular_pontuacao_campeonato(user_id: int, season: Optional[int] = None) -> int:
     """Calcula pontos bônus do participante considerando a temporada informada."""
     season_val = _season_or_current(season)
     aposta = get_championship_bet(user_id, season_val)
@@ -249,7 +255,7 @@ def calcular_pontuacao_campeonato(user_id: int, season: int | None = None) -> in
             pontos += pontos_equipe
     return pontos
 
-def get_championship_bets_df(season: int | None = None):
+def get_championship_bets_df(season: Optional[int] = None):
     """Retorna apostas de campeonato; se season informado, filtra."""
     with db_connect() as conn:
         if season is None:
@@ -258,7 +264,7 @@ def get_championship_bets_df(season: int | None = None):
             df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets WHERE season = ?', conn, params=(season,))
     return df
 
-def get_championship_bets_log_df(season: int | None = None):
+def get_championship_bets_log_df(season: Optional[int] = None):
     """Retorna log de apostas; se season informado, filtra."""
     with db_connect() as conn:
         if season is None:
@@ -267,7 +273,7 @@ def get_championship_bets_log_df(season: int | None = None):
             df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log WHERE season = ?', conn, params=(season,))
     return df
 
-def get_championship_results_df(season: int | None = None):
+def get_championship_results_df(season: Optional[int] = None):
     """Retorna resultados oficiais; se season informado, filtra."""
     with db_connect() as conn:
         if season is None:

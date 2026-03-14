@@ -1,6 +1,7 @@
 import unicodedata
 import re
 from datetime import datetime, timedelta
+from typing import Optional
 
 def normalize_str(text: str) -> str:
     """
@@ -41,7 +42,7 @@ def format_datetime(dt: datetime, fmt: str = "%d/%m/%Y %H:%M") -> str:
     return dt.strftime(fmt)
 
 
-def parse_date(date_str: str, fmt: str = "%Y-%m-%d") -> datetime | None:
+def parse_date(date_str: str, fmt: str = "%Y-%m-%d") -> Optional[datetime]:
     """
     Converte texto em objeto datetime. Retorna None se inválido.
     """

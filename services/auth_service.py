@@ -1,9 +1,14 @@
 import jwt
 from datetime import datetime, timedelta, timezone
 import streamlit as st
-import extra_streamlit_components as stx
 import os
 import logging
+import importlib
+
+try:
+    stx = importlib.import_module("extra_streamlit_components")
+except ImportError:
+    stx = None
 
 # Funções de hash/check de senha - importadas de db_utils para evitar duplicação
 # Re-exportadas aqui para manter compatibilidade com módulos que importam de auth_service
@@ -12,9 +17,42 @@ from db.db_utils import db_connect, hash_password, check_password
 # Exportar explicitamente para manter compatibilidade
 __all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_token', 
            'decode_token', 'create_token', 'cadastrar_usuario', 'get_user_by_email',
-           'get_user_by_id', 'set_auth_cookies', 'clear_auth_cookies']
+           'get_user_by_id', 'set_auth_cookies', 'clear_auth_cookies', 'get_auth_cookie_token']
 
 logger = logging.getLogger(__name__)
+
+_COOKIE_MANAGER_INSTANCE = None
+_COOKIE_MANAGER_KEY = "bf1_auth_cookie_manager"
+
+
+class _FallbackCookieManager:
+    """Fallback simples quando extra_streamlit_components não está instalado."""
+
+    def set(self, key, value, expires_at=None, options=None):
+        st.session_state[f"cookie_{key}"] = value
+
+    def delete(self, key):
+        st.session_state.pop(f"cookie_{key}", None)
+
+    def get_all(self):
+        # Keep API compatible with CookieManager.get_all().
+        return {
+            k.replace("cookie_", "", 1): v
+            for k, v in st.session_state.items()
+            if isinstance(k, str) and k.startswith("cookie_")
+        }
+
+
+def _get_cookie_manager():
+    global _COOKIE_MANAGER_INSTANCE
+    if _COOKIE_MANAGER_INSTANCE is not None:
+        return _COOKIE_MANAGER_INSTANCE
+
+    if stx is not None:
+        _COOKIE_MANAGER_INSTANCE = stx.CookieManager(key=_COOKIE_MANAGER_KEY)
+    else:
+        _COOKIE_MANAGER_INSTANCE = _FallbackCookieManager()
+    return _COOKIE_MANAGER_INSTANCE
 
 # ============ CONFIGURAÇÃO JWT ============
 # JWT_SECRET DEVE ser configurado via st.secrets ou variável de ambiente
@@ -111,13 +149,14 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
             user_id = c.lastrowid
             conn.commit()
         try:
-            from db.db_utils import registrar_historico_status_usuario
-            registrar_historico_status_usuario(
-                user_id,
-                status,
-                alterado_por=None,
-                motivo="cadastrar_usuario"
-            )
+            if isinstance(user_id, int):
+                from db.db_utils import registrar_historico_status_usuario
+                registrar_historico_status_usuario(
+                    user_id,
+                    status,
+                    alterado_por=None,
+                    motivo="cadastrar_usuario"
+                )
         except Exception:
             pass
         return True
@@ -148,7 +187,7 @@ def get_user_by_id(user_id):
 # --- GESTÃO DE COOKIES (para login) ---
 def set_auth_cookies(token, expires_minutes=JWT_EXP_MINUTES):
     """Salva o token JWT em cookie para restaurar a sessão."""
-    cookie_manager = stx.CookieManager()
+    cookie_manager = _get_cookie_manager()
     expires_at = datetime.now() + timedelta(minutes=expires_minutes)
     try:
         cookie_manager.set(
@@ -170,8 +209,34 @@ def set_auth_cookies(token, expires_minutes=JWT_EXP_MINUTES):
         )
 
 def clear_auth_cookies():
-    cookie_manager = stx.CookieManager()
-    cookie_manager.delete("session_token")
+    cookie_manager = _get_cookie_manager()
+    try:
+        cookies = cookie_manager.get_all()
+        if isinstance(cookies, dict) and "session_token" not in cookies:
+            return
+    except Exception:
+        # If cookie listing fails, still attempt deletion below.
+        pass
+
+    try:
+        cookie_manager.delete("session_token")
+    except KeyError:
+        # extra_streamlit_components can raise KeyError when cookie is absent.
+        pass
+
+
+def get_auth_cookie_token():
+    """Retorna token de sessão salvo em cookie, quando disponível."""
+    cookie_manager = _get_cookie_manager()
+    try:
+        cookies = cookie_manager.get_all()
+        if isinstance(cookies, dict):
+            token = cookies.get("session_token")
+            if token:
+                return str(token)
+    except Exception:
+        return None
+    return None
 
 # --- RECUPERAÇÃO DE SENHA SEGURA ---
 import secrets

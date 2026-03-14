@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import ast
 import datetime
+import re
 
 from db.db_utils import (
     db_connect, get_user_by_id, get_provas_df, get_pilotos_df, get_apostas_df, get_resultados_df,
@@ -11,7 +12,122 @@ from db.db_utils import (
 from services.bets_service import salvar_aposta, calcular_pontuacao_lote, gerar_aposta_sem_ideias
 from services.auth_service import check_password, hash_password
 from services.rules_service import get_regras_aplicaveis
+from utils.datetime_utils import now_sao_paulo, parse_datetime_sao_paulo
 from utils.season_utils import get_default_season_index, get_season_options
+
+
+def _parse_data_prova(data_raw):
+    """Parse tolerante para datas de prova (yyyy-mm-dd e formatos locais)."""
+    if data_raw is None:
+        return None
+    raw = str(data_raw).strip()
+    if not raw:
+        return None
+
+    formatos_explicitos = (
+        "%Y-%m-%d",
+        "%Y/%m/%d",
+        "%d/%m/%Y",
+        "%d-%m-%Y",
+    )
+    for formato in formatos_explicitos:
+        parsed = pd.to_datetime(raw, format=formato, errors='coerce')
+        if pd.notna(parsed):
+            return parsed
+
+    usa_dayfirst = bool(re.match(r"^\d{1,2}[-/]\d{1,2}[-/]\d{4}$", raw))
+    parsed = pd.to_datetime(raw, errors='coerce', dayfirst=usa_dayfirst)
+    if pd.notna(parsed):
+        return parsed
+    return None
+
+
+def _parse_evento_prova_dt(data_raw, hora_raw, tzinfo):
+    data_dt = _parse_data_prova(data_raw)
+    if data_dt is None:
+        return None
+
+    data_iso = data_dt.strftime("%Y-%m-%d")
+    hora = str(hora_raw or "00:00")
+    try:
+        return parse_datetime_sao_paulo(data_iso, hora)
+    except Exception:
+        # Se o horário vier inválido, mantém ao menos a data para ordenação estável.
+        return datetime.datetime(
+            data_dt.year,
+            data_dt.month,
+            data_dt.day,
+            0,
+            0,
+            tzinfo=tzinfo,
+        )
+
+
+def _get_proxima_prova_id(provas_df: pd.DataFrame):
+    """Retorna o ID da próxima prova (data/hora >= agora em Sao Paulo)."""
+    if provas_df.empty or 'id' not in provas_df.columns:
+        return None
+
+    agora_sp = now_sao_paulo()
+    tzinfo = agora_sp.tzinfo
+    candidatas_futuras = []
+    candidatas_passadas = []
+
+    for _, row in provas_df.iterrows():
+        prova_id = row.get('id')
+        data_raw = row.get('data')
+        if prova_id is None or not data_raw:
+            continue
+
+        evento_dt = _parse_evento_prova_dt(data_raw, row.get('horario_prova', '00:00'), tzinfo)
+        if evento_dt is None:
+            continue
+
+        if evento_dt >= agora_sp:
+            candidatas_futuras.append((evento_dt, prova_id))
+        else:
+            candidatas_passadas.append((evento_dt, prova_id))
+
+    if candidatas_futuras:
+        candidatas_futuras.sort(key=lambda item: item[0])
+        return candidatas_futuras[0][1]
+
+    # Fallback: se a temporada já passou inteira, mantém a mais recente.
+    if candidatas_passadas:
+        candidatas_passadas.sort(key=lambda item: item[0], reverse=True)
+        return candidatas_passadas[0][1]
+
+    return None
+
+
+def _ordenar_provas_por_calendario(provas_df: pd.DataFrame) -> pd.DataFrame:
+    """Ordena provas por data/hora do calendário (ascendente), com fallback estável."""
+    if provas_df.empty:
+        return provas_df
+
+    ordered = provas_df.copy()
+    tzinfo = now_sao_paulo().tzinfo
+
+    if 'data' in ordered.columns:
+        ordered['__data_dt'] = ordered['data'].apply(_parse_data_prova)
+        ordered['__evento_dt'] = ordered.apply(
+            lambda row: _parse_evento_prova_dt(
+                row.get('data'),
+                row.get('horario_prova', '00:00'),
+                tzinfo,
+            ),
+            axis=1,
+        )
+    else:
+        ordered['__data_dt'] = pd.NaT
+        ordered['__evento_dt'] = pd.NaT
+
+    ordered = ordered.sort_values(
+        by=['__evento_dt', '__data_dt', 'id'],
+        na_position='last'
+    ).reset_index(drop=True)
+
+    return ordered
 
 def participante_view():
     if 'token' not in st.session_state or 'user_id' not in st.session_state:
@@ -29,6 +145,9 @@ def participante_view():
     with col2:
         st.title("Painel do Participante")
         season_options = get_season_options(fallback_years=["2025", "2026"])
+        if not season_options:
+            st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
+            return
         default_index = get_default_season_index(season_options)
 
         season = st.selectbox("Temporada", season_options, index=default_index)
@@ -79,8 +198,14 @@ def participante_view():
             provas_df = get_provas_df(temporada)
             try:
                 if not provas_df.empty and 'data' in provas_df.columns:
-                    provas_df['__data_dt'] = pd.to_datetime(provas_df['data'], errors='coerce')
-                    provas = provas_df[provas_df['__data_dt'].apply(lambda x: str(x.year) == str(temporada) if pd.notna(x) else False)]
+                    provas_ordenadas = _ordenar_provas_por_calendario(provas_df)
+                    provas = provas_ordenadas[
+                        provas_ordenadas['__data_dt'].apply(
+                            lambda x: str(x.year) == str(temporada) if pd.notna(x) else False
+                        )
+                    ]
+                    if not provas.empty:
+                        provas = provas.reset_index(drop=True)
                 else:
                     provas = pd.DataFrame()
             except Exception:
@@ -103,6 +228,20 @@ def participante_view():
 
             if user['status'] == "Ativo":
                 if len(provas) > 0 and len(pilotos_df) > 2:
+                    prova_ids_validos = set(provas['id'].tolist())
+                    proxima_prova_id = _get_proxima_prova_id(provas)
+                    temporada_default_aposta = st.session_state.get("aposta_default_temporada")
+                    prova_atual_sel = st.session_state.get("sel_prova_aposta")
+
+                    # Define o default somente no primeiro carregamento da temporada
+                    # ou quando a prova selecionada não existe mais na lista filtrada.
+                    if proxima_prova_id is not None:
+                        if temporada_default_aposta != temporada:
+                            st.session_state["sel_prova_aposta"] = proxima_prova_id
+                            st.session_state["aposta_default_temporada"] = temporada
+                        elif prova_atual_sel not in prova_ids_validos:
+                            st.session_state["sel_prova_aposta"] = proxima_prova_id
+
                     col_sel, col_btn, col_sem_ideias = st.columns([4, 1, 1])
                     with col_sel:
                         prova_id = st.selectbox(
@@ -194,18 +333,26 @@ def participante_view():
                         if mostrar:
                             col1, col2 = st.columns([3, 1])
                             with col1:
+                                key_piloto = f"piloto_aposta_{i}"
+                                if key_piloto not in st.session_state:
+                                    st.session_state[key_piloto] = (
+                                        pilotos_apostados_ant[i]
+                                        if len(pilotos_apostados_ant) > i and pilotos_apostados_ant[i] in pilotos
+                                        else "Nenhum"
+                                    )
                                 piloto_sel = st.selectbox(
                                     f"Piloto {i+1}",
                                     ["Nenhum"] + pilotos,
-                                    index=(pilotos.index(pilotos_apostados_ant[i]) + 1) if len(pilotos_apostados_ant) > i and pilotos_apostados_ant[i] in pilotos else 0,
-                                    key=f"piloto_aposta_{i}"
+                                    key=key_piloto
                                 )
                             with col2:
                                 if piloto_sel != "Nenhum":
+                                    key_fichas = f"fichas_aposta_{i}"
+                                    if key_fichas not in st.session_state:
+                                        st.session_state[key_fichas] = int(fichas_ant[i]) if len(fichas_ant) > i else 0
                                     valor_ficha = st.number_input(
                                         f"Fichas para {piloto_sel}", min_value=0, max_value=quantidade_fichas,
-                                        value=fichas_ant[i] if len(fichas_ant) > i else 0,
-                                        key=f"fichas_aposta_{i}"
+                                        key=key_fichas
                                     )
                                 else:
                                     valor_ficha = 0
@@ -325,7 +472,7 @@ def participante_view():
                             dados.append({
                                 "Piloto Apostado": aposta_piloto,
                                 "Fichas": ficha,
-                                "Posição Real": pos_real if pos_real is not None else "-",
+                                "Posição Real": str(pos_real) if pos_real is not None else "-",
                                 "Pontos": f"{pontos:.2f}"
                             })
                         piloto_11_real = str(posicoes_dict.get(11, "")).strip()

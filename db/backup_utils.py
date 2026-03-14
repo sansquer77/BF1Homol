@@ -11,6 +11,38 @@ from db.db_utils import db_connect
 from db.db_config import DB_PATH  # Importar caminho correto do banco
 
 
+def _parse_backup_datetime_value(value):
+    """Normaliza valores de data/hora de importacao sem acionar warnings do pandas."""
+    if pd.isna(value):
+        return None
+
+    if isinstance(value, datetime):
+        return value.strftime('%Y-%m-%d %H:%M:%S')
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    formatos_explicitos = (
+        '%Y-%m-%dT%H:%M:%S.%f%z',
+        '%Y-%m-%dT%H:%M:%S%z',
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%d',
+        '%d/%m/%Y %H:%M:%S',
+        '%d/%m/%Y',
+    )
+    for formato in formatos_explicitos:
+        parsed = pd.to_datetime(raw, format=formato, errors='coerce')
+        if pd.notna(parsed):
+            return parsed.strftime('%Y-%m-%d %H:%M:%S')
+
+    usa_dayfirst = bool(re.match(r'^\d{1,2}[-/]\d{1,2}[-/]\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$', raw))
+    parsed = pd.to_datetime(raw, errors='coerce', dayfirst=usa_dayfirst)
+    if pd.notna(parsed):
+        return parsed.strftime('%Y-%m-%d %H:%M:%S')
+    return None
+
+
 def _require_master_access():
     perfil = st.session_state.get("user_role", "participante")
     if perfil != "master":
@@ -599,9 +631,8 @@ def upload_tabela():
                         df_alinhado[col_name] = coerced.where(~coerced.isna(), None)
                         continue
                     if any(t in col_type for t in ["DATE", "TIME"]):
-                        coerced = pd.to_datetime(series, errors='coerce', dayfirst=True)
-                        formatted = coerced.dt.strftime('%Y-%m-%d %H:%M:%S')
-                        df_alinhado[col_name] = formatted.where(coerced.notna(), None)
+                        # Handle mixed Excel datetime values safely (strings, numbers, native datetimes).
+                        df_alinhado[col_name] = series.apply(_parse_backup_datetime_value)
                         continue
 
                 df_alinhado = df_alinhado.where(pd.notnull(df_alinhado), None)

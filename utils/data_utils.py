@@ -1,5 +1,6 @@
 import datetime
 from collections import defaultdict
+from typing import Optional
 
 import pandas as pd
 import requests
@@ -21,7 +22,7 @@ def _safe_int(value, default: int = 0) -> int:
         return default
 
 
-def _request_json(url: str) -> dict | None:
+def _request_json(url: str) -> Optional[dict]:
     try:
         response = _SESSION.get(url, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()

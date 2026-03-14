@@ -8,6 +8,9 @@ def main():
     st.title("📅 Calendário da Temporada")
 
     temporadas = get_season_options()
+    if not temporadas:
+        st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
+        return
     default_index = get_default_season_index(temporadas)
 
     temporada = st.selectbox("Temporada", temporadas, index=default_index, key="calendario_temporada")

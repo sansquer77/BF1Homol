@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from typing import Optional
 from db.db_utils import (
     db_connect,
     get_provas_df,
@@ -12,7 +13,7 @@ from db.db_utils import (
 from services.rules_service import get_regras_aplicaveis
 from utils.season_utils import get_season_options
 
-def _get_participantes_temporada(temporada: str | None = None) -> pd.DataFrame:
+def _get_participantes_temporada(temporada: Optional[str] = None) -> pd.DataFrame:
     participantes_df = get_participantes_temporada_df(temporada)
     if participantes_df.empty:
         return participantes_df
@@ -25,7 +26,7 @@ def _get_participantes_temporada(temporada: str | None = None) -> pd.DataFrame:
 
 def _get_log_apostas_df(
     conn,
-    temporada: str | None,
+    temporada: Optional[str],
     participantes_ids: list[int],
     participantes_nomes: list[str],
     campos: list[str]
@@ -66,7 +67,7 @@ def _get_log_apostas_df(
     return pd.read_sql(query, conn, params=tuple(params))
 
 
-def get_apostas_por_piloto(temporada: str | None = None, participantes_df: pd.DataFrame | None = None):
+def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Optional[pd.DataFrame] = None):
     """
     Agrupa apostas por participante e piloto para análise da distribuição de apostas.
     Retorna DataFrame: participante | piloto | total_apostas
@@ -119,7 +120,7 @@ def get_apostas_por_piloto(temporada: str | None = None, participantes_df: pd.Da
         df = pd.DataFrame()
     return df
 
-def get_distribuicao_piloto_11(temporada: str | None = None, participantes_df: pd.DataFrame | None = None):
+def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df: Optional[pd.DataFrame] = None):
     """
     Distribuição de apostas para o 11º colocado por participante.
     Retorna DataFrame: participante | piloto_11
@@ -179,6 +180,9 @@ def main():
 
     # Seletor de temporada para diagnósticos
     season_options = get_season_options()
+    if not season_options:
+        st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
+        return
     season = st.selectbox("Temporada", season_options, key="analysis_season")
     participantes_df = _get_participantes_temporada(season)
 

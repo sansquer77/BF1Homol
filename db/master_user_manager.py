@@ -6,12 +6,19 @@ Versão 3.0 com melhoramentos de segurança
 
 import os
 import logging
-from typing import Optional, Dict
+from typing import Optional, TypedDict
 import streamlit as st
 from db.connection_pool import get_pool
 from db.db_utils import hash_password, get_user_by_email
 
 logger = logging.getLogger(__name__)
+
+
+class MasterCredentials(TypedDict):
+    nome: str
+    email: str
+    senha: str
+    telegram: Optional[str]
 
 class MasterUserManager:
     """
@@ -35,7 +42,7 @@ class MasterUserManager:
         return None
     
     @staticmethod
-    def _get_credentials() -> Optional[Dict[str, str]]:
+    def _get_credentials() -> Optional[MasterCredentials]:
         """
         Obtém credenciais do Master a partir de variáveis de ambiente
         

@@ -4,9 +4,12 @@ import logging
 import os
 import json
 import ast
-import httpx
+import math
+import hashlib
+import importlib
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from typing import Optional, Union, cast
 from db.db_utils import (
     get_user_by_id,
     get_horario_prova,
@@ -21,12 +24,26 @@ from db.db_utils import (
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
 import html
 from services.rules_service import get_regras_aplicaveis
+from utils.data_utils import (
+    get_current_season,
+    get_driver_standings,
+    get_constructor_standings,
+    get_qualifying_vs_race_delta,
+    get_fastest_lap_times,
+)
 from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, parse_datetime_sao_paulo
+from utils.request_utils import get_client_ip
 
 logger = logging.getLogger(__name__)
+MAX_PERPLEXITY_CONTEXT_CHARS = 5200
+
+try:
+    httpx = importlib.import_module("httpx")
+except ImportError:
+    httpx = None
 
 
-def _extrair_json_texto(raw_text: str) -> dict | None:
+def _extrair_json_texto(raw_text: str) -> Optional[dict]:
     if not raw_text:
         return None
     txt = raw_text.strip()
@@ -73,7 +90,10 @@ def _aposta_valida_regras(pilotos_sel: list[str], fichas_sel: list[int], piloto_
         return False
 
     if not permite_mesma_equipe and not pilotos_df.empty and 'equipe' in pilotos_df.columns:
-        mapa_eq = dict(zip(pilotos_df['nome'].astype(str), pilotos_df['equipe'].astype(str)))
+        mapa_eq: dict[str, str] = {
+            str(nome): str(eq)
+            for nome, eq in zip(pilotos_df['nome'].astype(str), pilotos_df['equipe'].astype(str))
+        }
         equipes = [mapa_eq.get(str(p), '') for p in pilotos_sel]
         equipes_validas = [e for e in equipes if e]
         if len(set(equipes_validas)) < len(equipes_validas):
@@ -82,21 +102,17 @@ def _aposta_valida_regras(pilotos_sel: list[str], fichas_sel: list[int], piloto_
     return True
 
 
-def _get_resumo_ultimas_apostas(usuario_id: int, apostas_df: pd.DataFrame, provas_df: pd.DataFrame, limite: int = 3) -> list[dict]:
+def _get_resumo_ultimas_apostas(usuario_id: int, apostas_df: pd.DataFrame, limite: int = 3) -> list[dict]:
     if apostas_df.empty:
         return []
-    ap = apostas_df[apostas_df['usuario_id'] == usuario_id].copy()
+    ap = cast(pd.DataFrame, apostas_df[apostas_df['usuario_id'] == usuario_id].copy())
     if ap.empty:
         return []
     if 'data_envio' in ap.columns:
         ap['__envio'] = pd.to_datetime(ap['data_envio'], errors='coerce')
-        ap = ap.sort_values('__envio')
+        ap = ap.sort_values(by=['__envio'])
     ap = ap.drop_duplicates(subset=['prova_id'], keep='last')
-    ap = ap.sort_values('prova_id', ascending=False).head(limite)
-
-    provas_nome = {}
-    if not provas_df.empty and 'id' in provas_df.columns and 'nome' in provas_df.columns:
-        provas_nome = dict(zip(provas_df['id'], provas_df['nome']))
+    ap = ap.sort_values(by=['prova_id'], ascending=False).head(limite)
 
     out = []
     for _, row in ap.iterrows():
@@ -105,7 +121,6 @@ def _get_resumo_ultimas_apostas(usuario_id: int, apostas_df: pd.DataFrame, prova
         except Exception:
             fichas = []
         out.append({
-            'prova': str(provas_nome.get(row.get('prova_id'), row.get('nome_prova', ''))),
             'pilotos': [p.strip() for p in str(row.get('pilotos', '')).split(',') if p.strip()],
             'fichas': fichas,
             'piloto_11': str(row.get('piloto_11', '')).strip()
@@ -116,9 +131,9 @@ def _get_resumo_ultimas_apostas(usuario_id: int, apostas_df: pd.DataFrame, prova
 def _get_resumo_cenario_campeonato(resultados_df: pd.DataFrame, provas_df: pd.DataFrame, limite: int = 3) -> list[dict]:
     if resultados_df.empty:
         return []
-    res = resultados_df.copy()
+    res = cast(pd.DataFrame, resultados_df.copy())
     if 'prova_id' in res.columns:
-        res = res.sort_values('prova_id', ascending=False).head(limite)
+        res = res.sort_values(by=['prova_id'], ascending=False).head(limite)
 
     provas_nome = {}
     if not provas_df.empty and 'id' in provas_df.columns and 'nome' in provas_df.columns:
@@ -141,43 +156,540 @@ def _get_resumo_cenario_campeonato(resultados_df: pd.DataFrame, provas_df: pd.Da
     return out
 
 
-def _gerar_aposta_perplexity(pilotos_df: pd.DataFrame, regras: dict, nome_prova: str, tipo_prova: str, ultimas_apostas: list[dict], cenario: list[dict]) -> tuple[list[str], list[int], str] | None:
+def _get_contexto_temporada_atual_ergast() -> dict:
+    """Monta resumo normalizado e compacto da temporada atual com dados da Ergast."""
+    contexto = {
+        "src": "ergast",
+        "s": None,
+        "tp": [],
+        "tc": [],
+        "du": {"top": [], "bot": []},
+        "vr": [],
+    }
+
+    try:
+        temporada = str(get_current_season())
+    except Exception:
+        temporada = "current"
+
+    contexto["s"] = temporada
+
+    try:
+        df_pilotos = get_driver_standings(temporada)
+        if not df_pilotos.empty:
+            top_pilotos = []
+            for _, row in df_pilotos.head(5).iterrows():
+                top_pilotos.append(
+                    {
+                        "p": int(row.get("Position", 0) or 0),
+                        "n": str(row.get("Driver", "")).strip(),
+                        "e": str(row.get("Constructor", "")).strip(),
+                        "pt": int(row.get("Points", 0) or 0),
+                    }
+                )
+            contexto["tp"] = top_pilotos
+    except Exception:
+        pass
+
+    try:
+        df_construtores = get_constructor_standings(temporada)
+        if not df_construtores.empty:
+            top_construtores = []
+            for _, row in df_construtores.head(3).iterrows():
+                top_construtores.append(
+                    {
+                        "p": int(row.get("Position", 0) or 0),
+                        "n": str(row.get("Constructor", "")).strip(),
+                        "pt": int(row.get("Points", 0) or 0),
+                    }
+                )
+            contexto["tc"] = top_construtores
+    except Exception:
+        pass
+
+    try:
+        df_delta = get_qualifying_vs_race_delta(temporada)
+        if not df_delta.empty:
+            top_delta = []
+            bottom_delta = []
+            for _, row in df_delta.sort_values("Delta", ascending=False).head(3).iterrows():
+                top_delta.append(
+                    {
+                        "n": str(row.get("Driver", "")).strip(),
+                        "d": int(row.get("Delta", 0) or 0),
+                    }
+                )
+            for _, row in df_delta.sort_values("Delta", ascending=True).head(2).iterrows():
+                bottom_delta.append(
+                    {
+                        "n": str(row.get("Driver", "")).strip(),
+                        "d": int(row.get("Delta", 0) or 0),
+                    }
+                )
+            contexto["du"] = {"top": top_delta, "bot": bottom_delta}
+    except Exception:
+        pass
+
+    try:
+        df_volta_rapida = get_fastest_lap_times(temporada)
+        if not df_volta_rapida.empty:
+            voltas = []
+            for _, row in df_volta_rapida.head(3).iterrows():
+                voltas.append(
+                    {
+                        "n": str(row.get("Driver", "")).strip(),
+                        "t": str(row.get("Fastest Lap", "")).strip(),
+                    }
+                )
+            contexto["vr"] = voltas
+    except Exception:
+        pass
+
+    return contexto
+
+
+def _norm_nome_piloto(nome: str) -> str:
+    return str(nome or "").strip().lower()
+
+
+def _estimar_pontos_aposta_ergast(
+    pilotos: list[str],
+    fichas: list[int],
+    piloto_11: str,
+    tipo_prova: str,
+    regras: dict,
+    contexto_ergast: dict,
+) -> dict:
+    """Estima pontos usando alocação de posições mais prováveis sem duplicidade.
+
+    Regra aplicada:
+    - monta distribuição de probabilidade por piloto para cada posição pontuável
+    - escolhe uma posição única por piloto (sem duas apostas na mesma posição)
+    - calcula pontos estimados com a posição escolhida * fichas
+    - calcula probabilidade combinada de acerto a partir das probabilidades escolhidas
+    """
+    pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+    pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]
+
+    is_sprint = str(tipo_prova).strip().lower() == "sprint"
+    if is_sprint:
+        pontos_lista = regras.get("pontos_sprint_posicoes") or regras.get("pontos_posicoes") or pontos_sprint
+    else:
+        pontos_lista = regras.get("pontos_posicoes") or pontos_f1
+
+    tp = contexto_ergast.get("tp", []) if isinstance(contexto_ergast, dict) else []
+    du = contexto_ergast.get("du", {}) if isinstance(contexto_ergast, dict) else {}
+    vr = contexto_ergast.get("vr", []) if isinstance(contexto_ergast, dict) else []
+
+    pos_por_nome: dict[str, int] = {}
+    for row in tp if isinstance(tp, list) else []:
+        nome = _norm_nome_piloto(row.get("n"))
+        pos = int(row.get("p", 0) or 0)
+        if nome and pos > 0:
+            pos_por_nome[nome] = pos
+
+    delta_por_nome: dict[str, int] = {}
+    if isinstance(du, dict):
+        for row in du.get("top", []) if isinstance(du.get("top", []), list) else []:
+            nome = _norm_nome_piloto(row.get("n"))
+            delta_por_nome[nome] = int(row.get("d", 0) or 0)
+        for row in du.get("bot", []) if isinstance(du.get("bot", []), list) else []:
+            nome = _norm_nome_piloto(row.get("n"))
+            delta_por_nome[nome] = int(row.get("d", 0) or 0)
+
+    vr_set = {
+        _norm_nome_piloto(row.get("n"))
+        for row in vr if isinstance(vr, list)
+        if _norm_nome_piloto(row.get("n"))
+    }
+
+    # Prepara pilotos válidos (fichas > 0)
+    pilotos_validos: list[tuple[str, int]] = []
+    for piloto, ficha in zip(pilotos, fichas):
+        try:
+            ficha_i = int(ficha)
+        except Exception:
+            ficha_i = 0
+        if ficha_i > 0:
+            pilotos_validos.append((piloto, ficha_i))
+
+    n_pos = len(pontos_lista)
+    if not pilotos_validos or n_pos <= 0:
+        return {
+            "pontos_estimados": 0.0,
+            "bonus_11_estimado": 0.0,
+            "chance_11": 0,
+            "probabilidade_combinada": 0,
+            "criterios": "Ergast(tp/du/vr) + regras da prova",
+            "detalhes": "Sem dados suficientes para estimativa.",
+        }
+
+    # Matriz de probabilidade por piloto/posição (1..n_pos)
+    prob_por_piloto: list[list[float]] = []
+    for piloto, _ in pilotos_validos:
+        nome_key = _norm_nome_piloto(piloto)
+        base_rank = pos_por_nome.get(nome_key)
+        delta = int(delta_por_nome.get(nome_key, 0))
+        ajuste_vr = -0.6 if nome_key in vr_set else 0.0
+
+        if base_rank is None:
+            mu = min(float(n_pos), max(1.0, n_pos * 0.72 + ajuste_vr))
+            sigma = 2.8 if not is_sprint else 2.2
+        else:
+            mu = float(base_rank) - (0.32 * float(delta)) + ajuste_vr
+            mu = min(float(n_pos), max(1.0, mu))
+            sigma = 1.9 if not is_sprint else 1.5
+
+        row = []
+        for pos_idx in range(1, n_pos + 1):
+            z = (float(pos_idx) - mu) / sigma
+            row.append(math.exp(-0.5 * z * z))
+        s = sum(row)
+        if s <= 0:
+            row = [1.0 / n_pos] * n_pos
+        else:
+            row = [v / s for v in row]
+        prob_por_piloto.append(row)
+
+    # Escolhe posição única por piloto maximizando (pontos * fichas * prob)
+    pilotos_top = pilotos_validos[:n_pos]
+    probs_top = prob_por_piloto[:n_pos]
+    m = len(pilotos_top)
+
+    dp: dict[tuple[int, int], tuple[float, list[int]]] = {(0, 0): (0.0, [])}
+    for i in range(m):
+        ficha_i = pilotos_top[i][1]
+        novo_dp: dict[tuple[int, int], tuple[float, list[int]]] = {}
+        for (idx, mask), (score, escolha) in dp.items():
+            if idx != i:
+                continue
+            for pos0 in range(n_pos):
+                bit = 1 << pos0
+                if mask & bit:
+                    continue
+                p = probs_top[i][pos0]
+                ganho = float(pontos_lista[pos0]) * float(ficha_i) * p
+                chave = (i + 1, mask | bit)
+                atual = novo_dp.get(chave)
+                candidato = (score + ganho, escolha + [pos0 + 1])
+                if atual is None or candidato[0] > atual[0]:
+                    novo_dp[chave] = candidato
+        dp = novo_dp
+
+    melhor_score = -1.0
+    melhor_escolha: list[int] = []
+    for (idx, _mask), (score, escolha) in dp.items():
+        if idx == m and score > melhor_score:
+            melhor_score = score
+            melhor_escolha = escolha
+
+    if not melhor_escolha:
+        # fallback robusto: posições em ordem de maior probabilidade sem repetir
+        melhor_escolha = []
+        usadas: set[int] = set()
+        for row in probs_top:
+            ordem = sorted(range(1, n_pos + 1), key=lambda p: row[p - 1], reverse=True)
+            pos_sel = next((p for p in ordem if p not in usadas), ordem[0])
+            melhor_escolha.append(pos_sel)
+            usadas.add(pos_sel)
+
+    pontos_estimados = 0.0
+    detalhes_linhas: list[str] = []
+    probs_escolhidas: list[tuple[float, int]] = []
+    for (piloto, ficha_i), pos_sel, row in zip(pilotos_top, melhor_escolha, probs_top):
+        prob_sel = max(0.001, min(0.999, float(row[pos_sel - 1])))
+        pontos_estimados += float(pontos_lista[pos_sel - 1]) * float(ficha_i)
+        probs_escolhidas.append((prob_sel, ficha_i))
+        detalhes_linhas.append(
+            f"{piloto}: ficha={ficha_i}, pos~{pos_sel}, p={prob_sel:.3f}"
+        )
+
+    bonus_11 = float(regras.get("pontos_11_colocado", 25) or 25)
+    p11_key = _norm_nome_piloto(piloto_11)
+    p11_pos = pos_por_nome.get(p11_key)
+    if p11_pos is None:
+        chance_11 = 0.22
+    elif 9 <= p11_pos <= 13:
+        chance_11 = 0.35
+    elif p11_pos <= 5:
+        chance_11 = 0.10
+    else:
+        chance_11 = 0.20
+
+    bonus_11_estimado = bonus_11 * chance_11
+
+    # Combinação das probabilidades por piloto (média geométrica ponderada por fichas).
+    if probs_escolhidas:
+        soma_pesos = float(sum(w for _, w in probs_escolhidas))
+        if soma_pesos > 0:
+            log_media = sum((w * math.log(p)) for p, w in probs_escolhidas) / soma_pesos
+            probabilidade_combinada = int(round(math.exp(log_media) * 100.0))
+        else:
+            probabilidade_combinada = 0
+    else:
+        probabilidade_combinada = 0
+
+    return {
+        "pontos_estimados": round(pontos_estimados, 1),
+        "bonus_11_estimado": round(bonus_11_estimado, 1),
+        "chance_11": int(round(chance_11 * 100)),
+        "probabilidade_combinada": max(0, min(100, probabilidade_combinada)),
+        "criterios": "Ergast(tp/du/vr) + regras da prova",
+        "detalhes": " | ".join(detalhes_linhas[:5]),
+    }
+
+
+def _gerar_copy_email_aposta(
+    nome_usuario: str,
+    nome_prova: str,
+    pilotos: list[str],
+    fichas: list[int],
+    piloto_11: str,
+    pontos_estimados: Optional[float],
+    probabilidade: Optional[Union[int, float]],
+) -> tuple[str, str]:
+    """Gera abertura/fechamento mais humanos com variação determinística por aposta."""
+    assinatura = (
+        f"{nome_usuario}|{nome_prova}|{','.join(pilotos)}|{','.join(map(str, fichas))}|{piloto_11}|{pontos_estimados}|{probabilidade}"
+    )
+    seed = int(hashlib.sha256(assinatura.encode("utf-8")).hexdigest()[:8], 16)
+
+    aberturas = [
+        "Seu pitwall confirmou a estratégia e a aposta já está no grid.",
+        "A equipe validou o plano: aposta registrada e pronta para luzes apagarem.",
+        "Missão concluída no box: sua combinação foi salva com sucesso.",
+        "Aposta travada no sistema. Agora é torcer para a leitura de corrida bater.",
+        "Tudo certo por aqui: sua equipe entrou oficialmente na prova.",
+    ]
+
+    fechamentos = [
+        "Que venha a corrida. Se bater, é visão estratégica; se não bater, foi apenas entretenimento de alto nível.",
+        "Agora é com o cronômetro e um pouco de caos controlado de fim de semana de F1.",
+        "Boa sorte no fim de semana. Planejamento você já fez; o resto é com o asfalto.",
+        "Se essa leitura encaixar, tem cara de domingo feliz no bolão.",
+        "Respira e confia: a estratégia já foi para pista.",
+    ]
+
+    abertura = aberturas[seed % len(aberturas)]
+
+    fecho_base = fechamentos[(seed // 7) % len(fechamentos)]
+    if probabilidade is not None:
+        try:
+            prob_i = int(float(probabilidade))
+        except Exception:
+            prob_i = None
+        if prob_i is not None:
+            if prob_i >= 70:
+                fecho_base = "A estimativa está confiante. Se o roteiro colaborar, essa aposta pode render forte."
+            elif prob_i <= 35:
+                fecho_base = "A leitura indica risco alto, mas é exatamente daí que saem as histórias boas do bolão."
+
+    return abertura, fecho_base
+
+
+def _canonical_json(data: dict) -> str:
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def _build_compact_json_with_meta(payload_data: dict) -> tuple[str, str]:
+    """Retorna JSON compacto e metadata do tipo de fallback aplicado."""
+    compact = _canonical_json(payload_data)
+    if len(compact) <= MAX_PERPLEXITY_CONTEXT_CHARS:
+        return compact, "none"
+
+    reduced = _reduce_context_for_limit(payload_data)
+    compact_reduced = _canonical_json(reduced)
+    if len(compact_reduced) <= MAX_PERPLEXITY_CONTEXT_CHARS:
+        return compact_reduced, "reduced"
+
+    minimal = _minimal_context_for_limit(payload_data)
+    return _canonical_json(minimal), "minimal"
+
+
+def _reduce_context_for_limit(data: dict) -> dict:
+    """Fallback progressivo para manter contexto útil abaixo do limite de tamanho."""
+    d = dict(data)
+
+    # 1) Remove voltas rápidas (sinal útil, mas menos crítico para aposta)
+    erg = dict(d.get("erg", {}))
+    if "vr" in erg:
+        erg = dict(erg)
+        erg["vr"] = []
+        d["erg"] = erg
+
+    # 2) Enxuga histórico local e cenário
+    if "ua" in d:
+        d["ua"] = d.get("ua", [])[:1]
+    if "cz" in d:
+        d["cz"] = d.get("cz", [])[:1]
+
+    # 3) Enxuga ainda mais Ergast
+    erg2 = dict(d.get("erg", {}))
+    if "tp" in erg2:
+        erg2["tp"] = erg2.get("tp", [])[:3]
+    if "tc" in erg2:
+        erg2["tc"] = erg2.get("tc", [])[:2]
+    du = dict(erg2.get("du", {}))
+    if du:
+        du["top"] = du.get("top", [])[:2]
+        du["bot"] = du.get("bot", [])[:1]
+        erg2["du"] = du
+    d["erg"] = erg2
+
+    return d
+
+
+def _minimal_context_for_limit(data: dict) -> dict:
+    """Fallback mínimo que preserva JSON válido e os campos essenciais para decisão."""
+    erg = dict(data.get("erg", {}))
+    du = dict(erg.get("du", {}))
+    return {
+        "v": data.get("v", 1),
+        "alvo": data.get("alvo", {}),
+        "pd": data.get("pd", []),
+        "rg": data.get("rg", {}),
+        "ua": data.get("ua", [])[:1],
+        "cz": data.get("cz", [])[:1],
+        "erg": {
+            "src": erg.get("src", "ergast"),
+            "s": erg.get("s"),
+            "tp": erg.get("tp", [])[:3],
+            "tc": erg.get("tc", [])[:2],
+            "du": {
+                "top": du.get("top", [])[:2],
+                "bot": du.get("bot", [])[:1],
+            },
+            "vr": [],
+        },
+    }
+
+
+def _build_compact_prompt_payload(
+    nome_prova: str,
+    tipo_prova: str,
+    pilotos_disponiveis: list[str],
+    min_pilotos: int,
+    qtd_fichas: int,
+    fichas_max: int,
+    permite_mesma_equipe: bool,
+    ultimas_apostas: list[dict],
+    cenario: list[dict],
+    contexto_ergast: dict,
+) -> tuple[str, str]:
+    payload_data = {
+        "v": 1,
+        "alvo": {"nome": nome_prova, "tipo": tipo_prova},
+        "pd": pilotos_disponiveis,
+        "rg": {
+            "min": min_pilotos,
+            "qf": qtd_fichas,
+            "fmax": fichas_max,
+            "me": permite_mesma_equipe,
+        },
+        "ua": ultimas_apostas,
+        "cz": cenario,
+        "erg": contexto_ergast,
+    }
+
+    return _build_compact_json_with_meta(payload_data)
+
+
+def _validar_formato_json_resposta(parsed: dict) -> bool:
+    """Valida formato exigido: {"pilotos": [...], "fichas": [...], "piloto_11": "..."}."""
+    if not isinstance(parsed, dict):
+        return False
+    expected = {"pilotos", "fichas", "piloto_11"}
+    if set(parsed.keys()) != expected:
+        return False
+    pilotos = parsed.get("pilotos")
+    fichas = parsed.get("fichas")
+    piloto_11 = parsed.get("piloto_11")
+    if not isinstance(pilotos, list) or not isinstance(fichas, list) or not isinstance(piloto_11, str):
+        return False
+    if len(pilotos) == 0 or len(fichas) == 0 or len(pilotos) != len(fichas):
+        return False
+    try:
+        _ = [str(p).strip() for p in pilotos]
+        _ = [int(x) for x in fichas]
+    except Exception:
+        return False
+    return piloto_11.strip() != ""
+
+
+def _gerar_aposta_perplexity(
+    pilotos_df: pd.DataFrame,
+    regras: dict,
+    nome_prova: str,
+    tipo_prova: str,
+    ultimas_apostas: list[dict],
+    cenario: list[dict],
+    contexto_ergast: dict,
+) -> Optional[tuple[list[str], list[int], str]]:
+    if httpx is None:
+        return None
+
     api_key = ""
     model = "sonar"
     try:
         api_key = st.secrets.get("PERPLEXITY_API_KEY", "")
         model = st.secrets.get("PERPLEXITY_MODEL", "sonar")
     except Exception:
+        pass
+    if not api_key:
         api_key = os.environ.get("PERPLEXITY_API_KEY", "")
+    if not model:
         model = os.environ.get("PERPLEXITY_MODEL", "sonar")
     if not api_key:
         return None
 
-    pilotos_disponiveis = pilotos_df['nome'].astype(str).tolist() if not pilotos_df.empty else []
+    pilotos_disponiveis: list[str] = [str(x) for x in pilotos_df['nome'].tolist()] if not pilotos_df.empty else []
     min_pilotos = int(regras.get('qtd_minima_pilotos') or regras.get('min_pilotos', 3))
     qtd_fichas = int(regras.get('quantidade_fichas', 15))
     fichas_max = int(regras.get('fichas_por_piloto', qtd_fichas))
     permite_mesma_equipe = bool(regras.get('mesma_equipe', False))
 
+    contexto_compacto_json, context_fallback_mode = _build_compact_prompt_payload(
+        nome_prova=nome_prova,
+        tipo_prova=tipo_prova,
+        pilotos_disponiveis=pilotos_disponiveis,
+        min_pilotos=min_pilotos,
+        qtd_fichas=qtd_fichas,
+        fichas_max=fichas_max,
+        permite_mesma_equipe=permite_mesma_equipe,
+        ultimas_apostas=ultimas_apostas,
+        cenario=cenario,
+        contexto_ergast=contexto_ergast,
+    )
+    logger.debug(
+        "Perplexity payload context size=%d fallback=%s limit=%d",
+        len(contexto_compacto_json),
+        context_fallback_mode,
+        MAX_PERPLEXITY_CONTEXT_CHARS,
+    )
+
     system_prompt = (
         "Você é um assistente de estratégia de bolão de F1. "
         "Responda apenas JSON válido, sem markdown. "
         "Não invente pilotos fora da lista disponível. "
-        "Se houver incerteza, faça uma aposta conservadora e viável."
+        "Se houver incerteza, faça uma aposta conservadora e viável. "
+        "Use criatividade controlada: varie escolhas e distribuição entre chamadas quando houver alternativas plausíveis, "
+        "mas evite sugestões irreais. "
+        "Priorize pilotos de melhor desempenho recente/classificação e só assuma risco moderado. "
+        "Evite concentrar muitas fichas em pilotos de baixo desempenho. "
+        "Legenda das chaves do JSON de entrada: "
+        "alvo={nome,tipo}, pd=pilotos_disponiveis, rg={min,qf,fmax,me}, ua=ultimas_apostas, cz=cenario_local, "
+        "erg={src,s,tp,tc,du,vr}, tp={p,n,e,pt}, tc={p,n,pt}, du={top,bot}."
     )
     user_prompt = (
-        f"Prova alvo: {nome_prova} ({tipo_prova}).\n"
-        f"Pilotos disponíveis: {pilotos_disponiveis}\n"
-        f"Regras: min_pilotos={min_pilotos}, quantidade_fichas={qtd_fichas}, fichas_por_piloto={fichas_max}, mesma_equipe={permite_mesma_equipe}.\n"
-        f"Últimas 3 apostas do participante: {ultimas_apostas}\n"
-        f"Cenário recente do campeonato (últimas provas): {cenario}\n"
+        "Dados de entrada (JSON canônico compacto):\n"
+        f"{contexto_compacto_json}\n"
         "Gere uma aposta viável com este formato JSON EXATO: "
         "{\"pilotos\": [\"Nome\"], \"fichas\": [1,2], \"piloto_11\": \"Nome\"}."
     )
 
     payload = {
         "model": model,
-        "temperature": 0.2,
+        "temperature": 0.35,
         "max_tokens": 260,
         "messages": [
             {"role": "system", "content": system_prompt},
@@ -197,6 +709,8 @@ def _gerar_aposta_perplexity(pilotos_df: pd.DataFrame, regras: dict, nome_prova:
         content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         parsed = _extrair_json_texto(content)
         if not parsed:
+            return None
+        if not _validar_formato_json_resposta(parsed):
             return None
         pilotos = [str(p).strip() for p in parsed.get('pilotos', []) if str(p).strip()]
         fichas = [int(x) for x in parsed.get('fichas', [])]
@@ -236,7 +750,7 @@ def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
 
 def salvar_aposta(
     usuario_id, prova_id, pilotos, fichas, piloto_11, nome_prova,
-    automatica=0, horario_forcado=None, temporada: str | None = None, show_errors=True,
+    automatica=0, horario_forcado=None, temporada: Optional[str] = None, show_errors=True,
     permitir_salvar_tardia: bool = False
 ):
     try:
@@ -283,6 +797,7 @@ def salvar_aposta(
 
     dados_pilotos = ', '.join(pilotos)
     dados_fichas = ', '.join(map(str, fichas))
+    ip_apostador = get_client_ip()
 
     usuario = get_user_by_id(usuario_id)
     if not usuario:
@@ -365,6 +880,7 @@ def salvar_aposta(
                         tipo_aposta=tipo_aposta,
                         automatica=automatica,
                         horario=agora_sp,
+                        ip_address=ip_apostador,
                         temporada=temporada,
                         status='Rejeitada'
                     )
@@ -373,31 +889,100 @@ def salvar_aposta(
                 return False
             conn.commit()
 
+            corpo_email = (
+                f"<p>Olá {html.escape(usuario['nome'])},</p>"
+                f"<p>Sua aposta para a prova <b>{html.escape(nome_prova_bd)}</b> foi registrada com sucesso.</p>"
+                "<p><b>Detalhes:</b></p>"
+                "<ul>"
+                f"<li>Pilotos: {html.escape(', '.join(pilotos))}</li>"
+                f"<li>Fichas: {html.escape(', '.join(map(str, fichas)))}</li>"
+                f"<li>Palpite para 11º colocado: {html.escape(piloto_11)}</li>"
+                "</ul>"
+                "<p>Boa sorte na prova!</p>"
+            )
+
             try:
+                contexto_ergast_email = _get_contexto_temporada_atual_ergast()
+                estimativa_email = _estimar_pontos_aposta_ergast(
+                    pilotos=pilotos,
+                    fichas=fichas,
+                    piloto_11=piloto_11,
+                    tipo_prova=tipo_prova_regra,
+                    regras=regras,
+                    contexto_ergast=contexto_ergast_email,
+                )
+                pontos_estimados = estimativa_email.get("pontos_estimados")
+                bonus_11_estimado = estimativa_email.get("bonus_11_estimado")
+                chance_11 = estimativa_email.get("chance_11")
+                probabilidade_combinada = estimativa_email.get("probabilidade_combinada")
+                criterios_estimativa = str(estimativa_email.get("criterios", "Ergast + regras da prova"))
+                detalhes_estimativa = str(estimativa_email.get("detalhes", "")).strip()
+
                 analise = gerar_analise_aposta_com_probabilidade(
                     nome_usuario=usuario.get('nome', ''),
                     contexto_aposta=f"Prova {nome_prova_bd}",
                     detalhes_aposta=(
                         f"Pilotos: {', '.join(pilotos)}; "
                         f"Fichas: {', '.join(map(str, fichas))}; "
-                        f"11º: {piloto_11}"
+                        f"11º: {piloto_11}; "
+                        f"Estimativa de pontos (Ergast): {pontos_estimados}; "
+                        f"Bônus 11º esperado: {bonus_11_estimado} ({chance_11}%); "
+                        f"Critérios: {criterios_estimativa}; "
+                        f"Sinais: {detalhes_estimativa}"
                     ),
                 )
                 comentario = str(analise.get("comentario", "")).strip()
                 probabilidade = analise.get("probabilidade")
                 resumo = str(analise.get("resumo", "")).strip()
 
+                # Probabilidade principal do email deve seguir a combinação das probabilidades por piloto.
+                if probabilidade_combinada is not None:
+                    probabilidade = probabilidade_combinada
+
+                # Mantém coerência entre chance de acerto e pontos projetados.
+                try:
+                    prob_i = int(float(probabilidade)) if probabilidade is not None else None
+                except Exception:
+                    prob_i = None
+                try:
+                    pontos_i = float(pontos_estimados) if pontos_estimados is not None else None
+                except Exception:
+                    pontos_i = None
+                if pontos_i is not None:
+                    cap_por_pontos = int(max(10, min(95, round(pontos_i * 1.6))))
+                    if prob_i is None:
+                        prob_i = cap_por_pontos
+                    else:
+                        prob_i = min(prob_i, cap_por_pontos)
+                if prob_i is not None:
+                    probabilidade = max(0, min(100, prob_i))
+
+                abertura_email, fechamento_email = _gerar_copy_email_aposta(
+                    nome_usuario=str(usuario.get('nome', 'Participante')),
+                    nome_prova=nome_prova_bd,
+                    pilotos=pilotos,
+                    fichas=fichas,
+                    piloto_11=piloto_11,
+                    pontos_estimados=(float(pontos_estimados) if pontos_estimados is not None else None),
+                    probabilidade=probabilidade,
+                )
+
                 previsao_html = ""
                 if comentario:
-                    previsao_html += "<p><b>Comentário sarcástico:</b><br>" + "<br>".join(html.escape(comentario).splitlines()) + "</p>"
+                    previsao_html += "<p>" + "<br>".join(html.escape(comentario).splitlines()) + "</p>"
+                if pontos_estimados is not None:
+                    previsao_html += (
+                        f"<p><b>Estimativa de pontos:</b> {float(pontos_estimados):.1f}</p>"
+                    )
+                if chance_11 is not None:
+                    previsao_html += f"<p><b>Probabilidade de acerto do 11º colocado:</b> {int(chance_11)}%</p>"
                 if probabilidade is not None:
                     previsao_html += f"<p><b>Probabilidade estimada de acerto:</b> {int(probabilidade)}%</p>"
-                if resumo:
-                    previsao_html += "<p><b>Base da estimativa:</b> " + html.escape(resumo) + "</p>"
 
                 corpo_email = (
                     f"<p>Olá {html.escape(usuario['nome'])},</p>"
                     f"<p>Sua aposta para a prova <b>{html.escape(nome_prova_bd)}</b> foi registrada com sucesso.</p>"
+                    f"<p>{html.escape(abertura_email)}</p>"
                     "<p><b>Detalhes:</b></p>"
                     "<ul>"
                     f"<li>Pilotos: {html.escape(', '.join(pilotos))}</li>"
@@ -405,10 +990,16 @@ def salvar_aposta(
                     f"<li>Palpite para 11º colocado: {html.escape(piloto_11)}</li>"
                     "</ul>"
                     f"{previsao_html}"
+                    f"<p>{html.escape(fechamento_email)}</p>"
                     "<p><small><b>Aviso de estimativa:</b> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</small></p>"
-                    "<p>Boa sorte!</p>"
                 )
-                enviar_email(usuario['email'], f"Aposta registrada - {nome_prova_bd}", corpo_email)
+            except Exception as e:
+                logger.exception(f"Falha ao montar conteúdo avançado do email de aposta para {usuario.get('email')}: {e}")
+
+            try:
+                email_ok = enviar_email(usuario['email'], f"Aposta registrada - {nome_prova_bd}", corpo_email)
+                if not email_ok:
+                    logger.warning("Falha de envio de email de aposta para %s (prova_id=%s)", usuario.get('email'), prova_id)
             except Exception as e:
                 logger.warning(f"Falha ao enviar email de aposta para {usuario.get('email')}: {e}")
 
@@ -428,6 +1019,7 @@ def salvar_aposta(
         tipo_aposta=tipo_aposta,
         automatica=automatica,
         horario=agora_sp,
+        ip_address=ip_apostador,
         temporada=temporada,
         status='Registrada'
     )
@@ -436,7 +1028,7 @@ def salvar_aposta(
 def gerar_aposta_aleatoria(pilotos_df):
     import random
     if not pilotos_df.empty and 'status' in pilotos_df.columns:
-        pilotos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
+        pilotos_df = cast(pd.DataFrame, pilotos_df[pilotos_df['status'] == 'Ativo'])
     equipes_unicas = [e for e in pilotos_df['equipe'].unique().tolist() if e]
     if len(equipes_unicas) < 3 or pilotos_df.empty:
         return [], [], None
@@ -475,7 +1067,7 @@ def gerar_aposta_aleatoria_com_regras(pilotos_df, regras: dict):
     import random
     import math
     if not pilotos_df.empty and 'status' in pilotos_df.columns:
-        pilotos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
+        pilotos_df = cast(pd.DataFrame, pilotos_df[pilotos_df['status'] == 'Ativo'])
     if pilotos_df.empty:
         return [], [], None
     equipes_unicas = [e for e in pilotos_df['equipe'].unique().tolist() if e]
@@ -607,7 +1199,7 @@ def ajustar_aposta_para_regras(pilotos: list[str], fichas: list[int], regras: di
         return [], []
     return pilotos, fichas
 
-def _determinar_tipo_prova(prova_row: pd.Series | dict, nome_prova: str | None) -> str:
+def _determinar_tipo_prova(prova_row: Union[pd.Series, dict], nome_prova: Optional[str]) -> str:
     try:
         if isinstance(prova_row, dict):
             t = prova_row.get('tipo')
@@ -632,9 +1224,6 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     if prova_atual.empty:
         return False, "Prova não encontrada."
         
-    data_prova = prova_atual['data'].iloc[0]
-    horario_prova = prova_atual['horario_prova'].iloc[0]
-    horario_limite = _parse_datetime_sp(data_prova, horario_prova)
     tipo_prova = _determinar_tipo_prova(prova_atual.iloc[0], nome_prova)
     regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova)
     
@@ -702,7 +1291,7 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     
     pilotos_df = get_pilotos_df()
     if not pilotos_df.empty and 'status' in pilotos_df.columns:
-        pilotos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
+        pilotos_df = cast(pd.DataFrame, pilotos_df[pilotos_df['status'] == 'Ativo'])
 
     if not ap_ant.empty:
         ap_ant = ap_ant.iloc[0]
@@ -733,7 +1322,7 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         
     sucesso = salvar_aposta(
         usuario_id, prova_id, pilotos_ant, fichas_ant, piloto_11_ant, nome_prova,
-        automatica=nova_auto, horario_forcado=horario_limite, temporada=temporada, show_errors=False,
+        automatica=nova_auto, temporada=temporada, show_errors=False,
         permitir_salvar_tardia=True
     )
     
@@ -764,17 +1353,26 @@ def gerar_aposta_sem_ideias(usuario_id, prova_id, nome_prova, temporada=None):
 
     pilotos_df = get_pilotos_df()
     if not pilotos_df.empty and 'status' in pilotos_df.columns:
-        pilotos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
+        pilotos_df = cast(pd.DataFrame, pilotos_df[pilotos_df['status'] == 'Ativo'])
     if pilotos_df.empty:
         return False, "Não há pilotos ativos para gerar aposta."
 
     apostas_df = get_apostas_df(temporada)
     resultados_df = get_resultados_df(temporada)
-    ultimas_apostas = _get_resumo_ultimas_apostas(usuario_id, apostas_df, provas_df, limite=3)
-    cenario = _get_resumo_cenario_campeonato(resultados_df, provas_df, limite=3)
+    ultimas_apostas = _get_resumo_ultimas_apostas(usuario_id, apostas_df, limite=2)
+    cenario = _get_resumo_cenario_campeonato(resultados_df, provas_df, limite=2)
+    contexto_ergast = _get_contexto_temporada_atual_ergast()
 
     origem = "aleatória"
-    sugestao = _gerar_aposta_perplexity(pilotos_df, regras, nome_prova, tipo_prova, ultimas_apostas, cenario)
+    sugestao = _gerar_aposta_perplexity(
+        pilotos_df,
+        regras,
+        nome_prova,
+        tipo_prova,
+        ultimas_apostas,
+        cenario,
+        contexto_ergast,
+    )
     if sugestao:
         pilotos_sel, fichas_sel, piloto_11_sel = sugestao
         if _aposta_valida_regras(pilotos_sel, fichas_sel, piloto_11_sel, pilotos_df, regras):
@@ -981,12 +1579,12 @@ def salvar_classificacao_prova(p_id, df_c, temp=None):
                 )
         conn.commit()
 
-def atualizar_classificacoes_todas_as_provas(temporada: str | None = None):
+def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
     with db_connect() as conn:
-        usrs = pd.read_sql('SELECT id FROM usuarios WHERE status = "Ativo"', conn)
-        provs = pd.read_sql('SELECT id, nome, data, tipo, temporada FROM provas', conn)
-        apts = pd.read_sql('SELECT usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, automatica, temporada FROM apostas', conn)
-        ress = pd.read_sql('SELECT prova_id, posicoes, abandono_pilotos FROM resultados', conn)
+        usrs = cast(pd.DataFrame, pd.read_sql('SELECT id FROM usuarios WHERE status = "Ativo"', conn))
+        provs = cast(pd.DataFrame, pd.read_sql('SELECT id, nome, data, tipo, temporada FROM provas', conn))
+        apts = cast(pd.DataFrame, pd.read_sql('SELECT usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, automatica, temporada FROM apostas', conn))
+        ress = cast(pd.DataFrame, pd.read_sql('SELECT prova_id, posicoes, abandono_pilotos FROM resultados', conn))
         
         import ast
         # Se temporada for fornecida, processa apenas provas dessa temporada
@@ -1000,13 +1598,14 @@ def atualizar_classificacoes_todas_as_provas(temporada: str | None = None):
                 provs_dt = provs.copy()
                 provs_dt['__data_dt'] = pd.to_datetime(provs_dt['data'], errors='coerce')
                 for temp_val, grp in provs_dt.groupby('temporada'):
-                    grp = grp.sort_values('__data_dt')
+                    grp = cast(pd.DataFrame, grp)
+                    grp = grp.sort_values(by=['__data_dt'])
                     if not grp.empty:
                         primeira_prova_por_temp[str(temp_val)] = int(grp.iloc[0]['id'])
             elif 'data' in provs.columns:
-                provs_dt = provs.copy()
+                provs_dt = cast(pd.DataFrame, provs.copy())
                 provs_dt['__data_dt'] = pd.to_datetime(provs_dt['data'], errors='coerce')
-                provs_dt = provs_dt.sort_values('__data_dt')
+                provs_dt = provs_dt.sort_values(by=['__data_dt'])
                 if not provs_dt.empty:
                     primeira_prova_por_temp[str(datetime.now().year)] = int(provs_dt.iloc[0]['id'])
             elif not provs.empty:

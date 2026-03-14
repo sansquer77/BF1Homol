@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from typing import Optional
 
 SAO_PAULO_TZ = ZoneInfo("America/Sao_Paulo")
 
@@ -9,7 +10,7 @@ def now_sao_paulo() -> datetime:
     return datetime.now(SAO_PAULO_TZ)
 
 
-def normalize_time_string(time_str: str | None) -> str | None:
+def normalize_time_string(time_str: Optional[str]) -> Optional[str]:
     if not time_str:
         return None
 

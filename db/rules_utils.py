@@ -5,7 +5,7 @@ Utilitários para Gestão de Regras de Temporada
 import sqlite3
 import logging
 import json
-from typing import Optional, Dict, List
+from typing import Optional
 from db.connection_pool import get_pool
 
 logger = logging.getLogger(__name__)
@@ -76,12 +76,12 @@ def criar_regra(
     descarte: bool = False,
     pontos_pole: int = 0,
     pontos_vr: int = 0,
-    pontos_posicoes: List[int] = None,
+    pontos_posicoes: list[int] = None,
     pontos_11_colocado: int = 25,
     regra_sprint: bool = False,
     pontos_sprint_pole: int = 0,
     pontos_sprint_vr: int = 0,
-    pontos_sprint_posicoes: List[int] = None,
+    pontos_sprint_posicoes: list[int] = None,
     pontos_dobrada: bool = False,
     bonus_vencedor: int = 0,
     bonus_podio_completo: int = 0,
@@ -135,12 +135,12 @@ def atualizar_regra(
     descarte: bool,
     pontos_pole: int,
     pontos_vr: int,
-    pontos_posicoes: List[int],
+    pontos_posicoes: list[int],
     pontos_11_colocado: int,
     regra_sprint: bool,
     pontos_sprint_pole: int,
     pontos_sprint_vr: int,
-    pontos_sprint_posicoes: List[int],
+    pontos_sprint_posicoes: list[int],
     pontos_dobrada: bool,
     bonus_vencedor: int,
     bonus_podio_completo: int,
@@ -196,7 +196,7 @@ def excluir_regra(regra_id: int) -> bool:
         logger.error(f"Erro ao excluir regra: {e}")
         return False
 
-def get_regra_by_id(regra_id: int) -> Optional[Dict]:
+def get_regra_by_id(regra_id: int) -> Optional[dict]:
     """Retorna uma regra pelo ID"""
     with get_pool().get_connection() as conn:
         c = conn.cursor()
@@ -209,7 +209,7 @@ def get_regra_by_id(regra_id: int) -> Optional[Dict]:
             return d
         return None
 
-def get_regra_by_nome(nome_regra: str) -> Optional[Dict]:
+def get_regra_by_nome(nome_regra: str) -> Optional[dict]:
     """Retorna uma regra pelo nome"""
     with get_pool().get_connection() as conn:
         c = conn.cursor()
@@ -222,7 +222,7 @@ def get_regra_by_nome(nome_regra: str) -> Optional[Dict]:
             return d
         return None
 
-def listar_temporadas_por_regra(regra_id: int) -> List[str]:
+def listar_temporadas_por_regra(regra_id: int) -> list[str]:
     """Retorna lista de temporadas associadas a uma regra específica."""
     with get_pool().get_connection() as conn:
         c = conn.cursor()
@@ -289,7 +289,7 @@ def associar_regra_temporada(temporada: str, regra_id: int) -> bool:
         logger.error(f"Erro ao associar regra: {e}")
         return False
 
-def get_regra_temporada(temporada: str) -> Optional[Dict]:
+def get_regra_temporada(temporada: str) -> Optional[dict]:
     """Retorna a regra associada a uma temporada"""
     with get_pool().get_connection() as conn:
         c = conn.cursor()

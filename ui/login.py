@@ -11,7 +11,9 @@ import streamlit as st
 import logging
 from datetime import datetime, timedelta
 from services.auth_service import redefinir_senha_usuario
+from services.auth_service import set_auth_cookies
 from services.email_service import enviar_email_recuperacao_senha
+from utils.request_utils import get_client_ip
 from utils.validators import validar_email
 from db import (
     db_connect,
@@ -46,12 +48,18 @@ def registrar_tentativa_login(email: str, sucesso: bool, ip_address: str = "LOCA
         conn.commit()
 
 
-def obter_tentativas_recentes(email: str, max_attempts: int = MAX_LOGIN_ATTEMPTS, lockout_seconds: int = LOCKOUT_DURATION, action: str = "login") -> tuple[int, bool]:
+def obter_tentativas_recentes(
+    email: str,
+    ip_address: str,
+    max_attempts: int = MAX_LOGIN_ATTEMPTS,
+    lockout_seconds: int = LOCKOUT_DURATION,
+    action: str = "login"
+) -> tuple[int, int, bool]:
     """
     Obtém tentativas de login recentes
     
     Returns:
-        (numero_tentativas, usuario_bloqueado)
+        (falhas_email, falhas_ip, usuario_bloqueado)
     """
     with db_connect() as conn:
         cursor = conn.cursor()
@@ -67,13 +75,39 @@ def obter_tentativas_recentes(email: str, max_attempts: int = MAX_LOGIN_ATTEMPTS
         ''', (email, tempo_limite, action))
         
         resultado = cursor.fetchone()
-        total = resultado[0] if resultado else 0
         falhas = resultado[1] if resultado and resultado[1] else 0
+
+        cursor.execute('''
+            SELECT SUM(CASE WHEN sucesso=0 THEN 1 ELSE 0 END) as falhas_ip
+            FROM login_attempts
+            WHERE ip_address = ? AND tentativa_em > ? AND action = ?
+        ''', (ip_address, tempo_limite, action))
+
+        resultado_ip = cursor.fetchone()
+        falhas_ip = resultado_ip[0] if resultado_ip and resultado_ip[0] else 0
         
         # Bloqueado se tiver mais que MAX_LOGIN_ATTEMPTS falhas
-        bloqueado = falhas >= max_attempts
+        # Limite por IP mais permissivo para reduzir falso positivo em redes compartilhadas.
+        bloqueado = falhas >= max_attempts or falhas_ip >= (max_attempts * 3)
         
-        return falhas, bloqueado
+        return falhas, falhas_ip, bloqueado
+
+
+def _classificar_motivo_bloqueio(
+    falhas_email: int,
+    falhas_ip: int,
+    max_attempts: int,
+) -> str:
+    """Classifica motivo operacional do bloqueio sem alterar regra de negócio."""
+    bloqueio_email = falhas_email >= max_attempts
+    bloqueio_ip = falhas_ip >= (max_attempts * 3)
+    if bloqueio_email and bloqueio_ip:
+        return "email+ip"
+    if bloqueio_email:
+        return "email"
+    if bloqueio_ip:
+        return "ip"
+    return "none"
 
 
 def limpar_tentativas_antigas():
@@ -144,7 +178,14 @@ def login_view():
                 return
             
             # Verificar rate limiting
-            falhas, bloqueado = obter_tentativas_recentes(email, MAX_LOGIN_ATTEMPTS, LOCKOUT_DURATION, "login")
+            client_ip = get_client_ip() or "LOCAL"
+            falhas, falhas_ip, bloqueado = obter_tentativas_recentes(
+                email,
+                client_ip,
+                MAX_LOGIN_ATTEMPTS,
+                LOCKOUT_DURATION,
+                "login",
+            )
             
             if bloqueado:
                 tempo_bloqueio = LOCKOUT_DURATION // 60  # Converter para minutos
@@ -153,8 +194,18 @@ def login_view():
                     f"Muitas tentativas de login falhadas. "
                     f"Tente novamente em {tempo_bloqueio} minutos."
                 )
-                logger.warning(f"Tentativa de login bloqueada por rate limiting: {email}")
-                registrar_tentativa_login(email, False, action="login")
+                motivo = _classificar_motivo_bloqueio(falhas, falhas_ip, MAX_LOGIN_ATTEMPTS)
+                logger.warning(
+                    "[SECURITY_AUDIT] login_blocked email=%s ip=%s motivo=%s falhas_email=%d falhas_ip=%d limite_email=%d limite_ip=%d",
+                    email,
+                    client_ip,
+                    motivo,
+                    falhas,
+                    falhas_ip,
+                    MAX_LOGIN_ATTEMPTS,
+                    MAX_LOGIN_ATTEMPTS * 3,
+                )
+                registrar_tentativa_login(email, False, ip_address=client_ip, action="login")
                 return
             
             # Buscar usuário
@@ -163,14 +214,14 @@ def login_view():
             if not usuario:
                 st.error("❌ Email ou senha incorretos")
                 logger.warning(f"Tentativa de login com email inexistente: {email}")
-                registrar_tentativa_login(email, False, action="login")
+                registrar_tentativa_login(email, False, ip_address=client_ip, action="login")
                 return
             
             # Verificar status
             if usuario['status'] != 'Ativo':
                 st.error(f"❌ Usuário inativo. Status: {usuario['status']}")
                 logger.warning(f"Tentativa de login com usuário inativo: {email}")
-                registrar_tentativa_login(email, False, action="login")
+                registrar_tentativa_login(email, False, ip_address=client_ip, action="login")
                 return
             
             # Verificar senha com bcrypt
@@ -189,41 +240,47 @@ def login_view():
                     )
                 
                 logger.warning(f"Falha de autenticação para: {email}")
-                registrar_tentativa_login(email, False, action="login")
+                registrar_tentativa_login(email, False, ip_address=client_ip, action="login")
                 return
             
             # ========== LOGIN SUCESSO ==========
             try:
-                # Gerar JWT Token
                 token = create_token(
                     user_id=usuario['id'],
                     nome=usuario['nome'],
                     perfil=usuario['perfil'],
                     status=usuario.get('status', 'Ativo')
                 )
-                
-                # Armazenar no session_state
-                st.session_state['token'] = token
-                st.session_state['user_id'] = usuario['id']
-                st.session_state['user_email'] = usuario['email']
-                st.session_state['user_nome'] = usuario['nome']
-                st.session_state['user_role'] = usuario['perfil']
-                st.session_state['pagina'] = "Painel do Participante"
-                st.session_state['force_password_change'] = bool(usuario.get('must_change_password', 0))
-                
-                # Registrar sucesso
-                registrar_tentativa_login(email, True, action="login")
-                
-                logger.info(f"✓ Login bem-sucedido: {email} ({usuario['perfil']})")
-                
-                st.success(f"✅ Bem-vindo, {usuario['nome']}!")
-                st.balloons()
-                
-                # Rerun para carregar próxima página
-                st.rerun()
-                
             except Exception as e:
-                st.error(f"❌ Erro ao gerar token de autenticação.")
+                logger.exception("Falha ao criar token JWT no login: %s", e)
+                st.error("❌ Erro ao gerar token de autenticação.")
+                return
+
+            # Armazenar no session_state
+            st.session_state['token'] = token
+            st.session_state['user_id'] = usuario['id']
+            st.session_state['user_email'] = usuario['email']
+            st.session_state['user_nome'] = usuario['nome']
+            st.session_state['user_role'] = usuario['perfil']
+            st.session_state['pagina'] = "Painel do Participante"
+            st.session_state['force_password_change'] = bool(usuario.get('must_change_password', 0))
+
+            try:
+                set_auth_cookies(token)
+            except Exception as cookie_error:
+                # Não bloquear login por falha de persistência do cookie.
+                logger.warning("Falha ao persistir cookie de sessao no login: %s", cookie_error)
+
+            # Registrar sucesso
+            registrar_tentativa_login(email, True, ip_address=client_ip, action="login")
+
+            logger.info(f"✓ Login bem-sucedido: {email} ({usuario['perfil']})")
+
+            st.success(f"✅ Bem-vindo, {usuario['nome']}!")
+            st.balloons()
+
+            # Rerun para carregar próxima página
+            st.rerun()
 
         # ========== ESQUECI A SENHA ==========
         with st.expander("Esqueci a senha"):
@@ -240,15 +297,32 @@ def login_view():
                     if not valido:
                         st.error("❌ Email inválido.")
                         return
-                    falhas, bloqueado = obter_tentativas_recentes(
+                    reset_ip = get_client_ip() or "LOCAL"
+                    falhas_email_reset, falhas_ip_reset, bloqueado = obter_tentativas_recentes(
                         email_reset,
+                        reset_ip,
                         MAX_RESET_ATTEMPTS,
                         RESET_LOCKOUT_DURATION,
                         "password_reset"
                     )
                     if bloqueado:
+                        motivo_reset = _classificar_motivo_bloqueio(
+                            falhas_email_reset,
+                            falhas_ip_reset,
+                            MAX_RESET_ATTEMPTS,
+                        )
+                        logger.warning(
+                            "[SECURITY_AUDIT] password_reset_blocked email=%s ip=%s motivo=%s falhas_email=%d falhas_ip=%d limite_email=%d limite_ip=%d",
+                            email_reset,
+                            reset_ip,
+                            motivo_reset,
+                            falhas_email_reset,
+                            falhas_ip_reset,
+                            MAX_RESET_ATTEMPTS,
+                            MAX_RESET_ATTEMPTS * 3,
+                        )
                         st.info("Se o email estiver cadastrado, você receberá uma senha temporária em instantes.")
-                        registrar_tentativa_login(email_reset, False, action="password_reset")
+                        registrar_tentativa_login(email_reset, False, ip_address=reset_ip, action="password_reset")
                     else:
                         ok, payload = redefinir_senha_usuario(email_reset)
                         if ok:
@@ -259,4 +333,4 @@ def login_view():
                                 logger.warning(f"Falha ao enviar email de recuperação para {email_reset}: {e}")
                         # Resposta genérica para evitar enumeração
                         st.info("Se o email estiver cadastrado, você receberá uma senha temporária em instantes.")
-                        registrar_tentativa_login(email_reset, False, action="password_reset")
+                        registrar_tentativa_login(email_reset, False, ip_address=reset_ip, action="password_reset")

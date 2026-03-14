@@ -22,35 +22,54 @@ def formatar_brasileiro(valor):
         return valor
 
 def gerar_imagem_tabela_ajustada(df, colunas):
+    df_exibicao = df[colunas].astype(str).copy()
+
     max_larguras = []
     for col in colunas:
-        max_len = df[col].astype(str).map(len).max()
+        max_len = df_exibicao[col].map(len).max()
         max_len = max(max_len, len(col))
         max_larguras.append(max_len)
-    escala_largura = 0.3
-    proporcional_largura = [l * escala_largura for l in max_larguras]
-    largura_figura = sum(proporcional_largura)
-    altura_figura = len(df) * 0.4 + 1.5
-    fig, ax = plt.subplots(figsize=(largura_figura, altura_figura))
+
+    total_chars = sum(max_larguras) if sum(max_larguras) > 0 else 1
+    col_widths = [max_len / total_chars for max_len in max_larguras]
+
+    largura_figura = max(16.0, total_chars * 0.14)
+    altura_figura = max(4.8, len(df_exibicao) * 0.62 + 2.2)
+    fig, ax = plt.subplots(figsize=(largura_figura, altura_figura), dpi=200)
     ax.axis('off')
+
+    fonte_tabela = 13 if len(df_exibicao) <= 20 else 11
     try:
         logo = mpimg.imread("BF1.jpg")
-        logo_img = OffsetImage(logo, zoom=0.15)
+        logo_img = OffsetImage(logo, zoom=0.18)
         ab = AnnotationBbox(logo_img, (0, 1), xycoords='axes fraction', frameon=False, box_alignment=(0, 1), pad=0.03)
         ax.add_artist(ab)
     except Exception:
         pass
+
     tabela = ax.table(
-        cellText=df[colunas].astype(str).values.tolist(),
+        cellText=df_exibicao.values.tolist(),
         colLabels=colunas,
         cellLoc='center',
-        loc='center'
+        loc='center',
+        colWidths=col_widths
     )
     tabela.auto_set_font_size(False)
-    tabela.set_fontsize(10)
-    tabela.scale(1.2, 1.2)
+    tabela.set_fontsize(fonte_tabela)
+    tabela.scale(1.15, 1.55)
+
+    # Melhora contraste e legibilidade no cabeçalho e no corpo da tabela.
+    for (row, col), cell in tabela.get_celld().items():
+        if row == 0:
+            cell.set_text_props(weight='bold', color='white')
+            cell.set_facecolor('#1f4e79')
+        else:
+            cell.set_facecolor('#f6f9fc' if row % 2 == 0 else 'white')
+        cell.set_edgecolor('#b8c4d0')
+        cell.set_linewidth(0.7)
+
     buffer = BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight', dpi=150)
+    plt.savefig(buffer, format='png', bbox_inches='tight', dpi=320)
     plt.close(fig)
     buffer.seek(0)
     return buffer
@@ -58,33 +77,59 @@ def gerar_imagem_tabela_ajustada(df, colunas):
 def gerar_imagem_prova(df_cruzada, prova_selecionada):
     if prova_selecionada not in df_cruzada.index:
         return None
+
     dados_prova = df_cruzada.loc[prova_selecionada]
     dados_ordenados = dados_prova.sort_values(ascending=False)
     df_prova = pd.DataFrame({prova_selecionada: dados_ordenados})
     df_prova[prova_selecionada] = df_prova[prova_selecionada].apply(
         lambda x: f'{x:,.2f}'.replace(',', 'v').replace('.', ',').replace('v', '.'))
+
     linhas = len(df_prova)
-    fig, ax = plt.subplots(figsize=(6, linhas * 0.5 + 1.5))
+    max_nome = max(df_prova.index.astype(str).map(len).max(), len("Participante")) if linhas > 0 else len("Participante")
+    max_valor = max(df_prova[prova_selecionada].astype(str).map(len).max(), len(prova_selecionada)) if linhas > 0 else len(prova_selecionada)
+    total_chars = max_nome + max_valor
+    largura_figura = max(8.8, total_chars * 0.2)
+    altura_figura = max(4.6, linhas * 0.62 + 2.2)
+    fig, ax = plt.subplots(figsize=(largura_figura, altura_figura), dpi=200)
     ax.axis('off')
+
+    fonte_tabela = 13 if linhas <= 20 else 11
     try:
         logo = mpimg.imread("BF1.jpg")
-        logo_img = OffsetImage(logo, zoom=0.12)
+        logo_img = OffsetImage(logo, zoom=0.16)
         ab = AnnotationBbox(logo_img, (0, 1), xycoords='axes fraction', frameon=False, box_alignment=(0, 1), pad=0.03)
         ax.add_artist(ab)
     except Exception:
         pass
+
     table = ax.table(
         cellText=df_prova.astype(str).values.tolist(),
         rowLabels=df_prova.index.astype(str).tolist(),
         colLabels=[prova_selecionada],
         cellLoc='center',
-        loc='center'
+        loc='center',
+        colWidths=[0.54]
     )
+
     table.auto_set_font_size(False)
-    table.set_fontsize(12)
-    table.scale(1.2, 1.2)
+    table.set_fontsize(fonte_tabela)
+    table.scale(1.2, 1.55)
+
+    # Padroniza contraste e leitura da imagem da prova específica.
+    for (row, col), cell in table.get_celld().items():
+        if row == 0:
+            cell.set_text_props(weight='bold', color='white')
+            cell.set_facecolor('#1f4e79')
+        elif col == -1:
+            cell.set_text_props(weight='bold')
+            cell.set_facecolor('#eef3f8')
+        else:
+            cell.set_facecolor('#f6f9fc' if row % 2 == 0 else 'white')
+        cell.set_edgecolor('#b8c4d0')
+        cell.set_linewidth(0.7)
+
     buffer = BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight', dpi=150)
+    plt.savefig(buffer, format='png', bbox_inches='tight', dpi=320)
     plt.close(fig)
     buffer.seek(0)
     return buffer
@@ -123,6 +168,9 @@ def main():
 
     current_year = dt.datetime.now().year
     season_options = get_season_options(fallback_years=["2025", "2026"])
+    if not season_options:
+        st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
+        return
     default_index = get_default_season_index(season_options, current_year=str(current_year))
     
     season = st.selectbox("Temporada", season_options, index=default_index, key="classificacao_season")
@@ -220,8 +268,8 @@ def main():
                 raw_envio = ap.get('data_envio')
                 if raw_envio is None:
                     continue
-                envio = pd.to_datetime([str(raw_envio)], errors='coerce')[0]
-                if pd.isna(envio):
+                envio = pd.to_datetime(str(raw_envio), errors='coerce')
+                if pd.isna(envio) or not isinstance(envio, pd.Timestamp):
                     continue
                 envio_dt = envio.to_pydatetime()
                 if envio_dt.tzinfo is None:
@@ -233,7 +281,12 @@ def main():
                 continue
 
     for idx, part in participantes.iterrows():
-        apostas_part = apostas_df[apostas_df['usuario_id'] == part['id']].sort_values('prova_id')
+        apostas_part_raw = apostas_df[apostas_df['usuario_id'] == part['id']]
+        if isinstance(apostas_part_raw, pd.Series):
+            apostas_part = pd.DataFrame([apostas_part_raw])
+        else:
+            apostas_part = apostas_part_raw
+        apostas_part = apostas_part.sort_values(by='prova_id')
         pontos_part = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=season)
         total_provas = sum([p for p in pontos_part if p is not None])
         
@@ -296,10 +349,15 @@ def main():
         provas_ate_penultima = provas_realizadas[provas_realizadas['id'] <= penultima_prova_id]['id'].tolist()
         tabela_anterior = []
         for idx, part in participantes.iterrows():
-            apostas_anteriores = apostas_df[
+            apostas_anteriores_raw = apostas_df[
                 (apostas_df['usuario_id'] == part['id']) & 
                 (apostas_df['prova_id'].isin(provas_ate_penultima))
-            ].sort_values('prova_id')
+            ]
+            if isinstance(apostas_anteriores_raw, pd.Series):
+                apostas_anteriores = pd.DataFrame([apostas_anteriores_raw])
+            else:
+                apostas_anteriores = apostas_anteriores_raw
+            apostas_anteriores = apostas_anteriores.sort_values(by='prova_id')
             pontos_anteriores = calcular_pontuacao_lote(apostas_anteriores, resultados_df, provas_df)
             total_anteriores = sum([p for p in pontos_anteriores if p is not None])
             
@@ -453,7 +511,12 @@ def main():
         fig_all = go.Figure()
         for part in participantes['nome']:
             u_id = participantes[participantes['nome'] == part].iloc[0]['id']
-            posicoes_part = df_posicoes[df_posicoes['usuario_id'] == u_id].sort_values('prova_id')
+            posicoes_part_raw = df_posicoes[df_posicoes['usuario_id'] == u_id]
+            if isinstance(posicoes_part_raw, pd.Series):
+                posicoes_part = pd.DataFrame([posicoes_part_raw])
+            else:
+                posicoes_part = posicoes_part_raw
+            posicoes_part = posicoes_part.sort_values(by='prova_id')
             if not posicoes_part.empty:
                 x_vals = []
                 for pid in posicoes_part['prova_id']:

@@ -1,7 +1,4 @@
-from typing import Tuple
-
-
-def validar_email(email: str) -> Tuple[bool, str]:
+def validar_email(email: str) -> tuple[bool, str]:
     """Valida formato de email"""
     import re
     
@@ -15,7 +12,7 @@ def validar_email(email: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def validar_senha(senha: str) -> Tuple[bool, str]:
+def validar_senha(senha: str) -> tuple[bool, str]:
     """Valida força de senha"""
     if not senha:
         return False, "Senha obrigatória"
@@ -32,7 +29,7 @@ def validar_senha(senha: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def validar_id(value: int) -> Tuple[bool, str]:
+def validar_id(value: int) -> tuple[bool, str]:
     """Valida ID positivo"""
     try:
         id_val = int(value)

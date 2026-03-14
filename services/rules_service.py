@@ -2,7 +2,6 @@
 Serviço de Gestão de Regras
 """
 import logging
-from typing import Optional, Dict
 from db.rules_utils import (
     get_regra_temporada,
     get_regra_by_nome
@@ -10,7 +9,7 @@ from db.rules_utils import (
 
 logger = logging.getLogger(__name__)
 
-def get_regras_aplicaveis(temporada: str, tipo_prova: str = "Normal") -> Dict:
+def get_regras_aplicaveis(temporada: str, tipo_prova: str = "Normal") -> dict:
     """
     Retorna as regras aplicáveis para uma temporada e tipo de prova.
     
@@ -97,7 +96,7 @@ def get_regras_aplicaveis(temporada: str, tipo_prova: str = "Normal") -> Dict:
     
     return config
 
-def validar_aposta(aposta: Dict, regras: Dict) -> tuple:
+def validar_aposta(aposta: dict, regras: dict) -> tuple:
     """
     Valida se uma aposta respeita TODAS as regras vigentes.
     

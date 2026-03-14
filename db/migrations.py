@@ -146,6 +146,25 @@ def add_login_attempts_action_if_missing():
             logger.debug(f"Erro ao adicionar coluna action em login_attempts: {e}")
             conn.rollback()
 
+
+def add_login_attempts_ip_if_missing():
+    """Adiciona coluna `ip_address` à tabela `login_attempts`."""
+    pool = get_pool()
+    with pool.get_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA table_info('login_attempts')")
+            cols = [r[1] for r in cursor.fetchall()]
+            if 'ip_address' not in cols:
+                cursor.execute("ALTER TABLE login_attempts ADD COLUMN ip_address TEXT")
+                logger.info("✓ Coluna `ip_address` adicionada a `login_attempts`")
+            else:
+                logger.debug("  Coluna `ip_address` já existe em `login_attempts`, pulando...")
+            conn.commit()
+        except Exception as e:
+            logger.debug(f"Erro ao adicionar coluna ip_address em login_attempts: {e}")
+            conn.rollback()
+
 def add_penalidade_auto_percent_if_missing():
     """Adiciona coluna `penalidade_auto_percent` à tabela `regras`."""
     pool = get_pool()
@@ -350,6 +369,7 @@ def create_missing_tables_if_needed():
                     automatica INTEGER,
                     data TEXT,
                     horario TIMESTAMP,
+                    ip_address TEXT,
                     temporada TEXT DEFAULT '{current_year}',
                     status TEXT DEFAULT 'Registrada',
                     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -362,7 +382,7 @@ def create_missing_tables_if_needed():
             # Rebuild log_apostas if legacy columns missing
             cursor.execute("PRAGMA table_info('log_apostas')")
             log_cols = [r[1] for r in cursor.fetchall()]
-            required_cols = {"apostador", "aposta", "nome_prova", "tipo_aposta", "automatica", "data", "horario", "temporada"}
+            required_cols = {"apostador", "aposta", "nome_prova", "tipo_aposta", "automatica", "data", "horario", "ip_address", "temporada"}
             has_required = required_cols.issubset(set(log_cols))
             if not has_required:
                 logger.info("↻ Atualizando `log_apostas` para incluir colunas de temporada e metadados de aposta...")
@@ -382,6 +402,7 @@ def create_missing_tables_if_needed():
                         automatica INTEGER,
                         data TEXT,
                         horario TIMESTAMP,
+                        ip_address TEXT,
                         temporada TEXT DEFAULT '{current_year}',
                         status TEXT DEFAULT 'Registrada',
                         data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -394,7 +415,7 @@ def create_missing_tables_if_needed():
                 legacy_cols = [r[1] for r in cursor.fetchall()]
                 has_col = lambda name: name in legacy_cols
                 insert_sql = '''
-                    INSERT INTO log_apostas__new (usuario_id, prova_id, apostador, aposta, nome_prova, pilotos, piloto_11, tipo_aposta, automatica, data, horario, temporada, status, data_criacao)
+                    INSERT INTO log_apostas__new (usuario_id, prova_id, apostador, aposta, nome_prova, pilotos, piloto_11, tipo_aposta, automatica, data, horario, ip_address, temporada, status, data_criacao)
                     SELECT 
                         usuario_id,
                         prova_id,
@@ -407,6 +428,7 @@ def create_missing_tables_if_needed():
                         0,
                         DATE(CASE WHEN {has_data_criacao} THEN data_criacao ELSE CURRENT_TIMESTAMP END),
                         CASE WHEN {has_data_criacao} THEN data_criacao ELSE CURRENT_TIMESTAMP END,
+                        CASE WHEN {has_ip_address} THEN ip_address ELSE NULL END,
                         '{current_year}',
                         CASE WHEN {has_status} THEN status ELSE 'Registrada' END,
                         CASE WHEN {has_data_criacao} THEN data_criacao ELSE CURRENT_TIMESTAMP END
@@ -415,6 +437,7 @@ def create_missing_tables_if_needed():
                     has_pilotos='1' if has_col('pilotos') else '0',
                     has_piloto11='1' if has_col('piloto_11') else '0',
                     has_data_criacao='1' if has_col('data_criacao') else '0',
+                    has_ip_address='1' if has_col('ip_address') else '0',
                     has_status='1' if has_col('status') else '0'
                 )
                 cursor.execute(insert_sql)
@@ -456,6 +479,8 @@ def run_migrations():
             add_password_reset_flag_if_missing()
             # Adicionar action nas tentativas de login
             add_login_attempts_action_if_missing()
+            # Adicionar IP nas tentativas de login
+            add_login_attempts_ip_if_missing()
             # Adicionar penalidade automática percentual nas regras
             add_penalidade_auto_percent_if_missing()
             # Criar historico de status de usuarios
