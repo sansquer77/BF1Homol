@@ -8,7 +8,12 @@ import re  # Para conversão de sintaxe SQL
 from pathlib import Path
 from datetime import datetime
 from db.db_utils import db_connect
-from db.db_config import DB_PATH  # Importar caminho correto do banco
+from db.db_config import DB_PATH, BACKUP_DIR  # Caminhos centralizados
+
+
+def _ensure_backup_dir() -> Path:
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    return BACKUP_DIR
 
 
 def _parse_backup_datetime_value(value):
@@ -135,7 +140,7 @@ def upload_db():
             if info['errors'] > 0:
                 st.warning(f"⚠️ {info['errors']} comandos falharam (podem ser erros esperados de sintaxe)")
         st.info(f"📊 Tamanho do banco: {info.get('db_size', 0) / 1024:.1f} KB")
-        st.info("💾 Backup do banco anterior salvo em /backups/")
+        st.info(f"💾 Backup do banco anterior salvo em {_ensure_backup_dir()}/")
         del st.session_state.import_success
         return  # IMPORTANTE: Sair da função após mostrar sucesso
     
@@ -287,8 +292,7 @@ def upload_db():
                 
                 # Criar backup do banco atual usando sqlite3.backup (garante WAL)
                 if DB_PATH.exists():
-                    backup_path = Path("backups")
-                    backup_path.mkdir(exist_ok=True)
+                    backup_path = _ensure_backup_dir()
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     backup_file = backup_path / f"backup_antes_sql_import_{timestamp}.db"
                     src = sqlite3.connect(str(DB_PATH), timeout=30)
@@ -415,8 +419,7 @@ def upload_db():
                 
                 # Criar backup antes de sobrescrever usando sqlite3.backup (garante WAL)
                 if DB_PATH.exists():
-                    backup_path = Path("backups")
-                    backup_path.mkdir(exist_ok=True)
+                    backup_path = _ensure_backup_dir()
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     backup_file = backup_path / f"backup_antes_restauracao_{timestamp}.db"
                     src = sqlite3.connect(str(DB_PATH), timeout=30)
@@ -739,7 +742,7 @@ if __name__ == "__main__":
 
 # ============ FUNÇÕES DE BACKUP E RESTAURAÇÃO ============
 
-def backup_banco(backup_dir: str = "backups") -> str:
+def backup_banco(backup_dir: str | None = None) -> str:
     """
     Cria um backup do banco de dados usando a API de backup do SQLite.
     Isso garante que todos os dados do WAL sejam incluídos no backup.
@@ -750,8 +753,8 @@ def backup_banco(backup_dir: str = "backups") -> str:
     Returns:
         Caminho do arquivo de backup criado
     """
-    backup_path = Path(backup_dir)
-    backup_path.mkdir(exist_ok=True)
+    backup_path = Path(backup_dir) if backup_dir else _ensure_backup_dir()
+    backup_path.mkdir(parents=True, exist_ok=True)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_file = backup_path / f"backup_{timestamp}.db"
