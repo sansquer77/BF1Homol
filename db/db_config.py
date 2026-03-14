@@ -6,16 +6,64 @@ Suporta variáveis de ambiente para produção
 
 from pathlib import Path
 import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+def _can_write_database_path(db_path: Path) -> bool:
+    """Valida se o diretório do banco é gravável no runtime atual."""
+    try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return False
+
+    probe_file = db_path.parent / f".db_write_probe_{os.getpid()}"
+    try:
+        probe_file.touch(exist_ok=True)
+        probe_file.unlink(missing_ok=True)
+        return True
+    except OSError:
+        return False
+
+
+def _resolve_db_path() -> Path:
+    """
+    Resolve caminho do banco com fallback seguro para /tmp em ambientes read-only.
+
+    Prioridade:
+      1) DATABASE_PATH (se gravável)
+      2) arquivo na raiz do projeto (se gravável)
+      3) /tmp/bolao_f1.db
+    """
+    env_db_path = os.environ.get("DATABASE_PATH")
+    if env_db_path:
+        candidate = Path(env_db_path).expanduser()
+        if not candidate.is_absolute():
+            candidate = (Path.cwd() / candidate).resolve()
+
+        if _can_write_database_path(candidate):
+            return candidate
+
+        logger.warning(
+            "DATABASE_PATH=%s não é gravável. Usando fallback em /tmp.",
+            candidate,
+        )
+
+    default_db = Path(__file__).parent.parent / "bolao_f1.db"
+    if _can_write_database_path(default_db):
+        return default_db
+
+    fallback_db = Path("/tmp") / "bolao_f1.db"
+    fallback_db.parent.mkdir(parents=True, exist_ok=True)
+    logger.warning(
+        "Diretório do projeto não é gravável. Banco SQLite será usado em %s.",
+        fallback_db,
+    )
+    return fallback_db
+
 
 # Caminho do banco de dados - suporta variável de ambiente
-# Padrão: bolao_f1.db no mesmo diretório raiz do projeto (parent de /db/)
-# Pode ser sobrescrito via DATABASE_PATH para ambientes específicos
-_default_db = Path(__file__).parent.parent / "bolao_f1.db"
-DB_PATH = Path(os.environ.get("DATABASE_PATH", str(_default_db)))
-
-# Criar diretório somente se não existir e não for raiz
-if DB_PATH.parent != Path("/") and not DB_PATH.parent.exists():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+DB_PATH = _resolve_db_path()
 
 # Configurações de Pool
 POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
