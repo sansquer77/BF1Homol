@@ -355,6 +355,19 @@ def _coerce_sqlite_value_for_postgres_type(value: Any, pg_type: str) -> Any:
         return None
 
     normalized_type = (pg_type or "").strip().lower()
+    if isinstance(value, str) and value.strip() == "":
+        if any(token in normalized_type for token in ("timestamp", "date", "time", "bool", "int", "numeric", "decimal", "double", "real")):
+            return None
+        return value
+
+    if any(token in normalized_type for token in ("timestamp", "date", "time")):
+        parsed = _parse_backup_datetime_value(value)
+        if parsed is None:
+            return None
+        if "date" in normalized_type and "time" not in normalized_type:
+            return parsed[:10]
+        return parsed
+
     if "bool" not in normalized_type:
         return value
 
