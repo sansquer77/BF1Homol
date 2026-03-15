@@ -318,6 +318,27 @@ def _filter_rows_with_missing_fk_refs(
     if not values:
         return values, 0
 
+    def _normalize_fk_compare_value(raw: Any) -> Any:
+        if raw is None:
+            return None
+        if isinstance(raw, bool):
+            return int(raw)
+        if isinstance(raw, int):
+            return raw
+        if isinstance(raw, float):
+            if raw.is_integer():
+                return int(raw)
+            return raw
+        text = str(raw).strip()
+        if text == "":
+            return None
+        if re.fullmatch(r"[+-]?\d+", text):
+            try:
+                return int(text)
+            except Exception:
+                return text
+        return text
+
     filtered_values = values
     skipped_total = 0
     fks = _get_postgres_single_column_fks(cursor, table_name)
@@ -328,7 +349,10 @@ def _filter_rows_with_missing_fk_refs(
         fk_idx = cols.index(fk_col)
 
         cursor.execute(f"SELECT {_quote_identifier(ref_col)} FROM {_quote_identifier(ref_table)}")
-        valid_refs = {row[0] for row in (cursor.fetchall() or [])}
+        valid_refs = {
+            _normalize_fk_compare_value(row[0])
+            for row in (cursor.fetchall() or [])
+        }
         if not valid_refs:
             before = len(filtered_values)
             filtered_values = [row for row in filtered_values if row[fk_idx] is None]
@@ -339,7 +363,8 @@ def _filter_rows_with_missing_fk_refs(
         filtered_values = [
             row
             for row in filtered_values
-            if row[fk_idx] is None or row[fk_idx] in valid_refs
+            if _normalize_fk_compare_value(row[fk_idx]) is None
+            or _normalize_fk_compare_value(row[fk_idx]) in valid_refs
         ]
         skipped_total += before - len(filtered_values)
 

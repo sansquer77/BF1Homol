@@ -356,6 +356,10 @@ class ConnectionPool:
         """Retorna conexão do pool como context manager."""
         if self._backend == "postgres":
             if self._pg_pool is None:
+                with self._lock:
+                    if self._pg_pool is None:
+                        self._initialize_pool()
+            if self._pg_pool is None:
                 raise RuntimeError("Pool PostgreSQL não inicializado")
             with self._pg_pool.connection() as conn:
                 yield PostgresConnectionAdapter(conn)
