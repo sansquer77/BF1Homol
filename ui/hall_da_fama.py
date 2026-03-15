@@ -165,8 +165,8 @@ def hall_da_fama():
                 FROM {source_table} hf
                 JOIN usuarios u ON hf.usuario_id = u.id
                 WHERE hf.{pos_col} = 1 AND LOWER(u.perfil) != 'master'
-                GROUP BY hf.usuario_id
-                ORDER BY vitorias DESC
+                GROUP BY hf.usuario_id, u.nome
+                ORDER BY vitorias DESC, u.nome ASC
                 LIMIT 3
             '''.format(source_table=source_table, pos_col=pos_col))
             top_winners = c.fetchall()

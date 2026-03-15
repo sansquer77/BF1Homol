@@ -26,6 +26,10 @@ def can_place_championship_bet(season: Optional[int] = None, now: Optional[datet
     Retorna (pode, mensagem, deadline_sp).
     """
     season_val = _season_or_current(season)
+    current_season = datetime.now().year
+    if season_val < current_season:
+        return False, f"Apostas bloqueadas para temporada encerrada ({season_val}).", None
+
     try:
         provas_df = get_provas_df(str(season_val))
         if provas_df.empty:

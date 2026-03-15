@@ -206,6 +206,59 @@ def _drop_all_tables_current_schema(cursor: Any) -> None:
         cursor.execute(f"DROP TABLE IF EXISTS {_quote_identifier(table_name)} CASCADE")
 
 
+def _list_current_schema_tables(cursor: Any) -> list[str]:
+    cursor.execute(
+        """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = current_schema()
+          AND table_type = 'BASE TABLE'
+        ORDER BY table_name
+        """
+    )
+    rows = cursor.fetchall() or []
+    return [str(r[0]) for r in rows if r and r[0]]
+
+
+def _sync_postgres_identity_sequence(cursor: Any, table_name: str) -> None:
+    """Ajusta sequência de coluna id para continuar após o maior ID existente."""
+    safe_table = _sanitize_identifier(table_name)
+
+    cursor.execute(f"PRAGMA table_info('{safe_table}')")
+    cols_info = cursor.fetchall() or []
+    cols = [str(c[1]).lower() for c in cols_info if len(c) > 1 and c[1]]
+    if "id" not in cols:
+        return
+
+    cursor.execute("SELECT pg_get_serial_sequence(%s, %s)", (safe_table, "id"))
+    row = cursor.fetchone()
+    seq_name = row[0] if row else None
+    if not seq_name:
+        return
+
+    cursor.execute(
+        f"""
+        SELECT setval(
+            pg_get_serial_sequence(%s, %s),
+            COALESCE(MAX({_quote_identifier('id')}), 1),
+            MAX({_quote_identifier('id')}) IS NOT NULL
+        )
+        FROM {_quote_identifier(safe_table)}
+        """,
+        (safe_table, "id"),
+    )
+
+
+def _sync_postgres_identity_sequences(cursor: Any, table_names: list[str] | None = None) -> None:
+    targets = table_names or _list_current_schema_tables(cursor)
+    for table_name in targets:
+        try:
+            _sync_postgres_identity_sequence(cursor, table_name)
+        except Exception:
+            # Não interrompe fluxo de importação por falha pontual em sequência.
+            continue
+
+
 def _generate_postgres_data_only_dump() -> bytes:
     """Gera dump SQL data-only para fallback quando pg_dump não é compatível."""
     lines: list[str] = []
@@ -544,6 +597,7 @@ def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
                 statements = [s.strip() for s in sql_content.split(";") if s.strip()]
                 for statement in statements:
                     cursor.execute(statement)
+                _sync_postgres_identity_sequences(cursor)
                 conn.commit()
             return True, ""
         except Exception as exc:
@@ -572,6 +626,15 @@ def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
     )
     if not ok:
         return False, f"Falha ao restaurar dump: {error}"
+
+    try:
+        with db_connect() as conn:
+            cursor = conn.cursor()
+            _sync_postgres_identity_sequences(cursor)
+            conn.commit()
+    except Exception as exc:
+        return False, f"Dump restaurado, mas falhou ao sincronizar sequências: {exc}"
+
     return True, ""
 
 
@@ -695,6 +758,7 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                     stats["rows_by_table"].get(table_name, 0) + len(values)
                 )
 
+            _sync_postgres_identity_sequences(cursor_t)
             target.commit()
         return True, "", stats
     except Exception as exc:
@@ -1490,6 +1554,9 @@ def upload_tabela():
                             for row in df_alinhado.to_dict("records")
                         ]
                         cursor.executemany(insert_sql, values)
+
+                    if _is_postgres_backend():
+                        _sync_postgres_identity_sequences(cursor, [table_name])
 
                     conn.commit()
 

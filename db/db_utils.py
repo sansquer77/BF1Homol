@@ -30,6 +30,49 @@ def db_connect():
     """Retorna uma conexão do pool"""
     return get_pool().get_connection()
 
+
+def _sync_postgres_sequences(conn) -> None:
+    """Sincroniza sequências de colunas id no PostgreSQL com o maior valor atual."""
+    if DB_BACKEND != "postgres":
+        return
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = current_schema()
+          AND table_type = 'BASE TABLE'
+        """
+    )
+    table_names = [str(r[0]) for r in (c.fetchall() or []) if r and r[0]]
+
+    for table_name in table_names:
+        try:
+            c.execute(f"PRAGMA table_info('{table_name}')")
+            cols = [str(r[1]).lower() for r in (c.fetchall() or []) if len(r) > 1 and r[1]]
+            if "id" not in cols:
+                continue
+
+            c.execute("SELECT pg_get_serial_sequence(%s, %s)", (table_name, "id"))
+            row = c.fetchone()
+            seq_name = row[0] if row else None
+            if not seq_name:
+                continue
+
+            c.execute(
+                f"""
+                SELECT setval(
+                    pg_get_serial_sequence(%s, %s),
+                    COALESCE(MAX({_quote_identifier('id')}), 1),
+                    MAX({_quote_identifier('id')}) IS NOT NULL
+                )
+                FROM {_quote_identifier(table_name)}
+                """,
+                (table_name, "id"),
+            )
+        except Exception as e:
+            logger.warning(f"Falha ao sincronizar sequência da tabela {table_name}: {e}")
+
 # ============ FUNÇÕES DE SEGURANÇA (BCRYPT) ============
 
 def hash_password(senha: str) -> str:
@@ -183,6 +226,10 @@ def init_db():
 
         # Inicializar regras
         init_rules_table()
+
+        # Hardening PostgreSQL: evita colisões de PK após importações/restaurações prévias.
+        _sync_postgres_sequences(conn)
+
         conn.commit()
         _get_existing_columns_cached.cache_clear()
         logger.info("✓ Banco de dados inicializado com sucesso")
