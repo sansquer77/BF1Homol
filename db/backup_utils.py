@@ -271,6 +271,84 @@ def _topological_sort_tables(table_names: list[str], deps_map: dict[str, set[str
     return result
 
 
+def _get_postgres_single_column_fks(cursor: Any, table_name: str) -> list[tuple[str, str, str]]:
+    """Retorna FKs simples (1 coluna) da tabela no schema atual."""
+    cursor.execute(
+        """
+        SELECT
+            kcu.column_name,
+            ccu.table_name AS ref_table,
+            ccu.column_name AS ref_column
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.referential_constraints rc
+          ON tc.constraint_name = rc.constraint_name
+         AND tc.table_schema = rc.constraint_schema
+        JOIN information_schema.constraint_column_usage ccu
+          ON rc.unique_constraint_name = ccu.constraint_name
+         AND rc.unique_constraint_schema = ccu.constraint_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND tc.table_schema = current_schema()
+          AND tc.table_name = %s
+        """,
+        (table_name,),
+    )
+    rows = cursor.fetchall() or []
+    fks: list[tuple[str, str, str]] = []
+    for row in rows:
+        if not row or len(row) < 3:
+            continue
+        col = str(row[0])
+        ref_table = str(row[1])
+        ref_col = str(row[2])
+        if col and ref_table and ref_col:
+            fks.append((col, ref_table, ref_col))
+    return fks
+
+
+def _filter_rows_with_missing_fk_refs(
+    cursor: Any,
+    table_name: str,
+    cols: list[str],
+    values: list[tuple[Any, ...]],
+) -> tuple[list[tuple[Any, ...]], int]:
+    """Descarta linhas que referenciam chaves estrangeiras inexistentes no destino."""
+    if not values:
+        return values, 0
+
+    filtered_values = values
+    skipped_total = 0
+    fks = _get_postgres_single_column_fks(cursor, table_name)
+
+    for fk_col, ref_table, ref_col in fks:
+        if fk_col not in cols:
+            continue
+        fk_idx = cols.index(fk_col)
+
+        cursor.execute(f"SELECT {_quote_identifier(ref_col)} FROM {_quote_identifier(ref_table)}")
+        valid_refs = {row[0] for row in (cursor.fetchall() or [])}
+        if not valid_refs:
+            before = len(filtered_values)
+            filtered_values = [row for row in filtered_values if row[fk_idx] is None]
+            skipped_total += before - len(filtered_values)
+            continue
+
+        before = len(filtered_values)
+        filtered_values = [
+            row
+            for row in filtered_values
+            if row[fk_idx] is None or row[fk_idx] in valid_refs
+        ]
+        skipped_total += before - len(filtered_values)
+
+        if not filtered_values:
+            break
+
+    return filtered_values, skipped_total
+
+
 def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
     db_uri = _build_pg_uri_for_cli()
 
@@ -321,7 +399,7 @@ def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
 
 
 def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict[str, int]]:
-    stats = {"tables": 0, "rows": 0}
+    stats = {"tables": 0, "rows": 0, "skipped_rows": 0}
     if not sqlite_file.exists():
         return False, "Arquivo .db não encontrado", stats
 
@@ -396,6 +474,10 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                     f"VALUES ({placeholders})"
                 )
                 values = [tuple(row[col] for col in cols) for row in rows]
+                values, skipped = _filter_rows_with_missing_fk_refs(cursor_t, table_name, cols, values)
+                stats["skipped_rows"] += skipped
+                if not values:
+                    continue
                 cursor_t.executemany(insert_sql, values)
                 stats["rows"] += len(values)
 
@@ -1183,6 +1265,12 @@ def migrar_sqlite_para_postgres():
             st.success("✅ Migração concluída com sucesso!")
             st.info(f"📊 Tabelas migradas: {stats['tables']}")
             st.info(f"📥 Registros migrados: {stats['rows']}")
+            skipped_rows = int(stats.get('skipped_rows', 0) or 0)
+            if skipped_rows > 0:
+                st.warning(
+                    f"⚠️ {skipped_rows} registros foram ignorados por referência inválida "
+                    "(chave estrangeira sem linha pai)."
+                )
             st.cache_data.clear()
             st.rerun()
         except Exception as exc:
