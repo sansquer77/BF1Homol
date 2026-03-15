@@ -12,6 +12,13 @@ logger = logging.getLogger(__name__)
 
 DB_PATH_SOURCE = ""
 
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
 def _can_write_database_path(db_path: Path) -> bool:
     """Valida se o diretório do banco é gravável no runtime atual."""
     try:
@@ -41,6 +48,7 @@ def _resolve_db_path() -> Path:
     """
     global DB_PATH_SOURCE
 
+    strict_env_path = _env_flag("DB_PATH_STRICT", default=False)
     env_db_path = os.environ.get("DB_PATH") or os.environ.get("DATABASE_PATH")
     if env_db_path:
         candidate = Path(env_db_path).expanduser()
@@ -51,10 +59,13 @@ def _resolve_db_path() -> Path:
             DB_PATH_SOURCE = "environment"
             return candidate
 
-        raise RuntimeError(
+        message = (
             "DB_PATH/DATABASE_PATH foi definido no ambiente, mas não é gravável: "
-            f"{candidate}. Corrija a montagem/permissão do volume antes de subir a aplicação."
+            f"{candidate}. Corrija a montagem/permissão do volume."
         )
+        if strict_env_path:
+            raise RuntimeError(message)
+        logger.error("%s Continuando com fallback por DB_PATH_STRICT=false.", message)
 
     data_db = Path("/data") / "bolao_f1.db"
     if _can_write_database_path(data_db):
