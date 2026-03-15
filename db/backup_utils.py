@@ -349,6 +349,35 @@ def _filter_rows_with_missing_fk_refs(
     return filtered_values, skipped_total
 
 
+def _coerce_sqlite_value_for_postgres_type(value: Any, pg_type: str) -> Any:
+    """Coerce simples de tipos SQLite para tipos PostgreSQL sensíveis."""
+    if value is None:
+        return None
+
+    normalized_type = (pg_type or "").strip().lower()
+    if "bool" not in normalized_type:
+        return value
+
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        numeric = int(value)
+        if numeric in (0, 1):
+            return bool(numeric)
+        return value
+
+    text = str(value).strip().lower()
+    true_values = {"1", "true", "t", "yes", "y", "sim", "s"}
+    false_values = {"0", "false", "f", "no", "n", "nao", "não"}
+    if text in true_values:
+        return True
+    if text in false_values:
+        return False
+
+    return value
+
+
 def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
     db_uri = _build_pg_uri_for_cli()
 
@@ -463,6 +492,11 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                 cursor_t.execute(f"PRAGMA table_info('{table_name}')")
                 target_cols_info = cursor_t.fetchall() or []
                 target_cols = [str(col[1]) for col in target_cols_info if len(col) > 1]
+                target_col_types = {
+                    str(col[1]): str(col[2]).lower()
+                    for col in target_cols_info
+                    if len(col) > 2 and col[1]
+                }
                 cols = [c for c in source_cols if c in target_cols]
                 if not cols:
                     continue
@@ -473,7 +507,16 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                     f"INSERT INTO {_quote_identifier(table_name)} ({cols_sql}) "
                     f"VALUES ({placeholders})"
                 )
-                values = [tuple(row[col] for col in cols) for row in rows]
+                values = [
+                    tuple(
+                        _coerce_sqlite_value_for_postgres_type(
+                            row[col],
+                            target_col_types.get(col, ""),
+                        )
+                        for col in cols
+                    )
+                    for row in rows
+                ]
                 values, skipped = _filter_rows_with_missing_fk_refs(cursor_t, table_name, cols, values)
                 stats["skipped_rows"] += skipped
                 if not values:
