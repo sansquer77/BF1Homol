@@ -388,100 +388,100 @@ def _filter_rows_with_missing_fk_refs(
 
 
 def _get_postgres_unique_constraints(cursor: Any, table_name: str) -> list[tuple[str, list[str]]]:
-        """Retorna constraints UNIQUE/PRIMARY KEY e suas colunas para uma tabela PostgreSQL."""
-        cursor.execute(
-                """
-                SELECT
-                        c.conname,
-                        array_agg(a.attname ORDER BY u.ordinality) AS cols
-                FROM pg_constraint c
-                JOIN pg_class t
-                    ON t.oid = c.conrelid
-                JOIN pg_namespace n
-                    ON n.oid = t.relnamespace
-                JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS u(attnum, ordinality)
-                    ON TRUE
-                JOIN pg_attribute a
-                    ON a.attrelid = t.oid
-                 AND a.attnum = u.attnum
-                WHERE n.nspname = current_schema()
-                    AND t.relname = %s
-                    AND c.contype IN ('u', 'p')
-                GROUP BY c.conname
-                ORDER BY c.conname
-                """,
-                (table_name,),
-        )
-        rows = cursor.fetchall() or []
-        result: list[tuple[str, list[str]]] = []
-        for row in rows:
-                if not row or len(row) < 2:
-                        continue
-                name = str(row[0])
-                cols_raw = row[1] or []
-                cols = [str(c) for c in cols_raw if c]
-                if cols:
-                        result.append((name, cols))
-        return result
+    """Retorna constraints UNIQUE/PRIMARY KEY e suas colunas para uma tabela PostgreSQL."""
+    cursor.execute(
+        """
+        SELECT
+            c.conname,
+            array_agg(a.attname ORDER BY u.ordinality) AS cols
+        FROM pg_constraint c
+        JOIN pg_class t
+          ON t.oid = c.conrelid
+        JOIN pg_namespace n
+          ON n.oid = t.relnamespace
+        JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS u(attnum, ordinality)
+          ON TRUE
+        JOIN pg_attribute a
+          ON a.attrelid = t.oid
+         AND a.attnum = u.attnum
+        WHERE n.nspname = current_schema()
+          AND t.relname = %s
+          AND c.contype IN ('u', 'p')
+        GROUP BY c.conname
+        ORDER BY c.conname
+        """,
+        (table_name,),
+    )
+    rows = cursor.fetchall() or []
+    result: list[tuple[str, list[str]]] = []
+    for row in rows:
+        if not row or len(row) < 2:
+            continue
+        name = str(row[0])
+        cols_raw = row[1] or []
+        cols = [str(c) for c in cols_raw if c]
+        if cols:
+            result.append((name, cols))
+    return result
 
 
-    def _normalize_unique_key_value(raw: Any) -> Any:
-        if raw is None:
-            return None
-        if isinstance(raw, bool):
+def _normalize_unique_key_value(raw: Any) -> Any:
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float):
+        if raw.is_integer():
             return int(raw)
-        if isinstance(raw, int):
-            return raw
-        if isinstance(raw, float):
-            if raw.is_integer():
-                return int(raw)
-            return raw
-        text = str(raw).strip()
-        if text == "":
-            return None
-        if re.fullmatch(r"[+-]?\d+", text):
-            try:
-                return int(text)
-            except Exception:
-                return text
-        return text
+        return raw
+    text = str(raw).strip()
+    if text == "":
+        return None
+    if re.fullmatch(r"[+-]?\d+", text):
+        try:
+            return int(text)
+        except Exception:
+            return text
+    return text
 
 
-    def _deduplicate_rows_by_unique_constraints(
-        values: list[tuple[Any, ...]],
-        cols: list[str],
-        unique_constraints: list[tuple[str, list[str]]],
-    ) -> tuple[list[tuple[Any, ...]], int]:
-        """Remove duplicidades por constraints UNIQUE mantendo a última ocorrência."""
-        deduped_values = values
-        removed_total = 0
+def _deduplicate_rows_by_unique_constraints(
+    values: list[tuple[Any, ...]],
+    cols: list[str],
+    unique_constraints: list[tuple[str, list[str]]],
+) -> tuple[list[tuple[Any, ...]], int]:
+    """Remove duplicidades por constraints UNIQUE mantendo a última ocorrência."""
+    deduped_values = values
+    removed_total = 0
 
-        for _constraint_name, constraint_cols in unique_constraints:
-            if not constraint_cols or any(col not in cols for col in constraint_cols):
-                continue
-            if len(constraint_cols) == 1 and str(constraint_cols[0]).lower() == "id":
-                continue
+    for _constraint_name, constraint_cols in unique_constraints:
+        if not constraint_cols or any(col not in cols for col in constraint_cols):
+            continue
+        if len(constraint_cols) == 1 and str(constraint_cols[0]).lower() == "id":
+            continue
 
-            idxs = [cols.index(col) for col in constraint_cols]
-            before = len(deduped_values)
-            by_key: dict[tuple[Any, ...], tuple[Any, ...]] = {}
+        idxs = [cols.index(col) for col in constraint_cols]
+        before = len(deduped_values)
+        by_key: dict[tuple[Any, ...], tuple[Any, ...]] = {}
 
-            for row in deduped_values:
-                key = tuple(_normalize_unique_key_value(row[idx]) for idx in idxs)
-                by_key[key] = row
+        for row in deduped_values:
+            key = tuple(_normalize_unique_key_value(row[idx]) for idx in idxs)
+            by_key[key] = row
 
-            deduped_values = list(by_key.values())
-            removed_total += before - len(deduped_values)
+        deduped_values = list(by_key.values())
+        removed_total += before - len(deduped_values)
 
-            if not deduped_values:
-                break
+        if not deduped_values:
+            break
 
-        return deduped_values, removed_total
+    return deduped_values, removed_total
 
 
-    def _is_log_table(table_name: str) -> bool:
-        name = (table_name or "").strip().lower()
-        return name.startswith("log_") or name.endswith("_log") or name == "login_attempts"
+def _is_log_table(table_name: str) -> bool:
+    name = (table_name or "").strip().lower()
+    return name.startswith("log_") or name.endswith("_log") or name == "login_attempts"
 
 
 def _coerce_sqlite_value_for_postgres_type(value: Any, pg_type: str) -> Any:
