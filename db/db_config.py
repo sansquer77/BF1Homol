@@ -10,6 +10,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+DB_PATH_SOURCE = ""
+
 def _can_write_database_path(db_path: Path) -> bool:
     """Valida se o diretório do banco é gravável no runtime atual."""
     try:
@@ -37,6 +39,8 @@ def _resolve_db_path() -> Path:
       4) bolao_f1.db na raiz do projeto (fallback para desenvolvimento)
       5) /tmp/bolao_f1.db (fallback final)
     """
+    global DB_PATH_SOURCE
+
     env_db_path = os.environ.get("DB_PATH") or os.environ.get("DATABASE_PATH")
     if env_db_path:
         candidate = Path(env_db_path).expanduser()
@@ -44,15 +48,17 @@ def _resolve_db_path() -> Path:
             candidate = (Path.cwd() / candidate).resolve()
 
         if _can_write_database_path(candidate):
+            DB_PATH_SOURCE = "environment"
             return candidate
 
-        logger.warning(
-            "DB_PATH/DATABASE_PATH=%s não é gravável. Tentando próximos fallbacks.",
-            candidate,
+        raise RuntimeError(
+            "DB_PATH/DATABASE_PATH foi definido no ambiente, mas não é gravável: "
+            f"{candidate}. Corrija a montagem/permissão do volume antes de subir a aplicação."
         )
 
     data_db = Path("/data") / "bolao_f1.db"
     if _can_write_database_path(data_db):
+        DB_PATH_SOURCE = "default:/data"
         return data_db
 
     project_db = Path(__file__).parent.parent / "bolao_f1.db"
@@ -61,6 +67,7 @@ def _resolve_db_path() -> Path:
             "/data não disponível para escrita. Usando banco local em %s.",
             project_db,
         )
+        DB_PATH_SOURCE = "fallback:project-root"
         return project_db
 
     fallback_db = Path("/tmp") / "bolao_f1.db"
@@ -69,6 +76,7 @@ def _resolve_db_path() -> Path:
         "Nem /data nem diretório do projeto são graváveis. Banco SQLite será usado em %s.",
         fallback_db,
     )
+    DB_PATH_SOURCE = "fallback:/tmp"
     return fallback_db
 
 
@@ -104,6 +112,7 @@ def _resolve_backup_dir(db_path: Path) -> Path:
 
 # Caminho do banco de dados - suporta variável de ambiente
 DB_PATH = _resolve_db_path()
+logger.info("DB_PATH resolvido para %s (source=%s)", DB_PATH, DB_PATH_SOURCE)
 
 # Diretório para backups automáticos/restauração
 BACKUP_DIR = _resolve_backup_dir(DB_PATH)

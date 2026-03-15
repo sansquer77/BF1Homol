@@ -164,10 +164,12 @@ _handle_internal_backup_trigger()
 from db.db_utils import init_db, get_user_by_id, get_usuario_temporadas_ativas
 from db.migrations import run_migrations
 from db.master_user_manager import MasterUserManager
+from db.db_config import DB_PATH, DB_PATH_SOURCE
 
 @st.cache_resource(show_spinner=False)
 def bootstrap_app() -> bool:
     logger.info("🚀 Inicializando BF1 3.0...")
+    logger.info("📦 Banco SQLite configurado em %s (source=%s)", DB_PATH, DB_PATH_SOURCE)
     init_db()
     logger.info("✓ Banco de dados inicializado")
     run_migrations()
