@@ -240,6 +240,37 @@ def _generate_postgres_data_only_dump() -> bytes:
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
+def _get_sqlite_table_fk_dependencies(cursor: sqlite3.Cursor, table_name: str, known_tables: set[str]) -> set[str]:
+    deps: set[str] = set()
+    try:
+        cursor.execute(f'PRAGMA foreign_key_list("{table_name}")')
+        rows = cursor.fetchall() or []
+        for row in rows:
+            # sqlite PRAGMA foreign_key_list -> column "table" na posição 2
+            ref_table = str(row[2]).strip() if len(row) > 2 and row[2] else ""
+            if ref_table and ref_table in known_tables and ref_table != table_name:
+                deps.add(ref_table)
+    except Exception:
+        return set()
+    return deps
+
+
+def _topological_sort_tables(table_names: list[str], deps_map: dict[str, set[str]]) -> list[str]:
+    remaining = set(table_names)
+    result: list[str] = []
+
+    while remaining:
+        ready = sorted([t for t in remaining if deps_map.get(t, set()).issubset(set(result))])
+        if not ready:
+            # Em ciclos improváveis, preserva determinismo e segue com o restante.
+            result.extend(sorted(remaining))
+            break
+        for table_name in ready:
+            result.append(table_name)
+            remaining.remove(table_name)
+    return result
+
+
 def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
     db_uri = _build_pg_uri_for_cli()
 
@@ -307,6 +338,8 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                 "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
             )
             tables = cursor_s.fetchall()
+            table_names = [str(t[0]) for t in tables if t and t[0]]
+            known_tables = set(table_names)
 
             for table in tables:
                 table_name = _sanitize_identifier(table[0])
@@ -320,7 +353,18 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                 cursor_t.execute(ddl)
                 stats["tables"] += 1
 
-            for table in tables:
+            # Ordena carga de dados respeitando dependências de FK (ex.: usuarios/provas antes de apostas).
+            deps_map: dict[str, set[str]] = {}
+            for table_name in table_names:
+                deps_map[table_name] = _get_sqlite_table_fk_dependencies(cursor_s, table_name, known_tables)
+            load_order = _topological_sort_tables(table_names, deps_map)
+
+            table_index: dict[str, Any] = {str(t[0]): t for t in tables}
+
+            for table_name_raw in load_order:
+                table = table_index.get(table_name_raw)
+                if not table:
+                    continue
                 table_name = _sanitize_identifier(table[0])
                 cursor_s.execute(f'SELECT * FROM "{table_name}"')
                 rows = cursor_s.fetchall()
@@ -337,7 +381,14 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                 if not rows:
                     continue
 
-                cols = [str(col) for col in rows[0].keys()]
+                source_cols = [str(col) for col in rows[0].keys()]
+                cursor_t.execute(f"PRAGMA table_info('{table_name}')")
+                target_cols_info = cursor_t.fetchall() or []
+                target_cols = [str(col[1]) for col in target_cols_info if len(col) > 1]
+                cols = [c for c in source_cols if c in target_cols]
+                if not cols:
+                    continue
+
                 placeholders = ", ".join(["?"] * len(cols))
                 cols_sql = ", ".join(_quote_identifier(col) for col in cols)
                 insert_sql = (

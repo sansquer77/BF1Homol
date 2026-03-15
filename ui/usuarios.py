@@ -8,6 +8,27 @@ from datetime import datetime
 from utils.season_utils import get_default_season_index, get_season_options
 
 
+def _normalizar_df_usuarios(df: pd.DataFrame) -> pd.DataFrame:
+    """Normaliza DataFrame de usuários para evitar quebras por dados inválidos."""
+    if df.empty:
+        return df
+
+    df_norm = df.copy()
+
+    if "id" in df_norm.columns:
+        df_norm["id"] = pd.to_numeric(df_norm["id"], errors="coerce")
+        df_norm = df_norm[df_norm["id"].notna()].copy()
+        df_norm["id"] = df_norm["id"].astype(int)
+
+    if "perfil" in df_norm.columns:
+        df_norm["perfil"] = df_norm["perfil"].astype(str).str.strip().str.lower()
+
+    if "status" in df_norm.columns:
+        df_norm["status"] = df_norm["status"].astype(str).str.strip().str.title()
+
+    return df_norm
+
+
 def _ensure_gestao_financeira_table() -> None:
     with db_connect() as conn:
         c = conn.cursor()
@@ -103,7 +124,7 @@ def _fmt_brl(valor: float) -> str:
 
 
 def _render_gestao_usuarios_tab(perfil: str):
-    df = get_usuarios_df()
+    df = _normalizar_df_usuarios(get_usuarios_df())
     if df.empty:
         st.info("Nenhum usuário cadastrado.")
         return
@@ -123,8 +144,15 @@ def _render_gestao_usuarios_tab(perfil: str):
     # Campos de edição
     novo_nome = st.text_input("Nome", user_row["nome"])
     novo_email = st.text_input("Email", user_row["email"])
-    novo_perfil = st.selectbox("Perfil", ["participante", "admin", "master"], index=["participante", "admin", "master"].index(user_row["perfil"]))
-    novo_status = st.selectbox("Status", ["Ativo", "Inativo"], index=0 if user_row["status"] == "Ativo" else 1)
+    perfis = ["participante", "admin", "master"]
+    perfil_atual = str(user_row.get("perfil", "participante")).strip().lower()
+    perfil_index = perfis.index(perfil_atual) if perfil_atual in perfis else 0
+    novo_perfil = st.selectbox("Perfil", perfis, index=perfil_index)
+
+    status_opts = ["Ativo", "Inativo"]
+    status_atual = str(user_row.get("status", "Ativo")).strip().title()
+    status_index = status_opts.index(status_atual) if status_atual in status_opts else 0
+    novo_status = st.selectbox("Status", status_opts, index=status_index)
 
     col1, col2 = st.columns(2)
 

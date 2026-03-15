@@ -12,6 +12,21 @@ from db.db_utils import get_provas_df, db_connect
 from utils.season_utils import get_default_season_index, get_season_options
 
 
+def _normalizar_df_provas(df: pd.DataFrame) -> pd.DataFrame:
+    """Normaliza DataFrame de provas para evitar quebra por IDs inválidos."""
+    if df.empty:
+        return df
+
+    df_norm = df.copy()
+    if "id" not in df_norm.columns:
+        return pd.DataFrame(columns=df_norm.columns)
+
+    df_norm["id"] = pd.to_numeric(df_norm["id"], errors="coerce")
+    df_norm = df_norm[df_norm["id"].notna()].copy()
+    df_norm["id"] = df_norm["id"].astype(int)
+    return df_norm
+
+
 def _on_prova_change():
     """Callback para limpar os valores do formulário quando a prova selecionada mudar."""
     # Limpar os valores armazenados para forçar atualização do formulário
@@ -77,7 +92,11 @@ def _render_aba_editar(df: pd.DataFrame):
     
     # Encontrar a prova selecionada
     prova_row = df[df["opcao_display"] == selected].iloc[0]
-    prova_id = int(prova_row["id"])
+    try:
+        prova_id = int(prova_row["id"])
+    except (TypeError, ValueError):
+        st.error("❌ ID da prova inválido. Atualize a página e tente novamente.")
+        return
     
     # Obter valores da prova selecionada
     nome_atual = prova_row["nome"]
@@ -209,6 +228,7 @@ def _render_aba_adicionar():
         if not nome_novo:
             st.error("❌ Preencha o nome da prova.")
         else:
+            data_nova_str = data_nova.strftime('%Y-%m-%d')
             horario_str_novo = horario_novo.strftime("%H:%M:%S")
             with db_connect() as conn:
                 c = conn.cursor()
@@ -219,12 +239,12 @@ def _render_aba_adicionar():
                 if "temporada" in cols:
                     c.execute(
                         "SELECT COUNT(*) FROM provas WHERE nome = ? AND data = ? AND temporada = ?",
-                        (nome_novo, data_nova, temporada_nova)
+                        (nome_novo, data_nova_str, temporada_nova)
                     )
                 else:
                     c.execute(
                         "SELECT COUNT(*) FROM provas WHERE nome = ? AND data = ?",
-                        (nome_novo, data_nova)
+                        (nome_novo, data_nova_str)
                     )
                 
                 if c.fetchone()[0] > 0:
@@ -235,13 +255,13 @@ def _render_aba_adicionar():
                         c.execute(
                             '''INSERT INTO provas (nome, data, horario_prova, status, tipo, temporada)
                                VALUES (?, ?, ?, ?, ?, ?)''',
-                            (nome_novo, data_nova, horario_str_novo, status_novo, tipo_novo, temporada_nova)
+                            (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo, temporada_nova)
                         )
                     else:
                         c.execute(
                             '''INSERT INTO provas (nome, data, horario_prova, status, tipo)
                                VALUES (?, ?, ?, ?, ?)''',
-                            (nome_novo, data_nova, horario_str_novo, status_novo, tipo_novo)
+                            (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo)
                         )
                     conn.commit()
                     st.success("✅ Prova adicionada com sucesso!")
@@ -277,6 +297,7 @@ def main():
             )
         else:
             df = pd.read_sql_query("SELECT * FROM provas ORDER BY data ASC", conn)
+    df = _normalizar_df_provas(df)
     
     # Criar abas
     tab_editar, tab_adicionar = st.tabs(["✏️ Editar Provas", "➕ Adicionar Nova Prova"])

@@ -13,8 +13,30 @@ from db.db_utils import (
 from services.rules_service import get_regras_aplicaveis
 from utils.season_utils import get_season_options
 
+
+def _normalizar_ids(df: pd.DataFrame, column: str = "id") -> pd.DataFrame:
+    """Remove linhas com IDs inválidos e converte IDs para int."""
+    if df.empty or column not in df.columns:
+        return df
+    df_norm = df.copy()
+    df_norm[column] = pd.to_numeric(df_norm[column], errors="coerce")
+    df_norm = df_norm[df_norm[column].notna()].copy()
+    df_norm[column] = df_norm[column].astype(int)
+    return df_norm
+
+
+def _extrair_ids_validos(df: pd.DataFrame, column: str = "id") -> list[int]:
+    """Extrai IDs numéricos válidos de forma defensiva."""
+    if df.empty or column not in df.columns:
+        return []
+    ids = pd.to_numeric(df[column], errors="coerce").dropna().astype(int)
+    return ids.tolist()
+
 def _get_participantes_temporada(temporada: Optional[str] = None) -> pd.DataFrame:
     participantes_df = get_participantes_temporada_df(temporada)
+    if participantes_df.empty:
+        return participantes_df
+    participantes_df = _normalizar_ids(participantes_df, "id")
     if participantes_df.empty:
         return participantes_df
     if 'perfil' in participantes_df.columns:
@@ -77,8 +99,14 @@ def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Op
             participantes_df = _get_participantes_temporada(temporada)
         if participantes_df.empty:
             return pd.DataFrame()
-        participantes_ids = participantes_df['id'].astype(int).tolist()
+        participantes_df = _normalizar_ids(participantes_df, "id")
+        if participantes_df.empty:
+            return pd.DataFrame()
+
+        participantes_ids = _extrair_ids_validos(participantes_df, "id")
         participantes_nomes = participantes_df['nome'].astype(str).tolist()
+        if not participantes_ids:
+            return pd.DataFrame()
 
         with db_connect() as conn:
             c = conn.cursor()
@@ -130,8 +158,14 @@ def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df
             participantes_df = _get_participantes_temporada(temporada)
         if participantes_df.empty:
             return pd.DataFrame()
-        participantes_ids = participantes_df['id'].astype(int).tolist()
+        participantes_df = _normalizar_ids(participantes_df, "id")
+        if participantes_df.empty:
+            return pd.DataFrame()
+
+        participantes_ids = _extrair_ids_validos(participantes_df, "id")
         participantes_nomes = participantes_df['nome'].astype(str).tolist()
+        if not participantes_ids:
+            return pd.DataFrame()
 
         with db_connect() as conn:
             c = conn.cursor()
@@ -261,9 +295,9 @@ def main():
 
     with tab5:
         st.subheader("Diagnóstico de Tipos de Prova e Regras Aplicadas")
-        provas_df = get_provas_df(season)
-        resultados_df = get_resultados_df(season)
-        apostas_df = get_apostas_df(season)
+        provas_df = _normalizar_ids(get_provas_df(season), "id")
+        resultados_df = _normalizar_ids(get_resultados_df(season), "prova_id")
+        apostas_df = _normalizar_ids(get_apostas_df(season), "prova_id")
         if not apostas_df.empty and 'temporada' in apostas_df.columns:
             apostas_df = apostas_df[apostas_df['temporada'] == season]
         if provas_df.empty:

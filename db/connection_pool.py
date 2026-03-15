@@ -40,6 +40,12 @@ class CompatRow(dict):
             return self._values[key]
         return super().__getitem__(key)
 
+    def __iter__(self):
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        return len(self._values)
+
 
 def _convert_placeholders(sql: str) -> str:
     """Converte placeholders qmark (?) para format (%s), ignorando strings."""
