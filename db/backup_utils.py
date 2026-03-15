@@ -116,6 +116,15 @@ def _run_pg_client_command(args: list[str], env_overrides: dict[str, str] | None
     return True, ""
 
 
+def _detect_pg_dump_command() -> str | None:
+    """Localiza binário pg_dump disponível (com ou sem sufixo de versão)."""
+    candidates = ["pg_dump", "pg_dump16", "pg_dump15", "pg_dump14", "pg_dump13", "pg_dump12"]
+    for cmd in candidates:
+        if shutil.which(cmd):
+            return cmd
+    return None
+
+
 def get_postgres_backup_mode() -> tuple[str, str]:
     """Detecta modo de backup disponível para PostgreSQL.
 
@@ -128,6 +137,10 @@ def get_postgres_backup_mode() -> tuple[str, str]:
     if not _is_postgres_backend():
         return "sqlite", ""
 
+    pg_dump_cmd = _detect_pg_dump_command()
+    if not pg_dump_cmd:
+        return "fallback", "pg_dump não encontrado no ambiente"
+
     try:
         db_uri = _build_pg_uri_for_cli()
         with tempfile.NamedTemporaryFile(prefix="bf1_pg_probe_", suffix=".sql", delete=False) as tmp:
@@ -135,7 +148,7 @@ def get_postgres_backup_mode() -> tuple[str, str]:
 
         ok, error = _run_pg_client_command(
             [
-                "pg_dump",
+                pg_dump_cmd,
                 "--dbname",
                 db_uri,
                 "--schema-only",
@@ -150,7 +163,7 @@ def get_postgres_backup_mode() -> tuple[str, str]:
             probe_path.unlink(missing_ok=True)
 
         if ok:
-            return "full", "Compatível com pg_dump local"
+            return "full", f"Compatível com {pg_dump_cmd} local"
 
         if "server version mismatch" in error.lower():
             return "fallback", "Incompatibilidade de versão do pg_dump"
@@ -466,7 +479,13 @@ def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
 
 
 def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict[str, int]]:
-    stats = {"tables": 0, "rows": 0, "skipped_rows": 0}
+    stats = {
+        "tables": 0,
+        "rows": 0,
+        "skipped_rows": 0,
+        "rows_by_table": {},
+        "skipped_by_table": {},
+    }
     if not sqlite_file.exists():
         return False, "Arquivo .db não encontrado", stats
 
@@ -557,10 +576,16 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                 ]
                 values, skipped = _filter_rows_with_missing_fk_refs(cursor_t, table_name, cols, values)
                 stats["skipped_rows"] += skipped
+                stats["skipped_by_table"][table_name] = int(
+                    stats["skipped_by_table"].get(table_name, 0) + skipped
+                )
                 if not values:
                     continue
                 cursor_t.executemany(insert_sql, values)
                 stats["rows"] += len(values)
+                stats["rows_by_table"][table_name] = int(
+                    stats["rows_by_table"].get(table_name, 0) + len(values)
+                )
 
             target.commit()
         return True, "", stats
@@ -590,12 +615,13 @@ def download_db():
                 return
 
             db_uri = _build_pg_uri_for_cli()
+            pg_dump_cmd = _detect_pg_dump_command() or "pg_dump"
             with tempfile.NamedTemporaryFile(prefix="bf1_pg_dump_", suffix=".sql", delete=False) as tmp:
                 dump_path = Path(tmp.name)
 
             ok, error = _run_pg_client_command(
                 [
-                    "pg_dump",
+                    pg_dump_cmd,
                     "--dbname",
                     db_uri,
                     "--format=plain",
@@ -1229,13 +1255,40 @@ def upload_tabela():
                         raise ValueError(f"Tabela '{table_name}' não encontrada no banco.")
                     db_cols = [r[1] for r in cols_info]
                     db_col_types = {r[1]: (r[2] or '').upper() for r in cols_info}
+                    db_col_meta = {
+                        r[1]: {
+                            "notnull": int(r[3]) if len(r) > 3 and r[3] is not None else 0,
+                            "default": r[4] if len(r) > 4 else None,
+                            "pk": int(r[5]) if len(r) > 5 and r[5] is not None else 0,
+                        }
+                        for r in cols_info
+                    }
 
                     missing_cols = [c for c in db_cols if c not in df.columns]
                     extra_cols = [c for c in df.columns if c not in db_cols]
-                    if missing_cols:
-                        raise ValueError(f"Colunas faltantes no Excel: {missing_cols}")
+
+                    required_missing_cols: list[str] = []
+                    optional_missing_cols: list[str] = []
+                    for col in missing_cols:
+                        meta = db_col_meta.get(col, {})
+                        is_required = bool(meta.get("notnull")) and meta.get("default") is None and not bool(meta.get("pk"))
+                        if is_required:
+                            required_missing_cols.append(col)
+                        else:
+                            optional_missing_cols.append(col)
+
+                    if required_missing_cols:
+                        raise ValueError(f"Colunas obrigatórias faltantes no Excel: {required_missing_cols}")
                     if extra_cols:
                         st.info(f"ℹ️ Colunas extras no Excel serão ignoradas: {extra_cols}")
+
+                    if optional_missing_cols:
+                        st.info(
+                            f"ℹ️ Colunas ausentes opcionais serão preenchidas com vazio/NULL: {optional_missing_cols}"
+                        )
+                        for col in optional_missing_cols:
+                            df[col] = None
+
                     df_alinhado = df[db_cols].copy()
 
                     for col_name in db_cols:
@@ -1352,6 +1405,22 @@ def migrar_sqlite_para_postgres():
                     f"⚠️ {skipped_rows} registros foram ignorados por referência inválida "
                     "(chave estrangeira sem linha pai)."
                 )
+            rows_by_table = stats.get("rows_by_table", {}) or {}
+            skipped_by_table = stats.get("skipped_by_table", {}) or {}
+            if rows_by_table or skipped_by_table:
+                st.markdown("### 📋 Resumo por tabela")
+                table_names = sorted(set(rows_by_table.keys()) | set(skipped_by_table.keys()))
+                resumo = pd.DataFrame(
+                    [
+                        {
+                            "tabela": t,
+                            "migrados": int(rows_by_table.get(t, 0) or 0),
+                            "ignorados": int(skipped_by_table.get(t, 0) or 0),
+                        }
+                        for t in table_names
+                    ]
+                )
+                st.dataframe(resumo, width="stretch")
             st.cache_data.clear()
             st.rerun()
         except Exception as exc:

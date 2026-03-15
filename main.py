@@ -278,6 +278,29 @@ def _ensure_token_from_cookie() -> bool:
     return False
 
 
+def _sync_session_from_token() -> bool:
+    """Sincroniza dados básicos da sessão a partir do token antes de renderizar o menu."""
+    if not _ensure_token_from_cookie():
+        st.session_state.pop("user_role", None)
+        st.session_state.pop("user_id", None)
+        st.session_state.pop("user_nome", None)
+        return False
+
+    token = st.session_state.get("token")
+    payload = decode_token(token) if token else None
+    if not payload:
+        st.session_state.pop("user_role", None)
+        st.session_state.pop("user_id", None)
+        st.session_state.pop("user_nome", None)
+        return False
+
+    perfil = str(payload.get("perfil", "participante")).strip().lower()
+    st.session_state["user_role"] = perfil
+    st.session_state["user_id"] = payload.get("user_id")
+    st.session_state["user_nome"] = payload.get("nome", st.session_state.get("user_nome"))
+    return True
+
+
 def _enforce_route_guard(pagina: str):
     if pagina in ("Login", "Logout"):
         return
@@ -349,10 +372,11 @@ PAGES = {
 
 # ============ MENU LATERAL ============
 def sidebar_menu():
-    _ensure_token_from_cookie()
+    token_ok = _sync_session_from_token()
     token = st.session_state.get("token")
     if not token:
         menu_items = ["Login"]
+        st.session_state["pagina"] = "Login"
     else:
         perfil = st.session_state.get("user_role", "participante")
         if perfil == "master":
@@ -361,6 +385,15 @@ def sidebar_menu():
             menu_items = menu_admin()
         else:
             menu_items = menu_participante()
+
+        if not token_ok:
+            menu_items = ["Login"]
+            st.session_state["pagina"] = "Login"
+
+    if "menu_lateral" in st.session_state and st.session_state["menu_lateral"] not in menu_items:
+        del st.session_state["menu_lateral"]
+    if st.session_state.get("pagina") not in menu_items:
+        st.session_state["pagina"] = menu_items[0]
     
     escolha = st.sidebar.radio("Menu", menu_items, key="menu_lateral")
     st.session_state["pagina"] = escolha

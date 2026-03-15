@@ -16,6 +16,28 @@ from db.db_utils import (
 )
 
 
+def _resolve_hall_source(conn) -> tuple[str, str]:
+    """Define a tabela fonte do Hall da Fama com fallback para legado."""
+    c = conn.cursor()
+    c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='hall_da_fama'")
+    has_hall = c.fetchone() is not None
+    if has_hall:
+        c.execute("SELECT COUNT(*) FROM hall_da_fama")
+        hall_count = int(c.fetchone()[0] or 0)
+        if hall_count > 0:
+            return "hall_da_fama", "posicao_final"
+
+    c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='posicoes_participantes'")
+    has_legacy = c.fetchone() is not None
+    if has_legacy:
+        c.execute("SELECT COUNT(*) FROM posicoes_participantes")
+        legacy_count = int(c.fetchone()[0] or 0)
+        if legacy_count > 0:
+            return "posicoes_participantes", "posicao"
+
+    return "hall_da_fama", "posicao_final"
+
+
 def hall_da_fama():
     """Exibe hall da fama com histórico plurianual."""
     st.title("🏆 Hall da Fama")
@@ -26,9 +48,16 @@ def hall_da_fama():
     st.caption(f"🔑 Perfil atual: {user_role}")
 
     with db_connect() as conn:
+        source_table, pos_col = _resolve_hall_source(conn)
+        if source_table == "posicoes_participantes":
+            st.info("ℹ️ Exibindo histórico legado da tabela posicoes_participantes.")
         # Get all unique years/seasons from hall_da_fama
         c = conn.cursor()
-        c.execute("SELECT DISTINCT temporada FROM hall_da_fama ORDER BY temporada DESC")
+        c.execute(
+            f"SELECT DISTINCT temporada FROM {source_table} "
+            "WHERE temporada IS NOT NULL AND trim(cast(temporada as text)) != '' "
+            "ORDER BY temporada DESC"
+        )
         seasons = [r[0] for r in c.fetchall()]
         
         # Get all users (exclude master from historical table)
@@ -61,11 +90,11 @@ def hall_da_fama():
             
             for season in seasons:
                 c.execute('''
-                    SELECT posicao_final, pontos
-                    FROM hall_da_fama
+                    SELECT {pos_col}, pontos
+                    FROM {source_table}
                     WHERE usuario_id = ? AND temporada = ?
                     LIMIT 1
-                ''', (user_id, season))
+                '''.format(pos_col=pos_col, source_table=source_table), (user_id, season))
                 result = c.fetchone()
 
                 if result and result[0] is not None:
@@ -126,20 +155,20 @@ def hall_da_fama():
                 participantes_count = len(usuarios)
             st.metric("👥 Total de Participantes", participantes_count)
         with col2:
-            c.execute("SELECT COUNT(DISTINCT temporada) FROM hall_da_fama")
+            c.execute(f"SELECT COUNT(DISTINCT temporada) FROM {source_table}")
             unique_seasons = c.fetchone()[0]
             st.metric("📆 Temporadas Realizadas", unique_seasons)
         with col3:
             # Maiores vencedores: top 3 participantes com mais temporadas ganhas (1º lugar)
             c.execute('''
                 SELECT u.nome, COUNT(*) as vitorias
-                FROM hall_da_fama hf
+                FROM {source_table} hf
                 JOIN usuarios u ON hf.usuario_id = u.id
-                WHERE hf.posicao_final = 1 AND LOWER(u.perfil) != 'master'
+                WHERE hf.{pos_col} = 1 AND LOWER(u.perfil) != 'master'
                 GROUP BY hf.usuario_id
                 ORDER BY vitorias DESC
                 LIMIT 3
-            ''')
+            '''.format(source_table=source_table, pos_col=pos_col))
             top_winners = c.fetchall()
             st.markdown("**🥇 Maiores Vencedores**")
             if top_winners:
@@ -158,9 +187,9 @@ def hall_da_fama():
                 SELECT COUNT(DISTINCT usuario_id) as participants,
                        MAX(pontos) as best_points,
                        AVG(pontos) as avg_points
-                FROM hall_da_fama
+                FROM {source_table}
                 WHERE temporada = ?
-            ''', (season,))
+            '''.format(source_table=source_table), (season,))
             result = c.fetchone()
             if result:
                 season_stats.append({
@@ -183,11 +212,11 @@ def hall_da_fama():
 
         # Fetch all historical positions with user names (exclude master)
         c.execute('''
-            SELECT u.nome as nome, pp.posicao_final as posicao
-            FROM hall_da_fama pp
+            SELECT u.nome as nome, pp.{pos_col} as posicao
+            FROM {source_table} pp
             JOIN usuarios u ON pp.usuario_id = u.id
             WHERE LOWER(u.perfil) != 'master'
-        ''')
+        '''.format(pos_col=pos_col, source_table=source_table))
         rows = c.fetchall()
         if rows:
             df_pos_counts = pd.DataFrame(rows, columns=['nome', 'posicao'])
