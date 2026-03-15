@@ -116,22 +116,161 @@ def _run_pg_client_command(args: list[str], env_overrides: dict[str, str] | None
     return True, ""
 
 
+def get_postgres_backup_mode() -> tuple[str, str]:
+    """Detecta modo de backup disponível para PostgreSQL.
+
+    Returns:
+        tuple[str, str]:
+            - mode: "full" quando pg_dump completo está disponível
+                    "fallback" quando somente data-only interno deve ser usado
+            - detail: detalhe técnico resumido para exibir na UI
+    """
+    if not _is_postgres_backend():
+        return "sqlite", ""
+
+    try:
+        db_uri = _build_pg_uri_for_cli()
+        with tempfile.NamedTemporaryFile(prefix="bf1_pg_probe_", suffix=".sql", delete=False) as tmp:
+            probe_path = Path(tmp.name)
+
+        ok, error = _run_pg_client_command(
+            [
+                "pg_dump",
+                "--dbname",
+                db_uri,
+                "--schema-only",
+                "--no-owner",
+                "--no-privileges",
+                "--file",
+                str(probe_path),
+            ]
+        )
+
+        if probe_path.exists():
+            probe_path.unlink(missing_ok=True)
+
+        if ok:
+            return "full", "Compatível com pg_dump local"
+
+        if "server version mismatch" in error.lower():
+            return "fallback", "Incompatibilidade de versão do pg_dump"
+
+        if "comando não encontrado" in error.lower():
+            return "fallback", "pg_dump não encontrado no ambiente"
+
+        return "fallback", "pg_dump indisponível para backup completo"
+
+    except Exception as exc:
+        return "fallback", f"Falha ao validar pg_dump: {exc}"
+
+
+def _sql_literal(value: Any) -> str:
+    if value is None:
+        return "NULL"
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, bytes):
+        return "'\\x" + value.hex() + "'::bytea"
+    text = str(value).replace("'", "''")
+    return f"'{text}'"
+
+
+def _drop_all_tables_current_schema(cursor: Any) -> None:
+    cursor.execute(
+        """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = current_schema()
+          AND table_type = 'BASE TABLE'
+        ORDER BY table_name
+        """
+    )
+    table_rows = cursor.fetchall() or []
+    table_names = [str(r[0]) for r in table_rows if r and r[0]]
+    for table_name in table_names:
+        cursor.execute(f"DROP TABLE IF EXISTS {_quote_identifier(table_name)} CASCADE")
+
+
+def _generate_postgres_data_only_dump() -> bytes:
+    """Gera dump SQL data-only para fallback quando pg_dump não é compatível."""
+    lines: list[str] = []
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines.append("-- BF1 POSTGRES DATA-ONLY DUMP")
+    lines.append(f"-- gerado em {ts}")
+
+    with db_connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = current_schema()
+              AND table_type = 'BASE TABLE'
+            ORDER BY table_name
+            """
+        )
+        table_rows = cursor.fetchall() or []
+        table_names = [str(r[0]) for r in table_rows if r and r[0]]
+
+        lines.append("BEGIN;")
+        if table_names:
+            quoted_tables = ", ".join(_quote_identifier(t) for t in table_names)
+            lines.append(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE;")
+
+        for table_name in table_names:
+            cursor.execute(f"PRAGMA table_info('{table_name}')")
+            cols_info = cursor.fetchall() or []
+            cols = [str(c[1]) for c in cols_info]
+            if not cols:
+                continue
+            cols_sql = ", ".join(_quote_identifier(c) for c in cols)
+
+            cursor.execute(f"SELECT * FROM {_quote_identifier(table_name)}")
+            rows = cursor.fetchall() or []
+            for row in rows:
+                values_sql = ", ".join(_sql_literal(row[i]) for i in range(len(cols)))
+                lines.append(
+                    f"INSERT INTO {_quote_identifier(table_name)} ({cols_sql}) VALUES ({values_sql});"
+                )
+
+        lines.append("COMMIT;")
+
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
 def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
     db_uri = _build_pg_uri_for_cli()
 
-    ok, error = _run_pg_client_command(
-        [
-            "psql",
-            "--dbname",
-            db_uri,
-            "--set",
-            "ON_ERROR_STOP=on",
-            "-c",
-            "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;",
-        ]
-    )
-    if not ok:
-        return False, f"Falha ao preparar schema: {error}"
+    try:
+        sql_head = sql_file.read_text(encoding="utf-8", errors="ignore")[:4096]
+    except Exception:
+        sql_head = ""
+
+    is_data_only_dump = "BF1 POSTGRES DATA-ONLY DUMP" in sql_head
+
+    if is_data_only_dump:
+        try:
+            sql_content = sql_file.read_text(encoding="utf-8", errors="ignore")
+            with db_connect() as conn:
+                cursor = conn.cursor()
+                statements = [s.strip() for s in sql_content.split(";") if s.strip()]
+                for statement in statements:
+                    cursor.execute(statement)
+                conn.commit()
+            return True, ""
+        except Exception as exc:
+            return False, f"Falha ao aplicar dump data-only: {exc}"
+
+    # Para dumps completos, limpar tabelas do schema atual sem depender de ownership do schema.
+    try:
+        with db_connect() as conn:
+            cursor = conn.cursor()
+            _drop_all_tables_current_schema(cursor)
+            conn.commit()
+    except Exception as exc:
+        return False, f"Falha ao limpar tabelas atuais: {exc}"
 
     ok, error = _run_pg_client_command(
         [
@@ -162,8 +301,7 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
     try:
         with target_ctx as target:
             cursor_t = target.cursor()
-            cursor_t.execute("DROP SCHEMA IF EXISTS public CASCADE")
-            cursor_t.execute("CREATE SCHEMA public")
+            _drop_all_tables_current_schema(cursor_t)
 
             cursor_s = source.cursor()
             cursor_s.execute(
@@ -231,6 +369,24 @@ def download_db():
                 ]
             )
             if not ok:
+                error_lower = error.lower()
+                if "server version mismatch" in error_lower:
+                    st.warning(
+                        "⚠️ Versão do pg_dump incompatível com o servidor. "
+                        "Gerando fallback data-only diretamente pela aplicação."
+                    )
+                    dump_bytes = _generate_postgres_data_only_dump()
+                    if dump_path.exists():
+                        dump_path.unlink(missing_ok=True)
+                    st.download_button(
+                        label="⬇️ Baixar backup completo PostgreSQL (.sql)",
+                        data=dump_bytes,
+                        file_name=f"bolao_f1_pg_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql",
+                        mime="application/sql",
+                        width="stretch",
+                        help="Dump data-only gerado internamente (sem dependência de versão do pg_dump)",
+                    )
+                    return
                 st.error(f"❌ Erro ao gerar dump PostgreSQL: {error}")
                 if dump_path.exists():
                     dump_path.unlink(missing_ok=True)

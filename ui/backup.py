@@ -3,6 +3,7 @@ from db.backup_utils import (
     create_next_temporada,
     download_db,
     download_tabela,
+    get_postgres_backup_mode,
     list_temporadas,
     migrar_sqlite_para_postgres,
     upload_db,
@@ -21,6 +22,13 @@ def main():
         st.info(
             "Ambiente PostgreSQL detectado: backup/restauração completa é feita por dump SQL (.sql)."
         )
+        backup_mode, backup_detail = get_postgres_backup_mode()
+        if backup_mode == "full":
+            st.markdown("Modo de backup: :green-badge[FULL STRUCTURE (pg_dump)]")
+        else:
+            st.markdown("Modo de backup: :orange-badge[DATA-ONLY (fallback)]")
+        if backup_detail:
+            st.caption(f"Detalhe: {backup_detail}")
         st.markdown("""
         Com este painel, você pode:
         - Baixar backup completo do PostgreSQL (.sql com INSERTs)
