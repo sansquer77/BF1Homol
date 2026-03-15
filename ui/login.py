@@ -69,7 +69,7 @@ def obter_tentativas_recentes(
         
         cursor.execute('''
             SELECT COUNT(*) as total,
-                   SUM(CASE WHEN sucesso=0 THEN 1 ELSE 0 END) as falhas
+                   SUM(CASE WHEN sucesso IS NOT TRUE THEN 1 ELSE 0 END) as falhas
             FROM login_attempts
             WHERE email = ? AND tentativa_em > ? AND action = ?
         ''', (email, tempo_limite, action))
@@ -78,7 +78,7 @@ def obter_tentativas_recentes(
         falhas = resultado[1] if resultado and resultado[1] else 0
 
         cursor.execute('''
-            SELECT SUM(CASE WHEN sucesso=0 THEN 1 ELSE 0 END) as falhas_ip
+            SELECT SUM(CASE WHEN sucesso IS NOT TRUE THEN 1 ELSE 0 END) as falhas_ip
             FROM login_attempts
             WHERE ip_address = ? AND tentativa_em > ? AND action = ?
         ''', (ip_address, tempo_limite, action))
