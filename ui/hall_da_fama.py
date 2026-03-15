@@ -160,16 +160,29 @@ def hall_da_fama():
             st.metric("📆 Temporadas Realizadas", unique_seasons)
         with col3:
             # Maiores vencedores: top 3 participantes com mais temporadas ganhas (1º lugar)
-            c.execute('''
-                SELECT u.nome, COUNT(*) as vitorias
-                FROM {source_table} hf
-                JOIN usuarios u ON hf.usuario_id = u.id
-                WHERE hf.{pos_col} = 1 AND LOWER(u.perfil) != 'master'
-                GROUP BY hf.usuario_id, u.nome
-                ORDER BY vitorias DESC, u.nome ASC
-                LIMIT 3
-            '''.format(source_table=source_table, pos_col=pos_col))
-            top_winners = c.fetchall()
+            try:
+                c.execute('''
+                    SELECT u.nome, COUNT(*) as vitorias
+                    FROM {source_table} hf
+                    JOIN usuarios u ON hf.usuario_id = u.id
+                    WHERE hf.{pos_col} = 1 AND LOWER(u.perfil) != 'master'
+                    GROUP BY hf.usuario_id, u.nome
+                    ORDER BY vitorias DESC, u.nome ASC
+                    LIMIT 3
+                '''.format(source_table=source_table, pos_col=pos_col))
+                top_winners = c.fetchall()
+            except Exception:
+                # Fallback defensivo para evitar quebra da tela caso o ambiente execute SQL legado.
+                c.execute('''
+                    SELECT u.nome, COUNT(*) as vitorias
+                    FROM {source_table} hf
+                    JOIN usuarios u ON hf.usuario_id = u.id
+                    WHERE hf.{pos_col} = 1 AND LOWER(u.perfil) != 'master'
+                    GROUP BY u.nome
+                    ORDER BY vitorias DESC, u.nome ASC
+                    LIMIT 3
+                '''.format(source_table=source_table, pos_col=pos_col))
+                top_winners = c.fetchall()
             st.markdown("**🥇 Maiores Vencedores**")
             if top_winners:
                 for name, wins in top_winners:
