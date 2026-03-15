@@ -1,5 +1,13 @@
 import streamlit as st
-from db.backup_utils import download_db, upload_db, download_tabela, upload_tabela, create_next_temporada, list_temporadas
+from db.backup_utils import (
+    create_next_temporada,
+    download_db,
+    download_tabela,
+    list_temporadas,
+    migrar_sqlite_para_postgres,
+    upload_db,
+    upload_tabela,
+)
 from db.db_config import DB_BACKEND
 
 def main():
@@ -11,9 +19,15 @@ def main():
     st.title("💾 Backup e Restauração do Banco de Dados BF1")
     if DB_BACKEND == "postgres":
         st.info(
-            "Ambiente PostgreSQL detectado: backup/restauração por arquivo .db está desabilitado. "
-            "Use backup nativo do banco gerenciado na plataforma."
+            "Ambiente PostgreSQL detectado: backup/restauração completa é feita por dump SQL (.sql)."
         )
+        st.markdown("""
+        Com este painel, você pode:
+        - Baixar backup completo do PostgreSQL (.sql com INSERTs)
+        - Restaurar backup completo do PostgreSQL (.sql)
+        - Exportar e importar tabelas específicas em Excel (.xlsx)
+        - Migrar um arquivo SQLite (.db) para o PostgreSQL atual
+        """)
     else:
         st.markdown("""
         Com este painel, você pode:
@@ -22,20 +36,25 @@ def main():
         - Exportar e importar tabelas específicas do banco no formato Excel (.xlsx)
         """)
 
-        st.header("Backup/Restauração do arquivo completo (.db)")
-        col1, col2 = st.columns(2)
-        with col1:
-            download_db()
-        with col2:
-            upload_db()
+    st.header("Backup/Restauração do banco completo")
+    col1, col2 = st.columns(2)
+    with col1:
+        download_db()
+    with col2:
+        upload_db()
 
+    st.divider()
+    st.header("Backup/Restauração de tabelas específicas")
+    tab1, tab2 = st.tabs(["Exportar Tabela", "Importar Tabela"])
+    with tab1:
+        download_tabela()
+    with tab2:
+        upload_tabela()
+
+    if DB_BACKEND == "postgres":
         st.divider()
-        st.header("Backup/Restauração de tabelas específicas")
-        tab1, tab2 = st.tabs(["Exportar Tabela", "Importar Tabela"])
-        with tab1:
-            download_tabela()
-        with tab2:
-            upload_tabela()
+        st.header("Migração de SQLite para PostgreSQL")
+        migrar_sqlite_para_postgres()
 
     st.divider()
     st.header("Temporadas")

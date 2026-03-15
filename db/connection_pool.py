@@ -229,6 +229,17 @@ class PostgresCursorAdapter:
 
         return self
 
+    def executemany(
+        self,
+        sql: str,
+        params_seq: list[tuple[Any, ...]] | tuple[tuple[Any, ...], ...],
+    ) -> "PostgresCursorAdapter":
+        rewritten_sql, _ = _rewrite_sql_for_postgres(sql)
+        self._lastrowid = None
+        self._cursor.executemany(rewritten_sql, params_seq)
+        self._last_columns = [desc.name for desc in self._cursor.description] if self._cursor.description else []
+        return self
+
     def fetchone(self) -> Optional[CompatRow]:
         row = self._cursor.fetchone()
         if row is None:
