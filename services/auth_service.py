@@ -62,17 +62,15 @@ def _get_cookie_manager():
 
 def _get_jwt_secret() -> str:
     """Obtém JWT_SECRET de forma segura. Lança erro se não configurado em produção."""
-    secret = None
-    
-    # Tentar obter de st.secrets primeiro
-    try:
-        secret = st.secrets.get("JWT_SECRET")
-    except (FileNotFoundError, KeyError, AttributeError):
-        pass
-    
-    # Fallback para variável de ambiente
+    # Em deploy, priorizar variável de ambiente para facilitar rotação sem rebuild.
+    secret = os.environ.get("JWT_SECRET")
+
+    # Fallback para st.secrets (desenvolvimento/local)
     if not secret:
-        secret = os.environ.get("JWT_SECRET")
+        try:
+            secret = st.secrets.get("JWT_SECRET")
+        except (FileNotFoundError, KeyError, AttributeError):
+            pass
     
     # Verificar se está em ambiente de produção (Digital Ocean / Streamlit Cloud)
     is_production = (
