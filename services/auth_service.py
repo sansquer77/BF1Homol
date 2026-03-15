@@ -21,8 +21,6 @@ __all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_to
 
 logger = logging.getLogger(__name__)
 
-MIN_JWT_SECRET_BYTES = 32
-
 _COOKIE_MANAGER_INSTANCE = None
 _COOKIE_MANAGER_KEY = "bf1_auth_cookie_manager"
 
@@ -62,21 +60,23 @@ def _get_cookie_manager():
 
 def _get_jwt_secret() -> str:
     """Obtém JWT_SECRET de forma segura. Lança erro se não configurado em produção."""
-    # Em deploy, priorizar variável de ambiente para facilitar rotação sem rebuild.
-    secret = os.environ.get("JWT_SECRET")
-
-    # Fallback para st.secrets (desenvolvimento/local)
+    secret = None
+    
+    # Tentar obter de st.secrets primeiro
+    try:
+        secret = st.secrets.get("JWT_SECRET")
+    except (FileNotFoundError, KeyError, AttributeError):
+        pass
+    
+    # Fallback para variável de ambiente
     if not secret:
-        try:
-            secret = st.secrets.get("JWT_SECRET")
-        except (FileNotFoundError, KeyError, AttributeError):
-            pass
+        secret = os.environ.get("JWT_SECRET")
     
     # Verificar se está em ambiente de produção (Digital Ocean / Streamlit Cloud)
     is_production = (
         os.environ.get("STREAMLIT_SHARING") or 
         os.environ.get("DIGITALOCEAN_APP_PLATFORM") or
-        os.environ.get("PRODUCTION", "").lower() == "true"
+        os.environ.get("PRODUCTION") == "true"
     )
     
     if not secret:
@@ -94,25 +94,6 @@ def _get_jwt_secret() -> str:
             "Este é um valor obrigatório que deve ser definido ANTES do deployment.\n"
             "Configure em: Digital Ocean > App Settings > Environment Variables > JWT_SECRET"
         )
-
-    secret_bytes = secret.encode("utf-8")
-    allow_weak_secret = os.environ.get("JWT_ALLOW_WEAK_SECRET", "").lower() == "true"
-    if len(secret_bytes) < MIN_JWT_SECRET_BYTES:
-        message = (
-            f"JWT_SECRET inseguro: {len(secret_bytes)} bytes. "
-            f"Mínimo recomendado para HS256: {MIN_JWT_SECRET_BYTES} bytes."
-        )
-        if is_production or not allow_weak_secret:
-            logger.critical(message)
-            raise RuntimeError(
-                message + " Defina um JWT_SECRET forte no ambiente."
-            )
-
-        logger.warning(
-            "%s Continuando apenas por JWT_ALLOW_WEAK_SECRET=true (somente dev).",
-            message,
-        )
-
     return secret
 
 JWT_SECRET = _get_jwt_secret()

@@ -10,7 +10,6 @@ Melhorias:
 import streamlit as st
 import logging
 import datetime
-import json
 from pathlib import Path
 
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
@@ -108,68 +107,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ============ TRIGGER TÉCNICO DE BACKUP (INTERNO) ============
-from services.backup_trigger_service import execute_backup_trigger
-
-
-def _get_query_param(name: str) -> str:
-    try:
-        value = st.query_params.get(name, "")
-    except Exception:
-        return ""
-
-    if isinstance(value, list):
-        return str(value[0]).strip() if value else ""
-    return str(value).strip()
-
-
-def _handle_internal_backup_trigger() -> bool:
-    """
-    Fallback compatível com Streamlit para gatilho interno de backup.
-
-    Chamada esperada:
-      /?internal_route=/internal/backup/run
-    """
-    internal_route = _get_query_param("internal_route")
-    if internal_route != "/internal/backup/run":
-        return False
-
-    headers: dict[str, str] = {}
-    try:
-        headers = {k: str(v) for k, v in st.context.headers.items()}
-    except Exception:
-        headers = {}
-
-    query_token = _get_query_param("token")
-    status_code, payload = execute_backup_trigger(headers=headers, query_token=query_token)
-
-    # Streamlit não expõe status HTTP customizado para páginas de app;
-    # retornamos status_code no corpo para consumo por automação.
-    payload = {
-        **payload,
-        "status_code": status_code,
-        "route": "/internal/backup/run",
-        "method": "POST (preferencial) / GET(query fallback)",
-    }
-
-    st.title("Internal Backup Trigger")
-    st.code(json.dumps(payload, ensure_ascii=False), language="json")
-    st.stop()
-    return True
-
-
-_handle_internal_backup_trigger()
-
 # ============ INICIALIZAÇÃO DO BANCO ============
 from db.db_utils import init_db, get_user_by_id, get_usuario_temporadas_ativas
 from db.migrations import run_migrations
 from db.master_user_manager import MasterUserManager
-from db.db_config import DB_PATH, DB_PATH_SOURCE
 
 @st.cache_resource(show_spinner=False)
 def bootstrap_app() -> bool:
     logger.info("🚀 Inicializando BF1 3.0...")
-    logger.info("📦 Banco SQLite configurado em %s (source=%s)", DB_PATH, DB_PATH_SOURCE)
     init_db()
     logger.info("✓ Banco de dados inicializado")
     run_migrations()
