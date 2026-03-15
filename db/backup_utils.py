@@ -301,7 +301,6 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
     try:
         with target_ctx as target:
             cursor_t = target.cursor()
-            _drop_all_tables_current_schema(cursor_t)
 
             cursor_s = source.cursor()
             cursor_s.execute(
@@ -315,7 +314,9 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                 if not create_sql:
                     continue
 
+                # Garante tabela no destino sem depender de ownership de schema.
                 ddl = _convert_sqlite_ddl_to_postgres(create_sql)
+                ddl = re.sub(r"^\s*CREATE\s+TABLE\s+", "CREATE TABLE IF NOT EXISTS ", ddl, flags=re.IGNORECASE)
                 cursor_t.execute(ddl)
                 stats["tables"] += 1
 
@@ -323,6 +324,16 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                 table_name = _sanitize_identifier(table[0])
                 cursor_s.execute(f'SELECT * FROM "{table_name}"')
                 rows = cursor_s.fetchall()
+
+                # Limpa dados da tabela de destino por sobrescrita.
+                # Primeiro tenta TRUNCATE (mais rápido), com fallback para DELETE.
+                try:
+                    cursor_t.execute(
+                        f"TRUNCATE TABLE {_quote_identifier(table_name)} RESTART IDENTITY CASCADE"
+                    )
+                except Exception:
+                    cursor_t.execute(f"DELETE FROM {_quote_identifier(table_name)}")
+
                 if not rows:
                     continue
 
@@ -351,6 +362,19 @@ def download_db():
     if _is_postgres_backend():
         try:
             st.info("🔄 Gerando dump completo do PostgreSQL...")
+            backup_mode, _ = get_postgres_backup_mode()
+            if backup_mode == "fallback":
+                dump_bytes = _generate_postgres_data_only_dump()
+                st.download_button(
+                    label="⬇️ Baixar backup completo PostgreSQL (.sql)",
+                    data=dump_bytes,
+                    file_name=f"bolao_f1_pg_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql",
+                    mime="application/sql",
+                    width="stretch",
+                    help="Dump data-only gerado internamente (sem dependência de versão do pg_dump)",
+                )
+                return
+
             db_uri = _build_pg_uri_for_cli()
             with tempfile.NamedTemporaryFile(prefix="bf1_pg_dump_", suffix=".sql", delete=False) as tmp:
                 dump_path = Path(tmp.name)

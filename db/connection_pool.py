@@ -64,10 +64,17 @@ def _convert_placeholders(sql: str) -> str:
 
 
 def _parse_single_quoted_identifier(sql: str) -> Optional[str]:
-    match = re.search(r"\('([^']+)'\)", sql)
+    match = re.search(r"\((['\"])([^'\"]+)\1\)", sql)
     if not match:
         return None
-    return match.group(1)
+    return match.group(2)
+
+
+def _parse_sqlite_master_table_filter(sql: str) -> Optional[str]:
+    match = re.search(r"name\s*=\s*(['\"])([^'\"]+)\1", sql, flags=re.IGNORECASE)
+    if not match:
+        return None
+    return match.group(2)
 
 
 def _rewrite_sql_for_postgres(sql: str) -> tuple[str, bool]:
@@ -149,11 +156,15 @@ def _rewrite_sql_for_postgres(sql: str) -> tuple[str, bool]:
         return ("SELECT 1 WHERE FALSE", False)
 
     if "from sqlite_master" in normalized:
-        table_name_match = re.search(r"name\s*=\s*'([^']+)'", sql, flags=re.IGNORECASE)
-        table_name = table_name_match.group(1) if table_name_match else ""
+        table_name = _parse_sqlite_master_table_filter(sql)
+        if table_name:
+            return (
+                "SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = %s",
+                True,
+            )
         return (
-            "SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = %s",
-            bool(table_name),
+            "SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema()",
+            False,
         )
 
     sql = re.sub(
@@ -212,6 +223,8 @@ class PostgresCursorAdapter:
 
         if requires_special_param:
             identifier = _parse_single_quoted_identifier(sql)
+            if not identifier and "sqlite_master" in sql.lower():
+                identifier = _parse_sqlite_master_table_filter(sql)
             query_params = (identifier,) if identifier else ()
 
         self._cursor.execute(rewritten_sql, query_params)
