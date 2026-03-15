@@ -1,5 +1,6 @@
 import streamlit as st
 from db.backup_utils import download_db, upload_db, download_tabela, upload_tabela, create_next_temporada, list_temporadas
+from db.db_config import DB_BACKEND
 
 def main():
     perfil = st.session_state.get("user_role", "participante")
@@ -8,27 +9,33 @@ def main():
         return
 
     st.title("💾 Backup e Restauração do Banco de Dados BF1")
-    st.markdown("""
-    Com este painel, você pode:
-    - Baixar o banco de dados consolidado completo (.db)
-    - Fazer upload ("restaurar") um banco de dados SQLite consolidado (.db)
-    - Exportar e importar tabelas específicas do banco no formato Excel (.xlsx)
-    """)
+    if DB_BACKEND == "postgres":
+        st.info(
+            "Ambiente PostgreSQL detectado: backup/restauração por arquivo .db está desabilitado. "
+            "Use backup nativo do banco gerenciado na plataforma."
+        )
+    else:
+        st.markdown("""
+        Com este painel, você pode:
+        - Baixar o banco de dados consolidado completo (.db)
+        - Fazer upload ("restaurar") um banco de dados SQLite consolidado (.db)
+        - Exportar e importar tabelas específicas do banco no formato Excel (.xlsx)
+        """)
 
-    st.header("Backup/Restauração do arquivo completo (.db)")
-    col1, col2 = st.columns(2)
-    with col1:
-        download_db()
-    with col2:
-        upload_db()
+        st.header("Backup/Restauração do arquivo completo (.db)")
+        col1, col2 = st.columns(2)
+        with col1:
+            download_db()
+        with col2:
+            upload_db()
 
-    st.divider()
-    st.header("Backup/Restauração de tabelas específicas")
-    tab1, tab2 = st.tabs(["Exportar Tabela", "Importar Tabela"])
-    with tab1:
-        download_tabela()
-    with tab2:
-        upload_tabela()
+        st.divider()
+        st.header("Backup/Restauração de tabelas específicas")
+        tab1, tab2 = st.tabs(["Exportar Tabela", "Importar Tabela"])
+        with tab1:
+            download_tabela()
+        with tab2:
+            upload_tabela()
 
     st.divider()
     st.header("Temporadas")

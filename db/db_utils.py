@@ -12,13 +12,14 @@ import os
 import re
 from functools import lru_cache
 from typing import Optional
-from db.connection_pool import get_pool, init_pool
+from db.connection_pool import get_pool
 from db.db_config import BCRYPT_ROUNDS, DB_PATH
 
 logger = logging.getLogger(__name__)
 
 import datetime
 from db.rules_utils import init_rules_table
+from db.db_config import DB_BACKEND
 
 # NÃO inicializar pool aqui - será lazy-initialized em get_pool()
 # Isso evita criar pool com arquivo antigo antes da importação substituir
@@ -65,23 +66,24 @@ def check_password(senha: str, hash_senha: str) -> bool:
 
 def init_db():
     """Inicializa o banco de dados com todas as tabelas necessárias"""
-    # Verificar integridade e recuperar se necessário
-    try:
-        with sqlite3.connect(str(DB_PATH), timeout=10) as test_conn:
-            test_conn.execute("PRAGMA integrity_check")
-            test_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    except sqlite3.DatabaseError as e:
-        logger.error(f"Banco corrompido detectado: {e}. Tentando recuperação...")
+    if DB_BACKEND == "sqlite":
+        # Verificar integridade e recuperar se necessário
         try:
-            # Tentar recuperação via dump
-            import os
-            backup_path = str(DB_PATH) + ".corrupted_backup"
-            if Path(DB_PATH).exists():
-                os.rename(str(DB_PATH), backup_path)
-                logger.info(f"Banco corrompido movido para {backup_path}")
-            # O banco será recriado abaixo
-        except Exception as recovery_error:
-            logger.error(f"Erro na recuperação: {recovery_error}")
+            with sqlite3.connect(str(DB_PATH), timeout=10) as test_conn:
+                test_conn.execute("PRAGMA integrity_check")
+                test_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except sqlite3.DatabaseError as e:
+            logger.error(f"Banco corrompido detectado: {e}. Tentando recuperação...")
+            try:
+                # Tentar recuperação via dump
+                import os
+                backup_path = str(DB_PATH) + ".corrupted_backup"
+                if Path(DB_PATH).exists():
+                    os.rename(str(DB_PATH), backup_path)
+                    logger.info(f"Banco corrompido movido para {backup_path}")
+                # O banco será recriado abaixo
+            except Exception as recovery_error:
+                logger.error(f"Erro na recuperação: {recovery_error}")
     
     # Cria o esquema compatível com o dump histórico (pilotos com 'equipe', provas com 'horario_prova' e 'tipo', resultados com 'posicoes')
     with db_connect() as conn:
@@ -354,8 +356,8 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
             FROM usuarios u
             JOIN usuarios_status_historico h ON h.usuario_id = u.id
                         WHERE lower(trim(coalesce(h.status, ''))) = 'ativo'
-              AND datetime(h.inicio_em) <= datetime(?)
-              AND (h.fim_em IS NULL OR datetime(h.fim_em) >= datetime(?))
+              AND h.inicio_em <= ?
+              AND (h.fim_em IS NULL OR h.fim_em >= ?)
         """
         return pd.read_sql_query(query, conn, params=(season_end, season_start))
 
@@ -399,8 +401,8 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
             ) s
             JOIN usuarios_status_historico h ON h.usuario_id = ?
             WHERE LOWER(TRIM(COALESCE(h.status, ''))) = 'ativo'
-              AND DATETIME(h.inicio_em) <= DATETIME(s.temporada || '-12-31 23:59:59')
-              AND (h.fim_em IS NULL OR DATETIME(h.fim_em) >= DATETIME(s.temporada || '-01-01 00:00:00'))
+                            AND h.inicio_em <= (s.temporada || '-12-31 23:59:59')
+                            AND (h.fim_em IS NULL OR h.fim_em >= (s.temporada || '-01-01 00:00:00'))
             ORDER BY s.temporada
             """,
             conn,

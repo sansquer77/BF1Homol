@@ -8,6 +8,8 @@ extra-streamlit-components>=0.1.56
 
 # Database
 # sqlite3 já vem com Python
+psycopg[binary]>=3.2.0
+psycopg-pool>=3.2.0
 
 # Segurança
 bcrypt>=4.1.0

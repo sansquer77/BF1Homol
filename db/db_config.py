@@ -1,25 +1,28 @@
-"""
-Configurações Centralizadas do Banco de Dados
-Facilita manutenção e padronização
-Suporta variáveis de ambiente para produção
-"""
+"""Configurações centralizadas de banco de dados."""
 
-from pathlib import Path
+from __future__ import annotations
+
 import os
+from pathlib import Path
 
-# Caminho do banco de dados - suporta variável de ambiente
-# Padrão: bolao_f1.db no mesmo diretório raiz do projeto (parent de /db/)
-# Pode ser sobrescrito via DATABASE_PATH para ambientes específicos
+# URL do banco para produção (ex.: PostgreSQL gerenciado)
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+DB_BACKEND = "postgres" if DATABASE_URL.lower().startswith(("postgres://", "postgresql://")) else "sqlite"
+
+# Caminho do banco SQLite para fallback/local
 _default_db = Path(__file__).parent.parent / "bolao_f1.db"
 DB_PATH = Path(os.environ.get("DATABASE_PATH", str(_default_db)))
 
-# Criar diretório somente se não existir e não for raiz
-if DB_PATH.parent != Path("/") and not DB_PATH.parent.exists():
+# Criar diretório do SQLite somente se necessário
+if DB_BACKEND == "sqlite" and DB_PATH.parent != Path("/") and not DB_PATH.parent.exists():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # Configurações de Pool
 POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
 DB_TIMEOUT = float(os.environ.get("DB_TIMEOUT", "30.0"))
+DB_MIN_CONN = int(os.environ.get("DB_MIN_CONN", "1"))
+DB_MAX_CONN = int(os.environ.get("DB_MAX_CONN", str(max(POOL_SIZE, 5))))
+DB_CONN_MAX_LIFETIME = float(os.environ.get("DB_CONN_MAX_LIFETIME", "1800"))
 
 # Configurações de Cache
 CACHE_TTL_CURTO = int(os.environ.get("CACHE_TTL_CURTO", "300"))  # 5 minutos

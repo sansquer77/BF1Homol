@@ -21,3 +21,8 @@ bolao_f1_backup_20251223_194228.db
 services/__pycache__/bets_service.cpython-313.pyc
 *.pyc
 *.pyc
+
+# Environment secrets
+.env
+.env.*
+!.env.example

@@ -8,7 +8,7 @@ import re  # Para conversão de sintaxe SQL
 from pathlib import Path
 from datetime import datetime
 from db.db_utils import db_connect
-from db.db_config import DB_PATH  # Importar caminho correto do banco
+from db.db_config import DB_BACKEND, DB_PATH  # Importar caminho correto do banco
 
 
 def _parse_backup_datetime_value(value):
@@ -750,6 +750,9 @@ def backup_banco(backup_dir: str = "backups") -> str:
     Returns:
         Caminho do arquivo de backup criado
     """
+    if DB_BACKEND == "postgres":
+        raise RuntimeError("backup_banco não suporta PostgreSQL; use backup nativo do banco gerenciado")
+
     backup_path = Path(backup_dir)
     backup_path.mkdir(exist_ok=True)
     
@@ -783,6 +786,9 @@ def restaurar_backup(backup_file: str) -> bool:
         True se restaurado com sucesso, False caso contrário
     """
     try:
+        if DB_BACKEND == "postgres":
+            return False
+
         if not Path(backup_file).exists():
             return False
         

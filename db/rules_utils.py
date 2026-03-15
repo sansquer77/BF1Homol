@@ -2,7 +2,6 @@
 Utilitários para Gestão de Regras de Temporada
 """
 
-import sqlite3
 import logging
 import json
 from typing import Optional
@@ -282,7 +281,14 @@ def associar_regra_temporada(temporada: str, regra_id: int) -> bool:
     try:
         with get_pool().get_connection() as conn:
             c = conn.cursor()
-            c.execute('INSERT OR REPLACE INTO temporadas_regras (temporada, regra_id) VALUES (?, ?)', (temporada, regra_id))
+            c.execute(
+                '''
+                INSERT INTO temporadas_regras (temporada, regra_id)
+                VALUES (?, ?)
+                ON CONFLICT (temporada) DO UPDATE SET regra_id = EXCLUDED.regra_id
+                ''',
+                (temporada, regra_id),
+            )
             conn.commit()
             return True
     except Exception as e:
