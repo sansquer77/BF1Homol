@@ -387,6 +387,103 @@ def _filter_rows_with_missing_fk_refs(
     return filtered_values, skipped_total
 
 
+def _get_postgres_unique_constraints(cursor: Any, table_name: str) -> list[tuple[str, list[str]]]:
+        """Retorna constraints UNIQUE/PRIMARY KEY e suas colunas para uma tabela PostgreSQL."""
+        cursor.execute(
+                """
+                SELECT
+                        c.conname,
+                        array_agg(a.attname ORDER BY u.ordinality) AS cols
+                FROM pg_constraint c
+                JOIN pg_class t
+                    ON t.oid = c.conrelid
+                JOIN pg_namespace n
+                    ON n.oid = t.relnamespace
+                JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS u(attnum, ordinality)
+                    ON TRUE
+                JOIN pg_attribute a
+                    ON a.attrelid = t.oid
+                 AND a.attnum = u.attnum
+                WHERE n.nspname = current_schema()
+                    AND t.relname = %s
+                    AND c.contype IN ('u', 'p')
+                GROUP BY c.conname
+                ORDER BY c.conname
+                """,
+                (table_name,),
+        )
+        rows = cursor.fetchall() or []
+        result: list[tuple[str, list[str]]] = []
+        for row in rows:
+                if not row or len(row) < 2:
+                        continue
+                name = str(row[0])
+                cols_raw = row[1] or []
+                cols = [str(c) for c in cols_raw if c]
+                if cols:
+                        result.append((name, cols))
+        return result
+
+
+    def _normalize_unique_key_value(raw: Any) -> Any:
+        if raw is None:
+            return None
+        if isinstance(raw, bool):
+            return int(raw)
+        if isinstance(raw, int):
+            return raw
+        if isinstance(raw, float):
+            if raw.is_integer():
+                return int(raw)
+            return raw
+        text = str(raw).strip()
+        if text == "":
+            return None
+        if re.fullmatch(r"[+-]?\d+", text):
+            try:
+                return int(text)
+            except Exception:
+                return text
+        return text
+
+
+    def _deduplicate_rows_by_unique_constraints(
+        values: list[tuple[Any, ...]],
+        cols: list[str],
+        unique_constraints: list[tuple[str, list[str]]],
+    ) -> tuple[list[tuple[Any, ...]], int]:
+        """Remove duplicidades por constraints UNIQUE mantendo a última ocorrência."""
+        deduped_values = values
+        removed_total = 0
+
+        for _constraint_name, constraint_cols in unique_constraints:
+            if not constraint_cols or any(col not in cols for col in constraint_cols):
+                continue
+            if len(constraint_cols) == 1 and str(constraint_cols[0]).lower() == "id":
+                continue
+
+            idxs = [cols.index(col) for col in constraint_cols]
+            before = len(deduped_values)
+            by_key: dict[tuple[Any, ...], tuple[Any, ...]] = {}
+
+            for row in deduped_values:
+                key = tuple(_normalize_unique_key_value(row[idx]) for idx in idxs)
+                by_key[key] = row
+
+            deduped_values = list(by_key.values())
+            removed_total += before - len(deduped_values)
+
+            if not deduped_values:
+                break
+
+        return deduped_values, removed_total
+
+
+    def _is_log_table(table_name: str) -> bool:
+        name = (table_name or "").strip().lower()
+        return name.startswith("log_") or name.endswith("_log") or name == "login_attempts"
+
+
 def _coerce_sqlite_value_for_postgres_type(value: Any, pg_type: str) -> Any:
     """Coerce simples de tipos SQLite para tipos PostgreSQL sensíveis."""
     if value is None:
@@ -483,8 +580,10 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
         "tables": 0,
         "rows": 0,
         "skipped_rows": 0,
+        "skipped_unique_rows": 0,
         "rows_by_table": {},
         "skipped_by_table": {},
+        "skipped_unique_by_table": {},
     }
     if not sqlite_file.exists():
         return False, "Arquivo .db não encontrado", stats
@@ -574,6 +673,15 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                     )
                     for row in rows
                 ]
+                if _is_log_table(table_name):
+                    skipped_unique = 0
+                else:
+                    unique_constraints = _get_postgres_unique_constraints(cursor_t, table_name)
+                    values, skipped_unique = _deduplicate_rows_by_unique_constraints(values, cols, unique_constraints)
+                    stats["skipped_unique_rows"] += skipped_unique
+                    stats["skipped_unique_by_table"][table_name] = int(
+                        stats["skipped_unique_by_table"].get(table_name, 0) + skipped_unique
+                    )
                 values, skipped = _filter_rows_with_missing_fk_refs(cursor_t, table_name, cols, values)
                 stats["skipped_rows"] += skipped
                 stats["skipped_by_table"][table_name] = int(
@@ -1007,8 +1115,7 @@ def upload_db():
         
         else:
             # ===== IMPORTAÇÃO DE ARQUIVO .DB =====
-            import tempfile
-        
+
             # Salvar arquivo temporário
             temp_dir = tempfile.mkdtemp()
             temp_uploaded = Path(temp_dir) / "uploaded.db"
@@ -1309,6 +1416,53 @@ def upload_tabela():
 
                     df_alinhado = df_alinhado.where(pd.notnull(df_alinhado), None)
 
+                    if _is_postgres_backend():
+                        unique_constraints = _get_postgres_unique_constraints(cursor, table_name)
+                        duplicate_reports: list[pd.DataFrame] = []
+                        for constraint_name, constraint_cols in unique_constraints:
+                            if not constraint_cols or any(col not in df_alinhado.columns for col in constraint_cols):
+                                continue
+                            dup_mask = df_alinhado.duplicated(subset=constraint_cols, keep=False)
+                            if not dup_mask.any():
+                                continue
+                            dup_groups = (
+                                df_alinhado.loc[dup_mask, constraint_cols]
+                                .groupby(constraint_cols, dropna=False)
+                                .size()
+                                .reset_index(name="qtd_repeticoes")
+                                .sort_values("qtd_repeticoes", ascending=False)
+                            )
+                            if dup_groups.empty:
+                                continue
+                            dup_groups.insert(0, "constraint", constraint_name)
+                            duplicate_reports.append(dup_groups.head(10))
+
+                        if duplicate_reports:
+                            st.warning(
+                                "⚠️ Foram detectadas chaves duplicadas no Excel para constraints únicas. "
+                                "As linhas serão deduplicadas (mantendo a ocorrência mais recente)."
+                            )
+                            st.dataframe(pd.concat(duplicate_reports, ignore_index=True), width="stretch")
+
+                        if not _is_log_table(table_name):
+                            records_before_dedupe = len(df_alinhado)
+                            values_for_dedupe = [
+                                tuple(row[col] for col in db_cols)
+                                for row in df_alinhado.to_dict("records")
+                            ]
+                            deduped_values, removed_unique = _deduplicate_rows_by_unique_constraints(
+                                values_for_dedupe,
+                                db_cols,
+                                unique_constraints,
+                            )
+                            if removed_unique > 0:
+                                st.info(
+                                    f"ℹ️ {removed_unique} linha(s) duplicada(s) removida(s) antes da inserção "
+                                    "por constraints UNIQUE."
+                                )
+                            if records_before_dedupe != len(deduped_values):
+                                df_alinhado = pd.DataFrame(deduped_values, columns=db_cols)
+
                     count_before = cursor.execute(
                         f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"
                     ).fetchone()[0]
@@ -1329,6 +1483,8 @@ def upload_tabela():
                             f"INSERT INTO {_quote_identifier(table_name)} ({insert_cols}) "
                             f"VALUES ({placeholders})"
                         )
+                        if _is_postgres_backend():
+                            insert_sql += " ON CONFLICT DO NOTHING"
                         values: list[tuple[Any, ...]] = [
                             tuple(row[col] for col in db_cols)
                             for row in df_alinhado.to_dict("records")
@@ -1352,6 +1508,11 @@ def upload_tabela():
                 st.success(f"✅ Tabela '{table_name}' completamente sobrescrita!")
                 st.info(f"🗑️ Registros deletados: {count_before}")
                 st.info(f"📥 Registros importados: {count_after_insert}")
+                skipped_by_conflict = max(0, len(df_alinhado) - int(count_after_insert or 0))
+                if skipped_by_conflict > 0 and _is_postgres_backend():
+                    st.warning(
+                        f"⚠️ {skipped_by_conflict} linha(s) duplicada(s) foram ignoradas por conflito de chave única."
+                    )
                 st.cache_data.clear()
                 st.rerun()
             except Exception as e:
@@ -1405,17 +1566,29 @@ def migrar_sqlite_para_postgres():
                     f"⚠️ {skipped_rows} registros foram ignorados por referência inválida "
                     "(chave estrangeira sem linha pai)."
                 )
+            skipped_unique_rows = int(stats.get('skipped_unique_rows', 0) or 0)
+            if skipped_unique_rows > 0:
+                st.warning(
+                    f"⚠️ {skipped_unique_rows} registros foram deduplicados por constraint UNIQUE "
+                    "(mantida a ocorrência mais recente)."
+                )
             rows_by_table = stats.get("rows_by_table", {}) or {}
             skipped_by_table = stats.get("skipped_by_table", {}) or {}
-            if rows_by_table or skipped_by_table:
+            skipped_unique_by_table = stats.get("skipped_unique_by_table", {}) or {}
+            if rows_by_table or skipped_by_table or skipped_unique_by_table:
                 st.markdown("### 📋 Resumo por tabela")
-                table_names = sorted(set(rows_by_table.keys()) | set(skipped_by_table.keys()))
+                table_names = sorted(
+                    set(rows_by_table.keys())
+                    | set(skipped_by_table.keys())
+                    | set(skipped_unique_by_table.keys())
+                )
                 resumo = pd.DataFrame(
                     [
                         {
                             "tabela": t,
                             "migrados": int(rows_by_table.get(t, 0) or 0),
                             "ignorados": int(skipped_by_table.get(t, 0) or 0),
+                            "deduplicados_unique": int(skipped_unique_by_table.get(t, 0) or 0),
                         }
                         for t in table_names
                     ]
