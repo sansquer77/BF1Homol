@@ -349,7 +349,7 @@ def participante_view():
                                     if key_fichas not in st.session_state:
                                         st.session_state[key_fichas] = int(fichas_ant[i]) if len(fichas_ant) > i else 0
                                     valor_ficha = st.number_input(
-                                        f"Fichas para {piloto_sel}", min_value=0, max_value=quantidade_fichas,
+                                        f"Fichas para {piloto_sel}", min_value=0, max_value=fichas_max_por_piloto,
                                         key=key_fichas
                                     )
                                 else:

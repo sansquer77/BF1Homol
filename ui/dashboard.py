@@ -18,7 +18,7 @@ def main():
     
     # Seletor de temporada
     st.markdown("---")
-    col1, col2, col3 = st.columns([2, 1, 1])
+    col1, col2, col3 = st.columns([3, 1, 1])
     
     with col1:
         # Gerar lista de anos desde 1950 até ano atual
@@ -40,13 +40,33 @@ def main():
         )
     
     with col2:
-        st.metric("Temporada Selecionada", selected_season)
+        st.markdown("**Temporada Selecionada**")
+        st.markdown(
+            (
+                "<div style='display:inline-block;padding:6px 12px;border-radius:999px;"
+                "background:rgba(225,52,39,0.18);border:1px solid rgba(225,52,39,0.45);"
+                "color:#ffffff;font-weight:700;line-height:1.2;'>"
+                f"{selected_season}"
+                "</div>"
+            ),
+            unsafe_allow_html=True,
+        )
     
     with col3:
+        st.markdown("**Status**")
         if selected_season == current_year:
-            st.info("🔴 Ao Vivo")
+            status_html = (
+                "<div style='display:inline-block;padding:6px 12px;border-radius:999px;"
+                "background:rgba(255,71,87,0.16);border:1px solid rgba(255,71,87,0.45);"
+                "color:#ff9aa5;font-weight:700;line-height:1.2;'>🔴 Ao Vivo</div>"
+            )
         else:
-            st.success("✅ Histórico")
+            status_html = (
+                "<div style='display:inline-block;padding:6px 12px;border-radius:999px;"
+                "background:rgba(0,210,106,0.16);border:1px solid rgba(0,210,106,0.45);"
+                "color:#8ff2be;font-weight:700;line-height:1.2;'>✅ Histórico</div>"
+            )
+        st.markdown(status_html, unsafe_allow_html=True)
     
     st.markdown("---")
     

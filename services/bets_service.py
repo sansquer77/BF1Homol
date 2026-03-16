@@ -1569,12 +1569,12 @@ def salvar_classificacao_prova(p_id, df_c, temp=None):
         for _, r in df_c.iterrows():
             if has_temporada:
                 c.execute(
-                    'INSERT OR REPLACE INTO posicoes_participantes (prova_id, usuario_id, posicao, pontos, temporada) VALUES (?,?,?,?,?)',
+                    'INSERT INTO posicoes_participantes (prova_id, usuario_id, posicao, pontos, temporada) VALUES (?,?,?,?,?)',
                     (p_id, int(r['usuario_id']), int(r['posicao']), float(r['pontos']), temp)
                 )
             else:
                 c.execute(
-                    'INSERT OR REPLACE INTO posicoes_participantes (prova_id, usuario_id, posicao, pontos) VALUES (?,?,?,?)',
+                    'INSERT INTO posicoes_participantes (prova_id, usuario_id, posicao, pontos) VALUES (?,?,?,?)',
                     (p_id, int(r['usuario_id']), int(r['posicao']), float(r['pontos']))
                 )
         conn.commit()

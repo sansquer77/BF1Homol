@@ -7,41 +7,49 @@ def main():
     st.markdown("""
     ## 🏁 BF1 - Bolão de Fórmula 1
 
-    **BF1** é um sistema digital de bolão esportivo dedicado à Fórmula 1, criado para proporcionar organização, transparência e diversão para grupos de amigos e entusiastas da categoria. O aplicativo centraliza apostas, classificação, estatísticas e comunicação em uma plataforma intuitiva, segura e acessível via web.
+    O **BF1** é uma plataforma de bolão de Fórmula 1 criada para organizar apostas,
+    classificação e histórico da temporada com transparência e praticidade.
+    O sistema concentra em um único app os fluxos de participantes e administração,
+    mantendo rastreabilidade das ações e regras claras de pontuação.
 
-    ### ✒️ Funcionalidades principais (v3.0)
+    ### ✒️ Funcionalidades principais (v3.5)
 
     - Cadastro e gestão de apostas para cada corrida
+    - Geração de aposta automática e modo "Sem ideias" com apoio estratégico
     - Aposta especial do campeonato (campeão, vice e equipe)
-    - Classificação geral e por corrida
-    - Relatórios, análise detalhada e logs de apostas
-    - Painel de usuários e administração completa
-    - Exportação/importação de dados e backup seguro
-    - Regulamento oficial, gestão de provas e pilotos
+    - Classificação geral, por corrida e histórico por temporada
+    - Análises detalhadas e logs de apostas
+    - Gestão de usuários, pilotos, provas, regras e resultados
+    - Backup/restauração completa e importação/exportação por tabela
     - Registro de abandonos (DNF) com penalidade automática
-    - Pontuação de Sprint ajustada por regra e opção de pontos dobrados
-    - Pontos por posição por temporada (com histórico preservado)
-    - Classificação com bônus de campeonato detalhados e exportação da tabela
+    - Regras por temporada (normal/sprint), incluindo pontos dobrados e bônus
+    - Hall da Fama e painel com indicadores da temporada
 
     ### 👨‍💻 Desenvolvimento
 
-    - **Desenvolvedor:** Cristiano Gaspar (administração e código).
-    - **Tecnologias:** Python, Streamlit, SQLite, pandas, Plotly, bcrypt, JWT, extra-streamlit-components
+    - **Desenvolvedor:** Cristiano Gaspar
+    - **Tecnologias utilizadas no app:**
+        - **Frontend/App:** Streamlit, streamlit-option-menu, extra-streamlit-components
+        - **Backend e dados:** Python, PostgreSQL (psycopg + psycopg-pool), SQLite (legado/migração), pandas, numpy
+        - **Visualização:** Plotly, Altair, Matplotlib
+        - **Segurança e autenticação:** bcrypt, PyJWT, cryptography
+        - **Integrações e utilitários:** httpx, requests, openpyxl, python-dotenv
 
     ### 💡 Missão e inspiração
 
-    O BF1 nasceu da paixão pelas corridas e pela convivência entre amigos—buscando promover interação, rivalidade saudável, controle rigoroso das apostas e distribuição transparente dos prêmios.
+    O BF1 nasceu da paixão por corrida e da vontade de manter a disputa entre amigos
+    organizada, justa e divertida, com histórico confiável e operação simples no dia a dia.
 
     ### 📬 Contato e créditos
 
     - Para dúvidas, sugestões ou reportar bugs:
         - **E-mail:** cristiano_gaspar@outlook.com
-    
     - Agradecimentos a todos os participantes e beta testers do bolão ao longo dos anos.
 
     ### ☁️ Infraestrutura
 
-    O BF1 está hospedado em ambiente cloud, e serveless utilizando serviços como Digital Ocean para performance, redundância e automação de backups.
+    O BF1 roda em infraestrutura cloud, com banco PostgreSQL gerenciado,
+    foco em disponibilidade e rotinas de backup/restauração para continuidade do serviço.
 
     ---
     <small>Versão atual: 3.0-2026. Todos os direitos reservados.</small>
