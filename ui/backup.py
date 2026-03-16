@@ -10,6 +10,7 @@ from db.backup_utils import (
     upload_tabela,
 )
 from db.db_config import DB_BACKEND
+from utils.helpers import render_page_header
 
 def main():
     perfil = st.session_state.get("user_role", "participante")
@@ -17,7 +18,7 @@ def main():
         st.warning("Acesso restrito ao usuário master.")
         return
 
-    st.title("💾 Backup e Restauração do Banco de Dados BF1")
+    render_page_header(st, "Backup e Restauração do Banco de Dados BF1")
     if DB_BACKEND == "postgres":
         st.info(
             "Ambiente PostgreSQL detectado: backup/restauração completa é feita por dump SQL (.sql)."

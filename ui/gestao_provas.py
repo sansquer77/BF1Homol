@@ -9,6 +9,7 @@ import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from db.db_utils import get_provas_df, db_connect
+from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
 
@@ -270,7 +271,7 @@ def _render_aba_adicionar():
 
 
 def main():
-    st.title("🏁 Gestão de Provas")
+    render_page_header(st, "Gestão de Provas")
     
     # Verificar permissão
     perfil = st.session_state.get("user_role", "participante")

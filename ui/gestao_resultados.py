@@ -4,6 +4,7 @@ import ast
 
 from db.db_utils import db_connect, get_provas_df, get_pilotos_df, get_resultados_df
 from services.bets_service import atualizar_classificacoes_todas_as_provas
+from utils.helpers import render_page_header
 from utils.season_utils import get_current_year_str, get_default_season_index, get_season_options
 
 def resultados_view():
@@ -12,7 +13,7 @@ def resultados_view():
         st.warning("Acesso restrito a administradores/master.")
         return
 
-    st.title("Atualizar Resultado Manualmente")
+    render_page_header(st, "Atualizar Resultado Manualmente")
 
     # Seletor de temporada
     current_year_str = get_current_year_str()

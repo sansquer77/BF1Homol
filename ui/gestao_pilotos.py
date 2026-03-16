@@ -7,6 +7,7 @@ Reorganizado em abas: Editar Pilotos / Adicionar Novo Piloto
 import streamlit as st
 import pandas as pd
 from db.db_utils import get_pilotos_df, db_connect
+from utils.helpers import render_page_header
 
 
 def _normalizar_df_pilotos(df: pd.DataFrame) -> pd.DataFrame:
@@ -219,7 +220,7 @@ def _render_aba_adicionar():
 
 
 def main():
-    st.title("🏎️ Gestão de Pilotos")
+    render_page_header(st, "Gestão de Pilotos")
     
     # Verificar permissão
     perfil = st.session_state.get("user_role", "participante")

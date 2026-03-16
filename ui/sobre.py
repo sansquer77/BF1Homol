@@ -1,7 +1,8 @@
 import streamlit as st
+from utils.helpers import render_page_header
 
 def main():
-    st.title("ℹ️ Sobre o BF1")
+    render_page_header(st, "Sobre o BF1")
 
     st.markdown("""
     ## 🏁 BF1 - Bolão de Fórmula 1

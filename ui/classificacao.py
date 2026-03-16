@@ -13,6 +13,7 @@ from db.db_utils import db_connect, get_participantes_temporada_df, get_provas_d
 from services.championship_service import get_championship_bets_df, get_final_results
 from services.rules_service import get_regras_aplicaveis
 from services.bets_service import calcular_pontuacao_lote, atualizar_classificacoes_todas_as_provas, _parse_datetime_sp
+from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
 def formatar_brasileiro(valor):
@@ -160,11 +161,7 @@ def destacar_heatmap(df, resultados_df, provas_ids_ordenados):
     return df.style.apply(colorir_prova_heatmap, axis=1)
 
 def main():
-    col1, col2 = st.columns([1, 16])
-    with col1:
-        st.image("BF1.jpg", width=75)
-    with col2:
-        st.title("Classificação Geral do Bolão")
+    render_page_header(st, "Classificação Geral do Bolão")
 
     current_year = dt.datetime.now().year
     season_options = get_season_options(fallback_years=["2025", "2026"])

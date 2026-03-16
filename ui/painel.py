@@ -13,6 +13,7 @@ from services.bets_service import salvar_aposta, calcular_pontuacao_lote, gerar_
 from services.auth_service import check_password, hash_password
 from services.rules_service import get_regras_aplicaveis
 from utils.datetime_utils import now_sao_paulo, parse_datetime_sao_paulo
+from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
 
@@ -139,19 +140,16 @@ def participante_view():
         st.error("Usuário não encontrado.")
         return
 
-    col1, col2 = st.columns([1, 16])  # Proporção ajustável conforme aparência desejada
-    with col1:
-        st.image("BF1.jpg", width=75)
-    with col2:
-        st.title("Painel do Participante")
-        season_options = get_season_options(fallback_years=["2025", "2026"])
-        if not season_options:
-            st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
-            return
-        default_index = get_default_season_index(season_options)
+    render_page_header(st, "Painel do Participante")
 
-        season = st.selectbox("Temporada", season_options, index=default_index)
-        st.session_state['temporada'] = season
+    season_options = get_season_options(fallback_years=["2025", "2026"])
+    if not season_options:
+        st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
+        return
+    default_index = get_default_season_index(season_options)
+
+    season = st.selectbox("Temporada", season_options, index=default_index)
+    st.session_state['temporada'] = season
     
     st.write(f"Bem-vindo, {user['nome']} ({user['email']}) - Status: {user['perfil']}")
 
@@ -366,6 +364,30 @@ def participante_view():
                     fichas_validas = [f for i, f in enumerate(fichas_aposta) if pilotos_aposta[i] != "Nenhum"]
                     equipes_apostadas = [pilotos_equipe[p] for p in pilotos_validos]
                     total_fichas = sum(fichas_validas)
+
+                    total_ok = total_fichas == quantidade_fichas
+                    total_cor = "#1f9d55" if total_ok else "#c62828"
+                    total_status = "Correto" if total_ok else "Incorreto"
+                    diferenca_fichas = quantidade_fichas - total_fichas
+                    if total_ok:
+                        total_detalhe = "total exato"
+                    elif diferenca_fichas > 0:
+                        total_detalhe = f"faltam {diferenca_fichas}"
+                    else:
+                        total_detalhe = f"sobram {abs(diferenca_fichas)}"
+                    st.markdown(
+                        (
+                            "<div style=\"padding:10px 12px;border-radius:8px;"
+                            "border:1px solid #d0d7de;background:#f8f9fa;margin:8px 0 12px 0;\">"
+                            "<strong>Total de fichas:</strong> "
+                            f"<span style='color:{total_cor};font-weight:700'>{total_fichas}/{quantidade_fichas}</span> "
+                            f"<span style='color:{total_cor};font-weight:600'>({total_status})</span> "
+                            f"<span style='color:{total_cor};font-weight:600'>- {total_detalhe}</span>"
+                            "</div>"
+                        ),
+                        unsafe_allow_html=True,
+                    )
+
                     pilotos_11_opcoes = [p for p in pilotos if p not in pilotos_validos]
                     if not pilotos_11_opcoes:
                         pilotos_11_opcoes = pilotos

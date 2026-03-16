@@ -1,7 +1,10 @@
 import unicodedata
 import re
+import base64
+from functools import lru_cache
+from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 def normalize_str(text: str) -> str:
     """
@@ -81,4 +84,36 @@ def dict_to_query_params(params: dict) -> str:
     Converte um dicionário simples em string de query params GET.
     """
     return "&".join(f"{k}={v}" for k, v in params.items() if v is not None)
+
+
+@lru_cache(maxsize=1)
+def _bf1_logo_data_uri() -> str:
+    """Retorna logo BF1 como data URI para evitar dependência do media handler em memória."""
+    logo_path = Path(__file__).resolve().parents[1] / "BF1.jpg"
+    if not logo_path.exists():
+        return ""
+    content = logo_path.read_bytes()
+    encoded = base64.b64encode(content).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded}"
+
+
+def render_bf1_logo_html(width: int = 75, alt: str = "BF1") -> str:
+    """Gera HTML do logo BF1 embutido em base64 para uso com st.markdown."""
+    data_uri = _bf1_logo_data_uri()
+    if not data_uri:
+        return ""
+    safe_width = max(1, int(width))
+    safe_alt = (alt or "BF1").replace('"', "")
+    return f'<img src="{data_uri}" alt="{safe_alt}" width="{safe_width}" loading="eager" />'
+
+
+def render_page_header(st_module: Any, title: str, logo_width: int = 75) -> None:
+    """Renderiza cabeçalho padronizado com logo BF1 + título da página."""
+    col_logo, col_title = st_module.columns([1, 16])
+    with col_logo:
+        logo_html = render_bf1_logo_html(width=logo_width, alt="Logo BF1")
+        if logo_html:
+            st_module.markdown(logo_html, unsafe_allow_html=True)
+    with col_title:
+        st_module.title(title)
 

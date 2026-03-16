@@ -8,10 +8,11 @@ from services.championship_service import (
     can_place_championship_bet
 )
 from db.db_utils import get_pilotos_df, get_usuarios_df
+from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
 def main():
-    st.title("📣 Apostas do Campeonato")
+    render_page_header(st, "Apostas do Campeonato")
 
     # Validação da sessão do usuário
     if "user_id" not in st.session_state or "token" not in st.session_state:

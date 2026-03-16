@@ -18,6 +18,7 @@ from db.rules_utils import (
     clonar_regra
 )
 from services.bets_service import atualizar_classificacoes_todas_as_provas
+from utils.helpers import render_page_header
 from utils.season_utils import get_current_year_str, get_season_options
 
 def main():
@@ -26,13 +27,7 @@ def main():
     if perfil != "master":
         st.warning("Acesso restrito ao usuário Master.")
         return
-    col1, col2 = st.columns([1, 16])
-    
-    with col1:
-        st.image("BF1.jpg", width=75)
-    
-    with col2:
-        st.title("Gestão de Regras")
+    render_page_header(st, "Gestão de Regras")
     
     st.markdown("---")
     

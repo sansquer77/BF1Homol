@@ -1,8 +1,9 @@
 import streamlit as st
 import streamlit.components.v1 as components
+from utils.helpers import render_page_header
 
 def main():
-    st.title("📜 Regulamento BF1-2026 (Completo e Oficial)")
+    render_page_header(st, "Regulamento BF1-2026 (Completo e Oficial)")
 
     st.markdown("""
 REGULAMENTO BF1-2026

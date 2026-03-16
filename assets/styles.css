@@ -29,6 +29,13 @@
     background-attachment: fixed !important;
 }
 
+/* Ritmo geral de conteúdo */
+.main .block-container {
+    max-width: 1180px !important;
+    padding-top: 1.25rem !important;
+    padding-bottom: 1.5rem !important;
+}
+
 /* Efeito de partículas/brilho sutil no fundo */
 .stApp::before {
     content: '';
@@ -70,21 +77,27 @@
 [data-testid="stSidebar"] .stRadio > label:hover {
     background: var(--glass-bg-hover) !important;
     border-color: var(--glass-border) !important;
-    transform: translateX(4px);
 }
 
 /* ============ CARDS E CONTAINERS GLASS ============ */
-.stTabs [data-baseweb="tab-panel"],
+.stTabs [data-baseweb="tab-panel"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 6px 0 !important;
+    margin: 8px 0 !important;
+}
+
 [data-testid="stExpander"],
 .stForm,
 [data-testid="stMetric"] {
     background: var(--glass-bg) !important;
-    backdrop-filter: blur(var(--blur-amount)) !important;
-    -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
     border-radius: var(--border-radius) !important;
     border: 1px solid var(--glass-border) !important;
-    box-shadow: var(--glass-shadow) !important;
-    padding: 20px !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22) !important;
+    padding: 16px !important;
     margin: 10px 0 !important;
 }
 
@@ -300,7 +313,12 @@ hr {
     border: none !important;
     height: 1px !important;
     background: linear-gradient(90deg, transparent, var(--glass-border), transparent) !important;
-    margin: 2rem 0 !important;
+    margin: 1.25rem 0 !important;
+}
+
+h2, h3 {
+    margin-top: 0.35rem !important;
+    margin-bottom: 0.65rem !important;
 }
 
 /* ============ RESPONSIVIDADE MOBILE ============ */
@@ -320,8 +338,8 @@ hr {
     
     /* Sidebar como overlay no mobile - não empurrar conteúdo */
     [data-testid="stSidebar"] {
-        min-width: 280px !important;
-        max-width: 280px !important;
+        min-width: min(86vw, 320px) !important;
+        max-width: min(86vw, 320px) !important;
         position: fixed !important;
         z-index: 1000 !important;
     }
@@ -333,20 +351,21 @@ hr {
     
     /* Tabs menores */
     .stTabs [data-baseweb="tab"] {
-        padding: 10px 16px !important;
+        padding: 12px 14px !important;
         font-size: 0.9rem !important;
+        min-height: 44px !important;
     }
     
     /* Botões full width */
     .stButton > button {
         width: 100% !important;
-        padding: 14px 20px !important;
+        min-height: 46px !important;
+        padding: 12px 18px !important;
     }
     
-    /* Colunas empilhadas */
-    [data-testid="column"] {
-        width: 100% !important;
-        flex: 1 1 100% !important;
+    /* Permite quebra de colunas sem forçar 100% em todos os layouts */
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
     }
     
     /* Métricas menores */
@@ -365,6 +384,10 @@ hr {
     .stNumberInput > div > div > input {
         min-height: 48px !important;
         font-size: 16px !important; /* Previne zoom no iOS */
+    }
+
+    [data-baseweb="select"] {
+        min-height: 48px !important;
     }
     
     /* Títulos responsivos */
@@ -401,7 +424,13 @@ hr {
 }
 
 .element-container {
-    animation: fadeIn 0.4s ease-out;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .element-container {
+        animation: none !important;
+    }
 }
 
 /* ============ SCROLLBAR CUSTOMIZADA ============ */
@@ -545,7 +574,7 @@ hr {
     -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
     border-radius: var(--border-radius) !important;
     border: 1px solid var(--glass-border) !important;
-    padding: 30px !important;
+    padding: 16px !important;
 }
 
 /* ============ LABELS E TEXTOS ============ */
@@ -555,7 +584,7 @@ label {
     font-size: 0.9rem !important;
 }
 
-p, span {
+p {
     color: var(--text-secondary) !important;
 }
 
@@ -630,8 +659,8 @@ a:hover {
 
 /* ============ HIDE STREAMLIT BRANDING ============ */
 /* Nota: NÃO esconder header pois contém o botão do menu no mobile */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
+#MainMenu {visibility: visible;}
+footer {visibility: visible;}
 
 /* Estilizar o header (contém botão hamburguer no mobile) */
 header[data-testid="stHeader"] {
@@ -700,6 +729,14 @@ img {
 /* ============ COLUMN GAPS ============ */
 [data-testid="column"] {
     padding: 0 8px !important;
+}
+
+/* ============ PAGE HEADERS ============ */
+h1 {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    margin-bottom: 0.5rem !important;
 }
 
 /* ============ SUCCESS/ERROR/WARNING MESSAGES ============ */

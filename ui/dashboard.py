@@ -1,5 +1,6 @@
 import streamlit as st
 import datetime
+from utils.helpers import render_page_header
 from utils.data_utils import (
     get_current_season,
     get_driver_standings,
@@ -13,8 +14,7 @@ from utils.data_utils import (
 def main():
     """Dashboard F1 com dados em tempo real da API Ergast"""
     
-    # Título principal
-    st.title("🏎️ Formula 1 Dashboard")
+    render_page_header(st, "Formula 1 Dashboard")
     
     # Seletor de temporada
     st.markdown("---")

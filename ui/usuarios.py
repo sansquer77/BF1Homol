@@ -5,6 +5,7 @@ from services.auth_service import hash_password
 from db.db_utils import get_participantes_temporada_df, usuarios_status_historico_disponivel
 from services.email_service import enviar_email
 from datetime import datetime
+from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
 
@@ -401,7 +402,7 @@ def _render_gestao_financeira_tab():
                 st.error("Falha ao enviar lembrete financeiro.")
 
 def main():
-    st.title("👥 Gestão de Usuários")
+    render_page_header(st, "Gestão de Usuários")
 
     # Definir permissões necessárias: apenas master pode editar tudo, admin pode ver; participante não acessa
     perfil = st.session_state.get("user_role", "participante")

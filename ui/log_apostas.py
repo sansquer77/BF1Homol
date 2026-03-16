@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import logging
 from db.db_utils import db_connect
+from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ def carregar_logs(temporada=None, usuario_id=None, is_admin=False):
     return df
 
 def main():
-    st.title("📜 Log de Apostas")
+    render_page_header(st, "Log de Apostas")
 
     perfil = st.session_state.get("user_role", "participante")
     is_admin = perfil in ("admin", "master")

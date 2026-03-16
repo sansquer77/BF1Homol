@@ -11,6 +11,7 @@ from db.db_utils import (
     usuarios_status_historico_disponivel
 )
 from services.rules_service import get_regras_aplicaveis
+from utils.helpers import render_page_header
 from utils.season_utils import get_season_options
 
 
@@ -204,7 +205,7 @@ def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df
     return df
 
 def main():
-    st.title("📊 Análise Detalhada das Apostas")
+    render_page_header(st, "Análise Detalhada das Apostas")
 
     if not usuarios_status_historico_disponivel():
         st.warning(

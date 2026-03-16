@@ -14,6 +14,7 @@ from db.db_utils import (
     get_participantes_temporada_df,
     usuarios_status_historico_disponivel
 )
+from utils.helpers import render_page_header
 
 
 def _resolve_hall_source(conn) -> tuple[str, str]:
@@ -40,7 +41,7 @@ def _resolve_hall_source(conn) -> tuple[str, str]:
 
 def hall_da_fama():
     """Exibe hall da fama com histórico plurianual."""
-    st.title("🏆 Hall da Fama")
+    render_page_header(st, "Hall da Fama")
     st.write("📈 Histórico de classificações por temporada - Melhores posições em cada ano")
     
     # Debug info (temporário - remover depois)
