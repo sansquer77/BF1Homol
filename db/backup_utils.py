@@ -1531,6 +1531,38 @@ def upload_tabela():
                         f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"
                     ).fetchone()[0]
 
+                    input_rows_count = int(len(df_alinhado))
+                    skipped_fk_rows = 0
+                    values: list[tuple[Any, ...]] = []
+
+                    if not df_alinhado.empty:
+                        values = [
+                            tuple(row[col] for col in db_cols)
+                            for row in df_alinhado.to_dict("records")
+                        ]
+
+                        # Logs devem preservar histórico completo; não filtrar por FK.
+                        if _is_postgres_backend() and not _is_log_table(table_name):
+                            values, skipped_fk_rows = _filter_rows_with_missing_fk_refs(
+                                cursor,
+                                table_name,
+                                db_cols,
+                                values,
+                            )
+
+                        # Evita operação destrutiva quando todas as linhas do Excel são órfãs.
+                        if (
+                            _is_postgres_backend()
+                            and not _is_log_table(table_name)
+                            and input_rows_count > 0
+                            and len(values) == 0
+                            and skipped_fk_rows >= input_rows_count
+                        ):
+                            raise ValueError(
+                                "Nenhuma linha válida para importar: todas as linhas referenciam "
+                                "FK inexistente. Importe primeiro as tabelas pai (usuarios/provas)."
+                            )
+
                     if _is_postgres_backend():
                         cursor.execute(f"TRUNCATE TABLE {_quote_identifier(table_name)} RESTART IDENTITY CASCADE")
                     else:
@@ -1540,7 +1572,7 @@ def upload_tabela():
                         f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"
                     ).fetchone()[0]
 
-                    if not df_alinhado.empty:
+                    if values:
                         insert_cols = ", ".join(_quote_identifier(col) for col in db_cols)
                         placeholders = ", ".join(["?"] * len(db_cols))
                         insert_sql = (
@@ -1549,10 +1581,6 @@ def upload_tabela():
                         )
                         if _is_postgres_backend():
                             insert_sql += " ON CONFLICT DO NOTHING"
-                        values: list[tuple[Any, ...]] = [
-                            tuple(row[col] for col in db_cols)
-                            for row in df_alinhado.to_dict("records")
-                        ]
                         cursor.executemany(insert_sql, values)
 
                     if _is_postgres_backend():
@@ -1575,7 +1603,15 @@ def upload_tabela():
                 st.success(f"✅ Tabela '{table_name}' completamente sobrescrita!")
                 st.info(f"🗑️ Registros deletados: {count_before}")
                 st.info(f"📥 Registros importados: {count_after_insert}")
-                skipped_by_conflict = max(0, len(df_alinhado) - int(count_after_insert or 0))
+                if skipped_fk_rows > 0:
+                    st.warning(
+                        f"⚠️ {skipped_fk_rows} linha(s) foram ignoradas por referência inválida "
+                        "(chave estrangeira sem linha pai)."
+                    )
+                skipped_by_conflict = max(
+                    0,
+                    int(input_rows_count or 0) - int(skipped_fk_rows or 0) - int(count_after_insert or 0),
+                )
                 if skipped_by_conflict > 0 and _is_postgres_backend():
                     st.warning(
                         f"⚠️ {skipped_by_conflict} linha(s) duplicada(s) foram ignoradas por conflito de chave única."
