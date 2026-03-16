@@ -428,6 +428,16 @@ def _extract_insert_table_name(statement: str) -> str | None:
     return match.group(1)
 
 
+def _strip_sql_line_comments(sql_text: str) -> str:
+    """Remove comentários de linha iniciados por '--' para evitar parser ambíguo no split por ';'."""
+    cleaned: list[str] = []
+    for line in sql_text.splitlines():
+        if line.lstrip().startswith("--"):
+            continue
+        cleaned.append(line)
+    return "\n".join(cleaned)
+
+
 def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -> dict[str, int]:
     other_statements: list[str] = []
     inserts_by_table: dict[str, list[str]] = {}
@@ -436,22 +446,32 @@ def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -
     }
 
     def _execute_strict_with_savepoint(statement: str, context: str) -> None:
-        cursor.execute("SAVEPOINT bf1_restore_stmt")
         try:
+            cursor.execute("SAVEPOINT bf1_restore_stmt")
             cursor.execute(statement)
             stats["executed"] += 1
             cursor.execute("RELEASE SAVEPOINT bf1_restore_stmt")
         except Exception as exc:
-            cursor.execute("ROLLBACK TO SAVEPOINT bf1_restore_stmt")
-            cursor.execute("RELEASE SAVEPOINT bf1_restore_stmt")
-            raise RuntimeError(f"{context}: {exc}") from exc
+            try:
+                cursor.execute("ROLLBACK TO SAVEPOINT bf1_restore_stmt")
+                cursor.execute("RELEASE SAVEPOINT bf1_restore_stmt")
+            except Exception:
+                # Se não conseguir usar savepoint (txn já quebrada), tenta rollback total só para limpar estado.
+                try:
+                    cursor.execute("ROLLBACK")
+                except Exception:
+                    pass
+            excerpt = statement.replace("\n", " ").strip()[:220]
+            raise RuntimeError(f"{context}: {exc}. SQL: {excerpt}") from exc
 
     for statement in statements:
         stmt = statement.strip()
         if not stmt:
             continue
         upper = stmt.upper()
-        if upper in {"BEGIN", "COMMIT"}:
+        if upper in {"BEGIN", "COMMIT", "ROLLBACK"}:
+            continue
+        if upper.startswith("SET CONSTRAINTS"):
             continue
         table_name = _extract_insert_table_name(stmt)
         if table_name:
@@ -784,6 +804,7 @@ def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
     if is_data_only_dump:
         try:
             sql_content = sql_file.read_text(encoding="utf-8", errors="ignore")
+            sql_content = _strip_sql_line_comments(sql_content)
             with db_connect() as conn:
                 cursor = conn.cursor()
                 statements = [s.strip() for s in sql_content.split(";") if s.strip()]
