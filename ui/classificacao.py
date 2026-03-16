@@ -408,7 +408,15 @@ def main():
         "Movimentação"
     ]
     st.subheader("Classificação Geral (Provas + Campeonato)")
-    st.table(df_display[colunas_ordem])
+    total_rows = len(df_display.index)
+    table_height = min(700, 40 + (total_rows * 38))
+    st.dataframe(
+        df_display[colunas_ordem],
+        hide_index=True,
+        width="stretch",
+        height=table_height,
+        row_height=38,
+    )
 
     csv_classificacao = df_display[colunas_ordem].to_csv(index=False)
     st.download_button(
@@ -496,8 +504,25 @@ def main():
             yaxis_title="Pontuação Acumulada",
             xaxis_tickangle=-45,
             margin=dict(l=40, r=20, t=60, b=80),
-            plot_bgcolor='rgba(240,240,255,0.9)',
-            yaxis=dict(tickformat=',.0f')
+            plot_bgcolor='#000000',
+            paper_bgcolor='#000000',
+            font=dict(color='#F5F7FA'),
+            xaxis=dict(
+                tickfont=dict(color='#F5F7FA'),
+                title_font=dict(color='#F5F7FA'),
+                gridcolor='rgba(255,255,255,0.16)'
+            ),
+            yaxis=dict(
+                tickformat=',.0f',
+                tickfont=dict(color='#F5F7FA'),
+                title_font=dict(color='#F5F7FA'),
+                gridcolor='rgba(255,255,255,0.16)',
+                zerolinecolor='rgba(255,255,255,0.25)'
+            ),
+            legend=dict(
+                font=dict(color='#F5F7FA'),
+                bgcolor='rgba(0,0,0,0.35)'
+            )
         )
         st.plotly_chart(fig, width="stretch")
 

@@ -240,7 +240,7 @@ def participante_view():
                         elif prova_atual_sel not in prova_ids_validos:
                             st.session_state["sel_prova_aposta"] = proxima_prova_id
 
-                    col_sel, col_btn, col_sem_ideias = st.columns([4, 1, 1])
+                    col_sel, col_btn, col_sem_ideias = st.columns([6, 1.2, 1.4])
                     with col_sel:
                         prova_id = st.selectbox(
                             "Escolha a prova",
@@ -250,14 +250,16 @@ def participante_view():
                             on_change=_on_prova_change
                         )
                     with col_btn:
-                        if st.button("Ver regras", width="stretch"):
+                        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                        if st.button("Ver regras", width="content"):
                             prova_nome_sel = provas[provas['id'] == prova_id]['nome'].values[0]
                             tipo_raw = provas[provas['id'] == prova_id]['tipo'].values[0] if not provas[provas['id'] == prova_id].empty else 'Normal'
                             tipo_sel = 'Sprint' if str(tipo_raw).strip().lower() == 'sprint' or 'sprint' in str(prova_nome_sel).lower() else 'Normal'
                             regras_sel = get_regras_aplicaveis(temporada, tipo_sel)
                             _mostrar_regras_dialog(regras_sel, temporada, tipo_sel)
                     with col_sem_ideias:
-                        if st.button("Sem ideias", width="stretch"):
+                        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                        if st.button("Sem ideias", width="content"):
                             nome_prova_sem_ideias = provas[provas['id'] == prova_id]['nome'].values[0]
                             ok_auto, msg_auto = gerar_aposta_sem_ideias(
                                 usuario_id=user['id'],

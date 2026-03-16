@@ -192,6 +192,23 @@
     box-shadow: 0 0 20px rgba(225, 52, 39, 0.2) !important;
 }
 
+/* ============ PASSWORD INPUT (LOGIN) ============ */
+[data-testid="stTextInput"] input[type="text"],
+[data-testid="stTextInput"] input[type="email"],
+[data-testid="stTextInput"] input[type="password"] {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    letter-spacing: normal !important;
+}
+
+[data-testid="stTextInput"] input[type="password"] {
+    padding-right: 2.6rem !important; /* Espaço para botão mostrar/ocultar senha */
+}
+
+[data-testid="stTextInput"] [data-baseweb="input"] {
+    align-items: center !important;
+}
+
 /* ============ DATAFRAMES GLASS ============ */
 [data-testid="stDataFrame"],
 .stDataFrame {
