@@ -439,8 +439,6 @@ def _strip_sql_line_comments(sql_text: str) -> str:
 
 
 def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -> dict[str, int]:
-    other_statements: list[str] = []
-    inserts_by_table: dict[str, list[str]] = {}
     stats = {
         "executed": 0,
     }
@@ -473,25 +471,12 @@ def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -
             continue
         if upper.startswith("SET CONSTRAINTS"):
             continue
+
         table_name = _extract_insert_table_name(stmt)
         if table_name:
-            inserts_by_table.setdefault(table_name, []).append(stmt)
-        else:
-            other_statements.append(stmt)
-
-    for stmt in other_statements:
-        _execute_strict_with_savepoint(stmt, "Falha ao aplicar statement")
-
-    table_names = list(inserts_by_table.keys())
-    known_tables = set(table_names)
-    deps_map: dict[str, set[str]] = {}
-    for table_name in table_names:
-        deps_map[table_name] = _get_postgres_table_fk_dependencies(cursor, table_name, known_tables)
-    load_order = _topological_sort_tables(table_names, deps_map)
-
-    for table_name in load_order:
-        for stmt in inserts_by_table.get(table_name, []):
             _execute_strict_with_savepoint(stmt, f"Falha ao aplicar INSERT em {table_name}")
+        else:
+            _execute_strict_with_savepoint(stmt, "Falha ao aplicar statement")
 
     return stats
 
