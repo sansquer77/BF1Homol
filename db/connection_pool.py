@@ -203,6 +203,20 @@ def _rewrite_sql_for_postgres(sql: str) -> tuple[str, bool]:
     return sql, False
 
 
+def _insert_explicitly_sets_id(sql: str) -> bool:
+    """Detecta INSERT com coluna id explícita no target list."""
+    match = re.search(
+        r"^\s*INSERT\s+INTO\s+[^\(]+\(([^\)]+)\)",
+        sql,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not match:
+        return False
+    raw_cols = match.group(1)
+    cols = [c.strip().strip('"').lower() for c in raw_cols.split(",") if c.strip()]
+    return "id" in cols
+
+
 class PostgresCursorAdapter:
     """Cursor compatível com API sqlite para reduzir mudanças de código."""
 
@@ -237,13 +251,24 @@ class PostgresCursorAdapter:
         self._last_columns = [desc.name for desc in self._cursor.description] if self._cursor.description else []
 
         normalized = " ".join(rewritten_sql.strip().split()).lower()
-        if normalized.startswith("insert") and " returning " not in normalized:
+        if (
+            normalized.startswith("insert")
+            and " returning " not in normalized
+            and not _insert_explicitly_sets_id(rewritten_sql)
+        ):
             try:
+                self._cursor.execute("SAVEPOINT bf1_lastval_sp")
                 self._cursor.execute("SELECT LASTVAL()")
                 result = self._cursor.fetchone()
                 if result:
                     self._lastrowid = int(result[0])
+                self._cursor.execute("RELEASE SAVEPOINT bf1_lastval_sp")
             except Exception:
+                try:
+                    self._cursor.execute("ROLLBACK TO SAVEPOINT bf1_lastval_sp")
+                    self._cursor.execute("RELEASE SAVEPOINT bf1_lastval_sp")
+                except Exception:
+                    pass
                 self._lastrowid = None
 
         return self
