@@ -259,11 +259,59 @@ def _sync_postgres_identity_sequences(cursor: Any, table_names: list[str] | None
             continue
 
 
+def _get_postgres_table_columns(cursor: Any, table_name: str) -> list[str]:
+    """Retorna colunas da tabela na ordem física do schema (ordinal_position)."""
+    cursor.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = %s
+        ORDER BY ordinal_position
+        """,
+        (table_name,),
+    )
+    rows = cursor.fetchall() or []
+    return [str(r[0]) for r in rows if r and r[0]]
+
+
+def _get_postgres_table_primary_key_columns(cursor: Any, table_name: str) -> list[str]:
+    """Retorna colunas de chave primária na ordem declarada."""
+    cursor.execute(
+        """
+        SELECT kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_schema = kcu.table_schema
+        WHERE tc.constraint_type = 'PRIMARY KEY'
+          AND tc.table_schema = current_schema()
+          AND tc.table_name = %s
+        ORDER BY kcu.ordinal_position
+        """,
+        (table_name,),
+    )
+    rows = cursor.fetchall() or []
+    return [str(r[0]) for r in rows if r and r[0]]
+
+
+def _build_postgres_dump_sequence_sync_sql(table_name: str) -> str:
+    """Monta SQL de setval seguro para sincronizar sequência da coluna id."""
+    qt = _quote_identifier(table_name)
+    return (
+        f"SELECT CASE WHEN pg_get_serial_sequence('{table_name}', 'id') IS NOT NULL "
+        f"THEN setval(pg_get_serial_sequence('{table_name}', 'id'), "
+        f"COALESCE((SELECT MAX({_quote_identifier('id')}) FROM {qt}), 1), "
+        f"(SELECT MAX({_quote_identifier('id')}) IS NOT NULL FROM {qt})) END;"
+    )
+
+
 def _generate_postgres_data_only_dump() -> bytes:
     """Gera dump SQL data-only para fallback quando pg_dump não é compatível."""
     lines: list[str] = []
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines.append("-- BF1 POSTGRES DATA-ONLY DUMP")
+    lines.append("-- format_version: 2")
     lines.append(f"-- gerado em {ts}")
 
     with db_connect() as conn:
@@ -284,27 +332,45 @@ def _generate_postgres_data_only_dump() -> bytes:
         for table_name in table_names:
             deps_map[table_name] = _get_postgres_table_fk_dependencies(cursor, table_name, known_tables)
         load_order = _topological_sort_tables(table_names, deps_map)
+        # Logs por último aumentam compatibilidade quando há FKs históricas no destino.
+        load_order = [t for t in load_order if not _is_log_table(t)] + [t for t in load_order if _is_log_table(t)]
 
         lines.append("BEGIN;")
         if table_names:
             quoted_tables = ", ".join(_quote_identifier(t) for t in table_names)
             lines.append(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE;")
+        lines.append("SET CONSTRAINTS ALL DEFERRED;")
 
+        sequence_sync_statements: list[str] = []
         for table_name in load_order:
-            cursor.execute(f"PRAGMA table_info('{table_name}')")
-            cols_info = cursor.fetchall() or []
-            cols = [str(c[1]) for c in cols_info]
+            cols = _get_postgres_table_columns(cursor, table_name)
+            if not cols:
+                # Fallback de compatibilidade com cursor adaptado.
+                cursor.execute(f"PRAGMA table_info('{table_name}')")
+                cols_info = cursor.fetchall() or []
+                cols = [str(c[1]) for c in cols_info]
             if not cols:
                 continue
             cols_sql = ", ".join(_quote_identifier(c) for c in cols)
 
-            cursor.execute(f"SELECT * FROM {_quote_identifier(table_name)}")
+            pk_cols = [col for col in _get_postgres_table_primary_key_columns(cursor, table_name) if col in cols]
+            order_by_sql = ""
+            if pk_cols:
+                order_by_sql = " ORDER BY " + ", ".join(_quote_identifier(c) for c in pk_cols)
+
+            cursor.execute(f"SELECT {cols_sql} FROM {_quote_identifier(table_name)}{order_by_sql}")
             rows = cursor.fetchall() or []
+
             for row in rows:
                 values_sql = ", ".join(_sql_literal(row[i]) for i in range(len(cols)))
                 lines.append(
                     f"INSERT INTO {_quote_identifier(table_name)} ({cols_sql}) VALUES ({values_sql});"
                 )
+
+            if "id" in {c.lower() for c in cols}:
+                sequence_sync_statements.append(_build_postgres_dump_sequence_sync_sql(table_name))
+
+        lines.extend(sequence_sync_statements)
 
         lines.append("COMMIT;")
 
