@@ -440,6 +440,43 @@ def _filter_rows_with_missing_fk_refs(
     return filtered_values, skipped_total
 
 
+def _nullify_missing_fk_refs(
+    cursor: Any,
+    table_name: str,
+    cols: list[str],
+    values: list[tuple[Any, ...]],
+) -> tuple[list[tuple[Any, ...]], int]:
+    """Mantém linhas, mas converte FK órfã para NULL quando a coluna existe na carga."""
+    if not values:
+        return values, 0
+
+    adjusted_values = values
+    adjusted_cells = 0
+    fks = _get_postgres_single_column_fks(cursor, table_name)
+
+    for fk_col, ref_table, ref_col in fks:
+        if fk_col not in cols:
+            continue
+        fk_idx = cols.index(fk_col)
+        cursor.execute(f"SELECT {_quote_identifier(ref_col)} FROM {_quote_identifier(ref_table)}")
+        valid_refs = {_normalize_unique_key_value(row[0]) for row in (cursor.fetchall() or [])}
+
+        new_values: list[tuple[Any, ...]] = []
+        for row in adjusted_values:
+            current = _normalize_unique_key_value(row[fk_idx])
+            if current is None or current in valid_refs:
+                new_values.append(row)
+                continue
+            row_list = list(row)
+            row_list[fk_idx] = None
+            new_values.append(tuple(row_list))
+            adjusted_cells += 1
+
+        adjusted_values = new_values
+
+    return adjusted_values, adjusted_cells
+
+
 def _get_postgres_unique_constraints(cursor: Any, table_name: str) -> list[tuple[str, list[str]]]:
     """Retorna constraints UNIQUE/PRIMARY KEY e suas colunas para uma tabela PostgreSQL."""
     cursor.execute(
@@ -745,11 +782,18 @@ def _migrate_sqlite_file_to_postgres(sqlite_file: Path) -> tuple[bool, str, dict
                     stats["skipped_unique_by_table"][table_name] = int(
                         stats["skipped_unique_by_table"].get(table_name, 0) + skipped_unique
                     )
-                values, skipped = _filter_rows_with_missing_fk_refs(cursor_t, table_name, cols, values)
-                stats["skipped_rows"] += skipped
-                stats["skipped_by_table"][table_name] = int(
-                    stats["skipped_by_table"].get(table_name, 0) + skipped
-                )
+                if _is_log_table(table_name):
+                    values, nullified_fk = _nullify_missing_fk_refs(cursor_t, table_name, cols, values)
+                    if nullified_fk > 0:
+                        stats["skipped_by_table"][table_name] = int(
+                            stats["skipped_by_table"].get(table_name, 0) + nullified_fk
+                        )
+                else:
+                    values, skipped = _filter_rows_with_missing_fk_refs(cursor_t, table_name, cols, values)
+                    stats["skipped_rows"] += skipped
+                    stats["skipped_by_table"][table_name] = int(
+                        stats["skipped_by_table"].get(table_name, 0) + skipped
+                    )
                 if not values:
                     continue
                 cursor_t.executemany(insert_sql, values)
@@ -1535,20 +1579,29 @@ def upload_tabela():
                     skipped_fk_rows = 0
                     values: list[tuple[Any, ...]] = []
 
+                    nullified_fk_cells = 0
+
                     if not df_alinhado.empty:
                         values = [
                             tuple(row[col] for col in db_cols)
                             for row in df_alinhado.to_dict("records")
                         ]
 
-                        # Logs devem preservar histórico completo; não filtrar por FK.
-                        if _is_postgres_backend() and not _is_log_table(table_name):
-                            values, skipped_fk_rows = _filter_rows_with_missing_fk_refs(
-                                cursor,
-                                table_name,
-                                db_cols,
-                                values,
-                            )
+                        if _is_postgres_backend():
+                            if _is_log_table(table_name):
+                                values, nullified_fk_cells = _nullify_missing_fk_refs(
+                                    cursor,
+                                    table_name,
+                                    db_cols,
+                                    values,
+                                )
+                            else:
+                                values, skipped_fk_rows = _filter_rows_with_missing_fk_refs(
+                                    cursor,
+                                    table_name,
+                                    db_cols,
+                                    values,
+                                )
 
                         # Evita operação destrutiva quando todas as linhas do Excel são órfãs.
                         if (
@@ -1607,6 +1660,11 @@ def upload_tabela():
                     st.warning(
                         f"⚠️ {skipped_fk_rows} linha(s) foram ignoradas por referência inválida "
                         "(chave estrangeira sem linha pai)."
+                    )
+                if nullified_fk_cells > 0:
+                    st.warning(
+                        f"⚠️ {nullified_fk_cells} referência(s) de FK órfã em tabela de log "
+                        "foram convertidas para NULL para preservar o histórico."
                     )
                 skipped_by_conflict = max(
                     0,

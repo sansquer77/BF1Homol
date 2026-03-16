@@ -1581,7 +1581,17 @@ def salvar_classificacao_prova(p_id, df_c, temp=None):
 
 def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
     with db_connect() as conn:
-        usrs = cast(pd.DataFrame, pd.read_sql('SELECT id FROM usuarios WHERE status = "Ativo"', conn))
+        usrs = cast(
+            pd.DataFrame,
+            pd.read_sql(
+                """
+                SELECT id
+                FROM usuarios
+                WHERE lower(trim(coalesce(status, ''))) = 'ativo'
+                """,
+                conn,
+            ),
+        )
         provs = cast(pd.DataFrame, pd.read_sql('SELECT id, nome, data, tipo, temporada FROM provas', conn))
         apts = cast(pd.DataFrame, pd.read_sql('SELECT usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, automatica, temporada FROM apostas', conn))
         ress = cast(pd.DataFrame, pd.read_sql('SELECT prova_id, posicoes, abandono_pilotos FROM resultados', conn))

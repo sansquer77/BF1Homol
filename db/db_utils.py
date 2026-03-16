@@ -386,7 +386,7 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
     cols = _get_existing_columns('usuarios')
     cols_sql = ', '.join(_quote_identifier(c) for c in cols)
     with db_connect() as conn:
-        if not _usuarios_status_historico_exists(conn):
+        def _fallback_status_atual() -> pd.DataFrame:
             if 'status' in cols:
                 return pd.read_sql_query(
                     f"""
@@ -398,6 +398,16 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
                 )
             return pd.read_sql_query(f"SELECT {cols_sql} FROM usuarios", conn)
 
+        if not _usuarios_status_historico_exists(conn):
+            return _fallback_status_atual()
+
+        # Se existir tabela mas sem registros, usa status atual para evitar falso vazio.
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM usuarios_status_historico")
+        historico_count = int(c.fetchone()[0] or 0)
+        if historico_count == 0:
+            return _fallback_status_atual()
+
         query = f"""
             SELECT DISTINCT {', '.join(f'u.{_quote_identifier(c)}' for c in cols)}
             FROM usuarios u
@@ -406,7 +416,12 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
               AND h.inicio_em <= ?
               AND (h.fim_em IS NULL OR h.fim_em >= ?)
         """
-        return pd.read_sql_query(query, conn, params=(season_end, season_start))
+        df_hist = pd.read_sql_query(query, conn, params=(season_end, season_start))
+        if not df_hist.empty:
+            return df_hist
+
+        # Fallback defensivo: se não houver match sazonal no histórico, usa status atual.
+        return _fallback_status_atual()
 
 
 def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
