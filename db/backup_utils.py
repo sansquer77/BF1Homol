@@ -279,13 +279,18 @@ def _generate_postgres_data_only_dump() -> bytes:
         )
         table_rows = cursor.fetchall() or []
         table_names = [str(r[0]) for r in table_rows if r and r[0]]
+        known_tables = set(table_names)
+        deps_map: dict[str, set[str]] = {}
+        for table_name in table_names:
+            deps_map[table_name] = _get_postgres_table_fk_dependencies(cursor, table_name, known_tables)
+        load_order = _topological_sort_tables(table_names, deps_map)
 
         lines.append("BEGIN;")
         if table_names:
             quoted_tables = ", ".join(_quote_identifier(t) for t in table_names)
             lines.append(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE;")
 
-        for table_name in table_names:
+        for table_name in load_order:
             cursor.execute(f"PRAGMA table_info('{table_name}')")
             cols_info = cursor.fetchall() or []
             cols = [str(c[1]) for c in cols_info]
@@ -319,6 +324,74 @@ def _get_sqlite_table_fk_dependencies(cursor: sqlite3.Cursor, table_name: str, k
     except Exception:
         return set()
     return deps
+
+
+def _get_postgres_table_fk_dependencies(cursor: Any, table_name: str, known_tables: set[str]) -> set[str]:
+    deps: set[str] = set()
+    try:
+        cursor.execute(
+            """
+            SELECT ccu.table_name AS ref_table
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.referential_constraints rc
+              ON tc.constraint_name = rc.constraint_name
+             AND tc.table_schema = rc.constraint_schema
+            JOIN information_schema.constraint_column_usage ccu
+              ON rc.unique_constraint_name = ccu.constraint_name
+             AND rc.unique_constraint_schema = ccu.constraint_schema
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+              AND tc.table_schema = current_schema()
+              AND tc.table_name = %s
+            """,
+            (table_name,),
+        )
+        rows = cursor.fetchall() or []
+        for row in rows:
+            ref_table = str(row[0]).strip() if row and row[0] else ""
+            if ref_table and ref_table in known_tables and ref_table != table_name:
+                deps.add(ref_table)
+    except Exception:
+        return set()
+    return deps
+
+
+def _extract_insert_table_name(statement: str) -> str | None:
+    match = re.match(r'^\s*INSERT\s+INTO\s+"?([A-Za-z_][A-Za-z0-9_]*)"?\s*\(', statement, flags=re.IGNORECASE)
+    if not match:
+        return None
+    return match.group(1)
+
+
+def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -> None:
+    other_statements: list[str] = []
+    inserts_by_table: dict[str, list[str]] = {}
+
+    for statement in statements:
+        stmt = statement.strip()
+        if not stmt:
+            continue
+        upper = stmt.upper()
+        if upper in {"BEGIN", "COMMIT"}:
+            continue
+        table_name = _extract_insert_table_name(stmt)
+        if table_name:
+            inserts_by_table.setdefault(table_name, []).append(stmt)
+        else:
+            other_statements.append(stmt)
+
+    for stmt in other_statements:
+        cursor.execute(stmt)
+
+    table_names = list(inserts_by_table.keys())
+    known_tables = set(table_names)
+    deps_map: dict[str, set[str]] = {}
+    for table_name in table_names:
+        deps_map[table_name] = _get_postgres_table_fk_dependencies(cursor, table_name, known_tables)
+    load_order = _topological_sort_tables(table_names, deps_map)
+
+    for table_name in load_order:
+        for stmt in inserts_by_table.get(table_name, []):
+            cursor.execute(stmt)
 
 
 def _topological_sort_tables(table_names: list[str], deps_map: dict[str, set[str]]) -> list[str]:
@@ -632,8 +705,7 @@ def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
             with db_connect() as conn:
                 cursor = conn.cursor()
                 statements = [s.strip() for s in sql_content.split(";") if s.strip()]
-                for statement in statements:
-                    cursor.execute(statement)
+                _execute_postgres_data_only_statements(cursor, statements)
                 _sync_postgres_identity_sequences(cursor)
                 conn.commit()
             return True, ""

@@ -116,7 +116,6 @@ def resultados_view():
     abandono_pilotos = st.multiselect(
         "Selecione todos os pilotos que abandonaram",
         abandono_opcoes,
-        default=abandonos_existentes,
         key="res_abandonos"
     )
 
