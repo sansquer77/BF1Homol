@@ -369,6 +369,17 @@ def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -
         "executed": 0,
     }
 
+    def _execute_strict_with_savepoint(statement: str, context: str) -> None:
+        cursor.execute("SAVEPOINT bf1_restore_stmt")
+        try:
+            cursor.execute(statement)
+            stats["executed"] += 1
+            cursor.execute("RELEASE SAVEPOINT bf1_restore_stmt")
+        except Exception as exc:
+            cursor.execute("ROLLBACK TO SAVEPOINT bf1_restore_stmt")
+            cursor.execute("RELEASE SAVEPOINT bf1_restore_stmt")
+            raise RuntimeError(f"{context}: {exc}") from exc
+
     for statement in statements:
         stmt = statement.strip()
         if not stmt:
@@ -383,11 +394,7 @@ def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -
             other_statements.append(stmt)
 
     for stmt in other_statements:
-        try:
-            cursor.execute(stmt)
-            stats["executed"] += 1
-        except Exception as exc:
-            raise RuntimeError(f"Falha ao aplicar statement: {exc}") from exc
+        _execute_strict_with_savepoint(stmt, "Falha ao aplicar statement")
 
     table_names = list(inserts_by_table.keys())
     known_tables = set(table_names)
@@ -398,11 +405,7 @@ def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -
 
     for table_name in load_order:
         for stmt in inserts_by_table.get(table_name, []):
-            try:
-                cursor.execute(stmt)
-                stats["executed"] += 1
-            except Exception as exc:
-                raise RuntimeError(f"Falha ao aplicar INSERT em {table_name}: {exc}") from exc
+            _execute_strict_with_savepoint(stmt, f"Falha ao aplicar INSERT em {table_name}")
 
     return stats
 
