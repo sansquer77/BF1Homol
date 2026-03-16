@@ -346,6 +346,15 @@ def create_missing_tables_if_needed():
                 )
             ''')
             logger.info("✓ Tabela `championship_bets_log` criada ou já existe")
+
+            # Histórico de apostas do campeonato pode conter usuário removido futuramente.
+            # Remove FK para preservar restore completo sem perda de linhas de log.
+            try:
+                cursor.execute("ALTER TABLE championship_bets_log DROP CONSTRAINT IF EXISTS championship_bets_log_user_id_fkey")
+                logger.info("✓ Constraint FK removida de `championship_bets_log` para preservar histórico completo")
+            except Exception as e:
+                logger.debug(f"  Falha ao ajustar FK de championship_bets_log: {e}")
+
             if log_cols and not log_has_season:
                 try:
                     cursor.execute(f"ALTER TABLE championship_bets_log ADD COLUMN season INTEGER NOT NULL DEFAULT {current_year}")
@@ -378,6 +387,15 @@ def create_missing_tables_if_needed():
                 )
             ''')
             logger.info("✓ Tabela `log_apostas` criada ou já existe")
+
+            # Logs históricos podem conter referências órfãs legítimas (usuário/prova removidos).
+            # Para preservar restore completo sem perda de linhas, remove FKs da tabela de log.
+            try:
+                cursor.execute("ALTER TABLE log_apostas DROP CONSTRAINT IF EXISTS log_apostas_usuario_id_fkey")
+                cursor.execute("ALTER TABLE log_apostas DROP CONSTRAINT IF EXISTS log_apostas_prova_id_fkey")
+                logger.info("✓ Constraints FK removidas de `log_apostas` para preservar histórico completo")
+            except Exception as e:
+                logger.debug(f"  Falha ao ajustar FKs de log_apostas: {e}")
 
             # Rebuild log_apostas if legacy columns missing
             cursor.execute("PRAGMA table_info('log_apostas')")

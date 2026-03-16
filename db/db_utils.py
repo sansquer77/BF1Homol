@@ -10,12 +10,20 @@ import bcrypt
 import logging
 import os
 import re
+import warnings
 from functools import lru_cache
 from typing import Optional
 from db.connection_pool import get_pool
 from db.db_config import BCRYPT_ROUNDS, DB_PATH
 
 logger = logging.getLogger(__name__)
+
+# Evita poluição de logs com warning conhecido do pandas ao usar adaptador DBAPI customizado.
+warnings.filterwarnings(
+    "ignore",
+    message=r"pandas only supports SQLAlchemy connectable.*",
+    category=UserWarning,
+)
 
 import datetime
 from db.rules_utils import init_rules_table

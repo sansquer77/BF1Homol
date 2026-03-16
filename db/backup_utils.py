@@ -362,9 +362,26 @@ def _extract_insert_table_name(statement: str) -> str | None:
     return match.group(1)
 
 
-def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -> None:
+def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -> dict[str, int]:
     other_statements: list[str] = []
     inserts_by_table: dict[str, list[str]] = {}
+    stats = {
+        "executed": 0,
+    }
+
+    def _execute_with_savepoint(statement: str, table_name: str | None = None) -> None:
+        cursor.execute("SAVEPOINT bf1_restore_stmt")
+        try:
+            cursor.execute(statement)
+            stats["executed"] += 1
+            cursor.execute("RELEASE SAVEPOINT bf1_restore_stmt")
+            return
+        except Exception as exc:
+            cursor.execute("ROLLBACK TO SAVEPOINT bf1_restore_stmt")
+            cursor.execute("RELEASE SAVEPOINT bf1_restore_stmt")
+            if table_name:
+                raise RuntimeError(f"Falha ao aplicar INSERT em {table_name}: {exc}") from exc
+            raise RuntimeError(f"Falha ao aplicar statement: {exc}") from exc
 
     for statement in statements:
         stmt = statement.strip()
@@ -380,7 +397,7 @@ def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -
             other_statements.append(stmt)
 
     for stmt in other_statements:
-        cursor.execute(stmt)
+        _execute_with_savepoint(stmt)
 
     table_names = list(inserts_by_table.keys())
     known_tables = set(table_names)
@@ -391,7 +408,9 @@ def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -
 
     for table_name in load_order:
         for stmt in inserts_by_table.get(table_name, []):
-            cursor.execute(stmt)
+            _execute_with_savepoint(stmt, table_name=table_name)
+
+    return stats
 
 
 def _topological_sort_tables(table_names: list[str], deps_map: dict[str, set[str]]) -> list[str]:
@@ -1058,6 +1077,8 @@ def upload_db():
                 return
 
             st.success("✅ Banco PostgreSQL restaurado com sucesso.")
+            if error:
+                st.warning(f"⚠️ {error}")
             st.cache_data.clear()
             st.rerun()
         except Exception as exc:
