@@ -263,7 +263,7 @@ def main():
                     title=f"Pilotos apostados como 11º por {participante}"
                 )
                 st.plotly_chart(fig, width="stretch")
-                st.dataframe(contagem)
+                st.dataframe(contagem, width="stretch")
         else:
             st.info("Nenhuma aposta registrada para o 11º colocado.")
 
@@ -290,7 +290,7 @@ def main():
                 title="Distribuição Geral de Pilotos apostados como 11º"
             )
             st.plotly_chart(fig, width="stretch")
-            st.dataframe(consolidado_11)
+            st.dataframe(consolidado_11, width="stretch")
         else:
             st.info("Nenhuma aposta registrada para o 11º colocado.")
 

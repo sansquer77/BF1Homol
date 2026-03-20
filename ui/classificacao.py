@@ -459,7 +459,7 @@ def main():
     )
     df_formatado = df_cruzada.map(lambda x: formatar_brasileiro(float(x)))
     df_styled = destacar_heatmap(df_formatado, resultados_df, provas_ids_ordenados)
-    st.dataframe(df_styled)
+    st.dataframe(df_styled, width="stretch")
 
     st.subheader("Imagem da classificação de uma prova específica")
     prova_selecionada = st.selectbox(

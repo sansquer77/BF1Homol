@@ -1620,7 +1620,7 @@ def upload_tabela():
             return
 
         st.write(f"👀 Prévia dos dados ({len(df)} linhas):")
-        st.dataframe(df.head(10))
+        st.dataframe(df.head(10), width="stretch")
 
         if st.button("✅ Confirmar Importação - SOBRESCREVER TODOS OS DADOS", type="primary", width="stretch"):
             try:

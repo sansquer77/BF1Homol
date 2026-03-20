@@ -529,7 +529,7 @@ def participante_view():
                                 st.write("**Sprint com pontuação dobrada:** Sim")
                             else:
                                 st.write("**Sprint com pontuação dobrada:** Não")
-                        st.dataframe(pd.DataFrame(dados), hide_index=True)
+                        st.dataframe(pd.DataFrame(dados), hide_index=True, width="stretch")
                         st.write(f"**11º Apostado:** {piloto_11_apostado} | **11º Real:** {piloto_11_real} | **Pontos 11º:** {pontos_11_col}")
                         if penalidade_abandono:
                             st.write(f"**Penalidade por abandono:** -{penalidade_abandono}")

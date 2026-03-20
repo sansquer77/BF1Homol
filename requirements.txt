@@ -2,7 +2,7 @@
 # Sistema de Bolão de Fórmula 1 com Performance e Segurança
 
 # Core Framework
-streamlit>=1.28.0
+streamlit>=1.55.0
 streamlit-option-menu>=0.3.0
 extra-streamlit-components>=0.1.56
 

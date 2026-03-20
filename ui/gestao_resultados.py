@@ -220,6 +220,6 @@ def resultados_view():
                 linha["Abandonos"] = res.iloc[0].get('abandono_pilotos', '')
             provas_resultados.append(linha)
     if provas_resultados:
-        st.dataframe(pd.DataFrame(provas_resultados))
+        st.dataframe(pd.DataFrame(provas_resultados), width="stretch")
     else:
         st.info("Nenhum resultado cadastrado ainda.")
