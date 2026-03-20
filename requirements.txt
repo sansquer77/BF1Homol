@@ -5,6 +5,7 @@
 streamlit>=1.55.0
 streamlit-option-menu>=0.3.0
 extra-streamlit-components>=0.1.56
+streamlit-calendar>=1.4.0
 
 # Database
 # sqlite3 já vem com Python
