@@ -15,6 +15,10 @@ from utils.helpers import render_page_header
 from utils.season_utils import get_season_options
 
 
+def _table_height(total_rows: int, row_height: int = 36, max_height: int = 560) -> int:
+    return min(max_height, 42 + (max(total_rows, 1) * row_height))
+
+
 def _normalizar_ids(df: pd.DataFrame, column: str = "id") -> pd.DataFrame:
     """Remove linhas com IDs inválidos e converte IDs para int."""
     if df.empty or column not in df.columns:
@@ -241,29 +245,46 @@ def main():
         if apostas_pilotos.empty:
             st.info("Sem dados para análise por piloto.")
         else:
-            participantes = apostas_pilotos['participante'].unique()
-            for participante in participantes:
-                df_filtrado = apostas_pilotos[apostas_pilotos['participante'] == participante]
-                fig = px.pie(
-                    df_filtrado, names='piloto', values='total_apostas',
-                    title=f"Apostas de {participante}"
-                )
-                st.plotly_chart(fig, width="stretch")
+            participantes = sorted(apostas_pilotos['participante'].unique().tolist())
+            participante_sel = st.selectbox(
+                "Participante",
+                participantes,
+                key=f"analysis_piloto_participante_{season}"
+            )
+            df_filtrado = apostas_pilotos[apostas_pilotos['participante'] == participante_sel]
+            fig = px.pie(
+                df_filtrado, names='piloto', values='total_apostas',
+                title=f"Apostas de {participante_sel}"
+            )
+            st.plotly_chart(fig, width="stretch")
 
     with tab2:
         st.subheader("Distribuição do 11º Colocado - Individual")
         if not df_11.empty:
-            participantes_11 = df_11['participante'].unique()
-            for participante in participantes_11:
-                df_part = df_11[df_11['participante'] == participante]
-                contagem = df_part['piloto_11'].value_counts().reset_index()
-                contagem.columns = ['Piloto', 'Total']
-                fig = px.pie(
-                    contagem, names='Piloto', values='Total',
-                    title=f"Pilotos apostados como 11º por {participante}"
-                )
-                st.plotly_chart(fig, width="stretch")
-                st.dataframe(contagem, width="stretch")
+            participantes_11 = sorted(df_11['participante'].unique().tolist())
+            participante_11_sel = st.selectbox(
+                "Participante (11º)",
+                participantes_11,
+                key=f"analysis_11_participante_{season}"
+            )
+            df_part = df_11[df_11['participante'] == participante_11_sel]
+            contagem = df_part['piloto_11'].value_counts().reset_index()
+            contagem.columns = ['Piloto', 'Total']
+            fig = px.pie(
+                contagem, names='Piloto', values='Total',
+                title=f"Pilotos apostados como 11º por {participante_11_sel}"
+            )
+            st.plotly_chart(fig, width="stretch")
+            st.dataframe(
+                contagem,
+                width="stretch",
+                hide_index=True,
+                height=_table_height(len(contagem)),
+                column_config={
+                    "Piloto": st.column_config.TextColumn("Piloto", width="medium"),
+                    "Total": st.column_config.NumberColumn("Total", format="%d", width="small"),
+                },
+            )
         else:
             st.info("Nenhuma aposta registrada para o 11º colocado.")
 
@@ -276,7 +297,16 @@ def main():
                 title="Distribuição Geral de Apostas por Piloto"
             )
             st.plotly_chart(fig, width="stretch")
-            st.dataframe(consolidado_pilotos, width="stretch")
+            st.dataframe(
+                consolidado_pilotos,
+                width="stretch",
+                hide_index=True,
+                height=_table_height(len(consolidado_pilotos)),
+                column_config={
+                    "piloto": st.column_config.TextColumn("Piloto", width="medium"),
+                    "total_apostas": st.column_config.NumberColumn("Total de apostas", format="%d", width="small"),
+                },
+            )
         else:
             st.info("Nenhuma aposta registrada para pilotos.")
 
@@ -290,7 +320,16 @@ def main():
                 title="Distribuição Geral de Pilotos apostados como 11º"
             )
             st.plotly_chart(fig, width="stretch")
-            st.dataframe(consolidado_11, width="stretch")
+            st.dataframe(
+                consolidado_11,
+                width="stretch",
+                hide_index=True,
+                height=_table_height(len(consolidado_11)),
+                column_config={
+                    "Piloto": st.column_config.TextColumn("Piloto", width="medium"),
+                    "Total": st.column_config.NumberColumn("Total", format="%d", width="small"),
+                },
+            )
         else:
             st.info("Nenhuma aposta registrada para o 11º colocado.")
 
@@ -336,7 +375,27 @@ def main():
                     'qtd_apostas': int(apostas_df[apostas_df['prova_id'] == rid].shape[0]) if not apostas_df.empty else 0
                 })
             diag = pd.DataFrame(linhas)
-            st.dataframe(diag, width="stretch")
+            st.dataframe(
+                diag,
+                width="stretch",
+                hide_index=True,
+                height=_table_height(len(diag), max_height=640),
+                column_config={
+                    "prova_id": st.column_config.NumberColumn("ID", format="%d", width="small"),
+                    "nome": st.column_config.TextColumn("Prova", width="large"),
+                    "data": st.column_config.TextColumn("Data", width="small"),
+                    "tipo_resolvido": st.column_config.TextColumn("Tipo", width="small"),
+                    "regra_nome": st.column_config.TextColumn("Regra", width="medium"),
+                    "quantidade_fichas": st.column_config.NumberColumn("Fichas", width="small"),
+                    "min_pilotos": st.column_config.NumberColumn("Min. Pilotos", width="small"),
+                    "fichas_por_piloto": st.column_config.NumberColumn("Fichas/Piloto", width="small"),
+                    "pontos_dobrada": st.column_config.CheckboxColumn("Dobrada", width="small"),
+                    "pontos_posicoes_len": st.column_config.NumberColumn("Qtd Pontos", width="small"),
+                    "pontos_posicoes_preview": st.column_config.TextColumn("Preview Pontos", width="large"),
+                    "tem_resultado": st.column_config.CheckboxColumn("Tem Resultado", width="small"),
+                    "qtd_apostas": st.column_config.NumberColumn("Qtd Apostas", format="%d", width="small"),
+                },
+            )
             st.caption("Tipo resolvido usa coluna 'tipo' ou contém 'Sprint' no nome. Pontos e parâmetros vêm das regras da temporada.")
 
 if __name__ == "__main__":

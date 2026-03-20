@@ -11,6 +11,18 @@ from utils.data_utils import (
     get_pit_stop_data
 )
 
+
+def _table_height(total_rows: int, row_height: int = 36, max_height: int = 560) -> int:
+    return min(max_height, 42 + (max(total_rows, 1) * row_height))
+
+
+def _cfg_position_points() -> dict:
+    return {
+        "Position": st.column_config.NumberColumn("Pos", format="%d", width="small"),
+        "Points": st.column_config.NumberColumn("Pontos", format="%d", width="small"),
+        "Wins": st.column_config.NumberColumn("Vitórias", format="%d", width="small"),
+    }
+
 def main():
     """Dashboard F1 com dados em tempo real da API Ergast"""
     
@@ -80,7 +92,18 @@ def main():
         if driver_standings.empty:
             st.info("📅 Dados não disponíveis para esta temporada.")
         else:
-            st.dataframe(driver_standings, width="stretch")
+            st.dataframe(
+                driver_standings,
+                width="stretch",
+                hide_index=True,
+                height=_table_height(len(driver_standings)),
+                column_config={
+                    **_cfg_position_points(),
+                    "Driver": st.column_config.TextColumn("Piloto", width="medium"),
+                    "Constructor": st.column_config.TextColumn("Equipe", width="medium"),
+                    "Nationality": st.column_config.TextColumn("Nacionalidade", width="medium"),
+                },
+            )
             # Exibir campeão em destaque
             if len(driver_standings) > 0:
                 champion = driver_standings.iloc[0]
@@ -98,7 +121,17 @@ def main():
             else:
                 st.info("📅 Dados não disponíveis para esta temporada.")
         else:
-            st.dataframe(constructor_standings, width="stretch")
+            st.dataframe(
+                constructor_standings,
+                width="stretch",
+                hide_index=True,
+                height=_table_height(len(constructor_standings)),
+                column_config={
+                    **_cfg_position_points(),
+                    "Constructor": st.column_config.TextColumn("Construtor", width="medium"),
+                    "Nationality": st.column_config.TextColumn("Nacionalidade", width="medium"),
+                },
+            )
             # Exibir construtor campeão em destaque
             if len(constructor_standings) > 0:
                 constructor_champion = constructor_standings.iloc[0]
@@ -115,7 +148,7 @@ def main():
         else:
             # Limitar número de pilotos exibidos no gráfico para melhor visualização
             with st.expander("📊 Ver Tabela Completa de Pontos"):
-                st.dataframe(points_df, width="stretch")
+                st.dataframe(points_df, width="stretch", hide_index=True, height=_table_height(len(points_df), max_height=640))
             
             # Gráfico de linha
             chart_data = points_df.drop(columns=["Race"]).set_index("Round")
@@ -146,7 +179,18 @@ def main():
         if delta_df.empty:
             st.info("📅 Nenhuma corrida realizada ainda ou dados não disponíveis.")
         else:
-            st.dataframe(delta_df, width="stretch")
+            st.dataframe(
+                delta_df,
+                width="stretch",
+                hide_index=True,
+                height=_table_height(len(delta_df)),
+                column_config={
+                    "Driver": st.column_config.TextColumn("Piloto", width="medium"),
+                    "Qualifying": st.column_config.NumberColumn("Largada", format="%d", width="small"),
+                    "Race": st.column_config.NumberColumn("Chegada", format="%d", width="small"),
+                    "Delta": st.column_config.NumberColumn("Delta", format="%d", width="small"),
+                },
+            )
             # Destacar maior subida e maior queda
             if len(delta_df) > 0:
                 max_gain = delta_df.loc[delta_df['Delta'].idxmax()]
@@ -170,7 +214,16 @@ def main():
             else:
                 st.info("📅 Nenhuma corrida realizada ainda ou dados não disponíveis.")
         else:
-            st.dataframe(fastest_laps, width="stretch")
+            st.dataframe(
+                fastest_laps,
+                width="stretch",
+                hide_index=True,
+                height=_table_height(len(fastest_laps)),
+                column_config={
+                    "Driver": st.column_config.TextColumn("Piloto", width="medium"),
+                    "Fastest Lap": st.column_config.TextColumn("Volta", width="small"),
+                },
+            )
             # Destacar volta mais rápida
             if len(fastest_laps) > 0:
                 fastest = fastest_laps.iloc[0]
@@ -188,7 +241,18 @@ def main():
             else:
                 st.info("📅 Nenhuma corrida realizada ainda ou dados não disponíveis.")
         else:
-            st.dataframe(pit_stops, width="stretch")
+            st.dataframe(
+                pit_stops,
+                width="stretch",
+                hide_index=True,
+                height=_table_height(len(pit_stops), max_height=620),
+                column_config={
+                    "Driver": st.column_config.TextColumn("Piloto", width="medium"),
+                    "Lap": st.column_config.NumberColumn("Volta", format="%d", width="small"),
+                    "Stop": st.column_config.NumberColumn("Parada", format="%d", width="small"),
+                    "Time": st.column_config.TextColumn("Tempo", width="small"),
+                },
+            )
             # Estatísticas de pit stops
             if len(pit_stops) > 0:
                 avg_stops = pit_stops.groupby('Driver')['Stop'].max().mean()

@@ -16,6 +16,10 @@ from services.bets_service import calcular_pontuacao_lote, atualizar_classificac
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
+
+def _table_height(total_rows: int, row_height: int = 38, max_height: int = 700) -> int:
+    return min(max_height, 40 + (max(total_rows, 1) * row_height))
+
 def formatar_brasileiro(valor):
     try:
         return f"{valor:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
@@ -409,13 +413,26 @@ def main():
     ]
     st.subheader("Classificação Geral (Provas + Campeonato)")
     total_rows = len(df_display.index)
-    table_height = min(700, 40 + (total_rows * 38))
+    table_height = _table_height(total_rows)
+    class_config = {
+        "Posição": st.column_config.NumberColumn("Posição", format="%d", width="small"),
+        "Participante": st.column_config.TextColumn("Participante", width="medium"),
+        "Pontos Provas": st.column_config.TextColumn("Pontos Provas", width="small"),
+        "Bônus Campeão": st.column_config.TextColumn("Bônus Campeão", width="small"),
+        "Bônus Vice": st.column_config.TextColumn("Bônus Vice", width="small"),
+        "Bônus Equipe": st.column_config.TextColumn("Bônus Equipe", width="small"),
+        "Pontos Campeonato": st.column_config.TextColumn("Pontos Campeonato", width="small"),
+        "Total Geral": st.column_config.TextColumn("Total Geral", width="small"),
+        "Diferença": st.column_config.TextColumn("Diferença", width="small"),
+        "Movimentação": st.column_config.TextColumn("Movimentação", width="small"),
+    }
     st.dataframe(
         df_display[colunas_ordem],
         hide_index=True,
         width="stretch",
         height=table_height,
         row_height=38,
+        column_config=class_config,
     )
 
     csv_classificacao = df_display[colunas_ordem].to_csv(index=False)
@@ -459,7 +476,16 @@ def main():
     )
     df_formatado = df_cruzada.map(lambda x: formatar_brasileiro(float(x)))
     df_styled = destacar_heatmap(df_formatado, resultados_df, provas_ids_ordenados)
-    st.dataframe(df_styled, width="stretch")
+    prova_config = {
+        "_index": st.column_config.TextColumn("Prova", width="medium"),
+        **{col: st.column_config.TextColumn(str(col), width="small") for col in df_formatado.columns},
+    }
+    st.dataframe(
+        df_styled,
+        width="stretch",
+        height=_table_height(len(df_formatado), max_height=760),
+        column_config=prova_config,
+    )
 
     st.subheader("Imagem da classificação de uma prova específica")
     prova_selecionada = st.selectbox(

@@ -17,6 +17,10 @@ from db.db_utils import (
 from utils.helpers import render_page_header
 
 
+def _table_height(total_rows: int, row_height: int = 36, max_height: int = 620) -> int:
+    return min(max_height, 42 + (max(total_rows, 1) * row_height))
+
+
 def _resolve_hall_source(conn) -> tuple[str, str]:
     """Define a tabela fonte do Hall da Fama com fallback para legado."""
     c = conn.cursor()
@@ -137,10 +141,16 @@ def hall_da_fama():
         
         st.markdown("---")
         st.subheader("📅 Classificações Históricas")
+        historico_df = df_hall.set_index('Participante')
+        historico_config = {
+            "_index": st.column_config.TextColumn("Participante", width="medium"),
+            **{season: st.column_config.TextColumn(str(season), width="small") for season in seasons},
+        }
         st.dataframe(
-            df_hall.set_index('Participante'),
+            historico_df,
             width="stretch",
-            column_config={season: st.column_config.TextColumn() for season in seasons}
+            height=_table_height(len(historico_df), max_height=680),
+            column_config=historico_config,
         )
         
         # Summary stats
@@ -214,10 +224,18 @@ def hall_da_fama():
                 })
         
         if season_stats:
+            season_stats_df = pd.DataFrame(season_stats)
             st.dataframe(
-                pd.DataFrame(season_stats),
+                season_stats_df,
                 width="stretch",
-                hide_index=True
+                hide_index=True,
+                height=_table_height(len(season_stats_df), max_height=520),
+                column_config={
+                    "Temporada": st.column_config.TextColumn("Temporada", width="small"),
+                    "Participantes": st.column_config.NumberColumn("Participantes", format="%d", width="small"),
+                    "Maior Pontuação": st.column_config.TextColumn("Maior Pontuação", width="small"),
+                    "Pontuação Média": st.column_config.TextColumn("Pontuação Média", width="small"),
+                },
             )
         
         # Position distribution table + chart
@@ -238,7 +256,19 @@ def hall_da_fama():
             pivot = df_pos_counts.pivot_table(index='nome', columns='posicao', aggfunc=len, fill_value=0)
             # Sort columns by position
             pivot = pivot.reindex(sorted(pivot.columns), axis=1)
-            st.dataframe(pivot, width="stretch")
+            pivot_config = {
+                "_index": st.column_config.TextColumn("Participante", width="medium"),
+                **{
+                    col: st.column_config.NumberColumn(f"{col}º", format="%d", width="small")
+                    for col in pivot.columns
+                },
+            }
+            st.dataframe(
+                pivot,
+                width="stretch",
+                height=_table_height(len(pivot), max_height=620),
+                column_config=pivot_config,
+            )
 
             # Stacked bar chart: X=participante, Y=contagem de cada posição (empilhadas)
             try:

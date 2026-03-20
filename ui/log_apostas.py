@@ -7,6 +7,10 @@ from utils.season_utils import get_default_season_index, get_season_options
 
 logger = logging.getLogger(__name__)
 
+
+def _table_height(total_rows: int, row_height: int = 36, max_height: int = 620) -> int:
+    return min(max_height, 42 + (max(total_rows, 1) * row_height))
+
 def carregar_logs(temporada=None, usuario_id=None, is_admin=False):
     """Carrega logs de apostas, opcionalmente filtrando por temporada"""
     with db_connect() as conn:
@@ -123,10 +127,9 @@ def main():
     filtro_show["Tipo de Aposta"] = filtro["tipo_aposta"].map(tipos_map)
     filtro_show["Automática"] = filtro["automatica"].apply(lambda x: "Sim" if x > 0 else "Não")
     if "pilotos" in filtro_show.columns:
-        filtro_show["Pilotos/Fichas"] = filtro_show.apply(
-            lambda r: f"{r.get('pilotos', '')} | {r.get('aposta', '')}".strip(" |"),
-            axis=1
-        )
+        pilotos_str = filtro_show["pilotos"].fillna("").astype(str).str.strip()
+        aposta_str = filtro_show["aposta"].fillna("").astype(str).str.strip()
+        filtro_show["Pilotos/Fichas"] = (pilotos_str + " | " + aposta_str).str.strip(" |")
     else:
         filtro_show["Pilotos/Fichas"] = filtro_show["aposta"]
 
@@ -145,10 +148,24 @@ def main():
                 "ip_address": "IP",
                 "status": "Status"
             }),
-            width="stretch"
+            width="stretch",
+            hide_index=True,
+            height=_table_height(len(filtro_show)),
+            column_config={
+                "Data": st.column_config.TextColumn("Data", width="small"),
+                "Horário": st.column_config.TextColumn("Horário", width="small"),
+                "Apostador": st.column_config.TextColumn("Apostador", width="medium"),
+                "Prova": st.column_config.TextColumn("Prova", width="large"),
+                "Pilotos/Fichas": st.column_config.TextColumn("Pilotos/Fichas", width="large"),
+                "11º Colocado": st.column_config.TextColumn("11º Colocado", width="medium"),
+                "Tipo de Aposta": st.column_config.TextColumn("Tipo de Aposta", width="medium"),
+                "Automática": st.column_config.TextColumn("Automática", width="small"),
+                "IP": st.column_config.TextColumn("IP", width="small"),
+                "Status": st.column_config.TextColumn("Status", width="small"),
+            },
         )
     else:
-        st.dataframe(filtro_show, width="stretch")
+        st.dataframe(filtro_show, width="stretch", hide_index=True, height=_table_height(len(filtro_show)))
 
     st.caption("*O campo 'Automática' indica apostas geradas automaticamente pelo sistema (qualquer valor > 0 no campo).*")
 
