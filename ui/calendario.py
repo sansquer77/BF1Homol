@@ -85,25 +85,11 @@ def main():
     if 'tipo' not in df.columns:
         df['tipo'] = "Normal"
 
-    view_options = {
-        "Mês": "dayGridMonth",
-        "Semana": "timeGridWeek",
-        "Dia": "timeGridDay",
-        "Lista": "listMonth",
-    }
-    view_label = st.radio(
-        "Visualização",
-        list(view_options.keys()),
-        horizontal=True,
-        key="calendario_view",
-    )
-    initial_view = view_options[view_label]
-
     eventos = _build_calendar_events(df)
     hoje_iso = datetime.now().date().isoformat()
     calendar_options = {
         "locale": "pt-br",
-        "initialView": initial_view,
+        "initialView": "listMonth",
         "initialDate": hoje_iso,
         "height": 680,
         "headerToolbar": {
@@ -125,29 +111,33 @@ def main():
         },
     }
 
-    calendar(events=eventos, options=calendar_options, key=f"calendar_{temporada}")
-    st.caption("Calendário inicia no mês atual e permite alternar entre mês, semana, dia e lista.")
+    tab_calendario, tab_horario = st.tabs(["Calendário", "Horário limite"])
 
-    df = df.drop(columns=['data_dt'], errors='ignore')
+    with tab_calendario:
+        calendar(events=eventos, options=calendar_options, key=f"calendar_{temporada}")
+        st.caption("Calendário inicia em Lista do mês atual; use a barra superior para trocar a visualização.")
 
-    colunas = {
-        'nome': 'Nome',
-        'data': 'Data',
-        'horario_prova': 'Horário',
-        'tipo': 'Tipo'
-    }
-    df_exibir = df[list(colunas.keys())].rename(columns=colunas)
-    st.dataframe(
-        df_exibir,
-        width="stretch",
-        hide_index=True,
-        column_config={
-            "Nome": st.column_config.TextColumn("Nome", width="large"),
-            "Data": st.column_config.TextColumn("Data", width="small"),
-            "Horário": st.column_config.TextColumn("Horário", width="small"),
-            "Tipo": st.column_config.TextColumn("Tipo", width="small"),
-        },
-    )
+    with tab_horario:
+        df = df.drop(columns=['data_dt'], errors='ignore')
+
+        colunas = {
+            'nome': 'Nome',
+            'data': 'Data',
+            'horario_prova': 'Horário',
+            'tipo': 'Tipo'
+        }
+        df_exibir = df[list(colunas.keys())].rename(columns=colunas)
+        st.dataframe(
+            df_exibir,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Nome": st.column_config.TextColumn("Nome", width="large"),
+                "Data": st.column_config.TextColumn("Data", width="small"),
+                "Horário": st.column_config.TextColumn("Horário", width="small"),
+                "Tipo": st.column_config.TextColumn("Tipo", width="small"),
+            },
+        )
 
 
 if __name__ == "__main__":
