@@ -428,6 +428,79 @@ def _extract_insert_table_name(statement: str) -> str | None:
     return match.group(1)
 
 
+def _parse_insert_target(statement: str) -> tuple[str, list[str]] | tuple[None, None]:
+    match = re.match(
+        r'^\s*INSERT\s+INTO\s+"?([A-Za-z_][A-Za-z0-9_]*)"?\s*\(([^\)]*)\)',
+        statement,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not match:
+        return None, None
+
+    table_name = match.group(1)
+    raw_cols = match.group(2) or ""
+    cols: list[str] = []
+    for part in raw_cols.split(","):
+        col = part.strip().strip('"')
+        if col and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", col):
+            cols.append(col)
+    if not cols:
+        return table_name, []
+    return table_name, cols
+
+
+def _create_missing_table_from_insert(cursor: Any, table_name: str, cols: list[str]) -> None:
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", table_name):
+        raise RuntimeError(f"Nome de tabela inválido no dump: {table_name}")
+    if not cols:
+        raise RuntimeError(f"Não foi possível inferir colunas para criar tabela ausente: {table_name}")
+
+    col_defs: list[str] = []
+    for col in cols:
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", col):
+            raise RuntimeError(f"Nome de coluna inválido no dump: {table_name}.{col}")
+        if col.lower() == "id":
+            col_defs.append(f"{_quote_identifier(col)} BIGINT")
+        else:
+            col_defs.append(f"{_quote_identifier(col)} TEXT")
+
+    sql = (
+        f"CREATE TABLE IF NOT EXISTS {_quote_identifier(table_name)} "
+        f"({', '.join(col_defs)})"
+    )
+    cursor.execute(sql)
+
+
+def _ensure_table_columns_from_insert(cursor: Any, table_name: str, cols: list[str]) -> int:
+    if not cols:
+        return 0
+
+    cursor.execute(f"PRAGMA table_info('{table_name}')")
+    info_rows = cursor.fetchall() or []
+    existing_cols = {
+        str(row[1]).strip().lower()
+        for row in info_rows
+        if row and len(row) > 1 and row[1]
+    }
+
+    added = 0
+    for col in cols:
+        col_key = col.lower()
+        if col_key in existing_cols:
+            continue
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", col):
+            raise RuntimeError(f"Nome de coluna inválido no dump: {table_name}.{col}")
+        col_type = "BIGINT" if col_key == "id" else "TEXT"
+        cursor.execute(
+            f"ALTER TABLE {_quote_identifier(table_name)} "
+            f"ADD COLUMN {_quote_identifier(col)} {col_type}"
+        )
+        existing_cols.add(col_key)
+        added += 1
+
+    return added
+
+
 def _strip_sql_line_comments(sql_text: str) -> str:
     """Remove comentários de linha iniciados por '--' para evitar parser ambíguo no split por ';'."""
     cleaned: list[str] = []
@@ -441,7 +514,62 @@ def _strip_sql_line_comments(sql_text: str) -> str:
 def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -> dict[str, int]:
     stats = {
         "executed": 0,
+        "created_missing_tables": 0,
+        "added_missing_columns": 0,
+        "inserted_rows_total": 0,
+        "inserted_rows_by_table": {},
     }
+
+    cursor.execute(
+        """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = current_schema()
+          AND table_type = 'BASE TABLE'
+        """
+    )
+    existing_tables = {
+        str(row[0]).strip().lower()
+        for row in (cursor.fetchall() or [])
+        if row and row[0]
+    }
+
+    # Primeira passada: cria tabelas ausentes com base no target dos INSERTs do dump.
+    for statement in statements:
+        stmt = statement.strip()
+        if not stmt:
+            continue
+        table_name, cols = _parse_insert_target(stmt)
+        if not table_name:
+            continue
+        table_key = table_name.lower()
+        if table_key in existing_tables:
+            stats["added_missing_columns"] += _ensure_table_columns_from_insert(cursor, table_name, cols or [])
+            continue
+        _create_missing_table_from_insert(cursor, table_name, cols or [])
+        existing_tables.add(table_key)
+        stats["created_missing_tables"] += 1
+
+    def _extract_truncate_tables_and_tail(statement: str) -> tuple[list[str], str] | tuple[None, None]:
+        match = re.match(
+            r"^\s*TRUNCATE\s+TABLE\s+(.+?)(\s+RESTART\s+IDENTITY|\s+CONTINUE\s+IDENTITY|\s+CASCADE|\s+RESTRICT|\s*$)",
+            statement,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        if not match:
+            return None, None
+
+        tables_part = (match.group(1) or "").strip()
+        tail_start = match.start(2)
+        tail = statement[tail_start:].strip() if tail_start >= 0 else ""
+
+        raw_tables = [t.strip() for t in tables_part.split(",") if t.strip()]
+        parsed: list[str] = []
+        for raw in raw_tables:
+            name = raw.strip().strip('"')
+            if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+                parsed.append(name)
+        return parsed, tail
 
     def _execute_strict_with_savepoint(statement: str, context: str) -> None:
         try:
@@ -472,9 +600,33 @@ def _execute_postgres_data_only_statements(cursor: Any, statements: list[str]) -
         if upper.startswith("SET CONSTRAINTS"):
             continue
 
+        if upper.startswith("TRUNCATE TABLE"):
+            truncate_tables, tail = _extract_truncate_tables_and_tail(stmt)
+            if truncate_tables is not None:
+                missing_tables = [t for t in truncate_tables if t.lower() not in existing_tables]
+                if missing_tables:
+                    raise RuntimeError(
+                        "Dump referencia tabelas ausentes no TRUNCATE após bootstrap/criação: "
+                        + ", ".join(sorted(set(missing_tables)))
+                    )
+                valid_tables = truncate_tables
+                valid_sql = ", ".join(_quote_identifier(t) for t in valid_tables)
+                stmt = f"TRUNCATE TABLE {valid_sql}"
+                if tail:
+                    stmt = f"{stmt} {tail}"
+
         table_name = _extract_insert_table_name(stmt)
         if table_name:
+            if table_name.lower() not in existing_tables:
+                raise RuntimeError(
+                    f"Dump referencia tabela ausente para INSERT mesmo após bootstrap/criação: {table_name}"
+                )
             _execute_strict_with_savepoint(stmt, f"Falha ao aplicar INSERT em {table_name}")
+            inserted_now = cursor.rowcount if isinstance(cursor.rowcount, int) and cursor.rowcount > 0 else 1
+            stats["inserted_rows_total"] += int(inserted_now)
+            rows_by_table = stats["inserted_rows_by_table"]
+            current = int(rows_by_table.get(table_name, 0))
+            rows_by_table[table_name] = current + int(inserted_now)
         else:
             _execute_strict_with_savepoint(stmt, "Falha ao aplicar statement")
 
@@ -788,15 +940,38 @@ def _overwrite_postgres_from_sql_file(sql_file: Path) -> tuple[bool, str]:
 
     if is_data_only_dump:
         try:
+            # Garante schema base antes de aplicar dump data-only.
+            from db.db_utils import init_db
+            from db.migrations import create_hall_da_fama_table, run_migrations
+
+            init_db()
+            run_migrations()
+            create_hall_da_fama_table()
+
             sql_content = sql_file.read_text(encoding="utf-8", errors="ignore")
             sql_content = _strip_sql_line_comments(sql_content)
             with db_connect() as conn:
                 cursor = conn.cursor()
                 statements = [s.strip() for s in sql_content.split(";") if s.strip()]
-                _execute_postgres_data_only_statements(cursor, statements)
+                stats = _execute_postgres_data_only_statements(cursor, statements)
                 _sync_postgres_identity_sequences(cursor)
                 conn.commit()
-            return True, ""
+
+            inserted_total = int(stats.get("inserted_rows_total", 0))
+            rows_by_table = stats.get("inserted_rows_by_table", {}) or {}
+            created = int(stats.get("created_missing_tables", 0))
+            added_cols = int(stats.get("added_missing_columns", 0))
+            summary_lines = [f"Registros importados: {inserted_total}"]
+            if rows_by_table:
+                summary_lines.append("Total de registros importados por tabela:")
+                for table_name in sorted(rows_by_table.keys()):
+                    summary_lines.append(f"- {table_name}: {int(rows_by_table[table_name])}")
+            if created > 0 or added_cols > 0:
+                summary_lines.append(
+                    "Schema complementado durante restore: "
+                    f"{created} tabela(s) criada(s) e {added_cols} coluna(s) adicionada(s)."
+                )
+            return True, "\n".join(summary_lines)
         except Exception as exc:
             return False, f"Falha ao aplicar dump data-only: {exc}"
 
@@ -1147,7 +1322,7 @@ def upload_db():
 
             st.success("✅ Banco PostgreSQL restaurado com sucesso.")
             if error:
-                st.warning(f"⚠️ {error}")
+                st.info(error)
             st.cache_data.clear()
             st.rerun()
         except Exception as exc:

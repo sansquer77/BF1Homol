@@ -59,6 +59,19 @@ def _build_calendar_events(df: pd.DataFrame) -> list[dict]:
     return events
 
 
+def _build_limite_datetime(data_dt: pd.Timestamp | None, horario_value: object) -> datetime | None:
+    """Monta datetime limite da prova combinando data e horario_prova."""
+    if data_dt is None or pd.isna(data_dt):
+        return None
+
+    horario = _parse_horario(horario_value)
+    if horario is not None:
+        return data_dt.to_pydatetime().replace(hour=horario[0], minute=horario[1], second=0, microsecond=0)
+
+    # Sem horário definido: considera limite no fim do dia da prova.
+    return data_dt.to_pydatetime().replace(hour=23, minute=59, second=59, microsecond=0)
+
+
 def main():
     render_page_header(st, "Calendário da Temporada")
 
@@ -118,7 +131,30 @@ def main():
         st.caption("Calendário inicia em Lista do mês atual; use a barra superior para trocar a visualização.")
 
     with tab_horario:
-        df = df.drop(columns=['data_dt'], errors='ignore')
+        now_dt = datetime.now()
+
+        df_horario = df.copy()
+        df_horario["limite_dt"] = df_horario.apply(
+            lambda row: _build_limite_datetime(row.get("data_dt"), row.get("horario_prova")),
+            axis=1,
+        )
+
+        futuros = df_horario[df_horario["limite_dt"].notna() & (df_horario["limite_dt"] >= now_dt)]
+        proxima_idx = None
+        if not futuros.empty:
+            proxima_idx = futuros["limite_dt"].sort_values().index[0]
+
+        estado_linha: dict[int, str] = {}
+        for idx, row in df_horario.iterrows():
+            limite_dt = row.get("limite_dt")
+            if limite_dt is not None and not pd.isna(limite_dt) and limite_dt < now_dt:
+                estado_linha[idx] = "passada"
+            elif proxima_idx is not None and idx == proxima_idx:
+                estado_linha[idx] = "proxima"
+            else:
+                estado_linha[idx] = "normal"
+
+        df_horario = df_horario.drop(columns=['data_dt', 'limite_dt'], errors='ignore')
 
         colunas = {
             'nome': 'Nome',
@@ -126,17 +162,23 @@ def main():
             'horario_prova': 'Horário',
             'tipo': 'Tipo'
         }
-        df_exibir = df[list(colunas.keys())].rename(columns=colunas)
+        df_exibir = df_horario[list(colunas.keys())].rename(columns=colunas)
+
+        def _style_linha(row: pd.Series) -> list[str]:
+            estado = estado_linha.get(row.name, "normal")
+            if estado == "passada":
+                return ["color: #8B93A1; background-color: #F8FAFC;"] * len(row)
+            if estado == "proxima":
+                return ["background-color: #FFF7D6; color: #1F2937; font-weight: 700;"] * len(row)
+            return [""] * len(row)
+
+        styled_df = df_exibir.style.apply(_style_linha, axis=1)
+
+        st.caption("Provas já encerradas aparecem esmaecidas e a próxima prova fica destacada.")
         st.dataframe(
-            df_exibir,
+            styled_df,
             width="stretch",
             hide_index=True,
-            column_config={
-                "Nome": st.column_config.TextColumn("Nome", width="large"),
-                "Data": st.column_config.TextColumn("Data", width="small"),
-                "Horário": st.column_config.TextColumn("Horário", width="small"),
-                "Tipo": st.column_config.TextColumn("Tipo", width="small"),
-            },
         )
 
 

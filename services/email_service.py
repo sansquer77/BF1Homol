@@ -13,47 +13,15 @@ from email.mime.text import MIMEText
 
 logger = logging.getLogger(__name__)
 
-# Tentar obter credenciais de email de secrets ou environment variables
-try:
-    EMAIL_REMETENTE_RAW: Optional[str] = st.secrets.get("EMAIL_REMETENTE")
-except (FileNotFoundError, KeyError):
-    EMAIL_REMETENTE_RAW = None
-
-try:
-    SENHA_REMETENTE_RAW: Optional[str] = st.secrets.get("SENHA_EMAIL")
-except (FileNotFoundError, KeyError):
-    SENHA_REMETENTE_RAW = None
-
-if not SENHA_REMETENTE_RAW:
-    try:
-        SENHA_REMETENTE_RAW = st.secrets.get("SENHA_REMETENTE")
-    except (FileNotFoundError, KeyError):
-        SENHA_REMETENTE_RAW = None
-
-try:
-    EMAIL_ADMIN_RAW: Optional[str] = st.secrets.get("EMAIL_ADMIN")
-except (FileNotFoundError, KeyError):
-    EMAIL_ADMIN_RAW = None
-
-try:
-    PERPLEXITY_API_KEY_RAW: Optional[str] = st.secrets.get("PERPLEXITY_API_KEY")
-except (FileNotFoundError, KeyError):
-    PERPLEXITY_API_KEY_RAW = None
-
-try:
-    PERPLEXITY_MODEL_RAW: Optional[str] = st.secrets.get("PERPLEXITY_MODEL")
-except (FileNotFoundError, KeyError):
-    PERPLEXITY_MODEL_RAW = None
-
-EMAIL_REMETENTE: str = EMAIL_REMETENTE_RAW or os.environ.get("EMAIL_REMETENTE", "")
+# Configuração apenas por variáveis de ambiente (DigitalOcean/App Platform)
+EMAIL_REMETENTE: str = os.environ.get("EMAIL_REMETENTE", "")
 SENHA_REMETENTE: str = (
-    SENHA_REMETENTE_RAW
-    or os.environ.get("SENHA_EMAIL", "")
+    os.environ.get("SENHA_EMAIL", "")
     or os.environ.get("SENHA_REMETENTE", "")
 )
-EMAIL_ADMIN: str = EMAIL_ADMIN_RAW or os.environ.get("EMAIL_ADMIN", "")
-PERPLEXITY_API_KEY: str = PERPLEXITY_API_KEY_RAW or os.environ.get("PERPLEXITY_API_KEY", "")
-PERPLEXITY_MODEL: str = PERPLEXITY_MODEL_RAW or os.environ.get("PERPLEXITY_MODEL", "sonar")
+EMAIL_ADMIN: str = os.environ.get("EMAIL_ADMIN", "")
+PERPLEXITY_API_KEY: str = os.environ.get("PERPLEXITY_API_KEY", "")
+PERPLEXITY_MODEL: str = os.environ.get("PERPLEXITY_MODEL", "sonar")
 
 
 def _gerar_previsao_fallback(nome_usuario: str, nome_prova: str, pilotos: list[str], fichas: list[int], piloto_11: str) -> str:
@@ -79,6 +47,29 @@ def _gerar_previsao_fallback(nome_usuario: str, nome_prova: str, pilotos: list[s
         fichas=fichas_fmt or "sem fichas",
         p11=piloto_11 or "(sem palpite)",
     )
+
+
+def _selecionar_angulo_estilo(seed_texto: str) -> tuple[str, str]:
+    """Seleciona ângulo narrativo e estilo de linguagem de forma determinística por aposta."""
+    angulos_narrativos = [
+        "pressao-de-favorito",
+        "aposta-contra-o-consenso",
+        "gestao-de-risco-agressiva",
+        "xadrez-de-fichas",
+        "caos-controlado",
+        "frieza-analitica-com-toque-acido",
+    ]
+    estilos_linguagem = [
+        "direto e mordaz",
+        "ironia fina com crítica objetiva",
+        "sarcástico sem exagero teatral",
+        "ácido e elegante",
+    ]
+    assinatura = hashlib.sha256(seed_texto.encode("utf-8")).hexdigest()
+    idx = int(assinatura[:8], 16)
+    angulo = angulos_narrativos[idx % len(angulos_narrativos)]
+    estilo = estilos_linguagem[(idx // 7) % len(estilos_linguagem)]
+    return angulo, estilo
 
 def enviar_email(destinatario: str, assunto: str, corpo_html: str, cco: Optional[list[str]] = None) -> bool:
     """Envia um e-mail HTML para o destinatário informado com opção de CCO."""
@@ -125,19 +116,22 @@ def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[
     try:
         pilotos_fmt = ", ".join([html.escape(p) for p in pilotos])
         fichas_fmt = ", ".join([str(f) for f in fichas])
+        seed_texto = f"{nome_usuario}|{nome_prova}|{pilotos_fmt}|{fichas_fmt}|{piloto_11}"
+        angulo, estilo = _selecionar_angulo_estilo(seed_texto)
         payload = {
             "model": PERPLEXITY_MODEL,
-            "temperature": 0.85,
+            "temperature": 0.75,
             "max_tokens": 120,
             "messages": [
                 {
                     "role": "system",
                     "content": (
-                        "Você é um especialista em F1 divertido e sarcástico. "
-                        "Faça uma previsão bem-humorada e ácida sobre a aposta do participante analisando os pilotos escolhidos e as fichas apostadas, "
+                        "Você é um especialista em F1 ácido e espirituoso. "
+                        "Faça uma previsão sarcástica e afiada sobre a aposta do participante analisando pilotos e fichas, "
                         "sem ofensas pessoais, sem palavrões e sem humilhações. "
                         "Use 1 a 2 frases curtas. "
-                        "Escreva em tom humano e natural, com vocabulário variado, evitando clichês e frases repetidas de respostas anteriores."
+                        "Escreva em tom humano e natural, com vocabulário variado, evitando clichês e frases repetidas de respostas anteriores. "
+                        "Evite frases genéricas como 'boa sorte', 'vamos ver no domingo', 'potencial de glória'."
                     )
                 },
                 {
@@ -145,7 +139,10 @@ def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[
                     "content": (
                         f"Participante: {nome_usuario}. Prova: {nome_prova}. "
                         f"Pilotos: {pilotos_fmt}. Fichas: {fichas_fmt}. "
-                        f"Palpite 11º: {piloto_11}."
+                        f"Palpite 11º: {piloto_11}. "
+                        f"Ângulo narrativo obrigatório: {angulo}. "
+                        f"Estilo obrigatório: {estilo}. "
+                        "Entregue texto curto, ácido e não repetitivo."
                     )
                 }
             ]
@@ -206,6 +203,37 @@ def _probabilidade_fallback(seed_texto: str) -> int:
     return 20 + (base % 61)  # 20..80
 
 
+def _gerar_comentario_acido_fallback(seed_texto: str, nome_usuario: str, contexto_aposta: str) -> str:
+    """Gera comentário ácido com variação combinatória para reduzir repetição."""
+    assinatura = hashlib.sha256(seed_texto.encode("utf-8")).hexdigest()
+    base = int(assinatura[:8], 16)
+    rng = random.Random(base)
+
+    aberturas = [
+        f"{nome_usuario or 'Participante'}, essa leitura de {contexto_aposta} veio com confiança de quem não teme replay de desastre.",
+        f"Em {contexto_aposta}, {nome_usuario or 'participante'} resolveu tratar risco como detalhe estético.",
+        f"{nome_usuario or 'Participante'} montou essa aposta de {contexto_aposta} com a serenidade de quem já aceitou o caos.",
+        f"Para {contexto_aposta}, {nome_usuario or 'você'} escolheu uma estratégia que alterna genialidade e autossabotagem em alta velocidade.",
+    ]
+    venenos = [
+        "Se encaixar, vira aula de leitura de corrida; se não, vira patrimônio histórico do grupo.",
+        "Tem potencial de pódio moral e chance real de virar recorte para cobrança futura.",
+        "É o tipo de decisão que rende silêncio respeitoso ou meme recorrente, sem meio-termo.",
+        "A ousadia está calibrada entre golpe de mestre e confissão pública de imprudência.",
+    ]
+    fechamentos = [
+        "No mínimo, entretenimento garantido.",
+        "Coragem não vai faltar; acerto já é outro departamento.",
+        "Se der certo, foi visão; se der errado, foi roteiro.",
+        "Agora é esperar a pista decidir quem passa vergonha.",
+    ]
+
+    abertura = rng.choice(aberturas)
+    veneno = rng.choice(venenos)
+    fecho = rng.choice(fechamentos)
+    return f"{abertura} {veneno} {fecho}"
+
+
 def gerar_analise_aposta_com_probabilidade(
     nome_usuario: str,
     contexto_aposta: str,
@@ -217,13 +245,12 @@ def gerar_analise_aposta_com_probabilidade(
     """
     seed_texto = f"{nome_usuario}|{contexto_aposta}|{detalhes_aposta}"
     fallback_prob = _probabilidade_fallback(seed_texto)
-    fallback_comment = (
-        f"{nome_usuario or 'Participante'}, sua aposta em {contexto_aposta} está ousada: "
-        "tem potencial de glória ou de virar material de zoeira no grupo."
-    )
+    fallback_comment = _gerar_comentario_acido_fallback(seed_texto, nome_usuario, contexto_aposta)
     fallback_resumo_sem_api = "Estimativa local (Perplexity não configurada)."
     fallback_resumo_parse = "Estimativa local (Perplexity respondeu fora do formato esperado)."
     fallback_resumo_erro = "Estimativa local (falha temporária ao consultar a API Perplexity)."
+
+    angulo, estilo = _selecionar_angulo_estilo(seed_texto)
 
     if not PERPLEXITY_API_KEY:
         return {
@@ -234,13 +261,13 @@ def gerar_analise_aposta_com_probabilidade(
 
     payload = {
         "model": PERPLEXITY_MODEL,
-        "temperature": 0.2,
+        "temperature": 0.45,
         "max_tokens": 260,
         "messages": [
             {
                 "role": "system",
                 "content": (
-                    "Você é analista de F1 com humor sarcástico leve. "
+                    "Você é analista de F1 com humor ácido e inteligente. "
                     "Use notícias recentes de F1 para estimar chance de acerto de uma aposta de bolão. "
                     "Responda APENAS JSON válido, em uma única linha, sem markdown e sem texto adicional, com o formato EXATO: "
                     "{\"comentario\":\"...\",\"probabilidade\":55,\"resumo\":\"...\"}. "
@@ -248,7 +275,9 @@ def gerar_analise_aposta_com_probabilidade(
                     "Não adicione chaves extras. "
                     "Não use bloco de código. "
                     "Não use prefixos como 'Aqui está o JSON'. "
-                    "Não use conteúdo ofensivo, sexual, violento ou discriminatório."
+                    "Não use conteúdo ofensivo, sexual, violento ou discriminatório. "
+                    "Evite frases genéricas e repetitivas como 'potencial de glória', 'boa sorte', 'vamos ver no domingo'. "
+                    "Faça comentário curto (2 frases), incisivo, com ironia contextual e vocabulário variado."
                 ),
             },
             {
@@ -257,7 +286,9 @@ def gerar_analise_aposta_com_probabilidade(
                     f"Participante: {nome_usuario}. "
                     f"Contexto da aposta: {contexto_aposta}. "
                     f"Detalhes: {detalhes_aposta}. "
-                    "Faça uma estimativa plausível e curta. "
+                    f"Ângulo narrativo obrigatório: {angulo}. "
+                    f"Estilo obrigatório: {estilo}. "
+                    "Faça uma estimativa plausível, mais ácida do que amistosa, sem repetir clichês. "
                     "Saída obrigatória: JSON puro no formato solicitado e nada além disso."
                 ),
             },

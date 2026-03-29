@@ -12,6 +12,7 @@ import logging
 from datetime import datetime, timedelta
 from services.auth_service import redefinir_senha_usuario
 from services.auth_service import set_auth_cookies
+from services.auth_service import clear_auth_cookies
 from services.email_service import enviar_email_recuperacao_senha
 from utils.request_utils import get_client_ip
 from utils.validators import validar_email
@@ -256,12 +257,21 @@ def login_view():
                 st.error("❌ Erro ao gerar token de autenticação.")
                 return
 
+            # Garante troca limpa de conta (evita herdar perfil/token anterior).
+            try:
+                clear_auth_cookies()
+            except Exception:
+                pass
+            for key in ("token", "user_id", "user_email", "user_nome", "user_role", "user_status"):
+                st.session_state.pop(key, None)
+
             # Armazenar no session_state
             st.session_state['token'] = token
             st.session_state['user_id'] = usuario['id']
             st.session_state['user_email'] = usuario['email']
             st.session_state['user_nome'] = usuario['nome']
             st.session_state['user_role'] = usuario['perfil']
+            st.session_state['user_status'] = usuario.get('status', 'Ativo')
             st.session_state['pagina'] = "Painel do Participante"
             st.session_state['force_password_change'] = bool(usuario.get('must_change_password', 0))
 

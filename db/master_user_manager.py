@@ -7,7 +7,6 @@ Versão 3.0 com melhoramentos de segurança
 import os
 import logging
 from typing import Optional, TypedDict
-import streamlit as st
 from db.connection_pool import get_pool
 from db.db_utils import hash_password, get_user_by_email
 
@@ -45,10 +44,9 @@ class MasterUserManager:
     def _get_credentials() -> Optional[MasterCredentials]:
         """
         Obtém credenciais do Master a partir de variáveis de ambiente
-        
-        Ordem de busca:
-        1. st.secrets (Streamlit Cloud)
-        2. os.environ (Digital Ocean, Local com .env)
+
+        Fonte de busca:
+        1. os.environ (Digital Ocean, Local com .env)
         
         Suporta variáveis em MAIÚSCULAS ou minúsculas.
         
@@ -56,26 +54,7 @@ class MasterUserManager:
             Dict com credenciais ou None se não encontradas
         """
         try:
-            # Tenta st.secrets primeiro (Streamlit Cloud) - com try/except
-            try:
-                if hasattr(st, 'secrets') and st.secrets:
-                    secrets_dict = dict(st.secrets)
-                    nome = MasterUserManager._get_env_value(MasterUserManager.ENV_VAR_NOME, secrets_dict)
-                    email = MasterUserManager._get_env_value(MasterUserManager.ENV_VAR_EMAIL, secrets_dict)
-                    senha = MasterUserManager._get_env_value(MasterUserManager.ENV_VAR_SENHA, secrets_dict)
-                    
-                    if nome and email and senha:
-                        return {
-                            'nome': nome,
-                            'email': email,
-                            'senha': senha,
-                            'telegram': MasterUserManager._get_env_value(MasterUserManager.ENV_VAR_TELEGRAM, secrets_dict)
-                        }
-            except (AttributeError, Exception) as e:
-                # Se st.secrets falhar, continua com variáveis de ambiente
-                logger.debug(f"st.secrets não disponível ou erro: {e}")
-            
-            # Fallback para variáveis de ambiente (Digital Ocean App Platform)
+            # Variáveis de ambiente (Digital Ocean App Platform)
             env_dict = dict(os.environ)
             nome = MasterUserManager._get_env_value(MasterUserManager.ENV_VAR_NOME, env_dict)
             email = MasterUserManager._get_env_value(MasterUserManager.ENV_VAR_EMAIL, env_dict)

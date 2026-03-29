@@ -144,7 +144,7 @@ from ui.backup import main as backup_view
 from ui.dashboard import main as dashboard_view
 from ui.sobre import main as sobre_view
 from ui.hall_da_fama import hall_da_fama
-from services.auth_service import decode_token, clear_auth_cookies, get_auth_cookie_token
+from services.auth_service import decode_token, clear_auth_cookies
 
 # ============ ESTADO INICIAL DA SESSÃO ============
 if 'pagina' not in st.session_state:
@@ -217,10 +217,6 @@ def menu_participante():
 def get_payload():
     token = st.session_state.get('token')
     if not token:
-        token = get_auth_cookie_token()
-        if token:
-            st.session_state['token'] = token
-    if not token:
         st.session_state['pagina'] = "Login"
         st.stop()
     payload = decode_token(token)
@@ -267,15 +263,9 @@ def _clear_session_and_redirect_login(msg: str):
 
 
 def _ensure_token_from_cookie() -> bool:
-    """Restaura token de cookie para sessão, quando houver."""
+    """Valida existência de token na sessão atual (sem restauração por cookie)."""
     token = st.session_state.get("token")
-    if token:
-        return True
-    cookie_token = get_auth_cookie_token()
-    if cookie_token:
-        st.session_state["token"] = cookie_token
-        return True
-    return False
+    return bool(token)
 
 
 def _sync_session_from_token() -> bool:

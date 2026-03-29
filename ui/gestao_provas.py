@@ -9,6 +9,7 @@ import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from db.db_utils import get_provas_df, db_connect
+from db.circuitos_utils import atualizar_base_circuitos, get_circuitos_df, get_temporadas_existentes_provas
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
@@ -59,6 +60,10 @@ def _render_tabela_provas(df: pd.DataFrame):
     if "temporada" in df.columns:
         cols_display.append("temporada")
         col_names.append("Temporada")
+
+    if "circuit_id" in df.columns:
+        cols_display.append("circuit_id")
+        col_names.append("Circuit ID")
     
     show_df = df[cols_display].copy()
     show_df.columns = col_names
@@ -164,6 +169,39 @@ def _render_aba_editar(df: pd.DataFrame):
         index=temporada_index,
         key=f"edit_temporada_prova_{prova_id}"
     )
+
+    # Vinculo opcional do circuito Ergast/Jolpica
+    try:
+        circuitos_df = get_circuitos_df()
+    except Exception:
+        circuitos_df = pd.DataFrame()
+    circuito_atual = str(prova_row.get("circuit_id", "") or "").strip()
+    opcoes_circuito = ["(Sem vínculo)"]
+    mapa_circuito = {"(Sem vínculo)": None}
+    if not circuitos_df.empty:
+        for _, r in circuitos_df.iterrows():
+            cid = str(r.get("circuit_id", "")).strip()
+            if not cid:
+                continue
+            cname = str(r.get("circuit_name", cid)).strip()
+            country = str(r.get("country", "")).strip()
+            locality = str(r.get("locality", "")).strip()
+            geo = ", ".join([x for x in [locality, country] if x])
+            label = f"{cname} ({geo}) - {cid}" if geo else f"{cname} - {cid}"
+            opcoes_circuito.append(label)
+            mapa_circuito[label] = cid
+    valor_circuito = "(Sem vínculo)"
+    for label, cid in mapa_circuito.items():
+        if cid and cid == circuito_atual:
+            valor_circuito = label
+            break
+    novo_circuito_label = st.selectbox(
+        "Circuito (base Ergast/Jolpica)",
+        opcoes_circuito,
+        index=opcoes_circuito.index(valor_circuito),
+        key=f"edit_circuito_prova_{prova_id}",
+    )
+    novo_circuito_id = mapa_circuito.get(novo_circuito_label)
     
     col1, col2 = st.columns(2)
     
@@ -175,10 +213,20 @@ def _render_aba_editar(df: pd.DataFrame):
                 c = conn.cursor()
                 c.execute("PRAGMA table_info('provas')")
                 cols = [r[1] for r in c.fetchall()]
-                if "temporada" in cols:
+                if "temporada" in cols and "circuit_id" in cols:
+                    c.execute(
+                        "UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=?, temporada=?, circuit_id=? WHERE id=?",
+                        (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, nova_temporada, novo_circuito_id, prova_id)
+                    )
+                elif "temporada" in cols:
                     c.execute(
                         "UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=?, temporada=? WHERE id=?",
                         (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, nova_temporada, prova_id)
+                    )
+                elif "circuit_id" in cols:
+                    c.execute(
+                        "UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=?, circuit_id=? WHERE id=?",
+                        (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, novo_circuito_id, prova_id)
                     )
                 else:
                     c.execute(
@@ -218,6 +266,30 @@ def _render_aba_adicionar():
     )
     status_novo = st.selectbox("Status", ["Ativa", "Inativa"], key="novo_status_prova")
     tipo_novo = st.selectbox("Tipo", ["Normal", "Sprint"], key="novo_tipo_prova")
+
+    # Base de circuitos para vínculo direto da prova.
+    try:
+        circuitos_df = get_circuitos_df()
+    except Exception:
+        circuitos_df = pd.DataFrame()
+
+    opcoes_circuito = ["(Sem vínculo)"]
+    mapa_circuito = {"(Sem vínculo)": None}
+    if not circuitos_df.empty:
+        for _, r in circuitos_df.iterrows():
+            cid = str(r.get("circuit_id", "")).strip()
+            if not cid:
+                continue
+            cname = str(r.get("circuit_name", cid)).strip()
+            country = str(r.get("country", "")).strip()
+            locality = str(r.get("locality", "")).strip()
+            geo = ", ".join([x for x in [locality, country] if x])
+            label = f"{cname} ({geo}) - {cid}" if geo else f"{cname} - {cid}"
+            opcoes_circuito.append(label)
+            mapa_circuito[label] = cid
+
+    circuito_sel_label = st.selectbox("Circuito (base Ergast/Jolpica)", opcoes_circuito, index=0, key="novo_circuito_prova")
+    circuito_sel_id = mapa_circuito.get(circuito_sel_label)
     
     # Temporada
     current_year = str(datetime.now().year)
@@ -252,11 +324,23 @@ def _render_aba_adicionar():
                     st.error(f"❌ Já existe uma prova cadastrada com este nome e data para a temporada {temporada_nova}.")
                 else:
                     # Inserir nova prova
-                    if "temporada" in cols:
+                    if "temporada" in cols and "circuit_id" in cols:
+                        c.execute(
+                            '''INSERT INTO provas (nome, data, horario_prova, status, tipo, temporada, circuit_id)
+                               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                            (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo, temporada_nova, circuito_sel_id)
+                        )
+                    elif "temporada" in cols:
                         c.execute(
                             '''INSERT INTO provas (nome, data, horario_prova, status, tipo, temporada)
                                VALUES (?, ?, ?, ?, ?, ?)''',
                             (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo, temporada_nova)
+                        )
+                    elif "circuit_id" in cols:
+                        c.execute(
+                            '''INSERT INTO provas (nome, data, horario_prova, status, tipo, circuit_id)
+                               VALUES (?, ?, ?, ?, ?, ?)''',
+                            (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo, circuito_sel_id)
                         )
                     else:
                         c.execute(
@@ -284,6 +368,20 @@ def main():
     temporadas = get_season_options()
     default_index = get_default_season_index(temporadas, current_year=current_year)
     temporada_sel = st.selectbox("Temporada", temporadas, index=default_index, key="gestao_provas_temporada")
+
+    if st.button("🔄 Atualiza Base de Circuitos", key="btn_atualiza_base_circuitos"):
+        temporadas_existentes = set(get_temporadas_existentes_provas())
+        temporadas_existentes.add(str(temporada_sel))
+        try:
+            temporadas_existentes.add(str(int(temporada_sel) - 1))
+        except Exception:
+            pass
+        stats = atualizar_base_circuitos(sorted(temporadas_existentes))
+        st.success(
+            f"✅ Base de circuitos atualizada: {stats.get('circuitos', 0)} circuitos de {stats.get('temporadas', 0)} temporada(s)."
+        )
+        st.cache_data.clear()
+        st.rerun()
 
     # Buscar provas filtradas por temporada (ordenadas por data crescente)
     with db_connect() as conn:

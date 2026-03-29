@@ -21,6 +21,9 @@ __all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_to
 
 logger = logging.getLogger(__name__)
 
+JWT_MIN_SECRET_BYTES = 32
+_JWT_SECRET_LOGGED = False
+
 _COOKIE_MANAGER_INSTANCE = None
 _COOKIE_MANAGER_KEY = "bf1_auth_cookie_manager"
 
@@ -55,22 +58,25 @@ def _get_cookie_manager():
     return _COOKIE_MANAGER_INSTANCE
 
 # ============ CONFIGURAÇÃO JWT ============
-# JWT_SECRET DEVE ser configurado via st.secrets ou variável de ambiente
+# JWT_SECRET DEVE ser configurado via variável de ambiente
 # Em produção, NUNCA usar fallback hardcoded
 
 def _get_jwt_secret() -> str:
     """Obtém JWT_SECRET de forma segura. Lança erro se não configurado em produção."""
-    secret = None
-    
-    # Tentar obter de st.secrets primeiro
-    try:
-        secret = st.secrets.get("JWT_SECRET")
-    except (FileNotFoundError, KeyError, AttributeError):
-        pass
-    
-    # Fallback para variável de ambiente
-    if not secret:
-        secret = os.environ.get("JWT_SECRET")
+    global _JWT_SECRET_LOGGED
+    secret_from_env = (os.environ.get("JWT_SECRET") or "").strip()
+
+    # Ambiente DigitalOcean/App Platform usa variável de ambiente.
+    env_len = len(secret_from_env.encode("utf-8")) if secret_from_env else 0
+
+    secret = ""
+    secret_source = "none"
+    if secret_from_env and env_len >= JWT_MIN_SECRET_BYTES:
+        secret = secret_from_env
+        secret_source = "env"
+    elif secret_from_env:
+        secret = secret_from_env
+        secret_source = "env"
     
     # Verificar se está em ambiente de produção (Digital Ocean / Streamlit Cloud)
     is_production = (
@@ -84,7 +90,7 @@ def _get_jwt_secret() -> str:
             logger.critical("JWT_SECRET não configurado em ambiente de produção!")
             raise RuntimeError(
                 "ERRO CRÍTICO DE SEGURANÇA: JWT_SECRET não está configurado. "
-                "Configure a variável de ambiente JWT_SECRET ou adicione em st.secrets."
+                "Configure a variável de ambiente JWT_SECRET."
             )
         
         # 🔴 ERRO CRÍTICO - JWT_SECRET SEMPRE OBRIGATÓRIO
@@ -94,8 +100,25 @@ def _get_jwt_secret() -> str:
             "Este é um valor obrigatório que deve ser definido ANTES do deployment.\n"
             "Configure em: Digital Ocean > App Settings > Environment Variables > JWT_SECRET"
         )
+
+    secret_len_bytes = len(secret.encode("utf-8"))
+    if not _JWT_SECRET_LOGGED:
+        logger.info(f"JWT_SECRET carregado de {secret_source} com {secret_len_bytes} bytes")
+        _JWT_SECRET_LOGGED = True
+    if secret_len_bytes < JWT_MIN_SECRET_BYTES:
+        msg = (
+            "ERRO CRÍTICO DE SEGURANÇA: JWT_SECRET muito curto para HS256. "
+            f"Atual: {secret_len_bytes} bytes, mínimo recomendado: {JWT_MIN_SECRET_BYTES} bytes. "
+            "Gere um segredo forte (>=32 bytes) e atualize em Digital Ocean > App Settings > Environment Variables > JWT_SECRET"
+        )
+        if is_production:
+            logger.critical(msg)
+            raise RuntimeError(msg)
+
+        logger.warning(msg)
     return secret
 
+# Validação no startup para falhar cedo em configuração inválida.
 JWT_SECRET = _get_jwt_secret()
 JWT_EXP_MINUTES = 120
 
@@ -113,6 +136,7 @@ def autenticar_usuario(email: str, senha: str):
 # --- GERAÇÃO E DECODIFICAÇÃO DE TOKEN JWT ---
 def generate_token(user_id: int, nome: str, perfil: str, status: str) -> str:
     """Gera um JWT para o usuário autenticado, incluindo o nome."""
+    jwt_secret = _get_jwt_secret()
     payload = {
         "user_id": user_id,
         "nome": nome,
@@ -120,7 +144,7 @@ def generate_token(user_id: int, nome: str, perfil: str, status: str) -> str:
         "status": status,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=JWT_EXP_MINUTES)
     }
-    token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+    token = jwt.encode(payload, jwt_secret, algorithm="HS256")
     if isinstance(token, bytes):
         token = token.decode("utf-8")
     return token
@@ -128,7 +152,8 @@ def generate_token(user_id: int, nome: str, perfil: str, status: str) -> str:
 def decode_token(token: str):
     """Decodifica e valida um JWT; retorna o payload, ou None se inválido/expirado."""
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        jwt_secret = _get_jwt_secret()
+        payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
         return payload
     except jwt.ExpiredSignatureError:
         return None
@@ -211,18 +236,12 @@ def set_auth_cookies(token, expires_minutes=JWT_EXP_MINUTES):
 def clear_auth_cookies():
     cookie_manager = _get_cookie_manager()
     try:
-        cookies = cookie_manager.get_all()
-        if isinstance(cookies, dict) and "session_token" not in cookies:
-            return
-    except Exception:
-        # If cookie listing fails, still attempt deletion below.
-        pass
-
-    try:
         cookie_manager.delete("session_token")
     except KeyError:
         # extra_streamlit_components can raise KeyError when cookie is absent.
         pass
+    except Exception as exc:
+        logger.warning("Falha ao limpar cookie de sessao: %s", exc)
 
 
 def get_auth_cookie_token():
@@ -268,14 +287,8 @@ def redefinir_senha_usuario(email: str):
 
 # --- CRIAÇÃO AUTOMÁTICA DO MASTER ---
 def _get_secret_value(*keys):
-    """Busca valor em múltiplas chaves (maiúscula/minúscula) em st.secrets e os.environ"""
+    """Busca valor em múltiplas chaves (maiúscula/minúscula) no os.environ."""
     for key in keys:
-        try:
-            value = st.secrets.get(key)
-            if value:
-                return value
-        except:
-            pass
         value = os.environ.get(key)
         if value:
             return value

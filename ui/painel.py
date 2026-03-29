@@ -285,7 +285,7 @@ def participante_view():
                     aposta_existente = apostas_df[
                         (apostas_df['usuario_id'] == user['id']) & (apostas_df['prova_id'] == prova_id)
                     ]
-                    max_linhas = 10
+                    max_linhas = max(10, int(min_pilotos_regra))
                     pilotos_apostados_ant, fichas_ant, piloto_11_ant = [], [], ""
                     if not aposta_existente.empty:
                         aposta_existente = aposta_existente.iloc[0]
@@ -322,11 +322,15 @@ def participante_view():
                             for msg in erros_atuais:
                                 st.error(msg)
 
-                    st.write("Escolha seus pilotos e distribua suas fichas entre eles de acordo com as regras:")
+                    st.write(
+                        f"Escolha seus pilotos e distribua suas fichas entre eles de acordo com as regras "
+                        f"(mínimo de {min_pilotos_regra} pilotos com fichas > 0)."
+                    )
                     pilotos_aposta, fichas_aposta = [], []
+                    min_campos_visiveis = max(1, min(int(min_pilotos_regra), int(max_linhas)))
                     for i in range(max_linhas):
                         mostrar = False
-                        if i < 3:
+                        if i < min_campos_visiveis:
                             mostrar = True
                         elif i < max_linhas and len([p for p in pilotos_aposta if p != "Nenhum"]) == i and sum(fichas_aposta) < quantidade_fichas:
                             mostrar = True
@@ -364,6 +368,14 @@ def participante_view():
 
                     pilotos_validos = [p for p in pilotos_aposta if p != "Nenhum"]
                     fichas_validas = [f for i, f in enumerate(fichas_aposta) if pilotos_aposta[i] != "Nenhum"]
+                    pilotos_com_ficha = [
+                        p for i, p in enumerate(pilotos_aposta)
+                        if p != "Nenhum" and int(fichas_aposta[i]) > 0
+                    ]
+                    fichas_com_ficha = [
+                        int(f) for i, f in enumerate(fichas_aposta)
+                        if pilotos_aposta[i] != "Nenhum" and int(f) > 0
+                    ]
                     equipes_apostadas = [pilotos_equipe[p] for p in pilotos_validos]
                     total_fichas = sum(fichas_validas)
 
@@ -403,17 +415,24 @@ def participante_view():
 
                     if st.button("Efetivar Aposta"):
                         erros = []
-                        if len(set(pilotos_validos)) != len(pilotos_validos):
+                        if len(set(pilotos_com_ficha)) != len(pilotos_com_ficha):
                             erros.append("Não é permitido apostar em dois pilotos iguais.")
-                        if not permite_mesma_equipe and len(set(equipes_apostadas)) < len(equipes_apostadas):
+                        equipes_com_ficha = [pilotos_equipe[p] for p in pilotos_com_ficha]
+                        if not permite_mesma_equipe and len(set(equipes_com_ficha)) < len(equipes_com_ficha):
                             erros.append("Não é permitido apostar em dois pilotos da mesma equipe.")
-                        if len(pilotos_validos) < min_pilotos_regra:
-                            erros.append(f"Você deve apostar em pelo menos {min_pilotos_regra} pilotos.")
-                        if total_fichas != quantidade_fichas:
-                            erros.append(f"A soma das fichas deve ser exatamente {quantidade_fichas}.")
-                        if fichas_validas and max(fichas_validas) > fichas_max_por_piloto:
+                        if len(pilotos_com_ficha) < min_pilotos_regra:
+                            erros.append(
+                                f"Você deve definir fichas para pelo menos {min_pilotos_regra} pilotos. "
+                                f"(Atual: {len(pilotos_com_ficha)})"
+                            )
+                        if total_fichas > quantidade_fichas:
+                            erros.append(f"A soma das fichas não pode ser maior que {quantidade_fichas}.")
+                        elif total_fichas < quantidade_fichas:
+                            faltam = quantidade_fichas - total_fichas
+                            erros.append(f"A soma das fichas deve ser exatamente {quantidade_fichas} (faltam {faltam}).")
+                        if fichas_com_ficha and max(fichas_com_ficha) > fichas_max_por_piloto:
                             erros.append(f"Máximo de {fichas_max_por_piloto} fichas por piloto.")
-                        if piloto_11 in pilotos_validos:
+                        if piloto_11 in pilotos_com_ficha:
                             erros.append("O 11º colocado não pode ser um dos pilotos apostados.")
 
                         if erros:
@@ -425,8 +444,8 @@ def participante_view():
                             if "aposta_erros" in st.session_state:
                                 del st.session_state["aposta_erros"]
                             ok = salvar_aposta(
-                                user['id'], prova_id, pilotos_validos,
-                                fichas_validas, piloto_11, nome_prova, automatica=0, temporada=temporada
+                                user['id'], prova_id, pilotos_com_ficha,
+                                fichas_com_ficha, piloto_11, nome_prova, automatica=0, temporada=temporada
                             )
                             if ok:
                                 st.success("Aposta registrada/atualizada!")

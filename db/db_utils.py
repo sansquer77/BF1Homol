@@ -235,12 +235,169 @@ def init_db():
         # Inicializar regras
         init_rules_table()
 
+        # Saneia horários legados no log de apostas (ex.: epoch numérico em horario)
+        saneados = sanitize_log_apostas_horario(conn)
+        if saneados > 0:
+            logger.info(f"✓ Saneamento de log_apostas concluído: {saneados} registro(s) normalizado(s)")
+
         # Hardening PostgreSQL: evita colisões de PK após importações/restaurações prévias.
         _sync_postgres_sequences(conn)
 
         conn.commit()
         _get_existing_columns_cached.cache_clear()
         logger.info("✓ Banco de dados inicializado com sucesso")
+
+
+def _normalizar_data_horario_log(data_val: object, horario_val: object) -> tuple[Optional[str], Optional[str]]:
+    """Normaliza campos de data/horario para (YYYY-MM-DD, HH:MM:SS)."""
+    data_str = str(data_val).strip() if data_val is not None else ""
+    horario_str = str(horario_val).strip() if horario_val is not None else ""
+
+    # Caso horario já esteja no formato esperado
+    if re.fullmatch(r"\d{2}:\d{2}:\d{2}", horario_str):
+        data_out = data_str if re.fullmatch(r"\d{4}-\d{2}-\d{2}", data_str) else None
+        return data_out, horario_str
+
+    dt_obj = None
+
+    # 1) Tenta converter horario numérico (epoch s/ms/us/ns)
+    try:
+        raw = float(horario_str)
+        abs_raw = abs(raw)
+        if abs_raw >= 1e18:
+            raw = raw / 1_000_000_000.0
+        elif abs_raw >= 1e15:
+            raw = raw / 1_000_000.0
+        elif abs_raw >= 1e12:
+            raw = raw / 1_000.0
+        dt_obj = datetime.datetime.fromtimestamp(raw)
+    except Exception:
+        dt_obj = None
+
+    # 2) Tenta parse ISO em horario
+    if dt_obj is None and horario_str:
+        try:
+            dt_obj = datetime.datetime.fromisoformat(horario_str.replace('Z', '+00:00'))
+        except Exception:
+            dt_obj = None
+
+    # 3) Tenta parse combinado data+horario quando ambos vierem em string
+    if dt_obj is None and data_str and horario_str:
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S"):
+            try:
+                dt_obj = datetime.datetime.strptime(f"{data_str} {horario_str}", fmt)
+                break
+            except Exception:
+                continue
+
+    if dt_obj is None:
+        return (
+            data_str if re.fullmatch(r"\d{4}-\d{2}-\d{2}", data_str) else None,
+            None,
+        )
+
+    return dt_obj.date().isoformat(), dt_obj.strftime("%H:%M:%S")
+
+
+def _extrair_horario_hhmmss(valor: object) -> Optional[str]:
+    """Extrai HH:MM:SS de diversos formatos (hora pura, ISO, epoch numérico)."""
+    if valor is None:
+        return None
+    txt = str(valor).strip()
+    if not txt:
+        return None
+    if re.fullmatch(r"\d{2}:\d{2}:\d{2}", txt):
+        return txt
+
+    data_norm, hora_norm = _normalizar_data_horario_log(None, txt)
+    _ = data_norm
+    return hora_norm
+
+
+def _formatar_horario_para_armazenamento(data_iso: Optional[str], horario_hhmmss: Optional[str]) -> Optional[str]:
+    """Formata valor de `horario` compatível com backend.
+
+    - SQLite: armazena HH:MM:SS
+    - PostgreSQL (coluna TIMESTAMP): armazena YYYY-MM-DD HH:MM:SS
+    """
+    if not horario_hhmmss:
+        return None
+    if DB_BACKEND == "postgres":
+        base_date = data_iso if data_iso and re.fullmatch(r"\d{4}-\d{2}-\d{2}", data_iso) else "1970-01-01"
+        return f"{base_date} {horario_hhmmss}"
+    return horario_hhmmss
+
+
+def sanitize_log_apostas_horario(conn=None) -> int:
+    """Saneia valores legados em log_apostas para manter horario no formato HH:MM:SS.
+
+    Retorna quantidade de linhas atualizadas.
+    """
+    own_conn = False
+    if conn is None:
+        conn = db_connect()
+        own_conn = True
+
+    atualizados = 0
+    try:
+        c = conn.cursor()
+        c.execute("PRAGMA table_info('log_apostas')")
+        cols = [r[1] for r in c.fetchall()]
+        if not cols:
+            return 0
+        if 'id' not in cols or 'horario' not in cols:
+            return 0
+
+        has_data = 'data' in cols
+        if has_data:
+            c.execute("SELECT id, data, horario FROM log_apostas")
+        else:
+            c.execute("SELECT id, NULL as data, horario FROM log_apostas")
+
+        rows = c.fetchall() or []
+        for row in rows:
+            row_id = row[0]
+            data_old = row[1]
+            horario_old = row[2]
+
+            data_new, horario_new = _normalizar_data_horario_log(data_old, horario_old)
+
+            # Se não conseguiu normalizar horario, não altera esse registro.
+            if horario_new is None:
+                continue
+
+            data_old_str = str(data_old).strip() if data_old is not None else ""
+            horario_old_hhmmss = _extrair_horario_hhmmss(horario_old)
+            horario_store = _formatar_horario_para_armazenamento(data_new, horario_new)
+
+            mudou_hora = horario_store != (str(horario_old).strip() if horario_old is not None else "")
+            # Se no banco já está timestamp completo equivalente ao mesmo HH:MM:SS, não precisa atualizar.
+            if not mudou_hora and horario_old_hhmmss == horario_new:
+                mudou_hora = False
+            mudou_data = has_data and (data_new is not None) and (data_new != data_old_str)
+
+            if not mudou_hora and not mudou_data:
+                continue
+
+            if has_data and data_new is not None:
+                c.execute(
+                    "UPDATE log_apostas SET data = ?, horario = ? WHERE id = ?",
+                    (data_new, horario_store, row_id),
+                )
+            else:
+                c.execute(
+                    "UPDATE log_apostas SET horario = ? WHERE id = ?",
+                    (horario_store, row_id),
+                )
+            atualizados += 1
+
+        if atualizados > 0:
+            conn.commit()
+    finally:
+        if own_conn:
+            conn.close()
+
+    return atualizados
 
 # ============ OPERAÇÕES CRUD ============
 
@@ -619,13 +776,43 @@ def registrar_log_aposta(*args, **kwargs):
         prova_id = kwargs.get('prova_id')
 
         # Derivar data/horario strings
+        # Padrão persistido: data=YYYY-MM-DD e horario=HH:MM:SS.
+        # O timestamp completo permanece em data_criacao (CURRENT_TIMESTAMP).
         data_str = None
         horario_str = None
         try:
             if horario:
-                data_str = getattr(horario, 'date', lambda: None)()
-                data_str = data_str.isoformat() if data_str else None
-                horario_str = horario.isoformat() if hasattr(horario, 'isoformat') else str(horario)
+                dt_obj = None
+                if isinstance(horario, datetime.datetime):
+                    dt_obj = horario
+                elif isinstance(horario, datetime.date):
+                    dt_obj = datetime.datetime.combine(horario, datetime.time.min)
+                else:
+                    # Suporta epoch em s/ms/us/ns e strings parseáveis
+                    try:
+                        raw = float(horario)
+                        abs_raw = abs(raw)
+                        if abs_raw >= 1e18:
+                            raw = raw / 1_000_000_000.0
+                        elif abs_raw >= 1e15:
+                            raw = raw / 1_000_000.0
+                        elif abs_raw >= 1e12:
+                            raw = raw / 1_000.0
+                        dt_obj = datetime.datetime.fromtimestamp(raw)
+                    except Exception:
+                        try:
+                            dt_obj = datetime.datetime.fromisoformat(str(horario).replace('Z', '+00:00'))
+                        except Exception:
+                            dt_obj = None
+
+                if dt_obj is not None:
+                    data_str = dt_obj.date().isoformat()
+                    horario_hhmmss = dt_obj.strftime('%H:%M:%S')
+                    horario_str = _formatar_horario_para_armazenamento(data_str, horario_hhmmss)
+                else:
+                    # Fallback conservador: não grava valor fora do padrão de hora.
+                    data_str = datetime.datetime.now().date().isoformat()
+                    horario_str = None
         except Exception:
             data_str = None
             horario_str = None

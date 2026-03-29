@@ -8,6 +8,7 @@ import datetime
 from db.connection_pool import get_pool
 from db.db_config import INDICES
 from db.db_utils import init_db
+from db.circuitos_utils import ensure_circuitos_f1_table, ensure_provas_circuit_id_column
 import logging
 
 logger = logging.getLogger(__name__)
@@ -487,6 +488,9 @@ def run_migrations():
         try:
             # Criar tabelas faltando
             create_missing_tables_if_needed()
+            # Criar base de circuitos e vínculo em provas.
+            ensure_circuitos_f1_table()
+            ensure_provas_circuit_id_column()
             # Adicionar colunas temporada (plurianual support)
             add_temporada_columns_if_missing()
             # Adicionar coluna de abandonos em resultados
@@ -523,7 +527,7 @@ def run_migrations():
             for idx in INDICES.get("resultados", []):
                 cursor.execute(idx)
                 logger.info(f"✓ Índice criado: {idx.split('IF NOT EXISTS')[1].strip()}")
-            
+
             conn.commit()
             logger.info("✓ Todas as migrations executadas com sucesso!")
             

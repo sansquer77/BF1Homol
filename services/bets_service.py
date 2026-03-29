@@ -30,6 +30,12 @@ from utils.data_utils import (
     get_constructor_standings,
     get_qualifying_vs_race_delta,
     get_fastest_lap_times,
+    get_posicoes_recentes,
+    get_historico_circuito,
+    get_frequencia_11_por_piloto,
+    get_taxa_dnf_por_piloto,
+    get_qualifying_grid_ultima_corrida,
+    get_circuit_id_por_nome_prova,
 )
 from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, parse_datetime_sao_paulo
 from utils.request_utils import get_client_ip
@@ -156,8 +162,8 @@ def _get_resumo_cenario_campeonato(resultados_df: pd.DataFrame, provas_df: pd.Da
     return out
 
 
-def _get_contexto_temporada_atual_ergast() -> dict:
-    """Monta resumo normalizado e compacto da temporada atual com dados da Ergast."""
+def _get_contexto_temporada_atual_ergast(temporada: Optional[str] = None, nome_prova: Optional[str] = None) -> dict:
+    """Monta resumo normalizado e compacto da temporada com sinais avançados da Ergast/Jolpica."""
     contexto = {
         "src": "ergast",
         "s": None,
@@ -165,20 +171,27 @@ def _get_contexto_temporada_atual_ergast() -> dict:
         "tc": [],
         "du": {"top": [], "bot": []},
         "vr": [],
+        "qg": {},
+        "rp5": {},
+        "rp8": {},
+        "hc": {},
+        "fr11": {},
+        "dnf": {},
+        "circuit_id": None,
     }
 
     try:
-        temporada = str(get_current_season())
+        temporada_resolvida = str(temporada or get_current_season())
     except Exception:
-        temporada = "current"
+        temporada_resolvida = "current"
 
-    contexto["s"] = temporada
+    contexto["s"] = temporada_resolvida
 
     try:
-        df_pilotos = get_driver_standings(temporada)
+        df_pilotos = get_driver_standings(temporada_resolvida)
         if not df_pilotos.empty:
             top_pilotos = []
-            for _, row in df_pilotos.head(5).iterrows():
+            for _, row in df_pilotos.head(8).iterrows():
                 top_pilotos.append(
                     {
                         "p": int(row.get("Position", 0) or 0),
@@ -192,10 +205,10 @@ def _get_contexto_temporada_atual_ergast() -> dict:
         pass
 
     try:
-        df_construtores = get_constructor_standings(temporada)
+        df_construtores = get_constructor_standings(temporada_resolvida)
         if not df_construtores.empty:
             top_construtores = []
-            for _, row in df_construtores.head(3).iterrows():
+            for _, row in df_construtores.head(5).iterrows():
                 top_construtores.append(
                     {
                         "p": int(row.get("Position", 0) or 0),
@@ -208,18 +221,18 @@ def _get_contexto_temporada_atual_ergast() -> dict:
         pass
 
     try:
-        df_delta = get_qualifying_vs_race_delta(temporada)
+        df_delta = get_qualifying_vs_race_delta(temporada_resolvida)
         if not df_delta.empty:
             top_delta = []
             bottom_delta = []
-            for _, row in df_delta.sort_values("Delta", ascending=False).head(3).iterrows():
+            for _, row in df_delta.sort_values("Delta", ascending=False).head(5).iterrows():
                 top_delta.append(
                     {
                         "n": str(row.get("Driver", "")).strip(),
                         "d": int(row.get("Delta", 0) or 0),
                     }
                 )
-            for _, row in df_delta.sort_values("Delta", ascending=True).head(2).iterrows():
+            for _, row in df_delta.sort_values("Delta", ascending=True).head(4).iterrows():
                 bottom_delta.append(
                     {
                         "n": str(row.get("Driver", "")).strip(),
@@ -231,10 +244,10 @@ def _get_contexto_temporada_atual_ergast() -> dict:
         pass
 
     try:
-        df_volta_rapida = get_fastest_lap_times(temporada)
+        df_volta_rapida = get_fastest_lap_times(temporada_resolvida)
         if not df_volta_rapida.empty:
             voltas = []
-            for _, row in df_volta_rapida.head(3).iterrows():
+            for _, row in df_volta_rapida.head(5).iterrows():
                 voltas.append(
                     {
                         "n": str(row.get("Driver", "")).strip(),
@@ -245,11 +258,69 @@ def _get_contexto_temporada_atual_ergast() -> dict:
     except Exception:
         pass
 
+    try:
+        contexto["qg"] = get_qualifying_grid_ultima_corrida(temporada_resolvida)
+    except Exception:
+        pass
+
+    try:
+        contexto["rp5"] = get_posicoes_recentes(temporada_resolvida, n_corridas=5)
+    except Exception:
+        pass
+
+    try:
+        contexto["rp8"] = get_posicoes_recentes(temporada_resolvida, n_corridas=8)
+    except Exception:
+        pass
+
+    try:
+        contexto["dnf"] = get_taxa_dnf_por_piloto(temporada_resolvida, n_corridas=8)
+    except Exception:
+        pass
+
+    try:
+        ano = int(temporada_resolvida)
+        seasons_11 = [str(ano - 2), str(ano - 1), str(ano)]
+    except Exception:
+        seasons_11 = None
+
+    try:
+        contexto["fr11"] = get_frequencia_11_por_piloto(seasons_11)
+    except Exception:
+        pass
+
+    try:
+        if nome_prova:
+            circuit_id = get_circuit_id_por_nome_prova(temporada_resolvida, nome_prova)
+            if circuit_id:
+                contexto["circuit_id"] = circuit_id
+                contexto["hc"] = get_historico_circuito(circuit_id, n_anos=4, season_ref=temporada_resolvida)
+    except Exception:
+        pass
+
     return contexto
 
 
 def _norm_nome_piloto(nome: str) -> str:
     return str(nome or "").strip().lower()
+
+
+def _media_lista(nums: list[int]) -> Optional[float]:
+    if not nums:
+        return None
+    return float(sum(nums)) / float(len(nums))
+
+
+def _desvio_padrao_populacao(nums: list[int]) -> Optional[float]:
+    if len(nums) < 2:
+        return None
+    m = float(sum(nums)) / float(len(nums))
+    var = sum((float(x) - m) ** 2 for x in nums) / float(len(nums))
+    return math.sqrt(var)
+
+
+def _clamp(v: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, v))
 
 
 def _estimar_pontos_aposta_ergast(
@@ -280,6 +351,13 @@ def _estimar_pontos_aposta_ergast(
     tp = contexto_ergast.get("tp", []) if isinstance(contexto_ergast, dict) else []
     du = contexto_ergast.get("du", {}) if isinstance(contexto_ergast, dict) else {}
     vr = contexto_ergast.get("vr", []) if isinstance(contexto_ergast, dict) else []
+
+    qg = contexto_ergast.get("qg", {}) if isinstance(contexto_ergast, dict) else {}
+    rp5 = contexto_ergast.get("rp5", {}) if isinstance(contexto_ergast, dict) else {}
+    rp8 = contexto_ergast.get("rp8", {}) if isinstance(contexto_ergast, dict) else {}
+    hc = contexto_ergast.get("hc", {}) if isinstance(contexto_ergast, dict) else {}
+    fr11 = contexto_ergast.get("fr11", {}) if isinstance(contexto_ergast, dict) else {}
+    dnf = contexto_ergast.get("dnf", {}) if isinstance(contexto_ergast, dict) else {}
 
     pos_por_nome: dict[str, int] = {}
     for row in tp if isinstance(tp, list) else []:
@@ -332,13 +410,67 @@ def _estimar_pontos_aposta_ergast(
         delta = int(delta_por_nome.get(nome_key, 0))
         ajuste_vr = -0.6 if nome_key in vr_set else 0.0
 
-        if base_rank is None:
-            mu = min(float(n_pos), max(1.0, n_pos * 0.72 + ajuste_vr))
-            sigma = 2.8 if not is_sprint else 2.2
+        qg_pos = None
+        if isinstance(qg, dict):
+            try:
+                qg_pos = int(qg.get(nome_key)) if qg.get(nome_key) is not None else None
+            except Exception:
+                qg_pos = None
+
+        rec5 = None
+        if isinstance(rp5, dict) and isinstance(rp5.get(nome_key), list):
+            lista5 = [int(x) for x in rp5.get(nome_key, []) if int(x) > 0]
+            rec5 = _media_lista(lista5)
+
+        hist = None
+        if isinstance(hc, dict):
+            try:
+                hist_val = hc.get(nome_key)
+                hist = float(hist_val) if hist_val is not None else None
+            except Exception:
+                hist = None
+
+        componentes: list[tuple[float, float]] = []
+        if qg_pos is not None and qg_pos > 0:
+            componentes.append((0.40, float(qg_pos)))
+        if rec5 is not None and rec5 > 0:
+            componentes.append((0.35, rec5))
+        if hist is not None and hist > 0:
+            componentes.append((0.25, hist))
+
+        if componentes:
+            soma_pesos = sum(w for w, _ in componentes)
+            mu = sum(w * v for w, v in componentes) / soma_pesos
+        elif base_rank is not None:
+            mu = float(base_rank)
         else:
-            mu = float(base_rank) - (0.32 * float(delta)) + ajuste_vr
-            mu = min(float(n_pos), max(1.0, mu))
-            sigma = 1.9 if not is_sprint else 1.5
+            mu = float(n_pos) * 0.72
+
+        # Ajustes finos por tendência recente e volta rápida
+        mu = mu - (0.20 * float(delta)) + ajuste_vr
+
+        # Penalidade por risco de abandono recente (DNF)
+        dnf_rate = 0.0
+        if isinstance(dnf, dict):
+            try:
+                dnf_rate = float(dnf.get(nome_key, 0.0) or 0.0)
+            except Exception:
+                dnf_rate = 0.0
+        mu += _clamp(dnf_rate, 0.0, 0.8) * 4.0
+        mu = _clamp(mu, 1.0, float(n_pos))
+
+        # Sigma adaptativo por consistência (ultimas 8 corridas), com limites robustos
+        sigma = 1.9 if not is_sprint else 1.5
+        if isinstance(rp8, dict) and isinstance(rp8.get(nome_key), list):
+            lista8_raw = [int(x) for x in rp8.get(nome_key, []) if int(x) > 0]
+            if lista8_raw:
+                lista8 = [int(_clamp(float(x), 1.0, float(max(n_pos, 20)))) for x in lista8_raw]
+                std8 = _desvio_padrao_populacao(lista8)
+                if std8 is not None:
+                    if is_sprint:
+                        sigma = _clamp(float(std8), 0.9, 3.2)
+                    else:
+                        sigma = _clamp(float(std8), 1.1, 4.0)
 
         row = []
         for pos_idx in range(1, n_pos + 1):
@@ -351,14 +483,14 @@ def _estimar_pontos_aposta_ergast(
             row = [v / s for v in row]
         prob_por_piloto.append(row)
 
-    # Escolhe posição única por piloto maximizando (pontos * fichas * prob)
+    # Escolhe posição única por piloto maximizando probabilidade (1 piloto por posição).
+    # A pontuação estimada é calculada depois como fichas * pontos_da_posicao_escolhida.
     pilotos_top = pilotos_validos[:n_pos]
     probs_top = prob_por_piloto[:n_pos]
     m = len(pilotos_top)
 
     dp: dict[tuple[int, int], tuple[float, list[int]]] = {(0, 0): (0.0, [])}
     for i in range(m):
-        ficha_i = pilotos_top[i][1]
         novo_dp: dict[tuple[int, int], tuple[float, list[int]]] = {}
         for (idx, mask), (score, escolha) in dp.items():
             if idx != i:
@@ -368,7 +500,7 @@ def _estimar_pontos_aposta_ergast(
                 if mask & bit:
                     continue
                 p = probs_top[i][pos0]
-                ganho = float(pontos_lista[pos0]) * float(ficha_i) * p
+                ganho = p
                 chave = (i + 1, mask | bit)
                 atual = novo_dp.get(chave)
                 candidato = (score + ganho, escolha + [pos0 + 1])
@@ -396,45 +528,95 @@ def _estimar_pontos_aposta_ergast(
     pontos_estimados = 0.0
     detalhes_linhas: list[str] = []
     probs_escolhidas: list[tuple[float, int]] = []
+    probs_media_simples: list[float] = []
     for (piloto, ficha_i), pos_sel, row in zip(pilotos_top, melhor_escolha, probs_top):
         prob_sel = max(0.001, min(0.999, float(row[pos_sel - 1])))
-        pontos_estimados += float(pontos_lista[pos_sel - 1]) * float(ficha_i)
+        nome_key = _norm_nome_piloto(piloto)
+        dnf_rate = 0.0
+        if isinstance(dnf, dict):
+            try:
+                dnf_rate = float(dnf.get(nome_key, 0.0) or 0.0)
+            except Exception:
+                dnf_rate = 0.0
+        fator_dnf = 1.0 - _clamp(dnf_rate, 0.0, 1.0)
+        pontos_estimados += float(pontos_lista[pos_sel - 1]) * float(ficha_i) * fator_dnf
         probs_escolhidas.append((prob_sel, ficha_i))
+        probs_media_simples.append(prob_sel)
         detalhes_linhas.append(
-            f"{piloto}: ficha={ficha_i}, pos~{pos_sel}, p={prob_sel:.3f}"
+            f"{piloto}: ficha={ficha_i}, pos~{pos_sel}, p={prob_sel:.3f}, dnf={dnf_rate:.2f}, fator_dnf={fator_dnf:.2f}"
         )
 
     bonus_11 = float(regras.get("pontos_11_colocado", 25) or 25)
     p11_key = _norm_nome_piloto(piloto_11)
     p11_pos = pos_por_nome.get(p11_key)
-    if p11_pos is None:
-        chance_11 = 0.22
-    elif 9 <= p11_pos <= 13:
-        chance_11 = 0.35
-    elif p11_pos <= 5:
-        chance_11 = 0.10
+
+    freq_11 = None
+    if isinstance(fr11, dict):
+        try:
+            val = fr11.get(p11_key)
+            if val is not None:
+                freq_11 = float(val)
+        except Exception:
+            freq_11 = None
+
+    media_campo_11 = 0.05
+    if isinstance(fr11, dict) and fr11:
+        try:
+            media_campo_11 = float(sum(float(v) for v in fr11.values()) / len(fr11))
+        except Exception:
+            media_campo_11 = 0.05
+
+    if freq_11 is not None:
+        chance_11 = _clamp(freq_11, 0.01, 0.35)
     else:
-        chance_11 = 0.20
+        chance_11 = media_campo_11
+        if p11_pos is not None:
+            if p11_pos <= 5:
+                chance_11 *= 0.60
+            elif 8 <= p11_pos <= 14:
+                chance_11 *= 1.40
+            elif p11_pos >= 15:
+                chance_11 *= 1.20
+        chance_11 = _clamp(chance_11, 0.01, 0.35)
 
     bonus_11_estimado = bonus_11 * chance_11
 
-    # Combinação das probabilidades por piloto (média geométrica ponderada por fichas).
-    if probs_escolhidas:
-        soma_pesos = float(sum(w for _, w in probs_escolhidas))
-        if soma_pesos > 0:
-            log_media = sum((w * math.log(p)) for p, w in probs_escolhidas) / soma_pesos
-            probabilidade_combinada = int(round(math.exp(log_media) * 100.0))
-        else:
-            probabilidade_combinada = 0
+    # Confianca composta desacoplada dos pontos estimados.
+    if pilotos_top:
+        n_com_sinal = 0
+        for piloto, _ in pilotos_top:
+            nome_key = _norm_nome_piloto(piloto)
+            tem_sinal = (
+                nome_key in pos_por_nome
+                or (isinstance(qg, dict) and nome_key in qg)
+                or (isinstance(rp5, dict) and nome_key in rp5)
+                or (isinstance(hc, dict) and nome_key in hc)
+            )
+            if tem_sinal:
+                n_com_sinal += 1
+        cob_sinal = float(n_com_sinal) / float(len(pilotos_top))
     else:
-        probabilidade_combinada = 0
+        cob_sinal = 0.0
+
+    soma_fichas = float(sum(f for _, f in pilotos_top)) if pilotos_top else 0.0
+    fichas_em_top5 = 0.0
+    if soma_fichas > 0:
+        for piloto, ficha_i in pilotos_top:
+            nome_key = _norm_nome_piloto(piloto)
+            if int(pos_por_nome.get(nome_key, 99)) <= 5:
+                fichas_em_top5 += float(ficha_i)
+    conc_fichas = (fichas_em_top5 / soma_fichas) if soma_fichas > 0 else 0.0
+
+    prob_media = (sum(probs_media_simples) / len(probs_media_simples)) if probs_media_simples else 0.0
+    indice = (0.35 * cob_sinal) + (0.25 * conc_fichas) + (0.40 * prob_media)
+    probabilidade_combinada = int(round(_clamp(indice, 0.0, 1.0) * 100.0))
 
     return {
         "pontos_estimados": round(pontos_estimados, 1),
         "bonus_11_estimado": round(bonus_11_estimado, 1),
         "chance_11": int(round(chance_11 * 100)),
         "probabilidade_combinada": max(0, min(100, probabilidade_combinada)),
-        "criterios": "Ergast(tp/du/vr) + regras da prova",
+        "criterios": "Ergast(quali+forma+circuito+dnf+11o) + regras da prova",
         "detalhes": " | ".join(detalhes_linhas[:5]),
     }
 
@@ -630,15 +812,8 @@ def _gerar_aposta_perplexity(
 
     api_key = ""
     model = "sonar"
-    try:
-        api_key = st.secrets.get("PERPLEXITY_API_KEY", "")
-        model = st.secrets.get("PERPLEXITY_MODEL", "sonar")
-    except Exception:
-        pass
-    if not api_key:
-        api_key = os.environ.get("PERPLEXITY_API_KEY", "")
-    if not model:
-        model = os.environ.get("PERPLEXITY_MODEL", "sonar")
+    api_key = os.environ.get("PERPLEXITY_API_KEY", "")
+    model = os.environ.get("PERPLEXITY_MODEL", "sonar")
     if not api_key:
         return None
 
@@ -902,7 +1077,10 @@ def salvar_aposta(
             )
 
             try:
-                contexto_ergast_email = _get_contexto_temporada_atual_ergast()
+                contexto_ergast_email = _get_contexto_temporada_atual_ergast(
+                    temporada=str(temporada or datetime.now().year),
+                    nome_prova=nome_prova_bd,
+                )
                 estimativa_email = _estimar_pontos_aposta_ergast(
                     pilotos=pilotos,
                     fichas=fichas,
@@ -1361,7 +1539,10 @@ def gerar_aposta_sem_ideias(usuario_id, prova_id, nome_prova, temporada=None):
     resultados_df = get_resultados_df(temporada)
     ultimas_apostas = _get_resumo_ultimas_apostas(usuario_id, apostas_df, limite=2)
     cenario = _get_resumo_cenario_campeonato(resultados_df, provas_df, limite=2)
-    contexto_ergast = _get_contexto_temporada_atual_ergast()
+    contexto_ergast = _get_contexto_temporada_atual_ergast(
+        temporada=str(temporada or datetime.now().year),
+        nome_prova=nome_prova,
+    )
 
     origem = "aleatória"
     sugestao = _gerar_aposta_perplexity(

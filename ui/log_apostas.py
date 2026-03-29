@@ -11,28 +11,85 @@ logger = logging.getLogger(__name__)
 def _table_height(total_rows: int, row_height: int = 36, max_height: int = 620) -> int:
     return min(max_height, 42 + (max(total_rows, 1) * row_height))
 
-def carregar_logs(temporada=None, usuario_id=None, is_admin=False):
+
+def _formatar_horario_hhmmss(valor: object) -> str:
+    """Normaliza diferentes representações de horário para HH:MM:SS."""
+    if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+        return ""
+
+    # Caso já venha em string de hora simples
+    txt = str(valor).strip()
+    if not txt:
+        return ""
+    if len(txt) == 8 and txt.count(":") == 2:
+        return txt
+
+    # Tenta parse de ISO/texto padrão
+    dt = pd.to_datetime(txt, errors="coerce")
+    if not pd.isna(dt):
+        return dt.strftime("%H:%M:%S")
+
+    # Tenta parse numérico (epoch em s/ms/us/ns)
+    try:
+        num = float(txt)
+    except Exception:
+        return txt
+
+    abs_num = abs(num)
+    if abs_num >= 1e18:
+        unit = "ns"
+    elif abs_num >= 1e15:
+        unit = "us"
+    elif abs_num >= 1e12:
+        unit = "ms"
+    else:
+        unit = "s"
+
+    dt_num = pd.to_datetime(num, unit=unit, errors="coerce")
+    if pd.isna(dt_num):
+        return txt
+    return dt_num.strftime("%H:%M:%S")
+
+def carregar_logs(temporada=None, usuario_id=None, usuario_nome=None, is_admin=False):
     """Carrega logs de apostas, opcionalmente filtrando por temporada"""
     with db_connect() as conn:
-        cols_info = pd.read_sql("PRAGMA table_info(log_apostas)", conn)
-        has_status = "status" in cols_info["name"].values if not cols_info.empty else False
-        has_ip_address = "ip_address" in cols_info["name"].values if not cols_info.empty else False
-        has_usuario_id = "usuario_id" in cols_info["name"].values if not cols_info.empty else False
+        c = conn.cursor()
+        c.execute("PRAGMA table_info('log_apostas')")
+        cols = [str(r[1]) for r in c.fetchall()]
+        has_status = "status" in cols
+        has_ip_address = "ip_address" in cols
+        has_usuario_id = "usuario_id" in cols
+        has_user_id = "user_id" in cols
+        has_temporada = "temporada" in cols
+        has_data = "data" in cols
+        has_data_criacao = "data_criacao" in cols
+        user_col = "usuario_id" if has_usuario_id else ("user_id" if has_user_id else None)
         status_expr = "status" if has_status else "'Registrada' AS status"
         ip_expr = "ip_address" if has_ip_address else "NULL AS ip_address"
-        user_expr = "usuario_id" if has_usuario_id else "NULL AS usuario_id"
+        user_expr = f"{user_col} AS usuario_id" if user_col else "NULL AS usuario_id"
 
         where_clauses = []
         params = []
 
         if temporada:
-            where_clauses.append("(temporada = ? OR temporada IS NULL)")
-            params.append(temporada)
+            season_sources = []
+            if has_temporada:
+                season_sources.append("NULLIF(TRIM(CAST(temporada AS TEXT)), '')")
+            if has_data:
+                season_sources.append("NULLIF(SUBSTR(CAST(data AS TEXT), 1, 4), '')")
+            if has_data_criacao:
+                season_sources.append("NULLIF(SUBSTR(CAST(data_criacao AS TEXT), 1, 4), '')")
+
+            if season_sources:
+                season_expr = f"COALESCE({', '.join(season_sources)})"
+                where_clauses.append(f"{season_expr} = ?")
+                params.append(str(temporada).strip())
 
         if not is_admin:
-            if not has_usuario_id or usuario_id is None:
+            if not user_col or usuario_id is None:
                 return pd.DataFrame()
-            where_clauses.append("usuario_id = ?")
+            # Para perfil participante, o vínculo oficial é sempre por ID do usuário.
+            where_clauses.append(f"{user_col} = ?")
             params.append(int(usuario_id))
 
         where_sql = ""
@@ -53,21 +110,21 @@ def main():
     perfil = st.session_state.get("user_role", "participante")
     is_admin = perfil in ("admin", "master")
     user_id = st.session_state.get("user_id")
+    user_nome = st.session_state.get("user_nome")
     if not is_admin and not user_id:
         st.info("Sessão inválida ou expirada. Faça login novamente.")
         return
 
-    # Season selector - read from temporadas table
+    # Season selector - available for all profiles
     season_options = get_season_options(fallback_years=["2025", "2026"])
     if not season_options:
         st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
         return
     default_index = get_default_season_index(season_options)
-    
     season = st.selectbox("Temporada", season_options, index=default_index, key="log_apostas_season")
     st.session_state['temporada'] = season
 
-    df = carregar_logs(season, usuario_id=user_id, is_admin=is_admin)
+    df = carregar_logs(season, usuario_id=user_id, usuario_nome=user_nome, is_admin=is_admin)
     if df.empty:
         st.warning("Nenhum registro no log de apostas.")
         return
@@ -124,6 +181,9 @@ def main():
         return
 
     filtro_show = filtro.copy()
+    if "horario" in filtro_show.columns:
+        filtro_show["horario"] = filtro_show["horario"].apply(_formatar_horario_hhmmss)
+
     filtro_show["Tipo de Aposta"] = filtro["tipo_aposta"].map(tipos_map)
     filtro_show["Automática"] = filtro["automatica"].apply(lambda x: "Sim" if x > 0 else "Não")
     if "pilotos" in filtro_show.columns:
