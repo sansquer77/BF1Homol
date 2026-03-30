@@ -5,7 +5,6 @@ Inicializa pool de conexões, migrations e master user
 
 import logging
 import sys
-from pathlib import Path
 
 # ============ CONFIGURAÇÃO DE LOGGING ============
 logging.basicConfig(
@@ -31,7 +30,6 @@ from db.connection_pool import (
 
 # Configurações
 from db.db_config import (
-    DB_PATH,
     POOL_SIZE,
     DB_TIMEOUT,
     CACHE_TTL_CURTO,
@@ -83,7 +81,7 @@ def initialize_database():
         logger.info("🚀 Inicializando BF1 3.0 Database Layer...")
         
         logger.info("1️⃣  Inicializando pool de conexões...")
-        init_pool(str(DB_PATH), POOL_SIZE)
+        init_pool(pool_size=POOL_SIZE)
         logger.info(f"   ✓ Pool criado: {POOL_SIZE} conexões")
         
         logger.info("2️⃣  Criando tabelas do banco de dados...")
@@ -130,7 +128,7 @@ atexit.register(cleanup_on_exit)
 
 __all__ = [
     'init_pool', 'get_pool', 'close_pool', 'ConnectionPool',
-    'DB_PATH', 'POOL_SIZE', 'DB_TIMEOUT', 'CACHE_TTL_CURTO', 'CACHE_TTL_MEDIO', 'CACHE_TTL_LONGO',
+    'POOL_SIZE', 'DB_TIMEOUT', 'CACHE_TTL_CURTO', 'CACHE_TTL_MEDIO', 'CACHE_TTL_LONGO',
     'BCRYPT_ROUNDS', 'SESSION_TIMEOUT', 'MAX_LOGIN_ATTEMPTS', 'LOCKOUT_DURATION', 'MAX_RESET_ATTEMPTS', 'RESET_LOCKOUT_DURATION', 'INDICES',
     'init_db', 'db_connect', 'hash_password', 'check_password', 'get_user_by_email', 'get_user_by_id',
     'get_master_user', 'cadastrar_usuario', 'autenticar_usuario', 'get_usuarios_df', 'get_pilotos_df',

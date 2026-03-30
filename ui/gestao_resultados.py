@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import ast
 
-from db.db_utils import db_connect, get_provas_df, get_pilotos_df, get_resultados_df
+from db.db_utils import db_connect, get_provas_df, get_pilotos_df, get_resultados_df, get_table_columns
 from services.bets_service import atualizar_classificacoes_todas_as_provas
 from utils.helpers import render_page_header
 from utils.season_utils import get_current_year_str, get_default_season_index, get_season_options
@@ -139,8 +139,7 @@ def resultados_view():
             with db_connect() as conn:
                 c = conn.cursor()
                 # Detecta colunas existentes para inserir corretamente
-                c.execute("PRAGMA table_info('resultados')")
-                cols = [r[1] for r in c.fetchall()]
+                cols = get_table_columns(conn, 'resultados')
                 abandono_str = ','.join(abandono_pilotos) if abandono_pilotos else ''
 
                 if 'temporada' in cols:

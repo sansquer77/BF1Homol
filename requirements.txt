@@ -8,7 +8,6 @@ extra-streamlit-components>=0.1.56
 streamlit-calendar>=1.4.0
 
 # Database
-# sqlite3 já vem com Python
 psycopg[binary]>=3.2.0
 psycopg-pool>=3.2.0
 

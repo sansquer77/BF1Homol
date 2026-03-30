@@ -5,7 +5,6 @@ Inicializa pool de conexões, migrations e master user
 
 import logging
 import sys
-from pathlib import Path
 
 # ============ CONFIGURAÇÃO DE LOGGING ============
 logging.basicConfig(
@@ -31,7 +30,6 @@ from db.connection_pool import (
 
 # Configurações
 from db.db_config import (
-    DB_PATH,
     POOL_SIZE,
     DB_TIMEOUT,
     CACHE_TTL_CURTO,
@@ -85,7 +83,7 @@ def initialize_database():
         
         # 1. Inicializar pool de conexões
         logger.info("1️⃣  Inicializando pool de conexões...")
-        init_pool(str(DB_PATH), POOL_SIZE)
+        init_pool(pool_size=POOL_SIZE)
         logger.info(f"   ✓ Pool criado: {POOL_SIZE} conexões")
         
         # 2. Criar tabelas base
@@ -142,7 +140,6 @@ __all__ = [
     'ConnectionPool',
     
     # Config
-    'DB_PATH',
     'POOL_SIZE',
     'DB_TIMEOUT',
     'CACHE_TTL_CURTO',

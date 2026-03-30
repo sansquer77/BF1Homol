@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import logging
 from db.db_utils import db_connect
+from db.db_utils import get_table_columns
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
@@ -53,9 +54,7 @@ def _formatar_horario_hhmmss(valor: object) -> str:
 def carregar_logs(temporada=None, usuario_id=None, usuario_nome=None, is_admin=False):
     """Carrega logs de apostas, opcionalmente filtrando por temporada"""
     with db_connect() as conn:
-        c = conn.cursor()
-        c.execute("PRAGMA table_info('log_apostas')")
-        cols = [str(r[1]) for r in c.fetchall()]
+        cols = [str(c) for c in get_table_columns(conn, 'log_apostas')]
         has_status = "status" in cols
         has_ip_address = "ip_address" in cols
         has_usuario_id = "usuario_id" in cols

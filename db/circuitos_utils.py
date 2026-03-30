@@ -8,7 +8,7 @@ from typing import Iterable
 
 import requests
 
-from db.db_utils import db_connect
+from db.db_utils import db_connect, get_table_columns
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +41,7 @@ def ensure_provas_circuit_id_column() -> None:
     """Garante coluna circuit_id em provas, sem quebrar bancos legados."""
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute("PRAGMA table_info('provas')")
-        cols = [r[1] for r in c.fetchall()]
+        cols = get_table_columns(conn, 'provas')
         if "circuit_id" not in cols:
             c.execute("ALTER TABLE provas ADD COLUMN circuit_id TEXT REFERENCES circuitos_f1(circuit_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_provas_circuit_id ON provas(circuit_id)")
@@ -198,8 +197,7 @@ def get_temporadas_existentes_provas() -> list[str]:
 
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute("PRAGMA table_info('provas')")
-        cols = [r[1] for r in c.fetchall()]
+        cols = get_table_columns(conn, 'provas')
         if "temporada" not in cols:
             return [str(datetime.now().year)]
 

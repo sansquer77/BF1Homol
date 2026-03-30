@@ -5,11 +5,9 @@ from db.backup_utils import (
     download_tabela,
     get_postgres_backup_mode,
     list_temporadas,
-    migrar_sqlite_para_postgres,
     upload_db,
     upload_tabela,
 )
-from db.db_config import DB_BACKEND
 from utils.helpers import render_page_header
 
 def main():
@@ -19,31 +17,22 @@ def main():
         return
 
     render_page_header(st, "Backup e Restauração do Banco de Dados BF1")
-    if DB_BACKEND == "postgres":
-        st.info(
-            "Ambiente PostgreSQL detectado: backup/restauração completa é feita por dump SQL (.sql)."
-        )
-        backup_mode, backup_detail = get_postgres_backup_mode()
-        if backup_mode == "full":
-            st.markdown("Modo de backup: :green-badge[FULL STRUCTURE (pg_dump)]")
-        else:
-            st.markdown("Modo de backup: :orange-badge[DATA-ONLY (fallback)]")
-        if backup_detail:
-            st.caption(f"Detalhe: {backup_detail}")
-        st.markdown("""
-        Com este painel, você pode:
-        - Baixar backup completo do PostgreSQL (.sql com INSERTs)
-        - Restaurar backup completo do PostgreSQL (.sql)
-        - Exportar e importar tabelas específicas em Excel (.xlsx)
-        - Migrar um arquivo SQLite (.db) para o PostgreSQL atual
-        """)
+    st.info(
+        "Ambiente PostgreSQL detectado: backup/restauração completa é feita por dump SQL (.sql)."
+    )
+    backup_mode, backup_detail = get_postgres_backup_mode()
+    if backup_mode == "full":
+        st.markdown("Modo de backup: :green-badge[FULL STRUCTURE (pg_dump)]")
     else:
-        st.markdown("""
-        Com este painel, você pode:
-        - Baixar o banco de dados consolidado completo (.db)
-        - Fazer upload ("restaurar") um banco de dados SQLite consolidado (.db)
-        - Exportar e importar tabelas específicas do banco no formato Excel (.xlsx)
-        """)
+        st.markdown("Modo de backup: :orange-badge[DATA-ONLY (fallback)]")
+    if backup_detail:
+        st.caption(f"Detalhe: {backup_detail}")
+    st.markdown("""
+    Com este painel, você pode:
+    - Baixar backup completo do PostgreSQL (.sql com INSERTs)
+    - Restaurar backup completo do PostgreSQL (.sql)
+    - Exportar e importar tabelas específicas em Excel (.xlsx)
+    """)
 
     st.header("Backup/Restauração do banco completo")
     col1, col2 = st.columns(2)
@@ -59,11 +48,6 @@ def main():
         download_tabela()
     with tab2:
         upload_tabela()
-
-    if DB_BACKEND == "postgres":
-        st.divider()
-        st.header("Migração de SQLite para PostgreSQL")
-        migrar_sqlite_para_postgres()
 
     st.divider()
     st.header("Temporadas")

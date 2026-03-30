@@ -11,6 +11,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Optional, Union, cast
 from db.db_utils import (
+    get_table_columns,
     get_user_by_id,
     get_horario_prova,
     db_connect,
@@ -988,8 +989,7 @@ def salvar_aposta(
     try:
         with db_connect() as conn:
             c = conn.cursor()
-            c.execute("PRAGMA table_info('apostas')")
-            aposta_cols = [r[1] for r in c.fetchall()]
+            aposta_cols = get_table_columns(conn, 'apostas')
 
             if temporada is None:
                 temporada = str(datetime.now().year)
@@ -1737,8 +1737,7 @@ def salvar_classificacao_prova(p_id, df_c, temp=None):
     
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute("PRAGMA table_info('posicoes_participantes')")
-        cols = [r[1] for r in c.fetchall()]
+        cols = get_table_columns(conn, 'posicoes_participantes')
         has_temporada = 'temporada' in cols
         
         # Safeguard: limpar entradas existentes para esta prova e temporada

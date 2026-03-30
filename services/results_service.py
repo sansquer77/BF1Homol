@@ -46,7 +46,12 @@ def salvar_resultado_prova(prova_id: int, posicoes: dict) -> bool:
         with db_connect() as conn:
             c = conn.cursor()
             c.execute(
-                'REPLACE INTO resultados (prova_id, posicoes) VALUES (?, ?)',
+                '''
+                INSERT INTO resultados (prova_id, posicoes)
+                VALUES (?, ?)
+                ON CONFLICT (prova_id) DO UPDATE SET
+                    posicoes = EXCLUDED.posicoes
+                ''',
                 (prova_id, str(posicoes))
             )
             conn.commit()

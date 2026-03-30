@@ -452,12 +452,11 @@ def get_circuit_id_por_nome_prova(season: str, nome_prova: str) -> Optional[str]
         return None
 
     try:
-        from db.db_utils import db_connect
+        from db.db_utils import db_connect, get_table_columns
 
         with db_connect() as conn:
             c = conn.cursor()
-            c.execute("PRAGMA table_info('provas')")
-            cols = [r[1] for r in c.fetchall()]
+            cols = get_table_columns(conn, 'provas')
             if 'circuit_id' not in cols or 'nome' not in cols:
                 return None
 

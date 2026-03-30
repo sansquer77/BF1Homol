@@ -3,19 +3,20 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 # URL do banco para produção (ex.: PostgreSQL gerenciado)
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
-DB_BACKEND = "postgres" if DATABASE_URL.lower().startswith(("postgres://", "postgresql://")) else "sqlite"
+DB_BACKEND = "postgres"
 
-# Caminho do banco SQLite para fallback/local
-_default_db = Path(__file__).parent.parent / "bolao_f1.db"
-DB_PATH = Path(os.environ.get("DATABASE_PATH", str(_default_db)))
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL não configurada. Esta aplicação opera exclusivamente com PostgreSQL 18."
+    )
 
-# Criar diretório do SQLite somente se necessário
-if DB_BACKEND == "sqlite" and DB_PATH.parent != Path("/") and not DB_PATH.parent.exists():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+if not DATABASE_URL.lower().startswith(("postgres://", "postgresql://")):
+    raise RuntimeError(
+        "DATABASE_URL inválida. Use uma URL PostgreSQL (postgresql://...)."
+    )
 
 # Configurações de Pool
 POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))

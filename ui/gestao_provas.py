@@ -8,7 +8,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from db.db_utils import get_provas_df, db_connect
+from db.db_utils import get_provas_df, db_connect, get_table_columns
 from db.circuitos_utils import atualizar_base_circuitos, get_circuitos_df, get_temporadas_existentes_provas
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
@@ -211,8 +211,7 @@ def _render_aba_editar(df: pd.DataFrame):
             horario_str = novo_horario.strftime("%H:%M:%S")
             with db_connect() as conn:
                 c = conn.cursor()
-                c.execute("PRAGMA table_info('provas')")
-                cols = [r[1] for r in c.fetchall()]
+                cols = get_table_columns(conn, 'provas')
                 if "temporada" in cols and "circuit_id" in cols:
                     c.execute(
                         "UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=?, temporada=?, circuit_id=? WHERE id=?",
@@ -305,8 +304,7 @@ def _render_aba_adicionar():
             horario_str_novo = horario_novo.strftime("%H:%M:%S")
             with db_connect() as conn:
                 c = conn.cursor()
-                c.execute("PRAGMA table_info('provas')")
-                cols = [r[1] for r in c.fetchall()]
+                cols = get_table_columns(conn, 'provas')
                 
                 # Verificar duplicidade (nome + data + temporada)
                 if "temporada" in cols:
@@ -385,9 +383,7 @@ def main():
 
     # Buscar provas filtradas por temporada (ordenadas por data crescente)
     with db_connect() as conn:
-        c = conn.cursor()
-        c.execute("PRAGMA table_info('provas')")
-        cols = [r[1] for r in c.fetchall()]
+        cols = get_table_columns(conn, 'provas')
         if 'temporada' in cols:
             df = pd.read_sql_query(
                 "SELECT * FROM provas WHERE temporada = ? OR temporada IS NULL ORDER BY data ASC",

@@ -12,7 +12,7 @@ except ImportError:
 
 # Funções de hash/check de senha - importadas de db_utils para evitar duplicação
 # Re-exportadas aqui para manter compatibilidade com módulos que importam de auth_service
-from db.db_utils import db_connect, hash_password, check_password
+from db.db_utils import db_connect, get_table_columns, hash_password, check_password
 
 # Exportar explicitamente para manter compatibilidade
 __all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_token', 
@@ -273,8 +273,7 @@ def redefinir_senha_usuario(email: str):
     # Atualiza a senha no banco
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute("PRAGMA table_info('usuarios')")
-        cols = [r[1] for r in c.fetchall()]
+        cols = get_table_columns(conn, 'usuarios')
         if 'must_change_password' in cols:
             c.execute(
                 "UPDATE usuarios SET senha_hash=?, must_change_password=1 WHERE email=?",

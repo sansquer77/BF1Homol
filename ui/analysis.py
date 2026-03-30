@@ -4,6 +4,7 @@ import plotly.express as px
 from typing import Optional
 from db.db_utils import (
     db_connect,
+    get_table_columns,
     get_provas_df,
     get_apostas_df,
     get_resultados_df,
@@ -59,8 +60,7 @@ def _get_log_apostas_df(
     campos: list[str]
 ) -> pd.DataFrame:
     cursor = conn.cursor()
-    cursor.execute("PRAGMA table_info('log_apostas')")
-    cols = [r[1] for r in cursor.fetchall()]
+    cols = get_table_columns(conn, 'log_apostas')
     if not cols:
         return pd.DataFrame()
 
@@ -115,8 +115,7 @@ def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Op
 
         with db_connect() as conn:
             c = conn.cursor()
-            c.execute("PRAGMA table_info('apostas')")
-            cols = [r[1] for r in c.fetchall()]
+            cols = get_table_columns(conn, 'apostas')
             placeholders = ','.join(['?'] * len(participantes_ids))
             if temporada and 'temporada' in cols:
                 query = '''
@@ -174,8 +173,7 @@ def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df
 
         with db_connect() as conn:
             c = conn.cursor()
-            c.execute("PRAGMA table_info('apostas')")
-            cols = [r[1] for r in c.fetchall()]
+            cols = get_table_columns(conn, 'apostas')
             placeholders = ','.join(['?'] * len(participantes_ids))
             if temporada and 'temporada' in cols:
                 query = '''

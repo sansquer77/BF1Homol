@@ -111,9 +111,15 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
             cursor = conn.cursor()
             cursor.execute(
                 '''
-                INSERT OR REPLACE INTO championship_bets 
+                INSERT INTO championship_bets 
                 (user_id, user_nome, champion, vice, team, season, bet_time)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (user_id, season) DO UPDATE SET
+                    user_nome = EXCLUDED.user_nome,
+                    champion = EXCLUDED.champion,
+                    vice = EXCLUDED.vice,
+                    team = EXCLUDED.team,
+                    bet_time = EXCLUDED.bet_time
                 ''', (user_id, user_nome, champion, vice, team, season_val, now)
             )
             cursor.execute(
@@ -212,9 +218,13 @@ def save_final_results(champion: str, vice: str, team: str, season: Optional[int
             cursor = conn.cursor()
             cursor.execute(
                 '''
-                INSERT OR REPLACE INTO championship_results 
+                INSERT INTO championship_results 
                 (season, champion, vice, team)
                 VALUES (?, ?, ?, ?)
+                ON CONFLICT (season) DO UPDATE SET
+                    champion = EXCLUDED.champion,
+                    vice = EXCLUDED.vice,
+                    team = EXCLUDED.team
                 ''', (season_val, champion, vice, team)
             )
             conn.commit()

@@ -10,6 +10,7 @@ import plotly.express as px
 from datetime import datetime as dt_datetime
 from db.db_utils import (
     db_connect,
+    table_exists,
     get_usuarios_df,
     get_participantes_temporada_df,
     usuarios_status_historico_disponivel
@@ -24,16 +25,14 @@ def _table_height(total_rows: int, row_height: int = 36, max_height: int = 620) 
 def _resolve_hall_source(conn) -> tuple[str, str]:
     """Define a tabela fonte do Hall da Fama com fallback para legado."""
     c = conn.cursor()
-    c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='hall_da_fama'")
-    has_hall = c.fetchone() is not None
+    has_hall = table_exists(conn, 'hall_da_fama')
     if has_hall:
         c.execute("SELECT COUNT(*) FROM hall_da_fama")
         hall_count = int(c.fetchone()[0] or 0)
         if hall_count > 0:
             return "hall_da_fama", "posicao_final"
 
-    c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='posicoes_participantes'")
-    has_legacy = c.fetchone() is not None
+    has_legacy = table_exists(conn, 'posicoes_participantes')
     if has_legacy:
         c.execute("SELECT COUNT(*) FROM posicoes_participantes")
         legacy_count = int(c.fetchone()[0] or 0)
