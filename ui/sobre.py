@@ -30,7 +30,7 @@ def main():
     - **Desenvolvedor:** Cristiano Gaspar
     - **Tecnologias utilizadas no app:**
         - **Frontend/App:** Streamlit, streamlit-option-menu, extra-streamlit-components
-        - **Backend e dados:** Python, PostgreSQL (psycopg + psycopg-pool), SQLite (legado/migração), pandas, numpy
+        - **Backend e dados:** Python, PostgreSQL, pandas, numpy
         - **Visualização:** Plotly, Altair, Matplotlib
         - **Segurança e autenticação:** bcrypt, PyJWT, cryptography
         - **Integrações e utilitários:** httpx, requests, openpyxl, python-dotenv
