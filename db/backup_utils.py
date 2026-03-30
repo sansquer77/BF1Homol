@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime
@@ -112,6 +113,34 @@ def _build_data_only_sql() -> str:
     return "\n".join(lines) + "\n"
 
 
+def _prepare_schema_for_restore() -> None:
+    """Ensure base schema exists before applying data-only dumps."""
+    from db.migrations import run_migrations
+
+    run_migrations()
+
+
+def _extract_truncate_tables(statement: str) -> list[str] | None:
+    match = re.match(
+        r"^\s*TRUNCATE\s+TABLE\s+(.+?)(?:\s+RESTART\s+IDENTITY|\s+CONTINUE\s+IDENTITY|\s+CASCADE|\s+RESTRICT|\s*$)",
+        statement,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not match:
+        return None
+
+    names: list[str] = []
+    for part in (match.group(1) or "").split(","):
+        name = part.strip().strip('"')
+        if not name:
+            continue
+        try:
+            names.append(_sanitize_identifier(name))
+        except ValueError:
+            continue
+    return names
+
+
 def get_postgres_backup_mode() -> tuple[str, str]:
     pg_dump = _detect_cmd(("pg_dump", "pg_dump16", "pg_dump15", "pg_dump14"))
     if not pg_dump:
@@ -164,6 +193,14 @@ def download_db() -> None:
 
 
 def restore_backup_from_sql(sql_content: str) -> bool:
+    is_data_only = "BF1 POSTGRES DATA-ONLY DUMP" in (sql_content[:4096] or "")
+    if is_data_only:
+        try:
+            _prepare_schema_for_restore()
+        except Exception as exc:
+            st.error(f"Failed to prepare schema for restore: {exc}")
+            return False
+
     psql = _detect_cmd(("psql", "psql16", "psql15", "psql14"))
     if psql:
         ok, _, err = _run_command([psql, DATABASE_URL, "-v", "ON_ERROR_STOP=1"], sql_input=sql_content)
@@ -175,7 +212,24 @@ def restore_backup_from_sql(sql_content: str) -> bool:
     try:
         with db_connect() as conn:
             c = conn.cursor()
+            existing_tables = {t.lower() for t in _list_tables()}
             for stmt in statements:
+                upper = stmt.upper()
+                if upper in {"BEGIN", "COMMIT", "ROLLBACK"}:
+                    continue
+
+                if upper.startswith("TRUNCATE TABLE"):
+                    tables = _extract_truncate_tables(stmt)
+                    if tables is not None:
+                        valid_tables = [t for t in tables if t.lower() in existing_tables]
+                        if not valid_tables:
+                            continue
+                        stmt = (
+                            "TRUNCATE TABLE "
+                            + ", ".join(_quote_identifier(t) for t in valid_tables)
+                            + " RESTART IDENTITY CASCADE"
+                        )
+
                 c.execute(stmt)
             conn.commit()
         return True
