@@ -333,12 +333,21 @@ def gerar_analise_aposta_com_probabilidade(
             "resumo": fallback_resumo_erro,
         }
 
-def enviar_email_recuperacao_senha(email_usuario: str, nome_usuario: str, nova_senha: str):
-    """Envia e-mail com senha temporária para o usuário."""
+def enviar_email_recuperacao_senha(
+    email_usuario: str,
+    nome_usuario: str,
+    reset_token: str,
+    exp_minutes: int = 30,
+):
+    """Envia e-mail com token único de redefinição de senha."""
+    nome_safe = html.escape(nome_usuario or "Participante")
+    token_safe = html.escape(reset_token or "")
     corpo_html = f"""
     <h3>Recuperação de Senha - BF1</h3>
-    <p>Olá, {nome_usuario}!</p>
-    <p>Sua nova senha temporária é: <b>{nova_senha}</b></p>
-    <p>Faça login e altere sua senha imediatamente após o acesso.</p>
+    <p>Olá, {nome_safe}!</p>
+    <p>Use o token abaixo para redefinir sua senha na tela de login:</p>
+    <p><b>{token_safe}</b></p>
+    <p>Esse token expira em {int(exp_minutes)} minutos e pode ser usado apenas uma vez.</p>
+    <p>Se você não solicitou esta redefinição, ignore este email.</p>
     """
     enviar_email(email_usuario, "Recuperação de Senha - BF1", corpo_html)

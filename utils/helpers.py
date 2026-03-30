@@ -117,3 +117,8 @@ def render_page_header(st_module: Any, title: str, logo_width: int = 75) -> None
     with col_title:
         st_module.title(title)
 
+    # Aviso explícito para perfis inativos nas telas de consulta.
+    user_status = str(st_module.session_state.get("user_status", "")).strip().lower()
+    if user_status and user_status != "ativo":
+        st_module.warning("Você está inativo e visualiza apenas temporadas em que esteve ativo.")
+

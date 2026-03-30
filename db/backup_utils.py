@@ -6,6 +6,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, unquote, urlparse
 
 import pandas as pd
 import streamlit as st
@@ -25,15 +26,22 @@ def _quote_identifier(identifier: str) -> str:
     return f'"{_sanitize_identifier(identifier)}"'
 
 
-def _run_command(args: list[str], sql_input: str | None = None) -> tuple[bool, str, str]:
+def _run_command(
+    args: list[str],
+    sql_input: str | None = None,
+    env_overrides: dict[str, str] | None = None,
+) -> tuple[bool, str, str]:
     try:
+        env = os.environ.copy()
+        if env_overrides:
+            env.update({k: v for k, v in env_overrides.items() if v})
         result = subprocess.run(
             args,
             input=sql_input,
             capture_output=True,
             text=True,
             check=False,
-            env=os.environ.copy(),
+            env=env,
         )
     except FileNotFoundError:
         return False, "", f"Command not found: {args[0]}"
@@ -46,6 +54,39 @@ def _detect_cmd(candidates: tuple[str, ...]) -> str | None:
         if shutil.which(cmd):
             return cmd
     return None
+
+
+def _build_pg_env_from_database_url(database_url: str) -> tuple[dict[str, str], str]:
+    """Build PG* env vars from DATABASE_URL to avoid exposing credentials in argv."""
+    parsed = urlparse(database_url)
+    env: dict[str, str] = {}
+
+    dbname = (parsed.path or "").lstrip("/") or "postgres"
+    env["PGDATABASE"] = dbname
+
+    if parsed.hostname:
+        env["PGHOST"] = parsed.hostname
+    if parsed.port:
+        env["PGPORT"] = str(parsed.port)
+    if parsed.username:
+        env["PGUSER"] = unquote(parsed.username)
+    if parsed.password:
+        env["PGPASSWORD"] = unquote(parsed.password)
+
+    query_params = parse_qs(parsed.query or "")
+    for key, env_key in {
+        "sslmode": "PGSSLMODE",
+        "sslrootcert": "PGSSLROOTCERT",
+        "sslcert": "PGSSLCERT",
+        "sslkey": "PGSSLKEY",
+        "sslcrl": "PGSSLCRL",
+        "target_session_attrs": "PGTARGETSESSIONATTRS",
+    }.items():
+        value = (query_params.get(key) or [""])[0]
+        if value:
+            env[env_key] = value
+
+    return env, dbname
 
 
 def _list_tables() -> list[str]:
@@ -61,6 +102,49 @@ def _list_tables() -> list[str]:
             """
         )
         return [str(r[0]) for r in (c.fetchall() or []) if r and r[0]]
+
+
+def _order_tables_for_dump(tables: list[str]) -> list[str]:
+    """Order tables to reduce FK dependency issues during statement-based restores."""
+    preferred = [
+        # Bases sem dependências fortes
+        "usuarios",
+        "temporadas",
+        "circuitos_f1",
+        "pilotos",
+        "provas",
+        # Dependentes de provas
+        "resultados",
+        # Dependentes de usuarios + provas
+        "apostas",
+        "log_apostas",
+        "posicoes_participantes",
+        # Dependentes de usuarios
+        "usuarios_status_historico",
+        "hall_da_fama",
+        "championship_bets",
+        "championship_bets_log",
+        # Independentes restantes mais comuns
+        "championship_results",
+        "regras",
+        "login_attempts",
+    ]
+    lower_map = {t.lower(): t for t in tables}
+
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for key in preferred:
+        table_name = lower_map.get(key)
+        if table_name and table_name not in seen:
+            ordered.append(table_name)
+            seen.add(table_name)
+
+    for table_name in sorted(tables, key=str.lower):
+        if table_name not in seen:
+            ordered.append(table_name)
+            seen.add(table_name)
+
+    return ordered
 
 
 def _sql_literal(value: Any) -> str:
@@ -81,7 +165,7 @@ def _build_data_only_sql() -> str:
         "BEGIN;",
     ]
 
-    tables = _list_tables()
+    tables = _order_tables_for_dump(_list_tables())
     if tables:
         trunc = ", ".join(_quote_identifier(t) for t in tables)
         lines.append(f"TRUNCATE TABLE {trunc} RESTART IDENTITY CASCADE;")
@@ -141,7 +225,35 @@ def _extract_truncate_tables(statement: str) -> list[str] | None:
     return names
 
 
+def _extract_insert_table(statement: str) -> str | None:
+    match = re.match(r'^\s*INSERT\s+INTO\s+"?([A-Za-z_][A-Za-z0-9_]*)"?', statement, flags=re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        return _sanitize_identifier(match.group(1))
+    except ValueError:
+        return None
+
+
+def _is_fk_violation_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "violates foreign key constraint" in msg or "foreign key constraint" in msg
+
+
+def _execute_with_savepoint(cursor, statement: str) -> tuple[bool, Exception | None]:
+    cursor.execute("SAVEPOINT bf1_restore_stmt")
+    try:
+        cursor.execute(statement)
+        cursor.execute("RELEASE SAVEPOINT bf1_restore_stmt")
+        return True, None
+    except Exception as exc:
+        cursor.execute("ROLLBACK TO SAVEPOINT bf1_restore_stmt")
+        cursor.execute("RELEASE SAVEPOINT bf1_restore_stmt")
+        return False, exc
+
+
 def get_postgres_backup_mode() -> tuple[str, str]:
+    pg_env, dbname = _build_pg_env_from_database_url(DATABASE_URL)
     pg_dump = _detect_cmd(("pg_dump", "pg_dump16", "pg_dump15", "pg_dump14"))
     if not pg_dump:
         return "fallback", "pg_dump not found; using internal data-only dump"
@@ -155,11 +267,12 @@ def get_postgres_backup_mode() -> tuple[str, str]:
         [
             pg_dump,
             "--dbname",
-            DATABASE_URL,
+            dbname,
             "--schema-only",
             "--no-owner",
             "--no-privileges",
-        ]
+        ],
+        env_overrides=pg_env,
     )
     if not probe_ok:
         probe_detail = (probe_err or "").strip() or "pg_dump probe failed"
@@ -171,6 +284,7 @@ def get_postgres_backup_mode() -> tuple[str, str]:
 
 
 def _generate_backup_sql_content() -> tuple[str, str]:
+    pg_env, dbname = _build_pg_env_from_database_url(DATABASE_URL)
     mode, detail = get_postgres_backup_mode()
     if mode == "full":
         pg_dump = _detect_cmd(("pg_dump", "pg_dump16", "pg_dump15", "pg_dump14"))
@@ -179,12 +293,13 @@ def _generate_backup_sql_content() -> tuple[str, str]:
                 [
                     pg_dump,
                     "--dbname",
-                    DATABASE_URL,
+                    dbname,
                     "--no-owner",
                     "--no-privileges",
                     "--format=plain",
                     "--encoding=UTF8",
-                ]
+                ],
+                env_overrides=pg_env,
             )
             if ok and out.strip():
                 return out, "full"
@@ -218,9 +333,14 @@ def restore_backup_from_sql(sql_content: str) -> bool:
             st.error(f"Failed to prepare schema for restore: {exc}")
             return False
 
+    pg_env, dbname = _build_pg_env_from_database_url(DATABASE_URL)
     psql = _detect_cmd(("psql", "psql16", "psql15", "psql14"))
     if psql:
-        ok, _, err = _run_command([psql, DATABASE_URL, "-v", "ON_ERROR_STOP=1"], sql_input=sql_content)
+        ok, _, err = _run_command(
+            [psql, "-d", dbname, "-v", "ON_ERROR_STOP=1"],
+            sql_input=sql_content,
+            env_overrides=pg_env,
+        )
         if ok:
             return True
         st.warning(f"psql failed, trying statement execution. Detail: {err.strip()}")
@@ -230,6 +350,8 @@ def restore_backup_from_sql(sql_content: str) -> bool:
         with db_connect() as conn:
             c = conn.cursor()
             existing_tables = {t.lower() for t in _list_tables()}
+            pending_fk_inserts: list[tuple[str, str]] = []
+
             for stmt in statements:
                 upper = stmt.upper()
                 if upper in {"BEGIN", "COMMIT", "ROLLBACK"}:
@@ -247,7 +369,51 @@ def restore_backup_from_sql(sql_content: str) -> bool:
                             + " RESTART IDENTITY CASCADE"
                         )
 
-                c.execute(stmt)
+                insert_table = _extract_insert_table(stmt)
+                if insert_table and insert_table.lower() not in existing_tables:
+                    # Data-only dumps podem referenciar tabelas removidas; ignora para não abortar restore.
+                    continue
+
+                ok_stmt, err_stmt = _execute_with_savepoint(c, stmt)
+                if ok_stmt:
+                    continue
+
+                if insert_table and err_stmt and _is_fk_violation_error(err_stmt):
+                    pending_fk_inserts.append((stmt, str(err_stmt)))
+                    continue
+
+                raise err_stmt if err_stmt else RuntimeError("Unknown restore statement error")
+
+            max_passes = max(2, len(existing_tables) + 1)
+            for _ in range(max_passes):
+                if not pending_fk_inserts:
+                    break
+
+                next_pending: list[tuple[str, str]] = []
+                progress = 0
+                for stmt, _last_error in pending_fk_inserts:
+                    ok_stmt, err_stmt = _execute_with_savepoint(c, stmt)
+                    if ok_stmt:
+                        progress += 1
+                        continue
+
+                    if err_stmt and _is_fk_violation_error(err_stmt):
+                        next_pending.append((stmt, str(err_stmt)))
+                        continue
+
+                    raise err_stmt if err_stmt else RuntimeError("Unknown restore statement error")
+
+                pending_fk_inserts = next_pending
+                if progress == 0:
+                    break
+
+            if pending_fk_inserts:
+                first_error = pending_fk_inserts[0][1]
+                raise RuntimeError(
+                    "Restore failed: unresolved foreign key dependencies in "
+                    f"{len(pending_fk_inserts)} INSERT statement(s). First error: {first_error}"
+                )
+
             conn.commit()
         return True
     except Exception as exc:

@@ -84,18 +84,14 @@ def initialize_database():
         init_pool(pool_size=POOL_SIZE)
         logger.info(f"   ✓ Pool criado: {POOL_SIZE} conexões")
         
-        logger.info("2️⃣  Criando tabelas do banco de dados...")
-        init_db()
-        logger.info("   ✓ Tabelas criadas/verificadas")
-        
-        logger.info("3️⃣  Executando migrations (criando índices)...")
+        logger.info("2️⃣  Executando migrations (schema + índices)...")
         try:
             run_migrations()
             logger.info("   ✓ Migrations executadas com sucesso")
         except Exception as e:
             logger.warning(f"   ⚠️  Migrations já foram executadas: {str(e)[:50]}")
-        
-        logger.info("4️⃣  Verificando usuário Master...")
+
+        logger.info("3️⃣  Verificando usuário Master...")
         if MasterUserManager.create_master_user():
             logger.info("   ✓ Usuário Master criado")
         else:
