@@ -1,4 +1,3 @@
-import streamlit as st
 import smtplib
 import os
 import logging
@@ -10,6 +9,7 @@ import json
 from typing import Optional
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from utils.logging_utils import redact_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,6 @@ def enviar_email(destinatario: str, assunto: str, corpo_html: str, cco: Optional
     """Envia um e-mail HTML para o destinatário informado com opção de CCO."""
     if not EMAIL_REMETENTE or not SENHA_REMETENTE:
         logger.error("Envio de email abortado: credenciais não configuradas (EMAIL_REMETENTE/SENHA).")
-        st.error("Credenciais de e-mail não configuradas.")
         return False
 
     cco = [e.strip() for e in (cco or []) if str(e).strip()]
@@ -85,8 +84,7 @@ def enviar_email(destinatario: str, assunto: str, corpo_html: str, cco: Optional
     destinatarios_envio.extend(cco)
 
     if not destinatarios_envio:
-        logger.error("Envio de email abortado: nenhum destinatário válido. destinatario=%s", destinatario)
-        st.error("Nenhum destinatário válido para envio de e-mail.")
+        logger.error("Envio de email abortado: nenhum destinatário válido. destinatario=%s", redact_identifier(destinatario))
         return False
 
     msg = MIMEMultipart()
@@ -100,8 +98,8 @@ def enviar_email(destinatario: str, assunto: str, corpo_html: str, cco: Optional
             server.sendmail(EMAIL_REMETENTE, destinatarios_envio, msg.as_string())
         return True
     except Exception as e:
-        logger.exception("Erro SMTP ao enviar email para %s: %s", ", ".join(destinatarios_envio), e)
-        st.error(f"Erro no envio para {', '.join(destinatarios_envio)}: {str(e)}")
+        safe_recipients = ", ".join(redact_identifier(r) for r in destinatarios_envio)
+        logger.exception("Erro SMTP ao enviar email para %s: %s", safe_recipients, e)
         return False
 
 def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[str], fichas: list[int], piloto_11: str) -> str:

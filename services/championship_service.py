@@ -7,6 +7,7 @@ from db.db_utils import db_connect, get_user_by_id, get_provas_df
 from services.rules_service import get_regras_aplicaveis
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
 from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, normalize_time_string, parse_datetime_sao_paulo
+from utils.input_models import ChampionshipBetInput, ChampionshipResultInput, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,25 @@ def get_user_name(user_id: int) -> str:
 
 def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str, team: str, season: Optional[int] = None) -> bool:
     """Salva ou atualiza a aposta do usuário para o campeonato e registra no log, por temporada."""
+    try:
+        payload = ChampionshipBetInput(
+            user_id=user_id,
+            user_nome=user_nome,
+            champion=champion,
+            vice=vice,
+            team=team,
+            season=season,
+        )
+        user_id = payload.user_id
+        user_nome = payload.user_nome
+        champion = payload.champion
+        vice = payload.vice
+        team = payload.team
+        season = payload.season
+    except ValidationError as exc:
+        logger.warning("Aposta de campeonato rejeitada por validacao: %s", exc)
+        return False
+
     now_sp = now_sao_paulo()
     now = now_sp.strftime("%Y-%m-%d %H:%M:%S")
     season_val = _season_or_current(season)
@@ -212,6 +232,21 @@ def get_championship_bet_log(user_id: int, season: Optional[int] = None):
 
 def save_final_results(champion: str, vice: str, team: str, season: Optional[int] = None) -> bool:
     """Salva ou atualiza o resultado oficial do campeonato por temporada."""
+    try:
+        payload = ChampionshipResultInput(
+            champion=champion,
+            vice=vice,
+            team=team,
+            season=season,
+        )
+        champion = payload.champion
+        vice = payload.vice
+        team = payload.team
+        season = payload.season
+    except ValidationError as exc:
+        logger.warning("Resultado de campeonato rejeitado por validacao: %s", exc)
+        return False
+
     season_val = _season_or_current(season)
     try:
         with db_connect() as conn:

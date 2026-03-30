@@ -63,9 +63,9 @@ def carregar_logs(temporada=None, usuario_id=None, usuario_nome=None, is_admin=F
         has_data = "data" in cols
         has_data_criacao = "data_criacao" in cols
         user_col = "usuario_id" if has_usuario_id else ("user_id" if has_user_id else None)
-        status_expr = "status" if has_status else "'Registrada' AS status"
-        ip_expr = "ip_address" if has_ip_address else "NULL AS ip_address"
-        user_expr = f"{user_col} AS usuario_id" if user_col else "NULL AS usuario_id"
+        status_expr = "status" if has_status else "'Registrada'"
+        ip_expr = "ip_address" if has_ip_address else "NULL"
+        user_expr = user_col if user_col else "NULL"
 
         where_clauses = []
         params = []
@@ -96,8 +96,13 @@ def carregar_logs(temporada=None, usuario_id=None, usuario_nome=None, is_admin=F
             where_sql = " WHERE " + " AND ".join(where_clauses)
 
         query = (
-            f"SELECT id, {user_expr}, data, horario, apostador, nome_prova, pilotos, aposta, piloto_11, "
-            f"tipo_aposta, automatica, {ip_expr}, temporada, {status_expr} "
+            "SELECT id, "
+            f"{user_expr} AS usuario_id, "
+            "data, horario, apostador, nome_prova, pilotos, aposta, piloto_11, "
+            "tipo_aposta, automatica, "
+            f"{ip_expr} AS ip_address, "
+            "temporada, "
+            f"{status_expr} AS status "
             f"FROM log_apostas{where_sql} ORDER BY id DESC"
         )
         df = pd.read_sql(query, conn, params=tuple(params) if params else None)

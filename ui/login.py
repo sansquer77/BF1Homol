@@ -16,6 +16,8 @@ from services.auth_service import clear_auth_cookies
 from services.email_service import enviar_email_recuperacao_senha
 from utils.request_utils import get_client_ip
 from utils.validators import validar_email
+from utils.input_models import LoginInput, ValidationError
+from utils.logging_utils import redact_identifier
 from db import (
     db_connect,
     check_password,
@@ -172,10 +174,13 @@ def login_view():
                 st.error("❌ Por favor, preencha email e senha")
                 logger.warning(f"Tentativa de login com campos vazios")
                 return
-            valido_email, _ = validar_email(email)
-            if not valido_email:
-                st.error("❌ Email inválido")
-                logger.warning("Tentativa de login com email inválido")
+            try:
+                login_input = LoginInput(email=email, senha=senha)
+                email = login_input.email
+                senha = login_input.senha
+            except ValidationError:
+                st.error("❌ Email ou senha inválidos")
+                logger.warning("Tentativa de login com payload invalido")
                 return
             
             # Verificar rate limiting
@@ -214,14 +219,14 @@ def login_view():
             
             if not usuario:
                 st.error("❌ Email ou senha incorretos")
-                logger.warning(f"Tentativa de login com email inexistente: {email}")
+                logger.warning("Tentativa de login com usuario inexistente: %s", redact_identifier(email))
                 registrar_tentativa_login(email, False, ip_address=client_ip, action="login")
                 return
             
             # Verificar status
             if usuario['status'] != 'Ativo':
                 st.error(f"❌ Usuário inativo. Status: {usuario['status']}")
-                logger.warning(f"Tentativa de login com usuário inativo: {email}")
+                logger.warning("Tentativa de login com usuario inativo: %s", redact_identifier(email))
                 registrar_tentativa_login(email, False, ip_address=client_ip, action="login")
                 return
             
@@ -240,7 +245,7 @@ def login_view():
                         f"Conta bloqueada por {LOCKOUT_DURATION // 60} minutos."
                     )
                 
-                logger.warning(f"Falha de autenticação para: {email}")
+                logger.warning("Falha de autenticacao para: %s", redact_identifier(email))
                 registrar_tentativa_login(email, False, ip_address=client_ip, action="login")
                 return
             
@@ -284,7 +289,7 @@ def login_view():
             # Registrar sucesso
             registrar_tentativa_login(email, True, ip_address=client_ip, action="login")
 
-            logger.info(f"✓ Login bem-sucedido: {email} ({usuario['perfil']})")
+            logger.info("Login bem-sucedido: %s perfil=%s", redact_identifier(email), usuario['perfil'])
 
             st.success(f"✅ Bem-vindo, {usuario['nome']}!")
             st.balloons()
@@ -340,7 +345,11 @@ def login_view():
                             try:
                                 enviar_email_recuperacao_senha(email_reset, nome_usuario, nova_senha)
                             except Exception as e:
-                                logger.warning(f"Falha ao enviar email de recuperação para {email_reset}: {e}")
+                                logger.warning(
+                                    "Falha ao enviar email de recuperacao para %s: %s",
+                                    redact_identifier(email_reset),
+                                    e,
+                                )
                         # Resposta genérica para evitar enumeração
                         st.info("Se o email estiver cadastrado, você receberá uma senha temporária em instantes.")
                         registrar_tentativa_login(email_reset, False, ip_address=reset_ip, action="password_reset")

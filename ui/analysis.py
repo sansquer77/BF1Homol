@@ -114,25 +114,24 @@ def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Op
             return pd.DataFrame()
 
         with db_connect() as conn:
-            c = conn.cursor()
             cols = get_table_columns(conn, 'apostas')
             placeholders = ','.join(['?'] * len(participantes_ids))
             if temporada and 'temporada' in cols:
-                query = '''
-                    SELECT u.nome AS participante, a.pilotos
-                    FROM apostas a
-                    JOIN usuarios u ON a.usuario_id = u.id
-                    WHERE a.usuario_id IN ({}) AND a.temporada = ?
-                '''
-                df = pd.read_sql(query.format(placeholders), conn, params=(*participantes_ids, temporada))
+                query = (
+                    "SELECT u.nome AS participante, a.pilotos "
+                    "FROM apostas a "
+                    "JOIN usuarios u ON a.usuario_id = u.id "
+                    f"WHERE a.usuario_id IN ({placeholders}) AND a.temporada = ?"
+                )
+                df = pd.read_sql(query, conn, params=(*participantes_ids, temporada))
             else:
-                query = '''
-                    SELECT u.nome AS participante, a.pilotos
-                    FROM apostas a
-                    JOIN usuarios u ON a.usuario_id = u.id
-                    WHERE a.usuario_id IN ({})
-                '''
-                df = pd.read_sql(query.format(placeholders), conn, params=tuple(participantes_ids))
+                query = (
+                    "SELECT u.nome AS participante, a.pilotos "
+                    "FROM apostas a "
+                    "JOIN usuarios u ON a.usuario_id = u.id "
+                    f"WHERE a.usuario_id IN ({placeholders})"
+                )
+                df = pd.read_sql(query, conn, params=tuple(participantes_ids))
             if df.empty:
                 df = _get_log_apostas_df(
                     conn,
@@ -172,27 +171,26 @@ def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df
             return pd.DataFrame()
 
         with db_connect() as conn:
-            c = conn.cursor()
             cols = get_table_columns(conn, 'apostas')
             placeholders = ','.join(['?'] * len(participantes_ids))
             if temporada and 'temporada' in cols:
-                query = '''
-                    SELECT u.nome AS participante, a.piloto_11 AS piloto_11
-                    FROM apostas a
-                    JOIN usuarios u ON a.usuario_id = u.id
-                    WHERE a.usuario_id IN ({}) AND a.temporada = ?
-                    AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
-                '''
-                df = pd.read_sql(query.format(placeholders), conn, params=(*participantes_ids, temporada))
+                query = (
+                    "SELECT u.nome AS participante, a.piloto_11 AS piloto_11 "
+                    "FROM apostas a "
+                    "JOIN usuarios u ON a.usuario_id = u.id "
+                    f"WHERE a.usuario_id IN ({placeholders}) AND a.temporada = ? "
+                    "AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''"
+                )
+                df = pd.read_sql(query, conn, params=(*participantes_ids, temporada))
             else:
-                query = '''
-                    SELECT u.nome AS participante, a.piloto_11 AS piloto_11
-                    FROM apostas a
-                    JOIN usuarios u ON a.usuario_id = u.id
-                    WHERE a.usuario_id IN ({})
-                    AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''
-                '''
-                df = pd.read_sql(query.format(placeholders), conn, params=tuple(participantes_ids))
+                query = (
+                    "SELECT u.nome AS participante, a.piloto_11 AS piloto_11 "
+                    "FROM apostas a "
+                    "JOIN usuarios u ON a.usuario_id = u.id "
+                    f"WHERE a.usuario_id IN ({placeholders}) "
+                    "AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''"
+                )
+                df = pd.read_sql(query, conn, params=tuple(participantes_ids))
             if df.empty:
                 df = _get_log_apostas_df(
                     conn,

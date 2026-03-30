@@ -1,5 +1,4 @@
 import pandas as pd
-import streamlit as st
 import logging
 import os
 import json
@@ -9,7 +8,7 @@ import hashlib
 import importlib
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from typing import Optional, Union, cast
+from typing import Callable, Optional, Union, cast
 from db.db_utils import (
     get_table_columns,
     get_user_by_id,
@@ -40,6 +39,8 @@ from utils.data_utils import (
 )
 from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, parse_datetime_sao_paulo
 from utils.request_utils import get_client_ip
+from utils.input_models import BetSubmissionInput, ValidationError
+from utils.logging_utils import redact_identifier
 
 logger = logging.getLogger(__name__)
 MAX_PERPLEXITY_CONTEXT_CHARS = 5200
@@ -927,20 +928,40 @@ def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
 def salvar_aposta(
     usuario_id, prova_id, pilotos, fichas, piloto_11, nome_prova,
     automatica=0, horario_forcado=None, temporada: Optional[str] = None, show_errors=True,
-    permitir_salvar_tardia: bool = False
+    permitir_salvar_tardia: bool = False,
+    error_reporter: Optional[Callable[[str], None]] = None,
 ):
+    def _report_error(message: str) -> None:
+        if show_errors and error_reporter is not None:
+            error_reporter(message)
+
     try:
-        usuario_id = int(usuario_id)
-        prova_id = int(prova_id)
-    except Exception as e:
-        if show_errors:
-            st.error(f"IDs inválidos: usuario_id={usuario_id}, prova_id={prova_id} ({e})")
+        payload = BetSubmissionInput(
+            usuario_id=usuario_id,
+            prova_id=prova_id,
+            pilotos=pilotos,
+            fichas=fichas,
+            piloto_11=piloto_11,
+            nome_prova=nome_prova,
+            automatica=automatica,
+            temporada=temporada,
+        )
+        usuario_id = payload.usuario_id
+        prova_id = payload.prova_id
+        pilotos = payload.pilotos
+        fichas = payload.fichas
+        piloto_11 = payload.piloto_11
+        nome_prova = payload.nome_prova
+        automatica = payload.automatica
+        temporada = payload.temporada
+    except ValidationError as exc:
+        _report_error("Dados inválidos para registrar aposta.")
+        logger.warning("Aposta rejeitada por validacao: %s", exc.errors())
         return False
 
     nome_prova_bd, data_prova, horario_prova = get_horario_prova(prova_id)
     if not horario_prova or not nome_prova_bd or not data_prova:
-        if show_errors:
-            st.error("Prova não encontrada ou horário/nome/data não cadastrados.")
+        _report_error("Prova não encontrada ou horário/nome/data não cadastrados.")
         return False
 
     # Determinar tipo da prova usando coluna `tipo` quando disponível; fallback por nome
@@ -961,9 +982,8 @@ def salvar_aposta(
     max_por_piloto = int(regras.get('fichas_por_piloto', quantidade_fichas))
 
     if not pilotos or not fichas or not piloto_11 or len(pilotos) < min_pilotos or sum(fichas) != quantidade_fichas or (fichas and max(fichas) > max_por_piloto):
-        if show_errors:
-            msg = f"Regra exige: mín {min_pilotos} pilotos, total {quantidade_fichas} fichas, máx {max_por_piloto} por piloto."
-            st.error(f"Dados inválidos para aposta. {msg}")
+        msg = f"Regra exige: mín {min_pilotos} pilotos, total {quantidade_fichas} fichas, máx {max_por_piloto} por piloto."
+        _report_error(f"Dados inválidos para aposta. {msg}")
         return False
 
     horario_limite = _parse_datetime_sp(data_prova, horario_prova)
@@ -977,13 +997,11 @@ def salvar_aposta(
 
     usuario = get_user_by_id(usuario_id)
     if not usuario:
-        if show_errors:
-            st.error(f"Usuário não encontrado: id={usuario_id}")
+        _report_error(f"Usuário não encontrado: id={usuario_id}")
         return False
     status_usuario = str(usuario.get('status', '')).strip().lower()
     if status_usuario and status_usuario != 'ativo':
-        if show_errors:
-            st.error("Usuário inativo não pode efetuar apostas.")
+        _report_error("Usuário inativo não pode efetuar apostas.")
         return False
 
     try:
@@ -1027,8 +1045,7 @@ def salvar_aposta(
                     )
             else:
                 # Aposta tardia não salva quando não permitido
-                if show_errors:
-                    st.error("Aposta fora do horário limite.")
+                _report_error("Aposta fora do horário limite.")
                 try:
                     tentativa_str = agora_sp.strftime('%d/%m/%Y %H:%M:%S')
                     limite_str = horario_limite.strftime('%d/%m/%Y %H:%M:%S')
@@ -1042,7 +1059,11 @@ def salvar_aposta(
                     )
                     enviar_email(usuario['email'], f"Aposta não efetivada - {nome_prova_bd}", corpo_email)
                 except Exception as e:
-                    logger.warning(f"Falha ao enviar email de aposta rejeitada para {usuario.get('email')}: {e}")
+                    logger.warning(
+                        "Falha ao enviar email de aposta rejeitada para %s: %s",
+                        redact_identifier(str(usuario.get('email', ''))),
+                        e,
+                    )
                 try:
                     registrar_log_aposta(
                         usuario_id=usuario_id,
@@ -1060,7 +1081,11 @@ def salvar_aposta(
                         status='Rejeitada'
                     )
                 except Exception as e:
-                    logger.warning(f"Falha ao registrar log de aposta rejeitada para {usuario.get('email')}: {e}")
+                    logger.warning(
+                        "Falha ao registrar log de aposta rejeitada para %s: %s",
+                        redact_identifier(str(usuario.get('email', ''))),
+                        e,
+                    )
                 return False
             conn.commit()
 
@@ -1172,18 +1197,30 @@ def salvar_aposta(
                     "<p><small><b>Aviso de estimativa:</b> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</small></p>"
                 )
             except Exception as e:
-                logger.exception(f"Falha ao montar conteúdo avançado do email de aposta para {usuario.get('email')}: {e}")
+                logger.exception(
+                    "Falha ao montar conteúdo avançado do email de aposta para %s: %s",
+                    redact_identifier(str(usuario.get('email', ''))),
+                    e,
+                )
 
             try:
                 email_ok = enviar_email(usuario['email'], f"Aposta registrada - {nome_prova_bd}", corpo_email)
                 if not email_ok:
-                    logger.warning("Falha de envio de email de aposta para %s (prova_id=%s)", usuario.get('email'), prova_id)
+                    logger.warning(
+                        "Falha de envio de email de aposta para %s (prova_id=%s)",
+                        redact_identifier(str(usuario.get('email', ''))),
+                        prova_id,
+                    )
             except Exception as e:
-                logger.warning(f"Falha ao enviar email de aposta para {usuario.get('email')}: {e}")
+                logger.warning(
+                    "Falha ao enviar email de aposta para %s: %s",
+                    redact_identifier(str(usuario.get('email', ''))),
+                    e,
+                )
 
     except Exception as e:
-        if show_errors:
-            st.error(f"Erro ao salvar aposta: {str(e)}")
+        _report_error("Erro ao salvar aposta.")
+        logger.exception("Erro ao salvar aposta: %s", e)
         return False
 
     registrar_log_aposta(

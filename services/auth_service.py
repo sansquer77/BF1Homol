@@ -1,6 +1,5 @@
 import jwt
 from datetime import datetime, timedelta, timezone
-import streamlit as st
 import os
 import logging
 import importlib
@@ -26,22 +25,35 @@ _JWT_SECRET_LOGGED = False
 
 _COOKIE_MANAGER_INSTANCE = None
 _COOKIE_MANAGER_KEY = "bf1_auth_cookie_manager"
+_FALLBACK_COOKIE_STORE: dict[str, str] = {}
+
+
+def _get_session_store() -> dict:
+    """Return Streamlit session_state when available, else module-local fallback store."""
+    try:
+        st_mod = importlib.import_module("streamlit")
+        return st_mod.session_state
+    except Exception:
+        return _FALLBACK_COOKIE_STORE
 
 
 class _FallbackCookieManager:
     """Fallback simples quando extra_streamlit_components não está instalado."""
 
     def set(self, key, value, expires_at=None, options=None):
-        st.session_state[f"cookie_{key}"] = value
+        store = _get_session_store()
+        store[f"cookie_{key}"] = value
 
     def delete(self, key):
-        st.session_state.pop(f"cookie_{key}", None)
+        store = _get_session_store()
+        store.pop(f"cookie_{key}", None)
 
     def get_all(self):
         # Keep API compatible with CookieManager.get_all().
+        store = _get_session_store()
         return {
             k.replace("cookie_", "", 1): v
-            for k, v in st.session_state.items()
+            for k, v in store.items()
             if isinstance(k, str) and k.startswith("cookie_")
         }
 

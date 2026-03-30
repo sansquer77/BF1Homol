@@ -12,6 +12,7 @@ from functools import lru_cache
 from typing import Optional
 from db.connection_pool import get_pool
 from db.db_config import BCRYPT_ROUNDS
+from utils.logging_utils import redact_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -489,7 +490,7 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil: str = "particip
             (nome, email, senha_hash, perfil)
         )
         conn.commit()
-        logger.info(f"✓ Usuário cadastrado: {email}")
+        logger.info("Usuário cadastrado: %s", redact_identifier(email))
 
 def autenticar_usuario(email: str, senha: str) -> dict:
     """Autentica usuário com bcrypt"""

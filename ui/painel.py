@@ -443,9 +443,16 @@ def participante_view():
                         else:
                             if "aposta_erros" in st.session_state:
                                 del st.session_state["aposta_erros"]
+
+                            def _report_aposta_error(msg: str) -> None:
+                                st.error(msg)
+
                             ok = salvar_aposta(
                                 user['id'], prova_id, pilotos_com_ficha,
-                                fichas_com_ficha, piloto_11, nome_prova, automatica=0, temporada=temporada
+                                fichas_com_ficha, piloto_11, nome_prova,
+                                automatica=0,
+                                temporada=temporada,
+                                error_reporter=_report_aposta_error,
                             )
                             if ok:
                                 st.success("Aposta registrada/atualizada!")

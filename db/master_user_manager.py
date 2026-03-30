@@ -9,6 +9,7 @@ import logging
 from typing import Optional, TypedDict
 from db.connection_pool import get_pool
 from db.db_utils import hash_password, get_user_by_email
+from utils.logging_utils import redact_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,7 @@ class MasterUserManager:
                 
                 logger.info(f"✓ Usuário Master criado com sucesso (ID: {master_id})")
                 logger.info(f"  Nome: {creds['nome']}")
-                logger.info(f"  Email: {creds['email']}")
+                logger.info("  Email: %s", redact_identifier(creds['email']))
                 
                 return True
                 

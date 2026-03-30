@@ -42,6 +42,83 @@ def _resolve_hall_source(conn) -> tuple[str, str]:
     return "hall_da_fama", "posicao_final"
 
 
+def _hall_queries(source_table: str) -> dict[str, str]:
+    if source_table == "posicoes_participantes":
+        return {
+            "seasons": (
+                "SELECT DISTINCT temporada FROM posicoes_participantes "
+                "WHERE temporada IS NOT NULL AND trim(cast(temporada as text)) != '' "
+                "ORDER BY temporada DESC"
+            ),
+            "user_pos": (
+                "SELECT posicao, pontos "
+                "FROM posicoes_participantes "
+                "WHERE usuario_id = ? AND temporada = ? "
+                "LIMIT 1"
+            ),
+            "count_seasons": "SELECT COUNT(DISTINCT temporada) FROM posicoes_participantes",
+            "top_winners": (
+                "SELECT u.nome, COUNT(*) as vitorias "
+                "FROM posicoes_participantes hf "
+                "JOIN usuarios u ON hf.usuario_id = u.id "
+                "WHERE hf.posicao = 1 AND LOWER(u.perfil) != 'master' "
+                "GROUP BY hf.usuario_id, u.nome "
+                "ORDER BY vitorias DESC, u.nome ASC "
+                "LIMIT 3"
+            ),
+            "season_stats": (
+                "SELECT COUNT(DISTINCT usuario_id) as participants, "
+                "MAX(pontos) as best_points, "
+                "AVG(pontos) as avg_points "
+                "FROM posicoes_participantes "
+                "WHERE temporada = ?"
+            ),
+            "position_distribution": (
+                "SELECT u.nome as nome, pp.posicao as posicao "
+                "FROM posicoes_participantes pp "
+                "JOIN usuarios u ON pp.usuario_id = u.id "
+                "WHERE LOWER(u.perfil) != 'master'"
+            ),
+        }
+
+    return {
+        "seasons": (
+            "SELECT DISTINCT temporada FROM hall_da_fama "
+            "WHERE temporada IS NOT NULL AND trim(cast(temporada as text)) != '' "
+            "ORDER BY temporada DESC"
+        ),
+        "user_pos": (
+            "SELECT posicao_final, pontos "
+            "FROM hall_da_fama "
+            "WHERE usuario_id = ? AND temporada = ? "
+            "LIMIT 1"
+        ),
+        "count_seasons": "SELECT COUNT(DISTINCT temporada) FROM hall_da_fama",
+        "top_winners": (
+            "SELECT u.nome, COUNT(*) as vitorias "
+            "FROM hall_da_fama hf "
+            "JOIN usuarios u ON hf.usuario_id = u.id "
+            "WHERE hf.posicao_final = 1 AND LOWER(u.perfil) != 'master' "
+            "GROUP BY hf.usuario_id, u.nome "
+            "ORDER BY vitorias DESC, u.nome ASC "
+            "LIMIT 3"
+        ),
+        "season_stats": (
+            "SELECT COUNT(DISTINCT usuario_id) as participants, "
+            "MAX(pontos) as best_points, "
+            "AVG(pontos) as avg_points "
+            "FROM hall_da_fama "
+            "WHERE temporada = ?"
+        ),
+        "position_distribution": (
+            "SELECT u.nome as nome, pp.posicao_final as posicao "
+            "FROM hall_da_fama pp "
+            "JOIN usuarios u ON pp.usuario_id = u.id "
+            "WHERE LOWER(u.perfil) != 'master'"
+        ),
+    }
+
+
 def hall_da_fama():
     """Exibe hall da fama com histórico plurianual."""
     render_page_header(st, "Hall da Fama")
@@ -52,16 +129,13 @@ def hall_da_fama():
     st.caption(f"🔑 Perfil atual: {user_role}")
 
     with db_connect() as conn:
-        source_table, pos_col = _resolve_hall_source(conn)
+        source_table, _ = _resolve_hall_source(conn)
+        queries = _hall_queries(source_table)
         if source_table == "posicoes_participantes":
             st.info("ℹ️ Exibindo histórico legado da tabela posicoes_participantes.")
         # Get all unique years/seasons from hall_da_fama
         c = conn.cursor()
-        c.execute(
-            f"SELECT DISTINCT temporada FROM {source_table} "
-            "WHERE temporada IS NOT NULL AND trim(cast(temporada as text)) != '' "
-            "ORDER BY temporada DESC"
-        )
+        c.execute(queries["seasons"])
         seasons = [r[0] for r in c.fetchall()]
         
         # Get all users (exclude master from historical table)
@@ -93,12 +167,7 @@ def hall_da_fama():
             row = {'Participante': user_name}
             
             for season in seasons:
-                c.execute('''
-                    SELECT {pos_col}, pontos
-                    FROM {source_table}
-                    WHERE usuario_id = ? AND temporada = ?
-                    LIMIT 1
-                '''.format(pos_col=pos_col, source_table=source_table), (user_id, season))
+                c.execute(queries["user_pos"], (user_id, season))
                 result = c.fetchone()
 
                 if result and result[0] is not None:
@@ -165,34 +234,13 @@ def hall_da_fama():
                 participantes_count = len(usuarios)
             st.metric("👥 Total de Participantes", participantes_count)
         with col2:
-            c.execute(f"SELECT COUNT(DISTINCT temporada) FROM {source_table}")
+            c.execute(queries["count_seasons"])
             unique_seasons = c.fetchone()[0]
             st.metric("📆 Temporadas Realizadas", unique_seasons)
         with col3:
             # Maiores vencedores: top 3 participantes com mais temporadas ganhas (1º lugar)
-            try:
-                c.execute('''
-                    SELECT u.nome, COUNT(*) as vitorias
-                    FROM {source_table} hf
-                    JOIN usuarios u ON hf.usuario_id = u.id
-                    WHERE hf.{pos_col} = 1 AND LOWER(u.perfil) != 'master'
-                    GROUP BY hf.usuario_id, u.nome
-                    ORDER BY vitorias DESC, u.nome ASC
-                    LIMIT 3
-                '''.format(source_table=source_table, pos_col=pos_col))
-                top_winners = c.fetchall()
-            except Exception:
-                # Fallback defensivo para evitar quebra da tela caso o ambiente execute SQL legado.
-                c.execute('''
-                    SELECT u.nome, COUNT(*) as vitorias
-                    FROM {source_table} hf
-                    JOIN usuarios u ON hf.usuario_id = u.id
-                    WHERE hf.{pos_col} = 1 AND LOWER(u.perfil) != 'master'
-                    GROUP BY u.nome
-                    ORDER BY vitorias DESC, u.nome ASC
-                    LIMIT 3
-                '''.format(source_table=source_table, pos_col=pos_col))
-                top_winners = c.fetchall()
+            c.execute(queries["top_winners"])
+            top_winners = c.fetchall()
             st.markdown("**🥇 Maiores Vencedores**")
             if top_winners:
                 for name, wins in top_winners:
@@ -206,13 +254,7 @@ def hall_da_fama():
         
         season_stats = []
         for season in seasons:
-            c.execute('''
-                SELECT COUNT(DISTINCT usuario_id) as participants,
-                       MAX(pontos) as best_points,
-                       AVG(pontos) as avg_points
-                FROM {source_table}
-                WHERE temporada = ?
-            '''.format(source_table=source_table), (season,))
+            c.execute(queries["season_stats"], (season,))
             result = c.fetchone()
             if result:
                 season_stats.append({
@@ -242,12 +284,7 @@ def hall_da_fama():
         st.subheader("📋 Distribuição de Posições por Participante")
 
         # Fetch all historical positions with user names (exclude master)
-        c.execute('''
-            SELECT u.nome as nome, pp.{pos_col} as posicao
-            FROM {source_table} pp
-            JOIN usuarios u ON pp.usuario_id = u.id
-            WHERE LOWER(u.perfil) != 'master'
-        '''.format(pos_col=pos_col, source_table=source_table))
+        c.execute(queries["position_distribution"])
         rows = c.fetchall()
         if rows:
             df_pos_counts = pd.DataFrame(rows, columns=['nome', 'posicao'])
