@@ -150,6 +150,23 @@ def get_postgres_backup_mode() -> tuple[str, str]:
     if not ok:
         return "fallback", f"pg_dump unavailable: {err.strip() or 'unknown error'}"
 
+    # Validate real compatibility with the target server.
+    probe_ok, _, probe_err = _run_command(
+        [
+            pg_dump,
+            "--dbname",
+            DATABASE_URL,
+            "--schema-only",
+            "--no-owner",
+            "--no-privileges",
+        ]
+    )
+    if not probe_ok:
+        probe_detail = (probe_err or "").strip() or "pg_dump probe failed"
+        if "server version mismatch" in probe_detail.lower():
+            return "fallback", "pg_dump version mismatch with PostgreSQL server"
+        return "fallback", f"pg_dump unavailable: {probe_detail}"
+
     return "full", f"Compatible with {pg_dump}"
 
 
