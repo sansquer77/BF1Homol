@@ -23,6 +23,10 @@ from db.db_config import (
     DB_TIMEOUT,
 )
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class CompatRow(dict):
     """Linha de resultado compatível com acesso por índice e por nome."""
@@ -44,7 +48,11 @@ class CompatRow(dict):
 
 
 def _convert_placeholders(sql: str) -> str:
-    """Converte placeholders qmark (?) para format (%s), ignorando strings."""
+    """Converte placeholders qmark (?) para format (%s), ignorando literais de string.
+
+    Mantido para compatibilidade com código legado que usa '?' como placeholder.
+    Novo código deve usar '%s' diretamente (padrão psycopg/PostgreSQL).
+    """
     result: list[str] = []
     in_single = False
     in_double = False
@@ -65,36 +73,29 @@ def _convert_placeholders(sql: str) -> str:
     return "".join(result)
 
 
-def _parse_single_quoted_identifier(sql: str) -> Optional[str]:
-    match = re.search(r"\((['\"])([^'\"]+)\1\)", sql)
-    if not match:
-        return None
-    return match.group(2)
+def _normalize_sql_for_postgres(sql: str) -> str:
+    """Normaliza SQL legado mínimo para compatibilidade com psycopg.
 
+    Diferente da versão anterior baseada em regex complexo, esta função aplica
+    apenas transformações seguras e bem-definidas:
+      1. Conversão de placeholders '?' → '%s' (via parser de string literal).
+      2. Rejeita qualquer construção SQLite-exclusiva (INSERT OR REPLACE) com
+         erro explícito, forçando o chamador a usar SQL nativo PostgreSQL.
 
-def _rewrite_sql_for_postgres(sql: str) -> tuple[str, bool]:
-    """Reescreve SQL para compatibilidade com psycopg."""
-    sql = re.sub(r"BOOLEAN\s+DEFAULT\s+0", "BOOLEAN DEFAULT FALSE", sql, flags=re.IGNORECASE)
-    sql = re.sub(r"BOOLEAN\s+DEFAULT\s+1", "BOOLEAN DEFAULT TRUE", sql, flags=re.IGNORECASE)
+    Todo SQL novo deve ser escrito diretamente em PostgreSQL — esta função
+    existe apenas como camada de compatibilidade com código legado.
+    """
+    normalized = " ".join(sql.strip().split()).upper()
 
-    insert_or_replace = re.search(
-        r"^\s*INSERT\s+OR\s+REPLACE\s+INTO\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]+)\)\s*VALUES\s*\((.+)\)\s*$",
-        sql,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-    if insert_or_replace:
-        table_name = insert_or_replace.group(1)
-        columns = [c.strip() for c in insert_or_replace.group(2).split(",")]
-        values = insert_or_replace.group(3).strip()
-        conflict_col = columns[0]
-        updates = ", ".join(f"{col} = EXCLUDED.{col}" for col in columns[1:])
-        sql = (
-            f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({values}) "
-            f"ON CONFLICT ({conflict_col}) DO UPDATE SET {updates}"
+    # INSERT OR REPLACE não existe no PostgreSQL — deve ser substituído por
+    # INSERT ... ON CONFLICT DO UPDATE pelo chamador.
+    if re.match(r"^\s*INSERT\s+OR\s+REPLACE\s+", sql, re.IGNORECASE):
+        raise ValueError(
+            "INSERT OR REPLACE não é suportado no PostgreSQL. "
+            "Use INSERT ... ON CONFLICT ({col}) DO UPDATE SET ... no lugar."
         )
 
-    sql = _convert_placeholders(sql)
-    return sql, False
+    return _convert_placeholders(sql)
 
 
 def _insert_explicitly_sets_id(sql: str) -> bool:
@@ -112,7 +113,13 @@ def _insert_explicitly_sets_id(sql: str) -> bool:
 
 
 class PostgresCursorAdapter:
-    """Cursor compatível com API sqlite para reduzir mudanças de código."""
+    """Cursor compatível com API sqlite3 para reduzir mudanças de código legado.
+
+    Política de SQL:
+    - Código novo deve usar SQL nativo PostgreSQL com %s como placeholder.
+    - Código legado com '?' é convertido automaticamente por _normalize_sql_for_postgres.
+    - INSERT OR REPLACE deve ser migrado para INSERT ... ON CONFLICT DO UPDATE.
+    """
 
     def __init__(self, cursor: psycopg.Cursor[Any]) -> None:
         self._cursor = cursor
@@ -131,22 +138,17 @@ class PostgresCursorAdapter:
         return [(desc.name, None, None, None, None, None, None) for desc in self._cursor.description]
 
     def execute(self, sql: str, params: Optional[tuple[Any, ...] | list[Any]] = None) -> "PostgresCursorAdapter":
-        rewritten_sql, requires_special_param = _rewrite_sql_for_postgres(sql)
-        query_params: tuple[Any, ...] | list[Any] | None = params
+        normalized_sql = _normalize_sql_for_postgres(sql)
         self._lastrowid = None
 
-        if requires_special_param:
-            identifier = _parse_single_quoted_identifier(sql)
-            query_params = (identifier,) if identifier else ()
-
-        self._cursor.execute(rewritten_sql, query_params)
+        self._cursor.execute(normalized_sql, params)
         self._last_columns = [desc.name for desc in self._cursor.description] if self._cursor.description else []
 
-        normalized = " ".join(rewritten_sql.strip().split()).lower()
+        normalized_lower = " ".join(normalized_sql.strip().split()).lower()
         if (
-            normalized.startswith("insert")
-            and " returning " not in normalized
-            and not _insert_explicitly_sets_id(rewritten_sql)
+            normalized_lower.startswith("insert")
+            and " returning " not in normalized_lower
+            and not _insert_explicitly_sets_id(normalized_sql)
         ):
             try:
                 self._cursor.execute("SAVEPOINT bf1_lastval_sp")
@@ -170,9 +172,9 @@ class PostgresCursorAdapter:
         sql: str,
         params_seq: list[tuple[Any, ...]] | tuple[tuple[Any, ...], ...],
     ) -> "PostgresCursorAdapter":
-        rewritten_sql, _ = _rewrite_sql_for_postgres(sql)
+        normalized_sql = _normalize_sql_for_postgres(sql)
         self._lastrowid = None
-        self._cursor.executemany(rewritten_sql, params_seq)
+        self._cursor.executemany(normalized_sql, params_seq)
         self._last_columns = [desc.name for desc in self._cursor.description] if self._cursor.description else []
         return self
 
@@ -191,7 +193,7 @@ class PostgresCursorAdapter:
 
 
 class PostgresConnectionAdapter:
-    """Conexão compatível com API sqlite para uso legado."""
+    """Conexão compatível com API sqlite3 para uso legado."""
 
     def __init__(self, conn: psycopg.Connection[Any]) -> None:
         self._conn = conn
@@ -219,6 +221,7 @@ class PostgresConnectionAdapter:
 
     def __getattr__(self, item: str) -> Any:
         return getattr(self._conn, item)
+
 
 class ConnectionPool:
     """Pool de conexões thread-safe para PostgreSQL."""
@@ -263,6 +266,7 @@ class ConnectionPool:
 # Instância global do pool
 _pool: Optional[ConnectionPool] = None
 
+
 def _build_pool(pool_size: int) -> ConnectionPool:
     return ConnectionPool(pool_size, DB_TIMEOUT)
 
@@ -284,12 +288,14 @@ def init_pool(pool_size: int = 5) -> None:
     global _pool
     _pool = _get_cached_pool(pool_size)
 
+
 def get_pool() -> ConnectionPool:
     """Retorna o pool global."""
     global _pool
     if _pool is None:
         init_pool(pool_size=5)
     return _pool
+
 
 def close_pool() -> None:
     """Fecha o pool global."""
