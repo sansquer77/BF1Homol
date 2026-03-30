@@ -30,7 +30,7 @@ def add_temporada_columns_if_missing() -> None:
                 if table_exists(conn, table_name):
                     _add_column_if_missing(cursor, conn, table_name, "temporada", f"temporada TEXT DEFAULT '{current_year}'")
             except Exception as exc:
-                logger.debug("Erro ao adicionar temporada em %s: %s", table_name, exc)
+                logger.warning("Erro ao adicionar coluna temporada em %s: %s", table_name, exc)
         conn.commit()
 
 
@@ -43,7 +43,7 @@ def add_abandono_column_if_missing() -> None:
                 _add_column_if_missing(cursor, conn, "resultados", "abandono_pilotos", "abandono_pilotos TEXT DEFAULT ''")
             conn.commit()
         except Exception as exc:
-            logger.debug("Erro ao adicionar abandono_pilotos: %s", exc)
+            logger.warning("Erro ao adicionar coluna abandono_pilotos: %s", exc)
             conn.rollback()
 
 
@@ -63,7 +63,7 @@ def add_legacy_columns_if_missing() -> None:
 
             conn.commit()
         except Exception as exc:
-            logger.debug("Erro ao adicionar colunas legadas: %s", exc)
+            logger.warning("Erro ao adicionar colunas legadas: %s", exc)
             conn.rollback()
 
 
@@ -76,7 +76,7 @@ def add_password_reset_flag_if_missing() -> None:
                 _add_column_if_missing(cursor, conn, "usuarios", "must_change_password", "must_change_password INTEGER DEFAULT 0")
             conn.commit()
         except Exception as exc:
-            logger.debug("Erro ao adicionar must_change_password: %s", exc)
+            logger.warning("Erro ao adicionar coluna must_change_password: %s", exc)
             conn.rollback()
 
 
@@ -89,7 +89,7 @@ def add_login_attempts_action_if_missing() -> None:
                 _add_column_if_missing(cursor, conn, "login_attempts", "action", "action TEXT DEFAULT 'login'")
             conn.commit()
         except Exception as exc:
-            logger.debug("Erro ao adicionar action: %s", exc)
+            logger.warning("Erro ao adicionar coluna action em login_attempts: %s", exc)
             conn.rollback()
 
 
@@ -102,7 +102,7 @@ def add_login_attempts_ip_if_missing() -> None:
                 _add_column_if_missing(cursor, conn, "login_attempts", "ip_address", "ip_address TEXT")
             conn.commit()
         except Exception as exc:
-            logger.debug("Erro ao adicionar ip_address: %s", exc)
+            logger.warning("Erro ao adicionar coluna ip_address em login_attempts: %s", exc)
             conn.rollback()
 
 
@@ -121,7 +121,7 @@ def add_penalidade_auto_percent_if_missing() -> None:
                 )
             conn.commit()
         except Exception as exc:
-            logger.debug("Erro ao adicionar penalidade_auto_percent: %s", exc)
+            logger.warning("Erro ao adicionar coluna penalidade_auto_percent em regras: %s", exc)
             conn.rollback()
 
 
@@ -193,7 +193,7 @@ def create_usuarios_status_historico_if_missing() -> None:
             )
             conn.commit()
         except Exception as exc:
-            logger.debug("Erro ao criar usuarios_status_historico: %s", exc)
+            logger.error("Erro ao criar tabela usuarios_status_historico: %s", exc)
             conn.rollback()
 
 
@@ -280,7 +280,7 @@ def create_missing_tables_if_needed() -> None:
 
             conn.commit()
         except Exception as exc:
-            logger.debug("Erro ao criar tabelas faltantes: %s", exc)
+            logger.error("Erro ao criar tabelas faltantes: %s", exc)
             conn.rollback()
 
 
