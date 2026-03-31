@@ -271,6 +271,84 @@ def autenticar_usuario(email: str, senha: str) -> Optional[dict]:
     return None
 
 
+def update_user_email(user_id: int, novo_email: str) -> bool:
+    """Atualiza o email do usuário."""
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE usuarios SET email = %s WHERE id = %s",
+                (novo_email, user_id),
+            )
+            conn.commit()
+        logger.info("Email do usuário %s atualizado", user_id)
+        return True
+    except Exception as exc:
+        logger.error("Erro ao atualizar email: %s", exc)
+        return False
+
+
+def update_user_password(user_id: int, nova_senha: str) -> bool:
+    """Atualiza a senha do usuário (aceita plain-text ou hash já computado)."""
+    try:
+        if isinstance(nova_senha, str) and nova_senha.startswith("$2"):
+            senha_hash = nova_senha
+        else:
+            senha_hash = hash_password(nova_senha)
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cols = get_table_columns(conn, "usuarios")
+            if "must_change_password" in cols:
+                cur.execute(
+                    "UPDATE usuarios SET senha = %s, must_change_password = 0 WHERE id = %s",
+                    (senha_hash, user_id),
+                )
+            else:
+                cur.execute(
+                    "UPDATE usuarios SET senha = %s WHERE id = %s",
+                    (senha_hash, user_id),
+                )
+            conn.commit()
+        logger.info("Senha do usuário %s atualizada", user_id)
+        return True
+    except Exception as exc:
+        logger.error("Erro ao atualizar senha: %s", exc)
+        return False
+
+
+def update_usuario(user_id: int, **campos) -> bool:
+    """Atualiza campos arbitrários de um usuário.
+
+    Uso: update_usuario(1, nome='Novo Nome', perfil='admin')
+    """
+    if not campos:
+        return False
+    set_clause = ", ".join(f"{k} = %s" for k in campos)
+    values = list(campos.values()) + [user_id]
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute(f"UPDATE usuarios SET {set_clause} WHERE id = %s", values)
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("update_usuario falhou: %s", exc)
+        return False
+
+
+def delete_usuario(user_id: int) -> bool:
+    """Remove um usuário pelo ID."""
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM usuarios WHERE id = %s", (user_id,))
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("delete_usuario falhou: %s", exc)
+        return False
+
+
 # ---------------------------------------------------------------------------
 # DataFrame helpers  (todos via _query_to_df — nunca pd.read_sql)
 # ---------------------------------------------------------------------------
@@ -331,6 +409,118 @@ def get_resultados_df(temporada: Optional[str] = None) -> pd.DataFrame:
     )
 
 
+def get_posicoes_participantes_df(temporada: Optional[str] = None) -> pd.DataFrame:
+    """Retorna DataFrame de posicoes_participantes, filtrando por temporada quando informada."""
+    if temporada:
+        return _query_to_df(
+            "SELECT * FROM posicoes_participantes WHERE temporada = %s ORDER BY prova_id, posicao",
+            (temporada,),
+        )
+    return _query_to_df("SELECT * FROM posicoes_participantes ORDER BY prova_id, posicao")
+
+
+# ---------------------------------------------------------------------------
+# Pilotos helpers
+# ---------------------------------------------------------------------------
+
+def add_piloto(nome: str, equipe: str = "", status: str = "Ativo", numero: int = 0) -> bool:
+    """Insere um piloto. Retorna False se já existir."""
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO pilotos (nome, equipe, status, numero) VALUES (%s, %s, %s, %s)",
+                (nome, equipe, status, numero),
+            )
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.warning("add_piloto falhou: %s", exc)
+        return False
+
+
+def update_piloto(piloto_id: int, **campos) -> bool:
+    """Atualiza campos de um piloto."""
+    if not campos:
+        return False
+    set_clause = ", ".join(f"{k} = %s" for k in campos)
+    values = list(campos.values()) + [piloto_id]
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute(f"UPDATE pilotos SET {set_clause} WHERE id = %s", values)
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("update_piloto falhou: %s", exc)
+        return False
+
+
+def delete_piloto(piloto_id: int) -> bool:
+    """Remove um piloto pelo ID."""
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM pilotos WHERE id = %s", (piloto_id,))
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("delete_piloto falhou: %s", exc)
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Provas helpers
+# ---------------------------------------------------------------------------
+
+def add_prova(nome: str, data: str, horario_prova: str = "", tipo: str = "Normal",
+              status: str = "Pendente", temporada: Optional[str] = None) -> bool:
+    """Insere uma prova."""
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO provas (nome, data, horario_prova, tipo, status, temporada) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (nome, data, horario_prova, tipo, status, temporada),
+            )
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("add_prova falhou: %s", exc)
+        return False
+
+
+def update_prova(prova_id: int, **campos) -> bool:
+    """Atualiza campos de uma prova."""
+    if not campos:
+        return False
+    set_clause = ", ".join(f"{k} = %s" for k in campos)
+    values = list(campos.values()) + [prova_id]
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute(f"UPDATE provas SET {set_clause} WHERE id = %s", values)
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("update_prova falhou: %s", exc)
+        return False
+
+
+def delete_prova(prova_id: int) -> bool:
+    """Remove uma prova pelo ID."""
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM provas WHERE id = %s", (prova_id,))
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("delete_prova falhou: %s", exc)
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Race / schedule helpers
 # ---------------------------------------------------------------------------
@@ -347,6 +537,32 @@ def get_horario_prova(prova_id: int) -> tuple[Optional[str], Optional[str], Opti
     if row:
         return row["nome"], row["data"], row["horario_prova"]
     return None, None, None
+
+
+# ---------------------------------------------------------------------------
+# Resultados helpers
+# ---------------------------------------------------------------------------
+
+def salvar_resultado(prova_id: int, posicoes: str, abandono_pilotos: str = "") -> bool:
+    """Insere ou atualiza resultado de uma prova."""
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO resultados (prova_id, posicoes, abandono_pilotos)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (prova_id) DO UPDATE
+                    SET posicoes = EXCLUDED.posicoes,
+                        abandono_pilotos = EXCLUDED.abandono_pilotos
+                """,
+                (prova_id, posicoes, abandono_pilotos),
+            )
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("salvar_resultado falhou: %s", exc)
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -431,10 +647,7 @@ def registrar_historico_status_usuario(
     motivo: Optional[str] = None,
     data_referencia: Optional[str] = None,
 ) -> None:
-    """Registra alteração de status do usuário no histórico.
-
-    Fecha o período anterior e abre um novo registro com o status informado.
-    """
+    """Registra alteração de status do usuário no histórico."""
     if data_referencia is None:
         data_referencia = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -481,10 +694,7 @@ def registrar_historico_status_usuario(
 
 
 def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    """Retorna participantes ativos na temporada selecionada.
-
-    Usa histórico de status quando disponível; caso contrário, usa status atual.
-    """
+    """Retorna participantes ativos na temporada selecionada."""
     if temporada is None:
         temporada = str(datetime.now().year)
     season_start = f"{temporada}-01-01 00:00:00"
@@ -492,10 +702,8 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
 
     with db_connect() as conn:
         has_hist = _usuarios_status_historico_exists(conn)
-
         if not has_hist:
             return _query_to_df("SELECT * FROM usuarios WHERE lower(trim(coalesce(status,''))) = 'ativo'")
-
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) AS cnt FROM usuarios_status_historico")
         row = cur.fetchone()
@@ -519,18 +727,10 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
 
 
 def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
-    """Retorna temporadas em que o usuário esteve com status ativo.
-
-    Usa histórico de status quando disponível. Sem histórico:
-    - usuário ativo  → retorna todas as temporadas existentes em provas
-    - usuário inativo → infere temporadas via atividade registrada
-    """
+    """Retorna temporadas em que o usuário esteve com status ativo."""
 
     def _infer_por_atividade(user_id: int) -> list[str]:
-        """Coleta temporadas via apostas, log e posições do usuário."""
         temporadas: set[str] = set()
-
-        # Apostas
         df = _query_to_df(
             "SELECT DISTINCT trim(coalesce(temporada,'')) AS t FROM apostas "
             "WHERE usuario_id = %s AND trim(coalesce(temporada,'')) <> ''",
@@ -538,7 +738,6 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
         )
         temporadas.update(df["t"].tolist() if not df.empty else [])
 
-        # Log de apostas
         with db_connect() as conn:
             log_cols = set(get_table_columns(conn, "log_apostas")) if table_exists(conn, "log_apostas") else set()
         user_col = "usuario_id" if "usuario_id" in log_cols else ("user_id" if "user_id" in log_cols else None)
@@ -556,7 +755,6 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
                 )
                 temporadas.update([v for v in df2["t"].tolist() if v] if not df2.empty else [])
 
-        # Posições históricas
         with db_connect() as conn:
             has_pos = table_exists(conn, "posicoes_participantes")
         if has_pos:
@@ -570,7 +768,6 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
 
         return sorted(temporadas)
 
-    # Todas as temporadas existentes em provas
     df_base = _query_to_df(
         """
         SELECT DISTINCT COALESCE(NULLIF(trim(temporada),''), substr(data,1,4)) AS t
@@ -587,14 +784,12 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
         has_hist = _usuarios_status_historico_exists(conn)
 
     if not has_hist:
-        # Sem histórico: usa status atual
         user = get_user_by_id(int(user_id))
         status = str(user.get("status", "")).strip().lower() if user else ""
         if status == "ativo":
             return temporadas_base
         return _infer_por_atividade(int(user_id))
 
-    # Com histórico: filtra temporadas em que o usuário estava ativo
     df_ativas = _query_to_df(
         """
         SELECT DISTINCT s.t
@@ -613,5 +808,4 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
     if not df_ativas.empty:
         return [str(v).strip() for v in df_ativas["t"].tolist() if v]
 
-    # Fallback: sem match no histórico, usa atividade registrada
     return _infer_por_atividade(int(user_id))
