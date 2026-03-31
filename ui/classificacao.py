@@ -9,7 +9,7 @@ import datetime as dt
 import ast
 from zoneinfo import ZoneInfo
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from db.db_utils import db_connect, get_participantes_temporada_df, get_provas_df, get_apostas_df, get_resultados_df, usuarios_status_historico_disponivel
+from db.db_utils import db_connect, get_participantes_temporada_df, get_provas_df, get_apostas_df, get_resultados_df, usuarios_status_historico_disponivel, get_posicoes_participantes_df
 from services.championship_service import get_championship_bets_df, get_final_results
 from services.rules_service import get_regras_aplicaveis
 from services.bets_service import calcular_pontuacao_lote, atualizar_classificacoes_todas_as_provas, _parse_datetime_sp
@@ -171,7 +171,7 @@ def main():
         st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
         return
     default_index = get_default_season_index(season_options, current_year=str(current_year))
-    
+
     season = st.selectbox("Temporada", season_options, index=default_index, key="classificacao_season")
     st.session_state['temporada'] = season
 
@@ -203,7 +203,7 @@ def main():
     participantes = usuarios_df[usuarios_df['nome'] != 'Master']
     provas_df = provas_df.sort_values('data')
     perfil_usuario = st.session_state.get("user_role", "usuario").strip().lower()
-    
+
     resultado_campeonato = get_final_results(season_int)
     championship_bets_map = {}
     if resultado_campeonato:
@@ -217,7 +217,7 @@ def main():
                 }
                 for _, row in championship_bets_df.iterrows()
             }
-    
+
     tabela_classificacao = []
     tabela_detalhada = []
 
@@ -290,7 +290,7 @@ def main():
         apostas_part = apostas_part.sort_values(by='prova_id')
         pontos_part = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=season)
         total_provas = sum([p for p in pontos_part if p is not None])
-        
+
         bonus_campeao = 0
         bonus_vice = 0
         bonus_equipe = 0
@@ -312,7 +312,7 @@ def main():
         pontos_campeonato = bonus_campeao + bonus_vice + bonus_equipe
         acertos_11 = int(acertos_11_por_usuario.get(part['id'], 0))
         apostas_no_prazo = int(apostas_no_prazo_por_usuario.get(part['id'], 0))
-        
+
         tabela_classificacao.append({
             "Participante": part['nome'],
             "usuario_id": part['id'],
@@ -337,13 +337,13 @@ def main():
     if df_class.empty:
         st.info("Nenhuma pontuação disponível para a temporada selecionada.")
         return
-    
+
     df_class = df_class.sort_values(
         ["Total Geral", "Acertos 11", "Acertou Campeao", "Acertou Equipe", "Acertou Vice", "Apostas no Prazo"],
         ascending=[False, False, False, False, False, False]
     ).reset_index(drop=True)
     df_class['Posição'] = df_class.index + 1
-    
+
     provas_realizadas = provas_df[provas_df['id'].isin(resultados_df['prova_id'])]
     if len(provas_realizadas) > 1:
         penultima_prova_id = provas_realizadas.iloc[-2]['id']
@@ -351,7 +351,7 @@ def main():
         tabela_anterior = []
         for idx, part in participantes.iterrows():
             apostas_anteriores_raw = apostas_df[
-                (apostas_df['usuario_id'] == part['id']) & 
+                (apostas_df['usuario_id'] == part['id']) &
                 (apostas_df['prova_id'].isin(provas_ate_penultima))
             ]
             if isinstance(apostas_anteriores_raw, pd.Series):
@@ -361,7 +361,7 @@ def main():
             apostas_anteriores = apostas_anteriores.sort_values(by='prova_id')
             pontos_anteriores = calcular_pontuacao_lote(apostas_anteriores, resultados_df, provas_df)
             total_anteriores = sum([p for p in pontos_anteriores if p is not None])
-            
+
             tabela_anterior.append({
                 "Participante": part['nome'],
                 "usuario_id": part['id'],
@@ -388,17 +388,17 @@ def main():
         df_class['Movimentação'] = df_class.apply(movimento, axis=1)
     else:
         df_class['Movimentação'] = "Novo"
-    
+
     diferencas = [0]
     totals = df_class["Total Geral"].tolist()
     for i in range(1, len(totals)):
         diferencas.append(totals[i-1] - totals[i])
     df_class["Diferença"] = ["-" if i == 0 else formatar_brasileiro(d) for i, d in enumerate(diferencas)]
-    
+
     df_display = df_class.copy()
     for col in ["Pontos Provas", "Bônus Campeão", "Bônus Vice", "Bônus Equipe", "Pontos Campeonato", "Total Geral"]:
         df_display[col] = df_display[col].apply(lambda x: formatar_brasileiro(float(x)))
-    
+
     colunas_ordem = [
         "Posição",
         "Participante",
@@ -553,15 +553,8 @@ def main():
         st.plotly_chart(fig, width="stretch")
 
     st.subheader("Classificação de Cada Participante ao Longo do Campeonato")
-    with db_connect() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            'SELECT * FROM posicoes_participantes WHERE temporada = %s',
-            (season,)
-        )
-        rows = cur.fetchall() or []
-        cur.close()
-    df_posicoes = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
+    # fix #5: substituir query raw por helper db_utils — elimina conexão extra e duplicação de SQL
+    df_posicoes = get_posicoes_participantes_df(season)
     fig_all = go.Figure()
     for part in participantes['nome']:
         u_id = participantes[participantes['nome'] == part].iloc[0]['id']
