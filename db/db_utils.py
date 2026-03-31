@@ -44,14 +44,21 @@ def _query_to_df(query: str, params: tuple | None = None) -> pd.DataFrame:
     pd.read_sql é incompatível com psycopg3 quando row_factory=dict_row:
     o pandas itera as chaves do dict em vez dos valores, resultando em
     células com o nome da coluna repetido em cada linha.
+
+    fix: quando fetchall() retorna lista vazia, usa cur.description para
+    preservar os nomes das colunas no DataFrame retornado — evita KeyError
+    ao filtrar colunas (ex: 'usuario_id') em DataFrames vazios.
     """
     with db_connect() as conn:
         cur = conn.cursor()
         cur.execute(query, params or ())
         rows = cur.fetchall() or []
+        if not rows:
+            # Preserva schema: extrai nomes das colunas do cursor mesmo sem linhas
+            col_names = [desc[0] for desc in (cur.description or [])]
+            cur.close()
+            return pd.DataFrame(columns=col_names)
         cur.close()
-    if not rows:
-        return pd.DataFrame()
     return pd.DataFrame([dict(r) for r in rows])
 
 
@@ -420,10 +427,12 @@ def get_resultados_df(temporada: Optional[str] = None) -> pd.DataFrame:
             )
 
         rows = cur.fetchall() or []
+        if not rows:
+            col_names = [desc[0] for desc in (cur.description or [])]
+            cur.close()
+            return pd.DataFrame(columns=col_names)
         cur.close()
 
-    if not rows:
-        return pd.DataFrame()
     return pd.DataFrame([dict(r) for r in rows])
 
 
@@ -779,7 +788,7 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
             if "temporada" in log_cols:
                 parts.append("NULLIF(trim(coalesce(temporada,'')),'')") 
             if "data" in log_cols:
-                parts.append("NULLIF(trim(substr(coalesce(data,''),1,4)),'')")
+                parts.append("NULLIF(trim(substr(coalesce(data,''),1,4)),'')") 
             if parts:
                 df2 = _query_to_df(
                     f"SELECT DISTINCT COALESCE({', '.join(parts)}) AS t "
