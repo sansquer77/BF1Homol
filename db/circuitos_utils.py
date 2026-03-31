@@ -84,7 +84,6 @@ def _extract_circuit_entries_from_season(data: dict) -> dict[str, dict]:
                 "aliases": aliases_clean,
             }
         else:
-            # Mantem circuito e agrega aliases entre chamadas/temporadas.
             existing_aliases = set(existing.get("aliases", []))
             existing_aliases.update(aliases_clean)
             existing["aliases"] = sorted(existing_aliases)
@@ -153,7 +152,7 @@ def atualizar_base_circuitos(seasons: Iterable[str]) -> dict[str, int]:
             c.execute(
                 """
                 INSERT INTO circuitos_f1 (circuit_id, circuit_name, country, locality, aliases, atualizado_em)
-                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                 ON CONFLICT(circuit_id) DO UPDATE SET
                     circuit_name = excluded.circuit_name,
                     country = excluded.country,
