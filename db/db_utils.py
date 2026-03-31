@@ -354,13 +354,17 @@ def get_pilotos_df() -> pd.DataFrame:
 
 
 def get_provas_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    # fix: inclui provas sem temporada definida (temporada IS NULL)
+    # fix(item 3): ordena por data ASC, id ASC para garantir ordem cronológica
+    # em todos os módulos que consomem get_provas_df diretamente
+    # (ex: gestao_provas.py), sem depender de _ordenar_provas_por_calendario.
+    # Inclui provas sem temporada definida (temporada IS NULL).
     if temporada:
         return _query_to_df(
-            "SELECT * FROM provas WHERE temporada = %s OR temporada IS NULL ORDER BY id",
+            "SELECT * FROM provas WHERE temporada = %s OR temporada IS NULL "
+            "ORDER BY data ASC, id ASC",
             (temporada,),
         )
-    return _query_to_df("SELECT * FROM provas ORDER BY id")
+    return _query_to_df("SELECT * FROM provas ORDER BY data ASC, id ASC")
 
 
 def get_apostas_df(temporada: Optional[str] = None) -> pd.DataFrame:

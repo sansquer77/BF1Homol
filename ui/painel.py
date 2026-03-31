@@ -53,7 +53,6 @@ def _parse_evento_prova_dt(data_raw, hora_raw, tzinfo):
     try:
         return parse_datetime_sao_paulo(data_iso, hora)
     except Exception:
-        # Se o horário vier inválido, mantém ao menos a data para ordenação estável.
         return datetime.datetime(
             data_dt.year,
             data_dt.month,
@@ -65,39 +64,39 @@ def _parse_evento_prova_dt(data_raw, hora_raw, tzinfo):
 
 
 def _get_proxima_prova_id(provas_df: pd.DataFrame):
-    """Retorna o ID da próxima prova (data/hora >= agora em Sao Paulo)."""
+    """Retorna o ID da próxima prova (data/hora >= agora em Sao Paulo).
+
+    fix(item 6): substituído for/iterrows() por df.apply(axis=1) —
+    elimina o anti-padrão pandas sem alterar o comportamento.
+    """
     if provas_df.empty or 'id' not in provas_df.columns:
         return None
 
     agora_sp = now_sao_paulo()
     tzinfo = agora_sp.tzinfo
-    candidatas_futuras = []
-    candidatas_passadas = []
 
-    for _, row in provas_df.iterrows():
-        prova_id = row.get('id')
-        data_raw = row.get('data')
-        if prova_id is None or not data_raw:
-            continue
+    def _evento_dt(row):
+        if row.get('id') is None or not row.get('data'):
+            return None
+        return _parse_evento_prova_dt(row['data'], row.get('horario_prova', '00:00'), tzinfo)
 
-        evento_dt = _parse_evento_prova_dt(data_raw, row.get('horario_prova', '00:00'), tzinfo)
-        if evento_dt is None:
-            continue
+    evento_dts = provas_df.apply(_evento_dt, axis=1)
 
-        if evento_dt >= agora_sp:
-            candidatas_futuras.append((evento_dt, prova_id))
-        else:
-            candidatas_passadas.append((evento_dt, prova_id))
+    futuras = [
+        (dt, row['id'])
+        for dt, (_, row) in zip(evento_dts, provas_df.iterrows())
+        if dt is not None and dt >= agora_sp
+    ]
+    passadas = [
+        (dt, row['id'])
+        for dt, (_, row) in zip(evento_dts, provas_df.iterrows())
+        if dt is not None and dt < agora_sp
+    ]
 
-    if candidatas_futuras:
-        candidatas_futuras.sort(key=lambda item: item[0])
-        return candidatas_futuras[0][1]
-
-    # Fallback: se a temporada já passou inteira, mantém a mais recente.
-    if candidatas_passadas:
-        candidatas_passadas.sort(key=lambda item: item[0], reverse=True)
-        return candidatas_passadas[0][1]
-
+    if futuras:
+        return min(futuras, key=lambda x: x[0])[1]
+    if passadas:
+        return max(passadas, key=lambda x: x[0])[1]
     return None
 
 
@@ -186,9 +185,9 @@ def participante_view():
         if regras.get('penalidade_abandono'):
             st.markdown(f"**Pontos penalidade:** {regras.get('pontos_penalidade', 0)}")
 
-    # fix: inicializa apostas_part e provas_df antes do bloco condicional para
-    # evitar NameError nas seções 'Regra de Descarte' e 'Gráfico de Evolução'
-    # quando force_change=True (tabs[0] nunca é executado nesse caso).
+    # fix: inicializa apostas_part, provas_df e resultados_df antes do bloco
+    # condicional para evitar NameError nas seções 'Regra de Descarte' e
+    # 'Gráfico de Evolução' quando force_change=True.
     temporada = st.session_state.get('temporada', str(datetime.datetime.now().year))
     apostas_part = pd.DataFrame()
     provas_df = pd.DataFrame()
@@ -197,11 +196,15 @@ def participante_view():
     # ------------------ Aba: Apostas ----------------------
     if not force_change:
         with tabs[0]:
-            # Betting form should show only provas that will occur in the current calendar year
             temporada = st.session_state.get('temporada', str(datetime.datetime.now().year))
-            # Fetch all provas (db_utils will filter by temporada when provided). We fetch without filter and
-            # then restrict by the prova date to ensure only upcoming/current-year events are shown.
+
+            # fix(itens 4 e 5): cada DataFrame é buscado UMA única vez por render
+            # e reutilizado em todo o escopo da aba — elimina as 2x get_apostas_df
+            # e 3x get_provas_df que existiam antes.
             provas_df = get_provas_df(temporada)
+            apostas_df = get_apostas_df(temporada)
+            resultados_df = get_resultados_df(temporada)
+
             try:
                 if not provas_df.empty and 'data' in provas_df.columns:
                     provas_ordenadas = _ordenar_provas_por_calendario(provas_df)
@@ -239,8 +242,6 @@ def participante_view():
                     temporada_default_aposta = st.session_state.get("aposta_default_temporada")
                     prova_atual_sel = st.session_state.get("sel_prova_aposta")
 
-                    # Define o default somente no primeiro carregamento da temporada
-                    # ou quando a prova selecionada não existe mais na lista filtrada.
                     if proxima_prova_id is not None:
                         if temporada_default_aposta != temporada:
                             st.session_state["sel_prova_aposta"] = proxima_prova_id
@@ -289,7 +290,6 @@ def participante_view():
                     min_pilotos_regra = int(regras.get('qtd_minima_pilotos', regras.get('min_pilotos', 3)))
                     fichas_max_por_piloto = int(regras.get('fichas_por_piloto', quantidade_fichas))
                     permite_mesma_equipe = bool(regras.get('mesma_equipe', False))
-                    apostas_df = get_apostas_df(temporada)
                     aposta_existente = apostas_df[
                         (apostas_df['usuario_id'] == user['id']) & (apostas_df['prova_id'] == prova_id)
                     ]
@@ -472,10 +472,8 @@ def participante_view():
 
             # --- Exibição detalhada das apostas do participante ---
             st.subheader("Minhas apostas detalhadas")
-            apostas_df = get_apostas_df(temporada)
-            resultados_df = get_resultados_df(temporada)
-            provas_df = get_provas_df(temporada)
-
+            # apostas_df, provas_df e resultados_df já foram buscados no topo da aba —
+            # apenas reutilizamos as variáveis existentes aqui.
             apostas_part = apostas_df[apostas_df['usuario_id'] == user['id']]
             if 'temporada' in apostas_part.columns:
                 apostas_part = apostas_part[apostas_part['temporada'] == temporada]
@@ -580,11 +578,9 @@ def participante_view():
         descarte_ativo = regras_temporada.get('descarte', False)
 
         if descarte_ativo:
-            # Calcular pontuação de todas as provas do participante
             if not apostas_part.empty:
                 pontos_por_prova = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=temporada)
 
-                # Criar dataframe com provas e pontuações
                 provas_pontos = []
                 for idx, (_, aposta) in enumerate(apostas_part.iterrows()):
                     if pontos_por_prova[idx] is not None:
@@ -599,7 +595,6 @@ def participante_view():
 
                 if provas_pontos:
                     df_provas_pontos = pd.DataFrame(provas_pontos)
-                    # Identificar prova com menor pontuação
                     prova_descarte = df_provas_pontos.loc[df_provas_pontos['pontos'].idxmin()]
 
                     st.info(
@@ -634,7 +629,6 @@ def participante_view():
             st.info("Nenhum histórico de posições disponível ainda. Quando houver dados, eles aparecerão aqui.")
             df_posicoes = pd.DataFrame()
 
-        # Verifica se as colunas existem e só então faz o filtro
         if not df_posicoes.empty and {'usuario_id', 'prova_id', 'posicao'}.issubset(df_posicoes.columns):
             posicoes_part = df_posicoes[df_posicoes['usuario_id'] == user_id_logado]
             if 'temporada' in df_posicoes.columns:
@@ -684,12 +678,10 @@ def participante_view():
             if not novo_email or novo_email.strip() == "":
                 erros.append("Email não pode ficar vazio.")
             elif novo_email != user['email']:
-                # só verifica duplicidade se o email mudou
                 email_cadastrado = get_user_by_email(novo_email)
                 if email_cadastrado and email_cadastrado['id'] != user['id']:
                     erros.append("O email informado já está em uso por outro usuário.")
 
-            # Troca de senha (opcional)
             if senha_atual or nova_senha or confirma_senha:
                 if not senha_atual:
                     erros.append("Informe a senha atual para alterar a senha.")
