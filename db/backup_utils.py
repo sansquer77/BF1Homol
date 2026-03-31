@@ -530,8 +530,19 @@ def download_tabela() -> None:
     if not selected:
         return
 
+    # fix: pd.read_sql_query é incompatível com psycopg3 — retorna nomes de
+    # colunas como valores em todas as linhas. Substituído por cursor + fetchall
+    # manual para construir o DataFrame corretamente.
     with db_connect() as conn:
-        df = pd.read_sql_query(f"SELECT * FROM {_quote_identifier(selected)}", conn)
+        c = conn.cursor()
+        c.execute(f"SELECT * FROM {_quote_identifier(selected)}")
+        rows = c.fetchall() or []
+        col_names = [desc[0] for desc in c.description] if c.description else []
+
+    df = pd.DataFrame(
+        [list(r.values()) for r in rows] if rows else [],
+        columns=col_names,
+    )
 
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
@@ -580,6 +591,23 @@ def upload_tabela() -> None:
                 f"INSERT INTO {_quote_identifier(selected)} ({col_sql}) VALUES ({placeholders})",
                 rows,
             )
+            # fix: ressincroniza a sequence após inserção de linhas com id
+            # explícito vindos do Excel, prevenindo UniqueViolation no próximo
+            # INSERT automático. Aplicado apenas à tabela afetada.
+            serial_cols = _get_serial_columns(conn, selected)
+            for col in serial_cols:
+                qt = _quote_identifier(selected)
+                qc = _quote_identifier(col)
+                c.execute(
+                    f"""
+                    SELECT setval(
+                        pg_get_serial_sequence(%s, %s),
+                        COALESCE((SELECT MAX({qc}) FROM {qt}), 1),
+                        true
+                    )
+                    """,
+                    (selected, col),
+                )
             conn.commit()
 
         st.success(f"Table {selected} imported successfully.")
