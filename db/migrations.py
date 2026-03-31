@@ -321,6 +321,21 @@ def run_migrations() -> None:
             conn.rollback()
             raise
 
+    # -------------------------------------------------------------------
+    # Migration de tipos nativos (DATE / TIMESTAMPTZ / JSONB / TEXT[])
+    # Executada separadamente para isolar seu rollback do bloco principal.
+    # É idempotente: pode ser chamada múltiplas vezes sem efeito colateral.
+    # -------------------------------------------------------------------
+    try:
+        from db.migrations_native_types import run_native_types_migration
+        run_native_types_migration()
+    except Exception as exc:
+        # Não aborta a inicialização do app se a migration de tipos falhar.
+        # As colunas TEXT originais continuam funcionando normalmente.
+        logger.warning(
+            "⚠️  Migration de tipos nativos não pôde ser concluída (app segue normal): %s", exc
+        )
+
 
 def create_hall_da_fama_table() -> None:
     try:
@@ -344,4 +359,3 @@ def create_hall_da_fama_table() -> None:
     except Exception as exc:
         logger.error("Erro ao criar tabela hall_da_fama: %s", exc)
         raise
-
