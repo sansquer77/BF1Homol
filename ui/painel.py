@@ -150,7 +150,7 @@ def participante_view():
 
     season = st.selectbox("Temporada", season_options, index=default_index)
     st.session_state['temporada'] = season
-    
+
     st.write(f"Bem-vindo, {user['nome']} ({user['email']}) - Status: {user['perfil']}")
 
     force_change = bool(user.get('must_change_password', 0) or st.session_state.get('force_password_change'))
@@ -185,6 +185,14 @@ def participante_view():
         st.markdown(f"**Penalidade abandono:** {'Sim' if regras.get('penalidade_abandono') else 'Não'}")
         if regras.get('penalidade_abandono'):
             st.markdown(f"**Pontos penalidade:** {regras.get('pontos_penalidade', 0)}")
+
+    # fix: inicializa apostas_part e provas_df antes do bloco condicional para
+    # evitar NameError nas seções 'Regra de Descarte' e 'Gráfico de Evolução'
+    # quando force_change=True (tabs[0] nunca é executado nesse caso).
+    temporada = st.session_state.get('temporada', str(datetime.datetime.now().year))
+    apostas_part = pd.DataFrame()
+    provas_df = pd.DataFrame()
+    resultados_df = pd.DataFrame()
 
     # ------------------ Aba: Apostas ----------------------
     if not force_change:
@@ -570,12 +578,12 @@ def participante_view():
         st.subheader("⚠️ Regra de Descarte")
         regras_temporada = get_regras_aplicaveis(temporada, "Normal")
         descarte_ativo = regras_temporada.get('descarte', False)
-        
+
         if descarte_ativo:
             # Calcular pontuação de todas as provas do participante
             if not apostas_part.empty:
                 pontos_por_prova = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=temporada)
-                
+
                 # Criar dataframe com provas e pontuações
                 provas_pontos = []
                 for idx, (_, aposta) in enumerate(apostas_part.iterrows()):
@@ -588,12 +596,12 @@ def participante_view():
                             'nome_prova': prova_nome,
                             'pontos': pontos_val
                         })
-                
+
                 if provas_pontos:
                     df_provas_pontos = pd.DataFrame(provas_pontos)
                     # Identificar prova com menor pontuação
                     prova_descarte = df_provas_pontos.loc[df_provas_pontos['pontos'].idxmin()]
-                    
+
                     st.info(
                         f"✅ **Regra de Descarte ATIVA para {temporada}**\n\n"
                         f"Sua prova com **menor pontuação** será descartada no cálculo final do campeonato:\n\n"
@@ -685,7 +693,7 @@ def participante_view():
             if senha_atual or nova_senha or confirma_senha:
                 if not senha_atual:
                     erros.append("Informe a senha atual para alterar a senha.")
-                elif not check_password(senha_atual, user['senha_hash']):
+                elif not check_password(senha_atual, user['senha']):
                     erros.append("Senha atual incorreta.")
                 elif not nova_senha:
                     erros.append("Informe a nova senha.")
