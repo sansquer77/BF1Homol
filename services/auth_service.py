@@ -13,10 +13,10 @@ except ImportError:
 
 # Funções de hash/check de senha - importadas de db_utils para evitar duplicação
 # Re-exportadas aqui para manter compatibilidade com módulos que importam de auth_service
-from db.db_utils import db_connect, get_table_columns, hash_password, check_password
+from db.db_utils import db_connect, get_table_columns, hash_password, check_password, get_user_by_id
 
 # Exportar explicitamente para manter compatibilidade
-__all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_token', 
+__all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_token',
            'decode_token', 'create_token', 'cadastrar_usuario', 'get_user_by_email',
            'get_user_by_id', 'set_auth_cookies', 'clear_auth_cookies', 'get_auth_cookie_token',
            'redefinir_senha_usuario', 'redefinir_senha_com_token']
@@ -93,14 +93,14 @@ def _get_jwt_secret() -> str:
     elif secret_from_env:
         secret = secret_from_env
         secret_source = "env"
-    
+
     # Verificar se está em ambiente de produção (Digital Ocean / Streamlit Cloud)
     is_production = (
-        os.environ.get("STREAMLIT_SHARING") or 
+        os.environ.get("STREAMLIT_SHARING") or
         os.environ.get("DIGITALOCEAN_APP_PLATFORM") or
         os.environ.get("PRODUCTION") == "true"
     )
-    
+
     if not secret:
         if is_production:
             logger.critical("JWT_SECRET não configurado em ambiente de produção!")
@@ -108,7 +108,7 @@ def _get_jwt_secret() -> str:
                 "ERRO CRÍTICO DE SEGURANÇA: JWT_SECRET não está configurado. "
                 "Configure a variável de ambiente JWT_SECRET."
             )
-        
+
         # 🔴 ERRO CRÍTICO - JWT_SECRET SEMPRE OBRIGATÓRIO
         logger.critical("🔴 JWT_SECRET não configurado - SEGURANÇA COMPROMETIDA!")
         raise RuntimeError(
@@ -185,16 +185,20 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
             c = conn.cursor()
             cols = get_table_columns(conn, 'usuarios')
             if 'faltas' in cols:
+                # fix #1: psycopg3 não expõe lastrowid — usar RETURNING id
                 c.execute(
-                    'INSERT INTO usuarios (nome, email, senha, perfil, status, faltas) VALUES (%s, %s, %s, %s, %s, %s)',
+                    'INSERT INTO usuarios (nome, email, senha, perfil, status, faltas) '
+                    'VALUES (%s, %s, %s, %s, %s, %s) RETURNING id',
                     (nome, email, senha_hashed, perfil, status, 0)
                 )
             else:
                 c.execute(
-                    'INSERT INTO usuarios (nome, email, senha, perfil, status) VALUES (%s, %s, %s, %s, %s)',
+                    'INSERT INTO usuarios (nome, email, senha, perfil, status) '
+                    'VALUES (%s, %s, %s, %s, %s) RETURNING id',
                     (nome, email, senha_hashed, perfil, status)
                 )
-            user_id = c.lastrowid
+            row = c.fetchone()
+            user_id = row['id'] if row else None
             conn.commit()
         try:
             if isinstance(user_id, int):
@@ -209,6 +213,8 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
             pass
         return True
     except Exception:
+        # fix #3: logar exceção para diagnóstico em vez de engolir silenciosamente
+        logger.exception("cadastrar_usuario falhou para email=%s", email)
         return False
 
 # --- BUSCA DE USUÁRIOS ---
@@ -222,15 +228,9 @@ def get_user_by_email(email: str):
         user = c.fetchone()
     return user
 
-def get_user_by_id(user_id):
-    with db_connect() as conn:
-        c = conn.cursor()
-        c.execute(
-            "SELECT id, nome, email, perfil, status FROM usuarios WHERE id=%s",
-            (user_id,)
-        )
-        user = c.fetchone()
-    return user
+# fix #4: get_user_by_id removido daqui — re-exportado de db_utils via import acima.
+# db_utils.get_user_by_id faz SELECT * retornando todas as colunas incluindo 'senha',
+# evitando inconsistência de contrato entre callers que acessam user['senha'].
 
 # --- GESTÃO DE COOKIES (para login) ---
 def set_auth_cookies(token, expires_minutes=JWT_EXP_MINUTES):
@@ -361,8 +361,9 @@ def redefinir_senha_com_token(email: str, token: str, nova_senha: str):
         senha_hashed = hash_password(nova_senha)
         cols = get_table_columns(conn, 'usuarios')
         if 'must_change_password' in cols:
+            # fix #2: usar FALSE (bool nativo PostgreSQL) em vez de 0 (int)
             c.execute(
-                "UPDATE usuarios SET senha=%s, must_change_password=0 WHERE email=%s",
+                "UPDATE usuarios SET senha=%s, must_change_password=FALSE WHERE email=%s",
                 (senha_hashed, email),
             )
         else:
@@ -399,13 +400,16 @@ def criar_master_se_nao_existir():
             senha_hashed = hash_password(senha)
             cols = get_table_columns(conn, 'usuarios')
             if 'faltas' in cols:
+                # fix #1: usar RETURNING id consistentemente (sem lastrowid)
                 c.execute(
-                    "INSERT INTO usuarios (nome, email, senha, perfil, status, faltas) VALUES (%s, %s, %s, %s, %s, %s)",
+                    "INSERT INTO usuarios (nome, email, senha, perfil, status, faltas) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
                     (nome, email, senha_hashed, 'master', 'Ativo', 0)
                 )
             else:
                 c.execute(
-                    "INSERT INTO usuarios (nome, email, senha, perfil, status) VALUES (%s, %s, %s, %s, %s)",
+                    "INSERT INTO usuarios (nome, email, senha, perfil, status) "
+                    "VALUES (%s, %s, %s, %s, %s)",
                     (nome, email, senha_hashed, 'master', 'Ativo')
                 )
             conn.commit()
