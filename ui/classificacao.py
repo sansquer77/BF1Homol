@@ -63,7 +63,6 @@ def gerar_imagem_tabela_ajustada(df, colunas):
     tabela.set_fontsize(fonte_tabela)
     tabela.scale(1.15, 1.55)
 
-    # Melhora contraste e legibilidade no cabeçalho e no corpo da tabela.
     for (row, col), cell in tabela.get_celld().items():
         if row == 0:
             cell.set_text_props(weight='bold', color='white')
@@ -120,7 +119,6 @@ def gerar_imagem_prova(df_cruzada, prova_selecionada):
     table.set_fontsize(fonte_tabela)
     table.scale(1.2, 1.55)
 
-    # Padroniza contraste e leitura da imagem da prova específica.
     for (row, col), cell in table.get_celld().items():
         if row == 0:
             cell.set_text_props(weight='bold', color='white')
@@ -198,6 +196,10 @@ def main():
     apostas_df = get_apostas_df(season)
     resultados_df = get_resultados_df(season)
 
+    # Garante IDs únicos em provas_df (evita ValueError no set_index/to_dict)
+    if not provas_df.empty and provas_df['id'].duplicated().any():
+        provas_df = provas_df.drop_duplicates(subset='id', keep='first')
+
     participantes = usuarios_df[usuarios_df['nome'] != 'Master']
     provas_df = provas_df.sort_values('data')
     perfil_usuario = st.session_state.get("user_role", "usuario").strip().lower()
@@ -219,13 +221,11 @@ def main():
     tabela_classificacao = []
     tabela_detalhada = []
 
-    # Carregar regras da temporada selecionada para bônus de campeonato
     regras_temporada = get_regras_aplicaveis(str(season), "Normal")
     pontos_campeao = regras_temporada.get('pontos_campeao', 150)
     pontos_vice = regras_temporada.get('pontos_vice', 100)
     pontos_equipe = regras_temporada.get('pontos_equipe', 80)
 
-    # Pré-calcular acertos de 11º e apostas no prazo
     acertos_11_por_usuario = {}
     apostas_no_prazo_por_usuario = {}
     apostas_latest = apostas_df.copy()

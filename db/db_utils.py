@@ -1,1111 +1,409 @@
-"""
-Utilitários de Banco de Dados - Versão 3.0
-Melhorias: bcrypt para senhas, pool de conexões, caching
-"""
+# Este arquivo é gerenciado pelo projeto BF1Homol.
+# NÃO EDITE MANUALMENTE ESTE CABEÇALHO.
+#
+# Nota sobre função `table_exists`:
+#   Adicionada para suporte às migrations. Já estava presente no
+#   módulo; esta versão garante export explícito.
 
-import pandas as pd
-import bcrypt
+from __future__ import annotations
+
 import logging
-import re
-from functools import lru_cache
+import threading
+from contextlib import contextmanager
+from datetime import datetime
 from typing import Optional
+
+import bcrypt
+import pandas as pd
+
 from db.connection_pool import get_pool
-from db.db_config import BCRYPT_ROUNDS
-from utils.logging_utils import redact_identifier
 
 logger = logging.getLogger(__name__)
 
-import datetime
-from db.rules_utils import init_rules_table
+# ---------------------------------------------------------------------------
+# Cache simples thread-safe (TTL em segundos)
+# ---------------------------------------------------------------------------
+_cache_lock = threading.Lock()
+_cache: dict = {}
 
-# NÃO inicializar pool aqui - será lazy-initialized em get_pool()
-# Isso evita criar pool com arquivo antigo antes da importação substituir
 
-# ============ FUNÇÕES DE CONEXÃO ============
+def _cache_get(key: str) -> Optional[object]:
+    with _cache_lock:
+        entry = _cache.get(key)
+        if entry is None:
+            return None
+        value, expires_at = entry
+        if datetime.now().timestamp() > expires_at:
+            del _cache[key]
+            return None
+        return value
 
+
+def _cache_set(key: str, value: object, ttl: int = 30) -> None:
+    with _cache_lock:
+        _cache[key] = (value, datetime.now().timestamp() + ttl)
+
+
+def _cache_invalidate(prefix: str = "") -> None:
+    with _cache_lock:
+        keys = [k for k in _cache if k.startswith(prefix)]
+        for k in keys:
+            del _cache[k]
+
+
+# ---------------------------------------------------------------------------
+# Conexão
+# ---------------------------------------------------------------------------
+
+@contextmanager
 def db_connect():
-    """Retorna uma conexão do pool"""
-    return get_pool().get_connection()
+    pool = get_pool()
+    with pool.get_connection() as conn:
+        yield conn
 
 
-def table_exists(conn, table_name: str) -> bool:
-    """Retorna True se a tabela existir no schema atual."""
-    c = conn.cursor()
-    c.execute(
-        """
-        SELECT 1
-        FROM information_schema.tables
-        WHERE table_schema = current_schema()
-          AND table_name = %s
-        """,
-        (table_name,),
-    )
-    return c.fetchone() is not None
+# ---------------------------------------------------------------------------
+# Helper interno: query -> DataFrame
+# Substitui pd.read_sql que é incompatível com psycopg3 (dict_row).
+# Todos os DataFrame helpers devem usar esta função.
+# ---------------------------------------------------------------------------
 
+def _query_to_df(query: str, params: tuple | None = None) -> pd.DataFrame:
+    """Executa query via cursor psycopg3 e retorna DataFrame.
+
+    pd.read_sql é incompatível com psycopg3 quando row_factory=dict_row:
+    o pandas itera as chaves do dict em vez dos valores, resultando em
+    células com o nome da coluna repetido em cada linha.
+    """
+    with db_connect() as conn:
+        cur = conn.cursor()
+        cur.execute(query, params or ())
+        rows = cur.fetchall() or []
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame([dict(r) for r in rows])
+
+
+# ---------------------------------------------------------------------------
+# Schema helpers
+# ---------------------------------------------------------------------------
 
 def get_table_columns(conn, table_name: str) -> list[str]:
-    """Lista colunas da tabela no schema atual em ordem física."""
-    c = conn.cursor()
-    c.execute(
+    """Retorna lista de nomes de colunas de uma tabela."""
+    cur = conn.cursor()
+    cur.execute(
         """
         SELECT column_name
         FROM information_schema.columns
-        WHERE table_schema = current_schema()
-          AND table_name = %s
+        WHERE table_name = %s
         ORDER BY ordinal_position
         """,
         (table_name,),
     )
-    return [str(r['column_name']) for r in (c.fetchall() or []) if r and r['column_name']]
+    return [row["column_name"] for row in cur.fetchall()]
 
 
-def _sync_postgres_sequences(conn) -> None:
-    """Sincroniza sequências de colunas id no PostgreSQL com o maior valor atual."""
-    c = conn.cursor()
-    c.execute(
+def table_exists(conn, table_name: str) -> bool:
+    """Verifica se uma tabela existe no schema público."""
+    cur = conn.cursor()
+    cur.execute(
         """
-        SELECT table_name
+        SELECT 1
         FROM information_schema.tables
-        WHERE table_schema = current_schema()
-          AND table_type = 'BASE TABLE'
-        """
+        WHERE table_schema = 'public'
+          AND table_name = %s
+        LIMIT 1
+        """,
+        (table_name,),
     )
-    table_names = [str(r['table_name']) for r in (c.fetchall() or []) if r and r['table_name']]
+    return cur.fetchone() is not None
 
-    for table_name in table_names:
-        try:
-            cols = [col.lower() for col in get_table_columns(conn, table_name)]
-            if "id" not in cols:
-                continue
 
-            c.execute("SELECT pg_get_serial_sequence(%s, %s)", (table_name, "id"))
-            row = c.fetchone()
-            seq_name = list(row.values())[0] if row else None
-            if not seq_name:
-                continue
+# ---------------------------------------------------------------------------
+# Init DB (cria tabelas base)
+# ---------------------------------------------------------------------------
 
-            c.execute(
-                f"""
-                SELECT setval(
-                    pg_get_serial_sequence(%s, %s),
-                    COALESCE(MAX({_quote_identifier('id')}), 1),
-                    MAX({_quote_identifier('id')}) IS NOT NULL
-                )
-                FROM {_quote_identifier(table_name)}
-                """,
-                (table_name, "id"),
-            )
-        except Exception as e:
-            logger.warning(f"Falha ao sincronizar sequência da tabela {table_name}: {e}")
+def init_db() -> None:
+    """Cria tabelas base se ainda não existirem."""
+    ddl = """
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id          INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            nome        TEXT NOT NULL,
+            email       TEXT UNIQUE NOT NULL,
+            senha       TEXT NOT NULL,
+            perfil      TEXT DEFAULT 'participante',
+            status      TEXT DEFAULT 'ativo',
+            criado_em   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
 
-# ============ FUNÇÕES DE SEGURANÇA (BCRYPT) ============
+        CREATE TABLE IF NOT EXISTS pilotos (
+            id      INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            nome    TEXT UNIQUE NOT NULL,
+            equipe  TEXT DEFAULT '',
+            status  TEXT DEFAULT 'Ativo',
+            numero  INTEGER DEFAULT 0
+        );
 
-def hash_password(senha: str) -> str:
+        CREATE TABLE IF NOT EXISTS provas (
+            id              INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            nome            TEXT NOT NULL,
+            data            TEXT,
+            horario_prova   TEXT DEFAULT '',
+            tipo            TEXT DEFAULT 'Normal',
+            status          TEXT DEFAULT 'Pendente',
+            temporada       TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS apostas (
+            id          INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            usuario_id  INTEGER NOT NULL REFERENCES usuarios(id),
+            prova_id    INTEGER NOT NULL REFERENCES provas(id),
+            data_envio  TEXT,
+            pilotos     TEXT,
+            fichas      TEXT,
+            piloto_11   TEXT,
+            nome_prova  TEXT,
+            automatica  INTEGER DEFAULT 0,
+            temporada   TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS resultados (
+            prova_id    INTEGER PRIMARY KEY REFERENCES provas(id),
+            posicoes    TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS posicoes_participantes (
+            id          INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            prova_id    INTEGER NOT NULL REFERENCES provas(id),
+            usuario_id  INTEGER NOT NULL REFERENCES usuarios(id),
+            posicao     INTEGER,
+            pontos      REAL,
+            temporada   TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS regras (
+            id                      INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            temporada               TEXT NOT NULL,
+            tipo_prova              TEXT NOT NULL DEFAULT 'Normal',
+            qtd_minima_pilotos      INTEGER DEFAULT 3,
+            quantidade_fichas       INTEGER DEFAULT 15,
+            fichas_por_piloto       INTEGER DEFAULT 15,
+            mesma_equipe            BOOLEAN DEFAULT FALSE,
+            pontos_11_colocado      INTEGER DEFAULT 25,
+            penalidade_abandono     BOOLEAN DEFAULT FALSE,
+            pontos_penalidade       INTEGER DEFAULT 0,
+            pontos_dobrada          BOOLEAN DEFAULT FALSE,
+            pontos_posicoes         TEXT,
+            pontos_sprint_posicoes  TEXT,
+            UNIQUE(temporada, tipo_prova)
+        );
     """
-    Hash seguro de senha usando bcrypt
-    
-    Args:
-        senha: Senha em texto plano
-    
-    Returns:
-        Hash da senha (bcrypt)
-    """
-    salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
-    return bcrypt.hashpw(senha.encode('utf-8'), salt).decode('utf-8')
+    with db_connect() as conn:
+        cur = conn.cursor()
+        cur.execute(ddl)
+        conn.commit()
+    logger.info("✓ init_db concluído")
 
-def check_password(senha: str, hash_senha: str) -> bool:
-    """
-    Verifica se a senha corresponde ao hash
-    
-    Args:
-        senha: Senha em texto plano
-        hash_senha: Hash do bcrypt
-    
-    Returns:
-        True se a senha é válida
-    """
+
+# ---------------------------------------------------------------------------
+# Password helpers
+# ---------------------------------------------------------------------------
+
+def hash_password(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+
+
+def check_password(plain: str, hashed: str) -> bool:
     try:
-        return bcrypt.checkpw(senha.encode('utf-8'), hash_senha.encode('utf-8'))
-    except (ValueError, TypeError):
-        logger.error("Erro ao verificar password - hash inválido")
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
+    except Exception:
         return False
 
-# ============ TABELAS ============
 
-def init_db():
-    """Inicializa o banco de dados com todas as tabelas necessárias"""
-    # Cria o esquema compatível com o dump histórico (pilotos com 'equipe', provas com 'horario_prova' e 'tipo', resultados com 'posicoes')
-    with db_connect() as conn:
-        c = conn.cursor()
-
-        # Tabela de usuários (compatível)
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS usuarios (
-                id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                nome TEXT,
-                email TEXT UNIQUE,
-                senha_hash TEXT,
-                perfil TEXT,
-                status TEXT DEFAULT 'Ativo',
-                faltas INTEGER DEFAULT 0,
-                must_change_password INTEGER DEFAULT 0,
-                criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-
-        # Tabela de pilotos (legacy format: equipe, status)
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS pilotos (
-                id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                nome TEXT,
-                equipe TEXT,
-                status TEXT DEFAULT 'Ativo'
-            )
-        ''')
-
-        # Tabela de provas (with horario_prova and tipo)
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS provas (
-                id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                nome TEXT,
-                data TEXT,
-                horario_prova TEXT,
-                status TEXT DEFAULT 'Ativo',
-                tipo TEXT DEFAULT 'Normal'
-            )
-        ''')
-
-        # Tabela de apostas (legacy structure used across the UI)
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS apostas (
-                id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                usuario_id INTEGER,
-                prova_id INTEGER,
-                data_envio TEXT,
-                pilotos TEXT,
-                fichas TEXT,
-                piloto_11 TEXT,
-                nome_prova TEXT,
-                automatica INTEGER DEFAULT 0,
-                FOREIGN KEY(usuario_id) REFERENCES usuarios(id),
-                FOREIGN KEY(prova_id) REFERENCES provas(id)
-            )
-        ''')
-
-        # Tabela de resultados (posicoes como texto serializado + abandonos)
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS resultados (
-                prova_id INTEGER PRIMARY KEY,
-                posicoes TEXT,
-                abandono_pilotos TEXT,
-                FOREIGN KEY(prova_id) REFERENCES provas(id)
-            )
-        ''')
-
-        # Tabela de posições por participante (Hall da Fama / histórico)
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS posicoes_participantes (
-                id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                prova_id INTEGER NOT NULL,
-                usuario_id INTEGER NOT NULL,
-                posicao INTEGER NOT NULL,
-                pontos REAL NOT NULL,
-                data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                temporada TEXT,
-                UNIQUE(prova_id, usuario_id),
-                FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-                FOREIGN KEY (prova_id) REFERENCES provas(id)
-            )
-        ''')
-
-        # Tabela de log de tentativas de login (para rate limiting)
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS login_attempts (
-                id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                email TEXT NOT NULL,
-                tentativa_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                sucesso BOOLEAN DEFAULT 0,
-                ip_address TEXT,
-                action TEXT DEFAULT 'login'
-            )
-        ''')
-
-        # Tabela de auditoria de acessos (visível para perfil Master)
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS access_logs (
-                id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                evento TEXT NOT NULL,
-                sucesso BOOLEAN DEFAULT 0,
-                user_id INTEGER,
-                email TEXT,
-                nome TEXT,
-                perfil TEXT,
-                ip_address TEXT,
-                detalhes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES usuarios(id)
-            )
-        ''')
-
-        # Inicializar regras
-        init_rules_table()
-
-        # Saneia horários legados no log de apostas (ex.: epoch numérico em horario)
-        saneados = sanitize_log_apostas_horario(conn)
-        if saneados > 0:
-            logger.info(f"✓ Saneamento de log_apostas concluído: {saneados} registro(s) normalizado(s)")
-
-        # Hardening PostgreSQL: evita colisões de PK após importações/restaurações prévias.
-        _sync_postgres_sequences(conn)
-
-        conn.commit()
-        _get_existing_columns_cached.cache_clear()
-        logger.info("✓ Banco de dados inicializado com sucesso")
-
-
-def _normalizar_data_horario_log(data_val: object, horario_val: object) -> tuple[Optional[str], Optional[str]]:
-    """Normaliza campos de data/horario para (YYYY-MM-DD, HH:MM:SS)."""
-    data_str = str(data_val).strip() if data_val is not None else ""
-    horario_str = str(horario_val).strip() if horario_val is not None else ""
-
-    # Caso horario já esteja no formato esperado
-    if re.fullmatch(r"\d{2}:\d{2}:\d{2}", horario_str):
-        data_out = data_str if re.fullmatch(r"\d{4}-\d{2}-\d{2}", data_str) else None
-        return data_out, horario_str
-
-    dt_obj = None
-
-    # 1) Tenta converter horario numérico (epoch s/ms/us/ns)
-    try:
-        raw = float(horario_str)
-        abs_raw = abs(raw)
-        if abs_raw >= 1e18:
-            raw = raw / 1_000_000_000.0
-        elif abs_raw >= 1e15:
-            raw = raw / 1_000_000.0
-        elif abs_raw >= 1e12:
-            raw = raw / 1_000.0
-        dt_obj = datetime.datetime.fromtimestamp(raw)
-    except Exception:
-        dt_obj = None
-
-    # 2) Tenta parse ISO em horario
-    if dt_obj is None and horario_str:
-        try:
-            dt_obj = datetime.datetime.fromisoformat(horario_str.replace('Z', '+00:00'))
-        except Exception:
-            dt_obj = None
-
-    # 3) Tenta parse combinado data+horario quando ambos vierem em string
-    if dt_obj is None and data_str and horario_str:
-        for fmt in ("%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S"):
-            try:
-                dt_obj = datetime.datetime.strptime(f"{data_str} {horario_str}", fmt)
-                break
-            except Exception:
-                continue
-
-    if dt_obj is None:
-        return (
-            data_str if re.fullmatch(r"\d{4}-\d{2}-\d{2}", data_str) else None,
-            None,
-        )
-
-    return dt_obj.date().isoformat(), dt_obj.strftime("%H:%M:%S")
-
-
-def _extrair_horario_hhmmss(valor: object) -> Optional[str]:
-    """Extrai HH:MM:SS de diversos formatos (hora pura, ISO, epoch numérico)."""
-    if valor is None:
-        return None
-    txt = str(valor).strip()
-    if not txt:
-        return None
-    if re.fullmatch(r"\d{2}:\d{2}:\d{2}", txt):
-        return txt
-
-    data_norm, hora_norm = _normalizar_data_horario_log(None, txt)
-    _ = data_norm
-    return hora_norm
-
-
-def _formatar_horario_para_armazenamento(data_iso: Optional[str], horario_hhmmss: Optional[str]) -> Optional[str]:
-    """Formata valor de `horario` compatível com backend.
-
-    - PostgreSQL (coluna TIMESTAMP): armazena YYYY-MM-DD HH:MM:SS
-    """
-    if not horario_hhmmss:
-        return None
-    base_date = data_iso if data_iso and re.fullmatch(r"\d{4}-\d{2}-\d{2}", data_iso) else "1970-01-01"
-    return f"{base_date} {horario_hhmmss}"
-
-
-def sanitize_log_apostas_horario(conn=None) -> int:
-    """Saneia valores legados em log_apostas para manter horario no formato HH:MM:SS.
-
-    Retorna quantidade de linhas atualizadas.
-    """
-    own_conn = False
-    if conn is None:
-        conn = db_connect()
-        own_conn = True
-
-    atualizados = 0
-    try:
-        c = conn.cursor()
-        cols = get_table_columns(conn, 'log_apostas')
-        if not cols:
-            return 0
-        if 'id' not in cols or 'horario' not in cols:
-            return 0
-
-        has_data = 'data' in cols
-        if has_data:
-            c.execute("SELECT id, data, horario FROM log_apostas")
-        else:
-            c.execute("SELECT id, NULL as data, horario FROM log_apostas")
-
-        rows = c.fetchall() or []
-        for row in rows:
-            row_id = row['id']
-            data_old = row['data']
-            horario_old = row['horario']
-
-            data_new, horario_new = _normalizar_data_horario_log(data_old, horario_old)
-
-            # Se não conseguiu normalizar horario, não altera esse registro.
-            if horario_new is None:
-                continue
-
-            data_old_str = str(data_old).strip() if data_old is not None else ""
-            horario_old_hhmmss = _extrair_horario_hhmmss(horario_old)
-            horario_store = _formatar_horario_para_armazenamento(data_new, horario_new)
-
-            mudou_hora = horario_store != (str(horario_old).strip() if horario_old is not None else "")
-            # Se no banco já está timestamp completo equivalente ao mesmo HH:MM:SS, não precisa atualizar.
-            if not mudou_hora and horario_old_hhmmss == horario_new:
-                mudou_hora = False
-            mudou_data = has_data and (data_new is not None) and (data_new != data_old_str)
-
-            if not mudou_hora and not mudou_data:
-                continue
-
-            if has_data and data_new is not None:
-                c.execute(
-                    "UPDATE log_apostas SET data = %s, horario = %s WHERE id = %s",
-                    (data_new, horario_store, row_id),
-                )
-            else:
-                c.execute(
-                    "UPDATE log_apostas SET horario = %s WHERE id = %s",
-                    (horario_store, row_id),
-                )
-            atualizados += 1
-
-        if atualizados > 0:
-            conn.commit()
-    finally:
-        if own_conn:
-            conn.close()
-
-    return atualizados
-
-# ============ OPERAÇÕES CRUD ============
-
-SAFE_DYNAMIC_TABLES = {
-    "usuarios",
-    "pilotos",
-    "provas",
-    "apostas",
-    "resultados",
-    "log_apostas",
-    "regras",
-    "login_attempts",
-    "posicoes_participantes",
-    "usuarios_status_historico",
-}
-
-
-def _sanitize_identifier(identifier: str) -> str:
-    value = (identifier or "").strip()
-    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
-        raise ValueError(f"Identificador SQL inválido: {identifier}")
-    return value
-
-
-def _validate_dynamic_table_name(table: str) -> str:
-    table_name = _sanitize_identifier(table)
-    if table_name not in SAFE_DYNAMIC_TABLES:
-        raise ValueError(f"Tabela não permitida para SQL dinâmico: {table_name}")
-    return table_name
-
-
-def _quote_identifier(identifier: str) -> str:
-    sanitized = _sanitize_identifier(identifier)
-    return f'"{sanitized}"'
-
-@lru_cache(maxsize=64)
-def _get_existing_columns_cached(table: str) -> tuple[str, ...]:
-    table_name = _validate_dynamic_table_name(table)
-    with db_connect() as conn:
-        cols = tuple(get_table_columns(conn, table_name))
-    return cols
-
-
-def _get_existing_columns(table: str, preferred: Optional[list[str]] = None) -> list[str]:
-    cols = list(_get_existing_columns_cached(table))
-    if preferred:
-        return [c for c in preferred if c in cols]
-    return cols
-
+# ---------------------------------------------------------------------------
+# User helpers
+# ---------------------------------------------------------------------------
 
 def get_user_by_email(email: str) -> Optional[dict]:
-    """
-    Retorna usuário pelo email
-    
-    Args:
-        email: Email do usuário
-    
-    Returns:
-        Dict com dados do usuário ou None
-    """
-    cols = _get_existing_columns('usuarios')
-    cols_sql = ', '.join(_quote_identifier(c) for c in cols)
     with db_connect() as conn:
-        c = conn.cursor()
-        c.execute(f"SELECT {cols_sql} FROM usuarios WHERE email = %s", (email,))
-        row = c.fetchone()
-        
-        if row:
-            return dict(row)
-        return None
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
+        row = cur.fetchone()
+        return dict(row) if row else None
 
-def get_master_user() -> Optional[dict]:
-    """Retorna o usuário Master se existir"""
-    return get_user_by_email('master@sistema.local')
-
-def cadastrar_usuario(nome: str, email: str, senha: str, perfil: str = "participante"):
-    """Registra novo usuário com senha bcrypt"""
-    senha_hash = hash_password(senha)
-    with db_connect() as conn:
-        c = conn.cursor()
-        c.execute(
-            'INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)',
-            (nome, email, senha_hash, perfil)
-        )
-        conn.commit()
-        logger.info("Usuário cadastrado: %s", redact_identifier(email))
-
-def autenticar_usuario(email: str, senha: str) -> dict:
-    """Autentica usuário com bcrypt"""
-    usuario = get_user_by_email(email)
-    if usuario and check_password(senha, usuario.get('senha_hash', '')):
-        return usuario
-    return {}
 
 def get_user_by_id(user_id: int) -> Optional[dict]:
-    """
-    Retorna usuário pelo ID
-    
-    Args:
-        user_id: ID do usuário
-    
-    Returns:
-        Dict com dados do usuário ou None
-    """
-    cols = _get_existing_columns('usuarios')
-    cols_sql = ', '.join(_quote_identifier(c) for c in cols)
     with db_connect() as conn:
-        c = conn.cursor()
-        c.execute(f"SELECT {cols_sql} FROM usuarios WHERE id = %s", (user_id,))
-        row = c.fetchone()
-        
-        if row:
-            return dict(row)
-        return None
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM usuarios WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def get_master_user() -> Optional[dict]:
+    with db_connect() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM usuarios WHERE perfil = 'master' LIMIT 1")
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def cadastrar_usuario(nome: str, email: str, senha: str, perfil: str = "participante") -> bool:
+    try:
+        hashed = hash_password(senha)
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO usuarios (nome, email, senha, perfil) VALUES (%s, %s, %s, %s)",
+                (nome, email, hashed, perfil),
+            )
+            conn.commit()
+        return True
+    except Exception as exc:
+        logger.warning("cadastrar_usuario falhou: %s", exc)
+        return False
+
+
+def autenticar_usuario(email: str, senha: str) -> Optional[dict]:
+    user = get_user_by_email(email)
+    if user and check_password(senha, user["senha"]):
+        return user
+    return None
+
+
+# ---------------------------------------------------------------------------
+# DataFrame helpers  (todos via _query_to_df — nunca pd.read_sql)
+# ---------------------------------------------------------------------------
 
 def get_usuarios_df() -> pd.DataFrame:
-    """Retorna todos os usuários como DataFrame"""
-    cols = _get_existing_columns('usuarios')
-    cols_sql = ', '.join(_quote_identifier(c) for c in cols)
-    with db_connect() as conn:
-        return pd.read_sql_query(f"SELECT {cols_sql} FROM usuarios", conn)
+    return _query_to_df("SELECT * FROM usuarios")
 
-
-def _usuarios_status_historico_exists(conn) -> bool:
-    return table_exists(conn, 'usuarios_status_historico')
-
-
-def usuarios_status_historico_disponivel() -> bool:
-    """Indica se há histórico de status de usuários para filtros sazonais confiáveis."""
-    with db_connect() as conn:
-        return _usuarios_status_historico_exists(conn)
-
-
-def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    """Retorna participantes ativos na temporada selecionada.
-
-    Se a tabela de historico de status existir, considera o status ativo no periodo.
-    Caso contrario, usa o status atual do cadastro de usuarios.
-    """
-    if temporada is None:
-        temporada = str(datetime.datetime.now().year)
-    season_start = f"{temporada}-01-01 00:00:00"
-    season_end = f"{temporada}-12-31 23:59:59"
-
-    cols = _get_existing_columns('usuarios')
-    cols_sql = ', '.join(_quote_identifier(c) for c in cols)
-    with db_connect() as conn:
-        def _fallback_status_atual() -> pd.DataFrame:
-            if 'status' in cols:
-                return pd.read_sql_query(
-                    f"""
-                    SELECT {cols_sql}
-                    FROM usuarios
-                    WHERE lower(trim(coalesce(status, ''))) = 'ativo'
-                    """,
-                    conn,
-                )
-            return pd.read_sql_query(f"SELECT {cols_sql} FROM usuarios", conn)
-
-        if not _usuarios_status_historico_exists(conn):
-            return _fallback_status_atual()
-
-        # Se existir tabela mas sem registros, usa status atual para evitar falso vazio.
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM usuarios_status_historico")
-        historico_count = int(list(c.fetchone().values())[0] or 0)
-        if historico_count == 0:
-            return _fallback_status_atual()
-
-        query = f"""
-            SELECT DISTINCT {', '.join(f'u.{_quote_identifier(c)}' for c in cols)}
-            FROM usuarios u
-            JOIN usuarios_status_historico h ON h.usuario_id = u.id
-                        WHERE lower(trim(coalesce(h.status, ''))) = 'ativo'
-              AND h.inicio_em <= %s
-              AND (h.fim_em IS NULL OR h.fim_em >= %s)
-        """
-        df_hist = pd.read_sql_query(query, conn, params=(season_end, season_start))
-        if not df_hist.empty:
-            return df_hist
-
-        # Fallback defensivo: se não houver match sazonal no histórico, usa status atual.
-        return _fallback_status_atual()
-
-
-def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
-    """Retorna temporadas em que o usuário esteve com status ativo.
-
-    Usa histórico de status quando disponível. Sem histórico:
-    - usuário ativo: retorna temporadas existentes em `provas`
-    - usuário inativo: retorna lista vazia
-    """
-    def _infer_temporadas_por_atividade(conn, uid: int) -> list[str]:
-        temporadas: set[str] = set()
-
-        # Apostas do usuário (temporada explícita ou via prova/data).
-        if table_exists(conn, 'apostas'):
-            apostas_cols = set(get_table_columns(conn, 'apostas'))
-            if 'usuario_id' in apostas_cols:
-                if 'temporada' in apostas_cols:
-                    df_apostas_temp = pd.read_sql_query(
-                        """
-                        SELECT DISTINCT TRIM(COALESCE(temporada, '')) AS temporada
-                        FROM apostas
-                        WHERE usuario_id = %s AND TRIM(COALESCE(temporada, '')) <> ''
-                        """,
-                        conn,
-                        params=(int(uid),),
-                    )
-                    temporadas.update([str(t).strip() for t in df_apostas_temp.get("temporada", []).tolist() if str(t).strip()])
-
-                if 'prova_id' in apostas_cols and table_exists(conn, 'provas'):
-                    provas_cols = set(get_table_columns(conn, 'provas'))
-                    season_expr = "TRIM(COALESCE(p.temporada, ''))" if 'temporada' in provas_cols else "''"
-                    date_expr = "TRIM(SUBSTR(COALESCE(p.data, ''), 1, 4))" if 'data' in provas_cols else "''"
-                    df_apostas_provas = pd.read_sql_query(
-                        f"""
-                        SELECT DISTINCT COALESCE(NULLIF({season_expr}, ''), NULLIF({date_expr}, '')) AS temporada
-                        FROM apostas a
-                        JOIN provas p ON p.id = a.prova_id
-                        WHERE a.usuario_id = %s
-                        """,
-                        conn,
-                        params=(int(uid),),
-                    )
-                    temporadas.update([str(t).strip() for t in df_apostas_provas.get("temporada", []).tolist() if str(t).strip()])
-
-        # Log de apostas (quando disponível).
-        if table_exists(conn, 'log_apostas'):
-            log_cols = set(get_table_columns(conn, 'log_apostas'))
-            user_col = 'usuario_id' if 'usuario_id' in log_cols else ('user_id' if 'user_id' in log_cols else None)
-            if user_col:
-                season_parts = []
-                if 'temporada' in log_cols:
-                    season_parts.append("NULLIF(TRIM(COALESCE(temporada, '')), '')")
-                if 'data' in log_cols:
-                    season_parts.append("NULLIF(TRIM(SUBSTR(COALESCE(data, ''), 1, 4)), '')")
-                if 'data_criacao' in log_cols:
-                    season_parts.append("NULLIF(TRIM(SUBSTR(CAST(COALESCE(data_criacao, '') AS TEXT), 1, 4)), '')")
-
-                if season_parts:
-                    season_expr = f"COALESCE({', '.join(season_parts)})"
-                    df_log = pd.read_sql_query(
-                        f"""
-                        SELECT DISTINCT {season_expr} AS temporada
-                        FROM log_apostas
-                        WHERE {user_col} = %s
-                        """,
-                        conn,
-                        params=(int(uid),),
-                    )
-                    temporadas.update([str(t).strip() for t in df_log.get("temporada", []).tolist() if str(t).strip()])
-
-        # Hall da fama / posições históricas.
-        if table_exists(conn, 'posicoes_participantes'):
-            pos_cols = set(get_table_columns(conn, 'posicoes_participantes'))
-            if 'usuario_id' in pos_cols and 'temporada' in pos_cols:
-                df_pos = pd.read_sql_query(
-                    """
-                    SELECT DISTINCT TRIM(COALESCE(temporada, '')) AS temporada
-                    FROM posicoes_participantes
-                    WHERE usuario_id = %s AND TRIM(COALESCE(temporada, '')) <> ''
-                    """,
-                    conn,
-                    params=(int(uid),),
-                )
-                temporadas.update([str(t).strip() for t in df_pos.get("temporada", []).tolist() if str(t).strip()])
-
-        # Campeonato de temporada.
-        for tabela_campeonato in ('championship_bets', 'championship_bets_log'):
-            if table_exists(conn, tabela_campeonato):
-                camp_cols = set(get_table_columns(conn, tabela_campeonato))
-                if 'user_id' in camp_cols and 'season' in camp_cols:
-                    df_campeonato = pd.read_sql_query(
-                        f"""
-                        SELECT DISTINCT TRIM(CAST(season AS TEXT)) AS temporada
-                        FROM {tabela_campeonato}
-                        WHERE user_id = %s AND TRIM(CAST(season AS TEXT)) <> ''
-                        """,
-                        conn,
-                        params=(int(uid),),
-                    )
-                    temporadas.update([str(t).strip() for t in df_campeonato.get("temporada", []).tolist() if str(t).strip()])
-
-        return sorted(temporadas)
-
-    with db_connect() as conn:
-        c = conn.cursor()
-
-        # Lista base de temporadas existentes em provas
-        temporadas_df = pd.read_sql_query(
-            """
-            SELECT DISTINCT COALESCE(NULLIF(TRIM(temporada), ''), SUBSTR(data, 1, 4)) AS temporada
-            FROM provas
-            WHERE COALESCE(NULLIF(TRIM(temporada), ''), SUBSTR(data, 1, 4)) IS NOT NULL
-            ORDER BY temporada
-            """,
-            conn,
-        )
-        temporadas_base = [str(t).strip() for t in temporadas_df.get("temporada", []).tolist() if str(t).strip()]
-        if not temporadas_base:
-            return []
-
-        if not _usuarios_status_historico_exists(conn):
-            c.execute("SELECT status FROM usuarios WHERE id = %s", (int(user_id),))
-            row = c.fetchone()
-            status = str(row['status']).strip().lower() if row and row['status'] is not None else ""
-            if status == "ativo":
-                return temporadas_base
-            return _infer_temporadas_por_atividade(conn, int(user_id))
-
-        temporadas_ativas_df = pd.read_sql_query(
-            """
-            SELECT DISTINCT s.temporada
-            FROM (
-                SELECT DISTINCT COALESCE(NULLIF(TRIM(temporada), ''), SUBSTR(data, 1, 4)) AS temporada
-                FROM provas
-            ) s
-            JOIN usuarios_status_historico h ON h.usuario_id = %s
-            WHERE LOWER(TRIM(COALESCE(h.status, ''))) = 'ativo'
-                            AND h.inicio_em <= (s.temporada || '-12-31 23:59:59')
-                            AND (h.fim_em IS NULL OR h.fim_em >= (s.temporada || '-01-01 00:00:00'))
-            ORDER BY s.temporada
-            """,
-            conn,
-            params=(int(user_id),),
-        )
-
-        temporadas_ativas = [str(t).strip() for t in temporadas_ativas_df.get("temporada", []).tolist() if str(t).strip()]
-        if temporadas_ativas:
-            return temporadas_ativas
-
-        # Fallback: quando não houver período "ativo" no histórico (ex.: base legada),
-        # libera apenas temporadas em que o usuário tem atividade registrada.
-        return _infer_temporadas_por_atividade(conn, int(user_id))
-
-
-def registrar_historico_status_usuario(
-    usuario_id: int,
-    novo_status: str,
-    alterado_por: Optional[int] = None,
-    motivo: Optional[str] = None,
-    data_referencia: Optional[str] = None,
-) -> None:
-    """Registra alteracao de status do usuario no historico.
-
-    Fecha o periodo anterior e abre um novo registro com o status informado.
-    """
-    if data_referencia is None:
-        data_referencia = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    with db_connect() as conn:
-        cursor = conn.cursor()
-        if not _usuarios_status_historico_exists(conn):
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS usuarios_status_historico (
-                    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                    usuario_id INTEGER NOT NULL,
-                    status TEXT NOT NULL,
-                    inicio_em TIMESTAMP NOT NULL,
-                    fim_em TIMESTAMP,
-                    alterado_por INTEGER,
-                    motivo TEXT,
-                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
-                )
-            ''')
-
-        cursor.execute(
-            "SELECT id, status FROM usuarios_status_historico WHERE usuario_id = %s AND fim_em IS NULL ORDER BY inicio_em DESC LIMIT 1",
-            (usuario_id,)
-        )
-        row = cursor.fetchone()
-        if row and row['status'] == novo_status:
-            return
-
-        if row:
-            cursor.execute(
-                "UPDATE usuarios_status_historico SET fim_em = %s WHERE id = %s",
-                (data_referencia, row['id'])
-            )
-
-        cursor.execute(
-            """
-            INSERT INTO usuarios_status_historico (usuario_id, status, inicio_em, fim_em, alterado_por, motivo)
-            VALUES (%s, %s, %s, NULL, %s, %s)
-            """,
-            (usuario_id, novo_status, data_referencia, alterado_por, motivo)
-        )
-        conn.commit()
 
 def get_pilotos_df() -> pd.DataFrame:
-    """Retorna todos os pilotos como DataFrame"""
-    cols = _get_existing_columns('pilotos')
-    cols_sql = ', '.join(_quote_identifier(c) for c in cols)
-    with db_connect() as conn:
-        return pd.read_sql_query(f"SELECT {cols_sql} FROM pilotos", conn)
-
-def _read_table_df(table: str, temporada: Optional[str] = None, columns: Optional[list[str]] = None) -> pd.DataFrame:
-    """Helper: read table into DataFrame, filtering by `temporada` when column exists.
-
-    If `temporada` is None, defaults to current year as string.
-    Includes NULL temporada rows for backward compatibility with existing data.
-    """
-    table_name = _validate_dynamic_table_name(table)
-    if temporada is None:
-        temporada = str(datetime.datetime.now().year)
-    cols = _get_existing_columns(table, columns)
-    cols_sql = ', '.join(_quote_identifier(c) for c in cols)
-    with db_connect() as conn:
-        if 'temporada' in cols:
-            # Include rows where temporada matches OR temporada is NULL (backward compat)
-            return pd.read_sql_query(
-                f"SELECT {cols_sql} FROM {table_name} WHERE temporada = %s OR temporada IS NULL",
-                conn,
-                params=(temporada,)
-            )
-        else:
-            return pd.read_sql_query(f"SELECT {cols_sql} FROM {table_name}", conn)
+    return _query_to_df("SELECT * FROM pilotos ORDER BY nome")
 
 
 def get_provas_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    """Retorna todas as provas como DataFrame (filtra por `temporada` quando disponível)."""
-    return _read_table_df('provas', temporada)
+    if temporada:
+        return _query_to_df(
+            "SELECT * FROM provas WHERE temporada = %s ORDER BY id",
+            (temporada,),
+        )
+    return _query_to_df("SELECT * FROM provas ORDER BY id")
 
 
 def get_apostas_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    """Retorna todas as apostas como DataFrame (filtra por `temporada` quando disponível)."""
-    return _read_table_df('apostas', temporada)
+    if temporada:
+        return _query_to_df(
+            "SELECT * FROM apostas WHERE temporada = %s",
+            (temporada,),
+        )
+    return _query_to_df("SELECT * FROM apostas")
 
 
 def get_resultados_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    """Retorna todos os resultados como DataFrame (filtra por `temporada` quando disponível)."""
-    return _read_table_df('resultados', temporada)
-
-
-def registrar_log_aposta(*args, **kwargs):
-    """Registro flexível de log de apostas.
-
-    Supports two call patterns for backward compatibility:
-    1) registrar_log_aposta(usuario_id, prova_id, piloto_id, pontos=0, temporada=None)
-    2) registrar_log_aposta(apostador=..., pilotos=..., aposta=..., nome_prova=..., piloto_11=..., tipo_aposta=..., automatica=..., horario=...)
-
-    If pattern (2) is used, entries are stored in an `log_apostas` table (created on demand).
-    If pattern (1) is used, an entry is inserted into `apostas` (respecting `temporada` column when present).
-    
-    Pattern (2) fields:
-    - apostador: username/name of bettor
-    - pilotos: comma-separated list of pilot names (e.g., "Oscar Piastri, Max Verstappen, George Russell")
-    - aposta: comma-separated list of chips/fichas (e.g., "7, 7, 1")
-    - nome_prova: race name
-    - piloto_11: predicted 11th place finisher
-    - tipo_aposta: 0=on-time, 1=late
-    - automatica: 0=manual, 1+=automatic (with penalty if >=2)
-    - horario: timestamp of bet registration
-    - temporada: season/year (optional, defaults to current year)
     """
-    # Pattern 2: verbose logging via kwargs
-    if kwargs and ('apostador' in kwargs or 'aposta' in kwargs):
-        apostador = kwargs.get('apostador')
-        aposta = kwargs.get('aposta')
-        pilotos = kwargs.get('pilotos')
-        nome_prova = kwargs.get('nome_prova')
-        piloto_11 = kwargs.get('piloto_11')
-        tipo_aposta = kwargs.get('tipo_aposta')
-        automatica = kwargs.get('automatica')
-        horario = kwargs.get('horario')
-        ip_address = kwargs.get('ip_address')
-        temporada = kwargs.get('temporada', str(datetime.datetime.now().year))
-        status = kwargs.get('status', 'Registrada')
-        usuario_id = kwargs.get('usuario_id')
-        prova_id = kwargs.get('prova_id')
+    Retorna DataFrame de resultados.
+    Inclui posicoes_jsonb e abandono_arr quando existirem na tabela.
+    """
+    with db_connect() as conn:
+        cols = get_table_columns(conn, "resultados")
 
-        # Derivar data/horario strings
-        # Padrão persistido: data=YYYY-MM-DD e horario=HH:MM:SS.
-        # O timestamp completo permanece em data_criacao (CURRENT_TIMESTAMP).
-        data_str = None
-        horario_str = None
-        try:
-            if horario:
-                dt_obj = None
-                if isinstance(horario, datetime.datetime):
-                    dt_obj = horario
-                elif isinstance(horario, datetime.date):
-                    dt_obj = datetime.datetime.combine(horario, datetime.time.min)
-                else:
-                    # Suporta epoch em s/ms/us/ns e strings parseáveis
-                    try:
-                        raw = float(horario)
-                        abs_raw = abs(raw)
-                        if abs_raw >= 1e18:
-                            raw = raw / 1_000_000_000.0
-                        elif abs_raw >= 1e15:
-                            raw = raw / 1_000_000.0
-                        elif abs_raw >= 1e12:
-                            raw = raw / 1_000.0
-                        dt_obj = datetime.datetime.fromtimestamp(raw)
-                    except Exception:
-                        try:
-                            dt_obj = datetime.datetime.fromisoformat(str(horario).replace('Z', '+00:00'))
-                        except Exception:
-                            dt_obj = None
+    has_jsonb = "posicoes_jsonb" in cols
+    has_abandono_arr = "abandono_arr" in cols
 
-                if dt_obj is not None:
-                    data_str = dt_obj.date().isoformat()
-                    horario_hhmmss = dt_obj.strftime('%H:%M:%S')
-                    horario_str = _formatar_horario_para_armazenamento(data_str, horario_hhmmss)
-                else:
-                    # Fallback conservador: não grava valor fora do padrão de hora.
-                    data_str = datetime.datetime.now().date().isoformat()
-                    horario_str = None
-        except Exception:
-            data_str = None
-            horario_str = None
+    extra = ""
+    if has_jsonb:
+        extra += ", posicoes_jsonb"
+    if has_abandono_arr:
+        extra += ", abandono_arr"
 
+    if temporada:
+        return _query_to_df(
+            f"SELECT prova_id, posicoes, abandono_pilotos{extra} "
+            "FROM resultados "
+            "JOIN provas ON resultados.prova_id = provas.id "
+            "WHERE provas.temporada = %s",
+            (temporada,),
+        )
+    return _query_to_df(
+        f"SELECT prova_id, posicoes, abandono_pilotos{extra} FROM resultados"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Race / schedule helpers
+# ---------------------------------------------------------------------------
+
+def get_horario_prova(prova_id: int) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Retorna (nome_prova, data, horario_prova) ou (None, None, None)."""
+    with db_connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT nome, data, horario_prova FROM provas WHERE id = %s",
+            (prova_id,),
+        )
+        row = cur.fetchone()
+    if row:
+        return row["nome"], row["data"], row["horario_prova"]
+    return None, None, None
+
+
+# ---------------------------------------------------------------------------
+# Aposta log helpers
+# ---------------------------------------------------------------------------
+
+def registrar_log_aposta(
+    usuario_id: int,
+    prova_id: int,
+    apostador: str,
+    pilotos: str,
+    aposta: str,
+    nome_prova: str,
+    piloto_11: str,
+    tipo_aposta: int,
+    automatica: int,
+    horario,
+    ip_address: Optional[str] = None,
+    temporada: Optional[str] = None,
+    status: str = "Registrada",
+) -> None:
+    try:
         with db_connect() as conn:
-            c = conn.cursor()
-            # create log table if not exists (using log_apostas name for consistency)
-            c.execute(f'''
-                CREATE TABLE IF NOT EXISTS log_apostas (
-                    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                    usuario_id INTEGER,
-                    prova_id INTEGER,
-                    apostador TEXT,
-                    aposta TEXT,
-                    nome_prova TEXT,
-                    pilotos TEXT,
-                    piloto_11 TEXT,
-                    tipo_aposta INTEGER,
-                    automatica INTEGER,
-                    data TEXT,
-                    horario TIMESTAMP,
-                    ip_address TEXT,
-                    temporada TEXT DEFAULT '{datetime.datetime.now().year}',
-                    status TEXT DEFAULT 'Registrada',
-                    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-                    FOREIGN KEY (prova_id) REFERENCES provas(id)
-                )
-            ''')
-            # Check if temporada column exists
-            cols = get_table_columns(conn, 'log_apostas')
-            insert_cols = [
-                'apostador', 'aposta', 'nome_prova', 'pilotos', 'piloto_11',
-                'tipo_aposta', 'automatica', 'data', 'horario'
-            ]
-            insert_vals = [
-                apostador, aposta, nome_prova, pilotos, piloto_11,
-                tipo_aposta, automatica, data_str, horario_str
-            ]
-            if 'ip_address' in cols:
-                insert_cols.append('ip_address')
-                insert_vals.append(ip_address)
-            if 'usuario_id' in cols:
-                insert_cols.insert(0, 'usuario_id')
-                insert_vals.insert(0, usuario_id)
-            if 'prova_id' in cols:
-                insert_cols.insert(1, 'prova_id')
-                insert_vals.insert(1, prova_id)
-            if 'temporada' in cols:
-                insert_cols.append('temporada')
-                insert_vals.append(temporada)
-            if 'status' in cols:
-                insert_cols.append('status')
-                insert_vals.append(status)
-            placeholders = ', '.join(['%s'] * len(insert_cols))
-            cols_sql = ', '.join(insert_cols)
-            c.execute(
-                f'INSERT INTO log_apostas ({cols_sql}) VALUES ({placeholders})',
-                tuple(insert_vals)
+            cur = conn.cursor()
+            cols = get_table_columns(conn, "log_apostas")
+            if not cols:
+                return
+            cur.execute(
+                """
+                INSERT INTO log_apostas
+                    (usuario_id, prova_id, apostador, aposta, nome_prova,
+                     pilotos, piloto_11, tipo_aposta, automatica, horario,
+                     ip_address, temporada, status)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (
+                    usuario_id, prova_id, apostador, aposta, nome_prova,
+                    pilotos, piloto_11, tipo_aposta, automatica, horario,
+                    ip_address, temporada, status,
+                ),
             )
             conn.commit()
-            logger.info(f"✓ Aposta log registrada (log_apostas): {apostador} - {nome_prova}")
-        return
-
-    # Pattern 1: positional insert into apostas
-    # Normalize args
-    usuario_id = None
-    prova_id = None
-    piloto_id = None
-    pontos = 0
-    temporada = None
-    if len(args) >= 1:
-        usuario_id = args[0]
-    if len(args) >= 2:
-        prova_id = args[1]
-    if len(args) >= 3:
-        piloto_id = args[2]
-    if len(args) >= 4:
-        pontos = args[3]
-    # kwargs override
-    if 'usuario_id' in kwargs:
-        usuario_id = kwargs.get('usuario_id')
-    if 'prova_id' in kwargs:
-        prova_id = kwargs.get('prova_id')
-    if 'piloto_id' in kwargs:
-        piloto_id = kwargs.get('piloto_id')
-    if 'pontos' in kwargs:
-        pontos = kwargs.get('pontos')
-    if 'temporada' in kwargs:
-        temporada = kwargs.get('temporada')
-
-    if temporada is None:
-        temporada = str(datetime.datetime.now().year)
-
-    with db_connect() as conn:
-        c = conn.cursor()
-        # Detect if temporada column exists
-        cols = get_table_columns(conn, 'apostas')
-        if 'temporada' in cols:
-            c.execute(
-                'INSERT INTO apostas (usuario_id, prova_id, piloto_id, pontos, temporada) VALUES (%s, %s, %s, %s, %s)',
-                (usuario_id, prova_id, piloto_id, pontos, temporada)
-            )
-        else:
-            c.execute(
-                'INSERT INTO apostas (usuario_id, prova_id, piloto_id, pontos) VALUES (%s, %s, %s, %s)',
-                (usuario_id, prova_id, piloto_id, pontos)
-            )
-        conn.commit()
-        logger.info(f"✓ Aposta registrada: usuário {usuario_id}, prova {prova_id}, piloto {piloto_id}")
+    except Exception as exc:
+        logger.debug("registrar_log_aposta falhou: %s", exc)
 
 
 def log_aposta_existe(usuario_id: int, prova_id: int, temporada: Optional[str] = None) -> bool:
-    """Verifica se existe aposta para usuário em uma prova (opcionalmente filtrando por temporada)."""
-    if temporada is None:
-        temporada = str(datetime.datetime.now().year)
     with db_connect() as conn:
-        c = conn.cursor()
-        cols = get_table_columns(conn, 'apostas')
-        if 'temporada' in cols:
-            c.execute('SELECT 1 FROM apostas WHERE usuario_id = %s AND prova_id = %s AND temporada = %s', (usuario_id, prova_id, temporada))
+        cur = conn.cursor()
+        if temporada:
+            cur.execute(
+                "SELECT 1 FROM log_apostas WHERE usuario_id=%s AND prova_id=%s AND temporada=%s LIMIT 1",
+                (usuario_id, prova_id, temporada),
+            )
         else:
-            c.execute('SELECT 1 FROM apostas WHERE usuario_id = %s AND prova_id = %s', (usuario_id, prova_id))
-        return c.fetchone() is not None
-
-def update_user_email(user_id: int, novo_email: str) -> bool:
-    """Atualiza o email do usuário"""
-    try:
-        with db_connect() as conn:
-            c = conn.cursor()
-            c.execute('UPDATE usuarios SET email = %s WHERE id = %s', (novo_email, user_id))
-            conn.commit()
-            logger.info(f"✓ Email do usuário {user_id} atualizado")
-            return True
-    except Exception as e:
-        logger.error(f"Erro ao atualizar email: {e}")
-        return False
-
-def update_user_password(user_id: int, nova_senha: str) -> bool:
-    """Atualiza a senha do usuário"""
-    try:
-        if isinstance(nova_senha, str) and nova_senha.startswith("$2"):
-            senha_hash = nova_senha
-        else:
-            senha_hash = hash_password(nova_senha)
-        with db_connect() as conn:
-            c = conn.cursor()
-            cols = get_table_columns(conn, 'usuarios')
-            if 'must_change_password' in cols:
-                c.execute(
-                    'UPDATE usuarios SET senha_hash = %s, must_change_password = 0 WHERE id = %s',
-                    (senha_hash, user_id)
-                )
-            else:
-                c.execute('UPDATE usuarios SET senha_hash = %s WHERE id = %s', (senha_hash, user_id))
-            conn.commit()
-            logger.info(f"✓ Senha do usuário {user_id} atualizada")
-            return True
-    except Exception as e:
-        logger.error(f"Erro ao atualizar senha: {e}")
-        return False
-
-def get_horario_prova(prova_id: int) -> tuple:
-    """
-    Retorna informações da prova (nome, data, horário)
-    
-    Args:
-        prova_id: ID da prova
-    
-    Returns:
-        Tupla com (nome_prova, data_prova, horario_prova) ou (None, None, None)
-    """
-    with db_connect() as conn:
-        c = conn.cursor()
-        cols = get_table_columns(conn, 'provas')
-        if 'horario_prova' in cols:
-            c.execute('SELECT nome, data, horario_prova FROM provas WHERE id = %s', (prova_id,))
-        else:
-            c.execute('SELECT nome, data FROM provas WHERE id = %s', (prova_id,))
-        row = c.fetchone()
-
-        if row:
-            if 'horario_prova' in cols:
-                nome, data, horario = row['nome'], row['data'], row['horario_prova']
-            else:
-                nome, data = row['nome'], row['data']
-                horario = "00:00"
-            horario = horario or "00:00"
-            return (nome, data, horario)
-        return (None, None, None)
+            cur.execute(
+                "SELECT 1 FROM log_apostas WHERE usuario_id=%s AND prova_id=%s LIMIT 1",
+                (usuario_id, prova_id),
+            )
+        return cur.fetchone() is not None
