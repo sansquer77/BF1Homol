@@ -124,10 +124,15 @@ def _order_tables_for_dump(tables: list[str]) -> list[str]:
         "hall_da_fama",
         "championship_bets",
         "championship_bets_log",
-        # Independentes restantes mais comuns
+        # Independentes / configuracões
         "championship_results",
         "regras",
+        "temporadas_regras",
         "login_attempts",
+        "access_logs",
+        "financeiro_config_temporada",
+        "financeiro_participantes",
+        "password_reset_tokens",
     ]
     lower_map = {t.lower(): t for t in tables}
 
@@ -158,6 +163,43 @@ def _sql_literal(value: Any) -> str:
     return f"'{text}'"
 
 
+def _get_serial_columns(conn, table: str) -> list[str]:
+    """Retorna colunas com sequence associada (SERIAL / GENERATED ALWAYS AS IDENTITY)."""
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = %s
+          AND column_default LIKE 'nextval%%'
+        ORDER BY ordinal_position
+        """,
+        (table,),
+    )
+    rows = c.fetchall() or []
+    c.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = %s
+          AND is_identity = 'YES'
+        ORDER BY ordinal_position
+        """,
+        (table,),
+    )
+    identity_rows = c.fetchall() or []
+    seen: set[str] = set()
+    result: list[str] = []
+    for r in rows + identity_rows:
+        col = str(r['column_name'])
+        if col not in seen:
+            seen.add(col)
+            result.append(col)
+    return result
+
+
 def _build_data_only_sql() -> str:
     lines: list[str] = [
         "-- BF1 POSTGRES DATA-ONLY DUMP",
@@ -169,6 +211,8 @@ def _build_data_only_sql() -> str:
     if tables:
         trunc = ", ".join(_quote_identifier(t) for t in tables)
         lines.append(f"TRUNCATE TABLE {trunc} RESTART IDENTITY CASCADE;")
+
+    sequence_reset_lines: list[str] = []
 
     with db_connect() as conn:
         c = conn.cursor()
@@ -192,6 +236,23 @@ def _build_data_only_sql() -> str:
             for row in c.fetchall() or []:
                 values = ", ".join(_sql_literal(v) for v in row.values())
                 lines.append(f"INSERT INTO {_quote_identifier(table)} ({col_sql}) VALUES ({values});")
+
+            # Prepara resets de sequence para colunas SERIAL/IDENTITY
+            serial_cols = _get_serial_columns(conn, table)
+            for col in serial_cols:
+                qt = _quote_identifier(table)
+                qc = _quote_identifier(col)
+                sequence_reset_lines.append(
+                    f"SELECT setval("
+                    f"pg_get_serial_sequence('{table}', '{col}'), "
+                    f"COALESCE((SELECT MAX({qc}) FROM {qt}), 1)"
+                    f");"
+                )
+
+    # Aplica resets de sequence após todos os INSERTs para evitar colisão de IDs pós-restore
+    if sequence_reset_lines:
+        lines.append("-- Reajusta sequences para evitar colisão de IDs pós-restore")
+        lines.extend(sequence_reset_lines)
 
     lines.append("COMMIT;")
     return "\n".join(lines) + "\n"
@@ -355,6 +416,10 @@ def restore_backup_from_sql(sql_content: str) -> bool:
             for stmt in statements:
                 upper = stmt.upper()
                 if upper in {"BEGIN", "COMMIT", "ROLLBACK"}:
+                    continue
+
+                # Ignora linhas de comentário SQL geradas no dump
+                if stmt.strip().startswith("--"):
                     continue
 
                 if upper.startswith("TRUNCATE TABLE"):
