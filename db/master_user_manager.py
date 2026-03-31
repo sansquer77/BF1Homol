@@ -49,7 +49,7 @@ class MasterUserManager:
         Fonte de busca:
         1. os.environ (Digital Ocean, Local com .env)
         
-        Suporta variáveis em MAIÚsCULAS ou minúsculas.
+        Suporta variáveis em MAIÚSCULAS ou minúsculas.
         
         Returns:
             Dict com credenciais ou None se não encontradas
@@ -131,7 +131,7 @@ class MasterUserManager:
                 cursor.execute('''
                     INSERT INTO usuarios 
                     (nome, email, senha_hash, perfil, status, faltas)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 ''', (
                     creds['nome'],
                     creds['email'],  # Email da variável de ambiente

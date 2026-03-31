@@ -1,51 +1,92 @@
-import pandas as pd
-from datetime import datetime
+"""
+Serviço para gerenciar dados históricos do Hall da Fama
+Funções para adicionar, editar e deletar registros de classificações
+"""
+
 import logging
+from datetime import datetime
 from db.db_utils import db_connect
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("services.hall_da_fama")
 
-def adicionar_posicao(usuario_id: int, posicao: int, temporada: str) -> dict:
+
+def adicionar_resultado_historico(usuario_id: int, posicao: int, temporada: str) -> dict:
     """
-    Adiciona uma nova posição ao histórico de um usuário.
-    Retorna {'success': bool, 'message': str}
+    Adiciona um novo resultado histórico (posição em uma temporada).
+    
+    Args:
+        usuario_id: ID do usuário/participante
+        posicao: Posição alcançada (1, 2, 3, ...)
+        temporada: Ano ou identificador da temporada (ex: "2023", "2024")
+    
+    Returns:
+        dict com status, mensagem e ID do registro (se criado)
     """
     try:
         with db_connect() as conn:
             c = conn.cursor()
             
+            # Validate inputs
+            if not isinstance(usuario_id, int) or usuario_id <= 0:
+                return {"success": False, "message": "ID do usuário inválido"}
+            
+            if not isinstance(posicao, int) or posicao < 1 or posicao > 1000:
+                return {"success": False, "message": "Posição deve estar entre 1 e 1000"}
+            
+            if not isinstance(temporada, str) or not temporada.strip():
+                return {"success": False, "message": "Temporada não pode estar vazia"}
+            
             # Check if user exists
-            c.execute("SELECT id FROM usuarios WHERE id = %s", (usuario_id,))
+            c.execute("SELECT id FROM usuarios WHERE id = ?", (usuario_id,))
             if not c.fetchone():
                 return {"success": False, "message": "Usuário não encontrado"}
             
             # Check if record already exists
             c.execute(
-                "SELECT id FROM posicoes_participantes WHERE usuario_id = %s AND temporada = %s",
+                "SELECT id FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?",
                 (usuario_id, temporada)
             )
             existing = c.fetchone()
-            
             if existing:
-                return {"success": False, "message": f"Já existe registro para temporada {temporada}"}
+                return {
+                    "success": False,
+                    "message": f"Esse usuário já possui um registro para a temporada {temporada}"
+                }
             
+            # Insert new record
             c.execute(
                 """INSERT INTO posicoes_participantes 
                    (usuario_id, posicao, temporada, data_atualizacao) 
-                   VALUES (%s, %s, %s, %s)""",
+                   VALUES (?, ?, ?, ?)""",
                 (usuario_id, posicao, temporada, datetime.now().isoformat())
             )
             conn.commit()
-            return {"success": True, "message": "Posição adicionada com sucesso"}
             
+            new_id = c.lastrowid
+            logger.info(f"✅ Resultado adicionado: usuario_id={usuario_id}, posicao={posicao}, temporada={temporada}")
+            
+            return {
+                "success": True,
+                "message": f"Resultado adicionado com sucesso",
+                "id": new_id
+            }
+    
     except Exception as e:
-        logger.exception("Erro ao adicionar posição: %s", e)
-        return {"success": False, "message": f"Erro interno: {str(e)}"}
+        logger.error(f"❌ Erro ao adicionar resultado: {e}")
+        return {"success": False, "message": f"Erro ao adicionar resultado: {str(e)}"}
 
-def editar_posicao(registro_id: int, nova_posicao: int, novo_temporada: str) -> dict:
+
+def editar_resultado_historico(registro_id: int, posicao: int = None, temporada: str = None) -> dict:
     """
-    Edita uma posição existente.
-    Retorna {'success': bool, 'message': str}
+    Edita um resultado histórico existente.
+    
+    Args:
+        registro_id: ID do registro a editar
+        posicao: Nova posição (opcional)
+        temporada: Nova temporada (opcional)
+    
+    Returns:
+        dict com status e mensagem
     """
     try:
         with db_connect() as conn:
@@ -53,44 +94,68 @@ def editar_posicao(registro_id: int, nova_posicao: int, novo_temporada: str) -> 
             
             # Check if record exists
             c.execute(
-                "SELECT usuario_id, posicao, temporada FROM posicoes_participantes WHERE id = %s",
+                "SELECT usuario_id, posicao, temporada FROM posicoes_participantes WHERE id = ?",
                 (registro_id,)
             )
             existing = c.fetchone()
-            
             if not existing:
                 return {"success": False, "message": "Registro não encontrado"}
             
-            usuario_id = existing[0] if not hasattr(existing, 'keys') else existing['usuario_id']
-            current_temporada = existing[2] if not hasattr(existing, 'keys') else existing['temporada']
-            new_temporada = novo_temporada
+            usuario_id, current_posicao, current_temporada = existing
             
-            # Se mudou a temporada, verificar conflito
+            # Use current values if not provided
+            new_posicao = posicao if posicao is not None else current_posicao
+            new_temporada = temporada if temporada is not None else current_temporada
+            
+            # Validate new values
+            if not isinstance(new_posicao, int) or new_posicao < 1 or new_posicao > 1000:
+                return {"success": False, "message": "Posição deve estar entre 1 e 1000"}
+            
+            if not isinstance(new_temporada, str) or not new_temporada.strip():
+                return {"success": False, "message": "Temporada não pode estar vazia"}
+            
+            # If temporada changed, check for duplicates
             if new_temporada != current_temporada:
                 c.execute(
-                    "SELECT id FROM posicoes_participantes WHERE usuario_id = %s AND temporada = %s",
+                    "SELECT id FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?",
                     (usuario_id, new_temporada)
                 )
                 if c.fetchone():
-                    return {"success": False, "message": f"Já existe registro para temporada {new_temporada}"}
+                    return {
+                        "success": False,
+                        "message": f"Já existe um registro para esse usuário na temporada {new_temporada}"
+                    }
             
+            # Update record
             c.execute(
                 """UPDATE posicoes_participantes 
-                   SET posicao = %s, temporada = %s, data_atualizacao = %s
-                   WHERE id = %s""",
-                (nova_posicao, novo_temporada, datetime.now().isoformat(), registro_id)
+                   SET posicao = ?, temporada = ?, data_atualizacao = ?
+                   WHERE id = ?""",
+                (new_posicao, new_temporada, datetime.now().isoformat(), registro_id)
             )
             conn.commit()
-            return {"success": True, "message": "Posição atualizada com sucesso"}
             
+            logger.info(f"✅ Resultado editado: id={registro_id}, posicao={new_posicao}, temporada={new_temporada}")
+            
+            return {
+                "success": True,
+                "message": "Resultado atualizado com sucesso"
+            }
+    
     except Exception as e:
-        logger.exception("Erro ao editar posição: %s", e)
-        return {"success": False, "message": f"Erro interno: {str(e)}"}
+        logger.error(f"❌ Erro ao editar resultado: {e}")
+        return {"success": False, "message": f"Erro ao editar resultado: {str(e)}"}
 
-def remover_posicao(registro_id: int) -> dict:
+
+def deletar_resultado_historico(registro_id: int) -> dict:
     """
-    Remove uma posição do histórico.
-    Retorna {'success': bool, 'message': str}
+    Deleta um resultado histórico.
+    
+    Args:
+        registro_id: ID do registro a deletar
+    
+    Returns:
+        dict com status e mensagem
     """
     try:
         with db_connect() as conn:
@@ -98,142 +163,176 @@ def remover_posicao(registro_id: int) -> dict:
             
             # Check if record exists
             c.execute(
-                "SELECT usuario_id, posicao, temporada FROM posicoes_participantes WHERE id = %s",
+                "SELECT usuario_id, posicao, temporada FROM posicoes_participantes WHERE id = ?",
                 (registro_id,)
             )
             existing = c.fetchone()
-            
             if not existing:
                 return {"success": False, "message": "Registro não encontrado"}
             
-            c.execute("DELETE FROM posicoes_participantes WHERE id = %s", (registro_id,))
-            conn.commit()
-            return {"success": True, "message": "Registro removido com sucesso"}
+            usuario_id, posicao, temporada = existing
             
+            # Delete record
+            c.execute("DELETE FROM posicoes_participantes WHERE id = ?", (registro_id,))
+            conn.commit()
+            
+            logger.info(f"✅ Resultado deletado: id={registro_id}, usuario_id={usuario_id}, temporada={temporada}")
+            
+            return {
+                "success": True,
+                "message": "Resultado deletado com sucesso"
+            }
+    
     except Exception as e:
-        logger.exception("Erro ao remover posição: %s", e)
-        return {"success": False, "message": f"Erro interno: {str(e)}"}
+        logger.error(f"❌ Erro ao deletar resultado: {e}")
+        return {"success": False, "message": f"Erro ao deletar resultado: {str(e)}"}
 
-def get_hall_da_fama_df() -> pd.DataFrame:
-    """Retorna DataFrame com o hall da fama (posicoes_participantes + nome do usuário)."""
-    try:
-        with db_connect() as conn:
-            query = """
-                SELECT 
-                    pp.id,
-                    pp.usuario_id,
-                    u.nome as usuario_nome,
-                    pp.posicao,
-                    pp.temporada,
-                    pp.data_atualizacao
-                FROM posicoes_participantes pp
-                JOIN usuarios u ON pp.usuario_id = u.id
-                ORDER BY pp.temporada DESC, pp.posicao ASC
-            """
-            return pd.read_sql_query(query, conn)
-    except Exception as e:
-        logger.exception("Erro ao buscar hall da fama: %s", e)
-        return pd.DataFrame()
 
-def get_usuarios_disponiveis_df() -> pd.DataFrame:
-    """Retorna DataFrame com usuários ativos disponíveis."""
-    try:
-        with db_connect() as conn:
-            query = """
-                SELECT id, nome, email
-                FROM usuarios 
-                WHERE status = 'Ativo'
-                ORDER BY nome ASC
-            """
-            return pd.read_sql_query(query, conn)
-    except Exception as e:
-        logger.exception("Erro ao buscar usuários: %s", e)
-        return pd.DataFrame()
-
-def sincronizar_hall_da_fama() -> dict:
+def importar_resultados_em_lote(dados: list) -> dict:
     """
-    Sincroniza o hall_da_fama com posicoes_participantes.
-    Garante que todos os campeões (posicao=1) estão no hall_da_fama.
+    Importa múltiplos resultados históricos em uma única transação.
+    
+    Args:
+        dados: Lista de dicts com keys 'usuario_id', 'posicao', 'temporada'
+    
+    Returns:
+        dict com estatísticas de importação
     """
     try:
         with db_connect() as conn:
             c = conn.cursor()
             
-            # Buscar todos os campeões (posicao = 1)
-            c.execute("""
-                SELECT pp.usuario_id, pp.temporada, u.nome
-                FROM posicoes_participantes pp
-                JOIN usuarios u ON pp.usuario_id = u.id
-                WHERE pp.posicao = 1
-                ORDER BY pp.temporada
-            """)
-            campeoes = c.fetchall() or []
+            imported = 0
+            skipped = 0
+            errors = []
             
-            inseridos = 0
-            for row in campeoes:
-                usuario_id = row[0] if not hasattr(row, 'keys') else row['usuario_id']
-                temporada = row[1] if not hasattr(row, 'keys') else row['temporada']
-                nome = row[2] if not hasattr(row, 'keys') else row['nome']
-                
-                # Verificar se já existe no hall_da_fama
-                c.execute(
-                    """SELECT id FROM posicoes_participantes 
-                       WHERE usuario_id = %s AND temporada = %s""",
-                    (usuario_id, temporada)
-                )
-                if not c.fetchone():
+            # Get existing users
+            c.execute("SELECT id FROM usuarios")
+            existing_users = {r[0] for r in c.fetchall()}
+            
+            for idx, item in enumerate(dados):
+                try:
+                    usuario_id = item.get('usuario_id')
+                    posicao = item.get('posicao')
+                    temporada = item.get('temporada')
+                    
+                    # Skip if user doesn't exist
+                    if usuario_id not in existing_users:
+                        skipped += 1
+                        continue
+                    
+                    # Check if record already exists
+                    c.execute(
+                        "SELECT id FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?",
+                        (usuario_id, str(temporada))
+                    )
+                    if c.fetchone():
+                        skipped += 1
+                        continue
+                    
+                    # Insert new record
                     c.execute(
                         """INSERT INTO posicoes_participantes 
-                           (usuario_id, posicao, temporada, data_atualizacao)
-                           VALUES (%s, %s, %s, %s)""",
-                        (usuario_id, 1, temporada, datetime.now().isoformat())
+                           (usuario_id, posicao, temporada, data_atualizacao) 
+                           VALUES (?, ?, ?, ?)""",
+                        (usuario_id, int(posicao), str(temporada), datetime.now().isoformat())
                     )
-                    inseridos += 1
+                    imported += 1
+                
+                except Exception as e:
+                    errors.append(f"Erro no item {idx}: {str(e)}")
+                    skipped += 1
             
             conn.commit()
-            return {"success": True, "inseridos": inseridos, "total_campeoes": len(campeoes)}
             
+            logger.info(f"✅ Importação em lote: {imported} importados, {skipped} ignorados")
+            
+            return {
+                "success": True,
+                "imported": imported,
+                "skipped": skipped,
+                "errors": errors,
+                "message": f"Importação concluída: {imported} registros adicionados, {skipped} ignorados"
+            }
+    
     except Exception as e:
-        logger.exception("Erro na sincronização: %s", e)
-        return {"success": False, "message": str(e)}
+        logger.error(f"❌ Erro na importação em lote: {e}")
+        return {
+            "success": False,
+            "imported": 0,
+            "skipped": 0,
+            "errors": [str(e)],
+            "message": f"Erro na importação: {str(e)}"
+        }
 
-def get_ranking_geral() -> pd.DataFrame:
-    """Retorna ranking geral de todas as temporadas."""
+
+def obter_historico_usuario(usuario_id: int) -> list:
+    """
+    Retorna histórico completo de um usuário (todas as temporadas).
+    
+    Args:
+        usuario_id: ID do usuário
+    
+    Returns:
+        Lista de registros (id, posicao, temporada, data_atualizacao)
+    """
     try:
         with db_connect() as conn:
-            query = """
-                SELECT 
-                    u.nome,
-                    COUNT(CASE WHEN pp.posicao = 1 THEN 1 END) as titulos,
-                    COUNT(CASE WHEN pp.posicao = 2 THEN 1 END) as vice_titulos,
-                    COUNT(CASE WHEN pp.posicao = 3 THEN 1 END) as terceiros,
-                    COUNT(pp.id) as total_participacoes,
-                    MIN(pp.posicao) as melhor_posicao,
-                    STRING_AGG(pp.temporada::TEXT, ', ' ORDER BY pp.temporada) as temporadas
-                FROM usuarios u
-                JOIN posicoes_participantes pp ON u.id = pp.usuario_id
-                GROUP BY u.id, u.nome
-                ORDER BY titulos DESC, vice_titulos DESC, terceiros DESC
-            """
-            return pd.read_sql_query(query, conn)
+            c = conn.cursor()
+            c.execute(
+                """SELECT id, posicao, temporada, data_atualizacao
+                   FROM posicoes_participantes
+                   WHERE usuario_id = ?
+                   ORDER BY temporada DESC""",
+                (usuario_id,)
+            )
+            return c.fetchall()
+    
     except Exception as e:
-        logger.exception("Erro ao buscar ranking geral: %s", e)
-        return pd.DataFrame()
+        logger.error(f"❌ Erro ao obter histórico do usuário: {e}")
+        return []
 
-def get_historico_usuario(usuario_id: int) -> pd.DataFrame:
-    """Retorna histórico de posições de um usuário específico."""
+
+def obter_historico_temporada(temporada: str) -> list:
+    """
+    Retorna todos os resultados de uma temporada específica.
+    
+    Args:
+        temporada: Identificador da temporada
+    
+    Returns:
+        Lista de registros (usuario_id, nome, posicao)
+    """
     try:
         with db_connect() as conn:
-            query = """
-                SELECT 
-                    pp.temporada,
-                    pp.posicao,
-                    pp.data_atualizacao
-                FROM posicoes_participantes pp
-                WHERE pp.usuario_id = %s
-                ORDER BY pp.temporada DESC
-            """
-            return pd.read_sql_query(query, conn, params=(usuario_id,))
+            c = conn.cursor()
+            c.execute(
+                """SELECT pp.usuario_id, u.nome, pp.posicao
+                   FROM posicoes_participantes pp
+                   JOIN usuarios u ON pp.usuario_id = u.id
+                   WHERE pp.temporada = ?
+                   ORDER BY pp.posicao ASC""",
+                (str(temporada),)
+            )
+            return c.fetchall()
+    
     except Exception as e:
-        logger.exception("Erro ao buscar histórico: %s", e)
-        return pd.DataFrame()
+        logger.error(f"❌ Erro ao obter histórico da temporada: {e}")
+        return []
+
+
+def listar_todas_temporadas() -> list:
+    """Retorna lista de todas as temporadas com registros."""
+    try:
+        with db_connect() as conn:
+            c = conn.cursor()
+            c.execute(
+                """SELECT DISTINCT temporada 
+                   FROM posicoes_participantes
+                   ORDER BY temporada DESC"""
+            )
+            return [r[0] for r in c.fetchall()]
+    
+    except Exception as e:
+        logger.error(f"❌ Erro ao listar temporadas: {e}")
+        return []

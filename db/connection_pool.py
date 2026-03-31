@@ -1,244 +1,203 @@
-import logging
-import re
-import threading
-import time
+"""Pool de conexões PostgreSQL com adaptador de compatibilidade de cursor."""
+
+from __future__ import annotations
+
 from contextlib import contextmanager
-from typing import Any
+import re
+from typing import Any, Iterator, Optional
 
-import psycopg2
-import psycopg2.extensions
-import psycopg2.extras
+try:
+    import streamlit as st
+except Exception:  # no cover - fallback para execução fora do Streamlit
+    st = None
 
-from db.db_config import DATABASE_URL
+import psycopg
+from psycopg.rows import tuple_row
+from psycopg_pool import ConnectionPool as PsycopgConnectionPool
 
-logger = logging.getLogger(__name__)
-
-
-def _normalize_sql_for_postgres(sql: str) -> str:
-    """Valida que o SQL é nativo PostgreSQL — sem placeholders legados ou construções SQLite.
-
-    Rejeita '?' (deve usar '%s') e 'INSERT OR REPLACE' (deve usar ON CONFLICT).
-    Todo SQL deve ser escrito em PostgreSQL nativo — esta função não faz conversões.
-    """
-    if re.search(r"(?<![!<>=])\?", sql):
-        raise ValueError(
-            "Placeholder '?' detectado. Use SQL nativo PostgreSQL com '%s'. "
-            f"SQL ofensivo: {sql[:120]!r}"
-        )
-    if re.match(r"^\s*INSERT\s+OR\s+REPLACE\s+", sql, re.IGNORECASE):
-        raise ValueError(
-            "INSERT OR REPLACE não é suportado no PostgreSQL. "
-            "Use INSERT ... ON CONFLICT (...) DO UPDATE SET ... no lugar."
-        )
-    return sql
+from db.db_config import (
+    DATABASE_URL,
+    DB_CONN_MAX_LIFETIME,
+    DB_MAX_CONN,
+    DB_MIN_CONN,
+    DB_TIMEOUT,
+)
 
 
-class ConnectionPool:
-    """Pool de conexões PostgreSQL thread-safe com reconexão automática."""
+class CompatRow(dict):
+    """Linha de resultado compatível com acesso por índice e por nome."""
 
-    def __init__(
-        self,
-        database_url: str,
-        min_connections: int = 2,
-        max_connections: int = 10,
-        connection_timeout: float = 30.0,
-        idle_timeout: float = 300.0,
-    ) -> None:
-        self._database_url = database_url
-        self._min_connections = min_connections
-        self._max_connections = max_connections
-        self._connection_timeout = connection_timeout
-        self._idle_timeout = idle_timeout
+    def __init__(self, columns: list[str], values: list[Any]) -> None:
+        super().__init__(zip(columns, values))
+        self._values = values
 
-        self._pool: list[psycopg2.extensions.connection] = []
-        self._in_use: set[int] = set()
-        self._lock = threading.Lock()
-        self._condition = threading.Condition(self._lock)
-        self._last_used: dict[int, float] = {}
-        self._closed = False
-
-        self._initialize_pool()
-        self._start_idle_cleanup()
-
-    # ------------------------------------------------------------------ #
-    # Internal helpers
-    # ------------------------------------------------------------------ #
-
-    def _create_connection(self) -> psycopg2.extensions.connection:
-        conn = psycopg2.connect(
-            self._database_url,
-            cursor_factory=psycopg2.extras.RealDictCursor,
-            connect_timeout=10,
-        )
-        conn.autocommit = False
-        return conn
-
-    def _initialize_pool(self) -> None:
-        for _ in range(self._min_connections):
-            try:
-                conn = self._create_connection()
-                self._pool.append(conn)
-                self._last_used[id(conn)] = time.monotonic()
-            except Exception as exc:
-                logger.warning("Pool init: could not create connection: %s", exc)
-
-    def _is_connection_alive(self, conn: psycopg2.extensions.connection) -> bool:
-        try:
-            conn.cursor().execute("SELECT 1")
-            return True
-        except Exception:
-            return False
-
-    def _start_idle_cleanup(self) -> None:
-        t = threading.Thread(target=self._idle_cleanup_loop, daemon=True)
-        t.start()
-
-    def _idle_cleanup_loop(self) -> None:
-        while not self._closed:
-            time.sleep(60)
-            self._cleanup_idle_connections()
-
-    def _cleanup_idle_connections(self) -> None:
-        now = time.monotonic()
-        with self._lock:
-            to_close = [
-                conn
-                for conn in list(self._pool)
-                if id(conn) not in self._in_use
-                and now - self._last_used.get(id(conn), now) > self._idle_timeout
-                and len(self._pool) > self._min_connections
-            ]
-            for conn in to_close:
-                self._pool.remove(conn)
-                self._last_used.pop(id(conn), None)
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-
-    # ------------------------------------------------------------------ #
-    # Public API
-    # ------------------------------------------------------------------ #
-
-    def acquire(self) -> psycopg2.extensions.connection:
-        deadline = time.monotonic() + self._connection_timeout
-        with self._condition:
-            while True:
-                for conn in self._pool:
-                    if id(conn) not in self._in_use:
-                        if not self._is_connection_alive(conn):
-                            self._pool.remove(conn)
-                            self._last_used.pop(id(conn), None)
-                            try:
-                                conn.close()
-                            except Exception:
-                                pass
-                            try:
-                                conn = self._create_connection()
-                                self._pool.append(conn)
-                            except Exception as exc:
-                                raise RuntimeError(f"Failed to reconnect: {exc}") from exc
-                        self._in_use.add(id(conn))
-                        self._last_used[id(conn)] = time.monotonic()
-                        return conn
-
-                if len(self._pool) < self._max_connections:
-                    try:
-                        conn = self._create_connection()
-                        self._pool.append(conn)
-                        self._in_use.add(id(conn))
-                        self._last_used[id(conn)] = time.monotonic()
-                        return conn
-                    except Exception as exc:
-                        raise RuntimeError(f"Failed to create connection: {exc}") from exc
-
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise TimeoutError(
-                        f"Could not acquire a connection within {self._connection_timeout}s"
-                    )
-                self._condition.wait(timeout=min(remaining, 1.0))
-
-    def release(self, conn: psycopg2.extensions.connection) -> None:
-        with self._condition:
-            self._in_use.discard(id(conn))
-            self._last_used[id(conn)] = time.monotonic()
-            self._condition.notify_all()
-
-    def close_all(self) -> None:
-        self._closed = True
-        with self._lock:
-            for conn in self._pool:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-            self._pool.clear()
-            self._in_use.clear()
-            self._last_used.clear()
-
-    @contextmanager
-    def get_connection(self):
-        conn = self.acquire()
-        try:
-            yield PatchedConnection(conn)
-            conn.commit()
-        except Exception:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-            raise
-        finally:
-            self.release(conn)
-
-    def get_stats(self) -> dict[str, Any]:
-        with self._lock:
-            return {
-                "total": len(self._pool),
-                "in_use": len(self._in_use),
-                "available": len(self._pool) - len(self._in_use),
-                "max": self._max_connections,
-            }
-
-
-class PatchedCursor:
-    """Cursor wrapper que valida SQL nativo PostgreSQL antes de executar."""
-
-    def __init__(self, cursor: Any) -> None:
-        self._cursor = cursor
-
-    def execute(self, sql: str, params: Any = None) -> Any:
-        sql = _normalize_sql_for_postgres(sql)
-        if params is not None:
-            return self._cursor.execute(sql, params)
-        return self._cursor.execute(sql)
-
-    def executemany(self, sql: str, seq_of_params: Any) -> Any:
-        sql = _normalize_sql_for_postgres(sql)
-        return self._cursor.executemany(sql, seq_of_params)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._cursor, name)
+    def __getitem__(self, key: Any) -> Any:
+        if isinstance(key, int):
+            return self._values[key]
+        return super().__getitem__(key)
 
     def __iter__(self):
-        return iter(self._cursor)
+        return iter(self._values)
 
-    def __enter__(self):
+    def __len__(self) -> int:
+        return len(self._values)
+
+
+def _convert_placeholders(sql: str) -> str:
+    """Converte placeholders qmark (?) para format (%s), ignorando strings."""
+    result: list[str] = []
+    in_single = False
+    in_double = False
+    i = 0
+    while i < len(sql):
+        ch = sql[i]
+        if ch == "'" and not in_double:
+            in_single = not in_single
+            result.append(ch)
+        elif ch == '"' and not in_single:
+            in_double = not in_double
+            result.append(ch)
+        elif ch == "?" and not in_single and not in_double:
+            result.append("%s")
+        else:
+            result.append(ch)
+        i += 1
+    return "".join(result)
+
+
+def _parse_single_quoted_identifier(sql: str) -> Optional[str]:
+    match = re.search(r"\((['\"])([^'\"]+)\1\)", sql)
+    if not match:
+        return None
+    return match.group(2)
+
+
+def _rewrite_sql_for_postgres(sql: str) -> tuple[str, bool]:
+    """Reescreve SQL para compatibilidade com psycopg."""
+    sql = re.sub(r"BOOLEAN\s+DEFAULT\s+0", "BOOLEAN DEFAULT FALSE", sql, flags=re.IGNORECASE)
+    sql = re.sub(r"BOOLEAN\s+DEFAULT\s+1", "BOOLEAN DEFAULT TRUE", sql, flags=re.IGNORECASE)
+
+    insert_or_replace = re.search(
+        r"^\s*INSERT\s+OR\s+REPLACE\s+INTO\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]+)\)\s*VALUES\s*\((.+)\)\s*$",
+        sql,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if insert_or_replace:
+        table_name = insert_or_replace.group(1)
+        columns = [c.strip() for c in insert_or_replace.group(2).split(",")]
+        values = insert_or_replace.group(3).strip()
+        conflict_col = columns[0]
+        updates = ", ".join(f"{col} = EXCLUDED.{col}" for col in columns[1:])
+        sql = (
+            f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({values}) "
+            f"ON CONFLICT ({conflict_col}) DO UPDATE SET {updates}"
+        )
+
+    sql = _convert_placeholders(sql)
+    return sql, False
+
+
+def _insert_explicitly_sets_id(sql: str) -> bool:
+    """Detecta INSERT com coluna id explícita no target list."""
+    match = re.search(
+        r"^\s*INSERT\s+INTO\s+[^\(]+\(([^\)]+)\)",
+        sql,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not match:
+        return False
+    raw_cols = match.group(1)
+    cols = [c.strip().strip('"').lower() for c in raw_cols.split(",") if c.strip()]
+    return "id" in cols
+
+
+class PostgresCursorAdapter:
+    """Cursor compatível com API sqlite para reduzir mudanças de código."""
+
+    def __init__(self, cursor: psycopg.Cursor[Any]) -> None:
+        self._cursor = cursor
+        self._last_columns: list[str] = []
+        self._lastrowid: Optional[int] = None
+
+    @property
+    def lastrowid(self) -> Optional[int]:
+        return self._lastrowid
+
+    @property
+    def description(self) -> Optional[list[tuple[Any, ...]]]:
+        if not self._cursor.description:
+            return None
+        # Compatibilidade com consumidores DB-API (ex.: pandas)
+        return [(desc.name, None, None, None, None, None, None) for desc in self._cursor.description]
+
+    def execute(self, sql: str, params: Optional[tuple[Any, ...] | list[Any]] = None) -> "PostgresCursorAdapter":
+        rewritten_sql, requires_special_param = _rewrite_sql_for_postgres(sql)
+        query_params: tuple[Any, ...] | list[Any] | None = params
+        self._lastrowid = None
+
+        if requires_special_param:
+            identifier = _parse_single_quoted_identifier(sql)
+            query_params = (identifier,) if identifier else ()
+
+        self._cursor.execute(rewritten_sql, query_params)
+        self._last_columns = [desc.name for desc in self._cursor.description] if self._cursor.description else []
+
+        normalized = " ".join(rewritten_sql.strip().split()).lower()
+        if (
+            normalized.startswith("insert")
+            and " returning " not in normalized
+            and not _insert_explicitly_sets_id(rewritten_sql)
+        ):
+            try:
+                self._cursor.execute("SAVEPOINT bf1_lastval_sp")
+                self._cursor.execute("SELECT LASTVAL()")
+                result = self._cursor.fetchone()
+                if result:
+                    self._lastrowid = int(result[0])
+                self._cursor.execute("RELEASE SAVEPOINT bf1_lastval_sp")
+            except Exception:
+                try:
+                    self._cursor.execute("ROLLBACK TO SAVEPOINT bf1_lastval_sp")
+                    self._cursor.execute("RELEASE SAVEPOINT bf1_lastval_sp")
+                except Exception:
+                    pass
+                self._lastrowid = None
+
         return self
 
-    def __exit__(self, *args):
-        self._cursor.close()
+    def executemany(
+        self,
+        sql: str,
+        params_seq: list[tuple[Any, ...]] | tuple[tuple[Any, ...], ...],
+    ) -> "PostgresCursorAdapter":
+        rewritten_sql, _ = _rewrite_sql_for_postgres(sql)
+        self._lastrowid = None
+        self._cursor.executemany(rewritten_sql, params_seq)
+        self._last_columns = [desc.name for desc in self._cursor.description] if self._cursor.description else []
+        return self
+
+    def fetchone(self) -> Optional[CompatRow]:
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        return CompatRow(self._last_columns, list(row))
+
+    def fetchall(self) -> list[CompatRow]:
+        rows = self._cursor.fetchall()
+        return [CompatRow(self._last_columns, list(row)) for row in rows]
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self._cursor, item)
 
 
-class PatchedConnection:
-    """Conexão wrapper que injeta PatchedCursor em cada chamada cursor()."""
+class PostgresConnectionAdapter:
+    """Conexão compatível com API sqlite para uso legado."""
 
-    def __init__(self, conn: psycopg2.extensions.connection) -> None:
+    def __init__(self, conn: psycopg.Connection[Any]) -> None:
         self._conn = conn
 
-    def cursor(self, *args: Any, **kwargs: Any) -> PatchedCursor:
-        return PatchedCursor(self._conn.cursor(*args, **kwargs))
+    def cursor(self) -> PostgresCursorAdapter:
+        return PostgresCursorAdapter(self._conn.cursor(row_factory=tuple_row))
 
     def commit(self) -> None:
         self._conn.commit()
@@ -249,43 +208,92 @@ class PatchedConnection:
     def close(self) -> None:
         self._conn.close()
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._conn, name)
-
-    def __enter__(self):
+    def __enter__(self) -> "PostgresConnectionAdapter":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type:
-            self.rollback()
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        if exc_type is None:
+            self._conn.commit()
         else:
-            self.commit()
+            self._conn.rollback()
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self._conn, item)
+
+class ConnectionPool:
+    """Pool de conexões thread-safe para PostgreSQL."""
+
+    def __init__(self, pool_size: int = 5, timeout: float = 30.0) -> None:
+        self.pool_size = pool_size
+        self.timeout = timeout
+        self._pg_pool: Optional[PsycopgConnectionPool] = None
+        self._initialize_pool()
+
+    def _initialize_pool(self) -> None:
+        """Inicializa recursos do backend PostgreSQL."""
+        if not DATABASE_URL:
+            raise ValueError("DATABASE_URL não configurada para backend PostgreSQL")
+        self._pg_pool = PsycopgConnectionPool(
+            conninfo=DATABASE_URL,
+            min_size=DB_MIN_CONN,
+            max_size=DB_MAX_CONN,
+            max_lifetime=DB_CONN_MAX_LIFETIME,
+            timeout=self.timeout,
+            kwargs={"autocommit": False},
+            open=True,
+        )
+
+    @contextmanager
+    def get_connection(self) -> Iterator[Any]:
+        """Retorna conexão do pool como context manager."""
+        if self._pg_pool is None:
+            self._initialize_pool()
+        if self._pg_pool is None:
+            raise RuntimeError("Pool PostgreSQL não inicializado")
+        with self._pg_pool.connection() as conn:
+            yield PostgresConnectionAdapter(conn)
+
+    def close_all(self) -> None:
+        """Fecha todas as conexões do pool."""
+        if self._pg_pool is not None:
+            self._pg_pool.close()
+            self._pg_pool = None
 
 
-_pool_instance: ConnectionPool | None = None
-_pool_lock = threading.Lock()
+# Instância global do pool
+_pool: Optional[ConnectionPool] = None
 
+def _build_pool(pool_size: int) -> ConnectionPool:
+    return ConnectionPool(pool_size, DB_TIMEOUT)
+
+
+if st is not None:
+
+    @st.cache_resource(show_spinner=False)
+    def _get_cached_pool(pool_size: int) -> ConnectionPool:
+        return _build_pool(pool_size)
+
+else:
+
+    def _get_cached_pool(pool_size: int) -> ConnectionPool:
+        return _build_pool(pool_size)
+
+
+def init_pool(pool_size: int = 5) -> None:
+    """Inicializa o pool global."""
+    global _pool
+    _pool = _get_cached_pool(pool_size)
 
 def get_pool() -> ConnectionPool:
-    global _pool_instance
-    if _pool_instance is None:
-        with _pool_lock:
-            if _pool_instance is None:
-                _pool_instance = ConnectionPool(
-                    database_url=DATABASE_URL,
-                    min_connections=2,
-                    max_connections=10,
-                )
-    return _pool_instance
+    """Retorna o pool global."""
+    global _pool
+    if _pool is None:
+        init_pool(pool_size=5)
+    return _pool
 
-
-def reset_pool() -> None:
-    """Fecha e descarta o pool atual (usado em testes ou re-inicialização)."""
-    global _pool_instance
-    with _pool_lock:
-        if _pool_instance is not None:
-            try:
-                _pool_instance.close_all()
-            except Exception:
-                pass
-            _pool_instance = None
+def close_pool() -> None:
+    """Fecha o pool global."""
+    global _pool
+    if _pool:
+        _pool.close_all()
+        _pool = None
