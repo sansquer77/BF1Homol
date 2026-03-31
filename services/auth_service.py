@@ -143,9 +143,9 @@ def autenticar_usuario(email: str, senha: str):
     """Retorna o usuário autenticado (tupla de dados) ou None."""
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute("SELECT id, nome, email, senha_hash, perfil, status FROM usuarios WHERE email=%s", (email,))
+        c.execute("SELECT id, nome, email, senha, perfil, status FROM usuarios WHERE email=%s", (email,))
         user = c.fetchone()
-    if user and check_password(senha, user['senha_hash']):
+    if user and check_password(senha, user['senha']):
         return user
     return None
 
@@ -180,12 +180,12 @@ def decode_token(token: str):
 def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", status="Ativo") -> bool:
     """Cria novo usuário, garantindo unicidade de email."""
     try:
-        senha_hash = hash_password(senha)
+        senha_hashed = hash_password(senha)
         with db_connect() as conn:
             c = conn.cursor()
             c.execute(
-                'INSERT INTO usuarios (nome, email, senha_hash, perfil, status, faltas) VALUES (%s, %s, %s, %s, %s, %s)',
-                (nome, email, senha_hash, perfil, status, 0)
+                'INSERT INTO usuarios (nome, email, senha, perfil, status) VALUES (%s, %s, %s, %s, %s)',
+                (nome, email, senha_hashed, perfil, status)
             )
             user_id = c.lastrowid
             conn.commit()
@@ -209,7 +209,7 @@ def get_user_by_email(email: str):
     with db_connect() as conn:
         c = conn.cursor()
         c.execute(
-            "SELECT id, nome, email, senha_hash, perfil, status, faltas FROM usuarios WHERE email=%s",
+            "SELECT id, nome, email, senha, perfil, status FROM usuarios WHERE email=%s",
             (email,)
         )
         user = c.fetchone()
@@ -219,7 +219,7 @@ def get_user_by_id(user_id):
     with db_connect() as conn:
         c = conn.cursor()
         c.execute(
-            "SELECT id, nome, email, perfil, status, faltas FROM usuarios WHERE id=%s",
+            "SELECT id, nome, email, perfil, status FROM usuarios WHERE id=%s",
             (user_id,)
         )
         user = c.fetchone()
@@ -351,15 +351,15 @@ def redefinir_senha_com_token(email: str, token: str, nova_senha: str):
         if not token_row:
             return False, "Token inválido ou expirado."
 
-        senha_hash = hash_password(nova_senha)
+        senha_hashed = hash_password(nova_senha)
         cols = get_table_columns(conn, 'usuarios')
         if 'must_change_password' in cols:
             c.execute(
-                "UPDATE usuarios SET senha_hash=%s, must_change_password=0 WHERE email=%s",
-                (senha_hash, email),
+                "UPDATE usuarios SET senha=%s, must_change_password=0 WHERE email=%s",
+                (senha_hashed, email),
             )
         else:
-            c.execute("UPDATE usuarios SET senha_hash=%s WHERE email=%s", (senha_hash, email))
+            c.execute("UPDATE usuarios SET senha=%s WHERE email=%s", (senha_hashed, email))
 
         c.execute(
             "UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=%s",
@@ -389,10 +389,10 @@ def criar_master_se_nao_existir():
         c.execute("SELECT COUNT(*) AS cnt FROM usuarios WHERE perfil = %s", ('master',))
         existe = c.fetchone()['cnt'] > 0
         if not existe:
-            senha_hash = hash_password(senha)
+            senha_hashed = hash_password(senha)
             c.execute(
-                "INSERT INTO usuarios (nome, email, senha_hash, perfil, status, faltas) VALUES (%s, %s, %s, %s, %s, %s)",
-                (nome, email, senha_hash, 'master', 'Ativo', 0)
+                "INSERT INTO usuarios (nome, email, senha, perfil, status) VALUES (%s, %s, %s, %s, %s)",
+                (nome, email, senha_hashed, 'master', 'Ativo')
             )
             conn.commit()
 
