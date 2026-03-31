@@ -465,7 +465,7 @@ def get_circuit_id_por_nome_prova(season: str, nome_prova: str) -> Optional[str]
                     """
                     SELECT nome, circuit_id
                     FROM provas
-                    WHERE (temporada = ? OR temporada IS NULL)
+                    WHERE (temporada = %s OR temporada IS NULL)
                       AND circuit_id IS NOT NULL
                       AND TRIM(circuit_id) <> ''
                     """,

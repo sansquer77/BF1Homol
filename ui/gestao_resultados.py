@@ -143,53 +143,53 @@ def resultados_view():
                 abandono_str = ','.join(abandono_pilotos) if abandono_pilotos else ''
 
                 if 'temporada' in cols:
-                    c.execute('SELECT 1 FROM resultados WHERE prova_id=? AND (temporada=? OR temporada IS NULL)', (prova_id, temporada_selecionada))
+                    c.execute('SELECT 1 FROM resultados WHERE prova_id=%s AND (temporada=%s OR temporada IS NULL)', (prova_id, temporada_selecionada))
                     existe = c.fetchone() is not None
                     if 'abandono_pilotos' in cols:
                         if existe:
                             c.execute(
-                                'UPDATE resultados SET posicoes=?, abandono_pilotos=?, temporada=? WHERE prova_id=?',
+                                'UPDATE resultados SET posicoes=%s, abandono_pilotos=%s, temporada=%s WHERE prova_id=%s',
                                 (str(posicoes), abandono_str, temporada_selecionada, prova_id)
                             )
                         else:
                             c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes, abandono_pilotos, temporada) VALUES (?, ?, ?, ?)',
+                                'INSERT INTO resultados (prova_id, posicoes, abandono_pilotos, temporada) VALUES (%s, %s, %s, %s)',
                                 (prova_id, str(posicoes), abandono_str, temporada_selecionada)
                             )
                     else:
                         if existe:
                             c.execute(
-                                'UPDATE resultados SET posicoes=?, temporada=? WHERE prova_id=?',
+                                'UPDATE resultados SET posicoes=%s, temporada=%s WHERE prova_id=%s',
                                 (str(posicoes), temporada_selecionada, prova_id)
                             )
                         else:
                             c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes, temporada) VALUES (?, ?, ?)',
+                                'INSERT INTO resultados (prova_id, posicoes, temporada) VALUES (%s, %s, %s)',
                                 (prova_id, str(posicoes), temporada_selecionada)
                             )
                 else:
-                    c.execute('SELECT 1 FROM resultados WHERE prova_id=?', (prova_id,))
+                    c.execute('SELECT 1 FROM resultados WHERE prova_id=%s', (prova_id,))
                     existe = c.fetchone() is not None
                     if 'abandono_pilotos' in cols:
                         if existe:
                             c.execute(
-                                'UPDATE resultados SET posicoes=?, abandono_pilotos=? WHERE prova_id=?',
+                                'UPDATE resultados SET posicoes=%s, abandono_pilotos=%s WHERE prova_id=%s',
                                 (str(posicoes), abandono_str, prova_id)
                             )
                         else:
                             c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes, abandono_pilotos) VALUES (?, ?, ?)',
+                                'INSERT INTO resultados (prova_id, posicoes, abandono_pilotos) VALUES (%s, %s, %s)',
                                 (prova_id, str(posicoes), abandono_str)
                             )
                     else:
                         if existe:
                             c.execute(
-                                'UPDATE resultados SET posicoes=? WHERE prova_id=?',
+                                'UPDATE resultados SET posicoes=%s WHERE prova_id=%s',
                                 (str(posicoes), prova_id)
                             )
                         else:
                             c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes) VALUES (?, ?)',
+                                'INSERT INTO resultados (prova_id, posicoes) VALUES (%s, %s)',
                                 (prova_id, str(posicoes))
                             )
                 conn.commit()

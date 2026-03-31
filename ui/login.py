@@ -46,7 +46,7 @@ def registrar_tentativa_login(email: str, sucesso: bool, ip_address: str = "LOCA
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO login_attempts (email, sucesso, ip_address, action)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
         ''', (email, sucesso, ip_address, action))
         conn.commit()
 
@@ -71,7 +71,7 @@ def registrar_evento_acesso(
                 INSERT INTO access_logs (
                     evento, sucesso, user_id, email, nome, perfil, ip_address, detalhes
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ''',
                 (
                     evento,
@@ -112,20 +112,20 @@ def obter_tentativas_recentes(
             SELECT COUNT(*) as total,
                    SUM(CASE WHEN sucesso IS NOT TRUE THEN 1 ELSE 0 END) as falhas
             FROM login_attempts
-            WHERE email = ? AND tentativa_em > ? AND action = ?
+            WHERE email = %s AND tentativa_em > %s AND action = %s
         ''', (email, tempo_limite, action))
         
         resultado = cursor.fetchone()
-        falhas = resultado[1] if resultado and resultado[1] else 0
+        falhas = resultado['falhas'] if resultado and resultado['falhas'] else 0
 
         cursor.execute('''
             SELECT SUM(CASE WHEN sucesso IS NOT TRUE THEN 1 ELSE 0 END) as falhas_ip
             FROM login_attempts
-            WHERE ip_address = ? AND tentativa_em > ? AND action = ?
+            WHERE ip_address = %s AND tentativa_em > %s AND action = %s
         ''', (ip_address, tempo_limite, action))
 
         resultado_ip = cursor.fetchone()
-        falhas_ip = resultado_ip[0] if resultado_ip and resultado_ip[0] else 0
+        falhas_ip = resultado_ip['falhas_ip'] if resultado_ip and resultado_ip['falhas_ip'] else 0
         
         # Bloqueado se tiver mais que MAX_LOGIN_ATTEMPTS falhas
         # Limite por IP mais permissivo para reduzir falso positivo em redes compartilhadas.
@@ -159,7 +159,7 @@ def limpar_tentativas_antigas():
         
         cursor.execute('''
             DELETE FROM login_attempts
-            WHERE tentativa_em < ?
+            WHERE tentativa_em < %s
         ''', (tempo_limite,))
         
         conn.commit()

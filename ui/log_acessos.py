@@ -19,30 +19,30 @@ def _load_access_logs(
     ip_contains: str,
     usuario_contains: str,
 ) -> pd.DataFrame:
-    where = ["DATE(created_at) >= ?", "DATE(created_at) <= ?"]
+    where = ["DATE(created_at) >= %s", "DATE(created_at) <= %s"]
     params: list[object] = [data_inicial.isoformat(), data_final.isoformat()]
 
     if perfil_sel != "Todos":
-        where.append("LOWER(COALESCE(perfil, '')) = ?")
+        where.append("LOWER(COALESCE(perfil, '')) = %s")
         params.append(perfil_sel.lower())
 
     if evento_sel != "Todos":
-        where.append("evento = ?")
+        where.append("evento = %s")
         params.append(evento_sel)
 
     if sucesso_sel == "Sucesso":
-        where.append("sucesso = ?")
+        where.append("sucesso = %s")
         params.append(True)
     elif sucesso_sel == "Falha":
-        where.append("sucesso = ?")
+        where.append("sucesso = %s")
         params.append(False)
 
     if ip_contains:
-        where.append("LOWER(COALESCE(ip_address, '')) LIKE ?")
+        where.append("LOWER(COALESCE(ip_address, '')) LIKE %s")
         params.append(f"%{ip_contains.lower()}%")
 
     if usuario_contains:
-        where.append("(LOWER(COALESCE(email, '')) LIKE ? OR LOWER(COALESCE(nome, '')) LIKE ?)")
+        where.append("(LOWER(COALESCE(email, '')) LIKE %s OR LOWER(COALESCE(nome, '')) LIKE %s)")
         token = f"%{usuario_contains.lower()}%"
         params.extend([token, token])
 

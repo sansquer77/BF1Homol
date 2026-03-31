@@ -81,14 +81,14 @@ def carregar_logs(temporada=None, usuario_id=None, usuario_nome=None, is_admin=F
 
             if season_sources:
                 season_expr = f"COALESCE({', '.join(season_sources)})"
-                where_clauses.append(f"{season_expr} = ?")
+                where_clauses.append(f"{season_expr} = %s")
                 params.append(str(temporada).strip())
 
         if not is_admin:
             if not user_col or usuario_id is None:
                 return pd.DataFrame()
             # Para perfil participante, o vínculo oficial é sempre por ID do usuário.
-            where_clauses.append(f"{user_col} = ?")
+            where_clauses.append(f"{user_col} = %s")
             params.append(int(usuario_id))
 
         where_sql = ""

@@ -60,11 +60,11 @@ def _get_pagamentos_temporada(temporada: str) -> dict[int, bool]:
     with db_connect() as conn:
         c = conn.cursor()
         c.execute(
-            "SELECT usuario_id, pago FROM financeiro_participantes WHERE temporada = ?",
+            "SELECT usuario_id, pago FROM financeiro_participantes WHERE temporada = %s",
             (str(temporada),)
         )
         rows = c.fetchall()
-    return {int(r[0]): bool(int(r[1])) for r in rows}
+    return {int(r['usuario_id']): bool(int(r['pago'])) for r in rows}
 
 
 def _salvar_pagamentos_temporada(temporada: str, pagamentos: dict[int, bool]) -> None:
@@ -75,7 +75,7 @@ def _salvar_pagamentos_temporada(temporada: str, pagamentos: dict[int, bool]) ->
             c.execute(
                 '''
                 INSERT INTO financeiro_participantes (usuario_id, temporada, pago, atualizado_em)
-                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
                 ON CONFLICT(usuario_id, temporada)
                 DO UPDATE SET pago = excluded.pago, atualizado_em = CURRENT_TIMESTAMP
                 ''',
@@ -89,14 +89,14 @@ def _get_valor_taxa_temporada(temporada: str) -> float:
     with db_connect() as conn:
         c = conn.cursor()
         c.execute(
-            "SELECT valor_taxa FROM financeiro_config_temporada WHERE temporada = ? LIMIT 1",
+            "SELECT valor_taxa FROM financeiro_config_temporada WHERE temporada = %s LIMIT 1",
             (str(temporada),),
         )
         row = c.fetchone()
     if not row:
         return 0.0
     try:
-        return float(row[0])
+        return float(row['valor_taxa'])
     except Exception:
         return 0.0
 
@@ -108,7 +108,7 @@ def _salvar_valor_taxa_temporada(temporada: str, valor_taxa: float) -> None:
         c.execute(
             '''
             INSERT INTO financeiro_config_temporada (temporada, valor_taxa, atualizado_em)
-            VALUES (?, ?, CURRENT_TIMESTAMP)
+            VALUES (%s, %s, CURRENT_TIMESTAMP)
             ON CONFLICT(temporada)
             DO UPDATE SET valor_taxa = excluded.valor_taxa, atualizado_em = CURRENT_TIMESTAMP
             ''',
@@ -163,7 +163,7 @@ def _render_gestao_usuarios_tab(perfil: str):
             with db_connect() as conn:
                 c = conn.cursor()
                 c.execute(
-                    "UPDATE usuarios SET nome=?, email=?, perfil=?, status=? WHERE id=?",
+                    "UPDATE usuarios SET nome=%s, email=%s, perfil=%s, status=%s WHERE id=%s",
                     (novo_nome, novo_email, novo_perfil, novo_status, int(user_row["id"]))
                 )
                 conn.commit()
@@ -200,7 +200,7 @@ def _render_gestao_usuarios_tab(perfil: str):
                     nova_hash = hash_password(nova_senha)
                     with db_connect() as conn:
                         c = conn.cursor()
-                        c.execute("UPDATE usuarios SET senha_hash=? WHERE id=?", (nova_hash, int(user_row["id"])))
+                        c.execute("UPDATE usuarios SET senha_hash=%s WHERE id=%s", (nova_hash, int(user_row["id"])))
                         conn.commit()
                     st.success("Senha atualizada com sucesso!")
                     st.session_state["alterar_senha"] = False
@@ -221,7 +221,7 @@ def _render_gestao_usuarios_tab(perfil: str):
             else:
                 with db_connect() as conn:
                     c = conn.cursor()
-                    c.execute("DELETE FROM usuarios WHERE id=?", (int(user_row["id"]),))
+                    c.execute("DELETE FROM usuarios WHERE id=%s", (int(user_row["id"]),))
                     conn.commit()
                 st.success("Usuário excluído com sucesso!")
                 st.cache_data.clear()

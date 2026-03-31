@@ -110,7 +110,7 @@ def criar_regra(
                     pontos_dobrada, bonus_vencedor, bonus_podio_completo, bonus_podio_qualquer,
                     qtd_minima_pilotos, penalidade_abandono, pontos_penalidade, penalidade_auto_percent,
                     pontos_campeao, pontos_vice, pontos_equipe
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 nome_regra, quantidade_fichas, fichas_por_piloto, int(mesma_equipe),
                 int(descarte), pontos_pole, pontos_vr, json.dumps(pontos_posicoes), pontos_11_colocado,
@@ -158,14 +158,14 @@ def atualizar_regra(
             c = conn.cursor()
             c.execute('''
                 UPDATE regras SET
-                    nome_regra = ?, quantidade_fichas = ?, fichas_por_piloto = ?, mesma_equipe = ?,
-                    descarte = ?, pontos_pole = ?, pontos_vr = ?, pontos_posicoes = ?, pontos_11_colocado = ?,
-                    regra_sprint = ?, pontos_sprint_pole = ?, pontos_sprint_vr = ?, pontos_sprint_posicoes = ?,
-                    pontos_dobrada = ?, bonus_vencedor = ?, bonus_podio_completo = ?, bonus_podio_qualquer = ?,
-                    qtd_minima_pilotos = ?, penalidade_abandono = ?, pontos_penalidade = ?, penalidade_auto_percent = ?,
-                    pontos_campeao = ?, pontos_vice = ?, pontos_equipe = ?,
+                    nome_regra = %s, quantidade_fichas = %s, fichas_por_piloto = %s, mesma_equipe = %s,
+                    descarte = %s, pontos_pole = %s, pontos_vr = %s, pontos_posicoes = %s, pontos_11_colocado = %s,
+                    regra_sprint = %s, pontos_sprint_pole = %s, pontos_sprint_vr = %s, pontos_sprint_posicoes = %s,
+                    pontos_dobrada = %s, bonus_vencedor = %s, bonus_podio_completo = %s, bonus_podio_qualquer = %s,
+                    qtd_minima_pilotos = %s, penalidade_abandono = %s, pontos_penalidade = %s, penalidade_auto_percent = %s,
+                    pontos_campeao = %s, pontos_vice = %s, pontos_equipe = %s,
                     atualizado_em = CURRENT_TIMESTAMP
-                WHERE id = ?
+                WHERE id = %s
             ''', (
                 nome_regra, quantidade_fichas, fichas_por_piloto, int(mesma_equipe),
                 int(descarte), pontos_pole, pontos_vr, json.dumps(pontos_posicoes), pontos_11_colocado,
@@ -185,10 +185,10 @@ def excluir_regra(regra_id: int) -> bool:
     try:
         with get_pool().get_connection() as conn:
             c = conn.cursor()
-            c.execute('SELECT COUNT(*) FROM temporadas_regras WHERE regra_id = ?', (regra_id,))
-            if c.fetchone()[0] > 0:
+            c.execute('SELECT COUNT(*) AS cnt FROM temporadas_regras WHERE regra_id = %s', (regra_id,))
+            if c.fetchone()['cnt'] > 0:
                 return False
-            c.execute('DELETE FROM regras WHERE id = ?', (regra_id,))
+            c.execute('DELETE FROM regras WHERE id = %s', (regra_id,))
             conn.commit()
             return True
     except Exception as e:
@@ -199,7 +199,7 @@ def get_regra_by_id(regra_id: int) -> Optional[dict]:
     """Retorna uma regra pelo ID"""
     with get_pool().get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT * FROM regras WHERE id = ?', (regra_id,))
+        c.execute('SELECT * FROM regras WHERE id = %s', (regra_id,))
         row = c.fetchone()
         if row:
             d = dict(row)
@@ -212,7 +212,7 @@ def get_regra_by_nome(nome_regra: str) -> Optional[dict]:
     """Retorna uma regra pelo nome"""
     with get_pool().get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT * FROM regras WHERE nome_regra = ?', (nome_regra,))
+        c.execute('SELECT * FROM regras WHERE nome_regra = %s', (nome_regra,))
         row = c.fetchone()
         if row:
             d = dict(row)
@@ -225,9 +225,9 @@ def listar_temporadas_por_regra(regra_id: int) -> list[str]:
     """Retorna lista de temporadas associadas a uma regra específica."""
     with get_pool().get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT temporada FROM temporadas_regras WHERE regra_id = ?', (regra_id,))
+        c.execute('SELECT temporada FROM temporadas_regras WHERE regra_id = %s', (regra_id,))
         rows = c.fetchall()
-        return [str(r[0]) for r in rows] if rows else []
+        return [str(r['temporada']) for r in rows] if rows else []
 
 def clonar_regra(regra_id: int, novo_nome: str) -> Optional[int]:
     """Clona uma regra existente com um novo nome. Retorna o novo ID ou None."""
@@ -245,7 +245,7 @@ def clonar_regra(regra_id: int, novo_nome: str) -> Optional[int]:
                     pontos_dobrada, bonus_vencedor, bonus_podio_completo, bonus_podio_qualquer,
                     qtd_minima_pilotos, penalidade_abandono, pontos_penalidade, penalidade_auto_percent,
                     pontos_campeao, pontos_vice, pontos_equipe
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 novo_nome,
                 regra['quantidade_fichas'], regra['fichas_por_piloto'], int(regra['mesma_equipe']),
@@ -284,7 +284,7 @@ def associar_regra_temporada(temporada: str, regra_id: int) -> bool:
             c.execute(
                 '''
                 INSERT INTO temporadas_regras (temporada, regra_id)
-                VALUES (?, ?)
+                VALUES (%s, %s)
                 ON CONFLICT (temporada) DO UPDATE SET regra_id = EXCLUDED.regra_id
                 ''',
                 (temporada, regra_id),
@@ -302,7 +302,7 @@ def get_regra_temporada(temporada: str) -> Optional[dict]:
         c.execute('''
             SELECT r.* FROM regras r
             INNER JOIN temporadas_regras tr ON r.id = tr.regra_id
-            WHERE tr.temporada = ?
+            WHERE tr.temporada = %s
         ''', (temporada,))
         row = c.fetchone()
         if row:

@@ -554,7 +554,7 @@ def main():
 
     st.subheader("Classificação de Cada Participante ao Longo do Campeonato")
     with db_connect() as conn:
-        query = 'SELECT * FROM posicoes_participantes WHERE temporada = ?'
+        query = 'SELECT * FROM posicoes_participantes WHERE temporada = %s'
         df_posicoes = pd.read_sql(query, conn, params=(season,))
         fig_all = go.Figure()
         for part in participantes['nome']:

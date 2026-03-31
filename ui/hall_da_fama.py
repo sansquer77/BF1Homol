@@ -27,15 +27,15 @@ def _resolve_hall_source(conn) -> tuple[str, str]:
     c = conn.cursor()
     has_hall = table_exists(conn, 'hall_da_fama')
     if has_hall:
-        c.execute("SELECT COUNT(*) FROM hall_da_fama")
-        hall_count = int(c.fetchone()[0] or 0)
+        c.execute("SELECT COUNT(*) AS cnt FROM hall_da_fama")
+        hall_count = int(c.fetchone()['cnt'] or 0)
         if hall_count > 0:
             return "hall_da_fama", "posicao_final"
 
     has_legacy = table_exists(conn, 'posicoes_participantes')
     if has_legacy:
-        c.execute("SELECT COUNT(*) FROM posicoes_participantes")
-        legacy_count = int(c.fetchone()[0] or 0)
+        c.execute("SELECT COUNT(*) AS cnt FROM posicoes_participantes")
+        legacy_count = int(c.fetchone()['cnt'] or 0)
         if legacy_count > 0:
             return "posicoes_participantes", "posicao"
 
@@ -53,10 +53,10 @@ def _hall_queries(source_table: str) -> dict[str, str]:
             "user_pos": (
                 "SELECT posicao, pontos "
                 "FROM posicoes_participantes "
-                "WHERE usuario_id = ? AND temporada = ? "
+                "WHERE usuario_id = %s AND temporada = %s "
                 "LIMIT 1"
             ),
-            "count_seasons": "SELECT COUNT(DISTINCT temporada) FROM posicoes_participantes",
+            "count_seasons": "SELECT COUNT(DISTINCT temporada) AS cnt FROM posicoes_participantes",
             "top_winners": (
                 "SELECT u.nome, COUNT(*) as vitorias "
                 "FROM posicoes_participantes hf "
@@ -71,7 +71,7 @@ def _hall_queries(source_table: str) -> dict[str, str]:
                 "MAX(pontos) as best_points, "
                 "AVG(pontos) as avg_points "
                 "FROM posicoes_participantes "
-                "WHERE temporada = ?"
+                "WHERE temporada = %s"
             ),
             "position_distribution": (
                 "SELECT u.nome as nome, pp.posicao as posicao "
@@ -90,10 +90,10 @@ def _hall_queries(source_table: str) -> dict[str, str]:
         "user_pos": (
             "SELECT posicao_final, pontos "
             "FROM hall_da_fama "
-            "WHERE usuario_id = ? AND temporada = ? "
+            "WHERE usuario_id = %s AND temporada = %s "
             "LIMIT 1"
         ),
-        "count_seasons": "SELECT COUNT(DISTINCT temporada) FROM hall_da_fama",
+        "count_seasons": "SELECT COUNT(DISTINCT temporada) AS cnt FROM hall_da_fama",
         "top_winners": (
             "SELECT u.nome, COUNT(*) as vitorias "
             "FROM hall_da_fama hf "
@@ -108,7 +108,7 @@ def _hall_queries(source_table: str) -> dict[str, str]:
             "MAX(pontos) as best_points, "
             "AVG(pontos) as avg_points "
             "FROM hall_da_fama "
-            "WHERE temporada = ?"
+            "WHERE temporada = %s"
         ),
         "position_distribution": (
             "SELECT u.nome as nome, pp.posicao_final as posicao "
@@ -129,14 +129,14 @@ def hall_da_fama():
     st.caption(f"🔑 Perfil atual: {user_role}")
 
     with db_connect() as conn:
-        source_table, _ = _resolve_hall_source(conn)
+        source_table, pos_col = _resolve_hall_source(conn)
         queries = _hall_queries(source_table)
         if source_table == "posicoes_participantes":
             st.info("ℹ️ Exibindo histórico legado da tabela posicoes_participantes.")
         # Get all unique years/seasons from hall_da_fama
         c = conn.cursor()
         c.execute(queries["seasons"])
-        seasons = [r[0] for r in c.fetchall()]
+        seasons = [r['temporada'] for r in c.fetchall()]
         
         # Get all users (exclude master from historical table)
         usuarios = get_usuarios_df()
@@ -170,9 +170,9 @@ def hall_da_fama():
                 c.execute(queries["user_pos"], (user_id, season))
                 result = c.fetchone()
 
-                if result and result[0] is not None:
-                    pos_val = result[0]
-                    pts_val = result[1] if len(result) > 1 and result[1] is not None else 0
+                if result and result[pos_col] is not None:
+                    pos_val = result[pos_col]
+                    pts_val = result.get('pontos') if result.get('pontos') is not None else 0
                     # Format points nicely (avoid .0 when integer)
                     try:
                         if float(pts_val).is_integer():
@@ -235,7 +235,7 @@ def hall_da_fama():
             st.metric("👥 Total de Participantes", participantes_count)
         with col2:
             c.execute(queries["count_seasons"])
-            unique_seasons = c.fetchone()[0]
+            unique_seasons = c.fetchone()['cnt']
             st.metric("📆 Temporadas Realizadas", unique_seasons)
         with col3:
             # Maiores vencedores: top 3 participantes com mais temporadas ganhas (1º lugar)
@@ -243,7 +243,8 @@ def hall_da_fama():
             top_winners = c.fetchall()
             st.markdown("**🥇 Maiores Vencedores**")
             if top_winners:
-                for name, wins in top_winners:
+                for row in top_winners:
+                    name, wins = row['nome'], row['vitorias']
                     st.markdown(f"- {name} ({wins})")
             else:
                 st.markdown("-")
@@ -259,9 +260,9 @@ def hall_da_fama():
             if result:
                 season_stats.append({
                     'Temporada': season,
-                    'Participantes': result[0],
-                    'Maior Pontuação': f"{result[1]:.1f}" if result[1] is not None else "-",
-                    'Pontuação Média': f"{result[2]:.1f}" if result[2] is not None else "-"
+                    'Participantes': result['participants'],
+                    'Maior Pontuação': f"{result['best_points']:.1f}" if result['best_points'] is not None else "-",
+                    'Pontuação Média': f"{result['avg_points']:.1f}" if result['avg_points'] is not None else "-"
                 })
         
         if season_stats:
@@ -287,7 +288,7 @@ def hall_da_fama():
         c.execute(queries["position_distribution"])
         rows = c.fetchall()
         if rows:
-            df_pos_counts = pd.DataFrame(rows, columns=['nome', 'posicao'])
+            df_pos_counts = pd.DataFrame(rows)
             # Pivot: rows = participante, cols = posição, values = counts
             pivot = df_pos_counts.pivot_table(index='nome', columns='posicao', aggfunc=len, fill_value=0)
             # Sort columns by position
@@ -451,7 +452,7 @@ def render_admin_panel(conn, seasons):
                             
                             # Check if record already exists
                             c.execute(
-                                "SELECT id, posicao_final FROM hall_da_fama WHERE usuario_id = ? AND temporada = ?",
+                                "SELECT id, posicao_final FROM hall_da_fama WHERE usuario_id = %s AND temporada = %s",
                                 (user_id, str(season_year))
                             )
                             existing = c.fetchone()
@@ -460,9 +461,9 @@ def render_admin_panel(conn, seasons):
                                 errors.append(f"⚠️ **{entry['user']}** já possui registro para {season_year}")
                             else:
                                 c.execute(
-                                    """INSERT INTO hall_da_fama 
-                                       (usuario_id, posicao_final, pontos, temporada) 
-                                       VALUES (?, ?, ?, ?)""",
+                                    """INSERT INTO hall_da_fama
+                                       (usuario_id, posicao_final, pontos, temporada)
+                                       VALUES (%s, %s, %s, %s)""",
                                     (user_id, int(entry['position']), float(entry.get('points', 0)), str(season_year))
                                 )
                                 success_count += 1
@@ -520,12 +521,12 @@ def render_admin_panel(conn, seasons):
         params = []
         
         if filter_season != "Todas":
-            query += " AND pp.temporada = ?"
+            query += " AND pp.temporada = %s"
             params.append(filter_season)
         
         if filter_user != "Todos":
             user_id = usuarios[usuarios['nome'] == filter_user]['id'].values[0]
-            query += " AND pp.usuario_id = ?"
+            query += " AND pp.usuario_id = %s"
             params.append(user_id)
         
         query += " ORDER BY pp.temporada DESC, pp.posicao_final ASC"
@@ -537,7 +538,8 @@ def render_admin_panel(conn, seasons):
             st.write(f"📄 Total de registros encontrados: **{len(records)}**")
             st.markdown("---")
             
-            for record_id, name, position, points, season in records:
+            for rec in records:
+                record_id, name, position, points, season = rec['id'], rec['nome'], rec['posicao_final'], rec['pontos'], rec['temporada']
                 with st.container():
                     col1, col2, col3, col4, col5 = st.columns([4, 1, 1, 1, 1])
                     
@@ -552,7 +554,7 @@ def render_admin_panel(conn, seasons):
                     with col5:
                         if st.button("🗑️ Deletar", key=f"delete_{record_id}", type="secondary"):
                             try:
-                                c.execute("DELETE FROM hall_da_fama WHERE id = ?", (record_id,))
+                                c.execute("DELETE FROM hall_da_fama WHERE id = %s", (record_id,))
                                 conn.commit()
                                 st.success(f"✅ Registro de **{name}** ({season}) deletado!")
                                 st.cache_data.clear()
@@ -654,7 +656,7 @@ def import_historical_data(conn):
     
     # Check which users exist
     c.execute("SELECT id FROM usuarios")
-    existing_users = {r[0] for r in c.fetchall()}
+    existing_users = {r['id'] for r in c.fetchall()}
     
     imported = 0
     skipped = 0
@@ -676,7 +678,7 @@ def import_historical_data(conn):
         try:
             # Check if record already exists
             c.execute(
-                "SELECT id FROM hall_da_fama WHERE usuario_id = ? AND temporada = ?",
+                "SELECT id FROM hall_da_fama WHERE usuario_id = %s AND temporada = %s",
                 (usuario_id, str(temporada))
             )
             if c.fetchone():
@@ -686,9 +688,9 @@ def import_historical_data(conn):
             
             # Insert new record (SEM data_atualizacao)
             c.execute(
-                """INSERT INTO hall_da_fama 
-                   (usuario_id, posicao_final, pontos, temporada) 
-                   VALUES (?, ?, ?, ?)""",
+                """INSERT INTO hall_da_fama
+                   (usuario_id, posicao_final, pontos, temporada)
+                   VALUES (%s, %s, %s, %s)""",
                 (usuario_id, posicao, 0.0, str(temporada))
             )
             imported += 1

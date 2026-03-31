@@ -37,13 +37,13 @@ def adicionar_resultado_historico(usuario_id: int, posicao: int, temporada: str)
                 return {"success": False, "message": "Temporada não pode estar vazia"}
             
             # Check if user exists
-            c.execute("SELECT id FROM usuarios WHERE id = ?", (usuario_id,))
+            c.execute("SELECT id FROM usuarios WHERE id = %s", (usuario_id,))
             if not c.fetchone():
                 return {"success": False, "message": "Usuário não encontrado"}
             
             # Check if record already exists
             c.execute(
-                "SELECT id FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?",
+                "SELECT id FROM posicoes_participantes WHERE usuario_id = %s AND temporada = %s",
                 (usuario_id, temporada)
             )
             existing = c.fetchone()
@@ -57,7 +57,7 @@ def adicionar_resultado_historico(usuario_id: int, posicao: int, temporada: str)
             c.execute(
                 """INSERT INTO posicoes_participantes 
                    (usuario_id, posicao, temporada, data_atualizacao) 
-                   VALUES (?, ?, ?, ?)""",
+                   VALUES (%s, %s, %s, %s)""",
                 (usuario_id, posicao, temporada, datetime.now().isoformat())
             )
             conn.commit()
@@ -94,14 +94,14 @@ def editar_resultado_historico(registro_id: int, posicao: int = None, temporada:
             
             # Check if record exists
             c.execute(
-                "SELECT usuario_id, posicao, temporada FROM posicoes_participantes WHERE id = ?",
+                "SELECT usuario_id, posicao, temporada FROM posicoes_participantes WHERE id = %s",
                 (registro_id,)
             )
             existing = c.fetchone()
             if not existing:
                 return {"success": False, "message": "Registro não encontrado"}
-            
-            usuario_id, current_posicao, current_temporada = existing
+
+            usuario_id, current_posicao, current_temporada = existing['usuario_id'], existing['posicao'], existing['temporada']
             
             # Use current values if not provided
             new_posicao = posicao if posicao is not None else current_posicao
@@ -117,7 +117,7 @@ def editar_resultado_historico(registro_id: int, posicao: int = None, temporada:
             # If temporada changed, check for duplicates
             if new_temporada != current_temporada:
                 c.execute(
-                    "SELECT id FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?",
+                    "SELECT id FROM posicoes_participantes WHERE usuario_id = %s AND temporada = %s",
                     (usuario_id, new_temporada)
                 )
                 if c.fetchone():
@@ -129,8 +129,8 @@ def editar_resultado_historico(registro_id: int, posicao: int = None, temporada:
             # Update record
             c.execute(
                 """UPDATE posicoes_participantes 
-                   SET posicao = ?, temporada = ?, data_atualizacao = ?
-                   WHERE id = ?""",
+                   SET posicao = %s, temporada = %s, data_atualizacao = %s
+                   WHERE id = %s""",
                 (new_posicao, new_temporada, datetime.now().isoformat(), registro_id)
             )
             conn.commit()
@@ -163,17 +163,17 @@ def deletar_resultado_historico(registro_id: int) -> dict:
             
             # Check if record exists
             c.execute(
-                "SELECT usuario_id, posicao, temporada FROM posicoes_participantes WHERE id = ?",
+                "SELECT usuario_id, posicao, temporada FROM posicoes_participantes WHERE id = %s",
                 (registro_id,)
             )
             existing = c.fetchone()
             if not existing:
                 return {"success": False, "message": "Registro não encontrado"}
-            
-            usuario_id, posicao, temporada = existing
+
+            usuario_id, posicao, temporada = existing['usuario_id'], existing['posicao'], existing['temporada']
             
             # Delete record
-            c.execute("DELETE FROM posicoes_participantes WHERE id = ?", (registro_id,))
+            c.execute("DELETE FROM posicoes_participantes WHERE id = %s", (registro_id,))
             conn.commit()
             
             logger.info(f"✅ Resultado deletado: id={registro_id}, usuario_id={usuario_id}, temporada={temporada}")
@@ -208,7 +208,7 @@ def importar_resultados_em_lote(dados: list) -> dict:
             
             # Get existing users
             c.execute("SELECT id FROM usuarios")
-            existing_users = {r[0] for r in c.fetchall()}
+            existing_users = {r['id'] for r in c.fetchall()}
             
             for idx, item in enumerate(dados):
                 try:
@@ -223,7 +223,7 @@ def importar_resultados_em_lote(dados: list) -> dict:
                     
                     # Check if record already exists
                     c.execute(
-                        "SELECT id FROM posicoes_participantes WHERE usuario_id = ? AND temporada = ?",
+                        "SELECT id FROM posicoes_participantes WHERE usuario_id = %s AND temporada = %s",
                         (usuario_id, str(temporada))
                     )
                     if c.fetchone():
@@ -234,7 +234,7 @@ def importar_resultados_em_lote(dados: list) -> dict:
                     c.execute(
                         """INSERT INTO posicoes_participantes 
                            (usuario_id, posicao, temporada, data_atualizacao) 
-                           VALUES (?, ?, ?, ?)""",
+                           VALUES (%s, %s, %s, %s)""",
                         (usuario_id, int(posicao), str(temporada), datetime.now().isoformat())
                     )
                     imported += 1
@@ -282,7 +282,7 @@ def obter_historico_usuario(usuario_id: int) -> list:
             c.execute(
                 """SELECT id, posicao, temporada, data_atualizacao
                    FROM posicoes_participantes
-                   WHERE usuario_id = ?
+                   WHERE usuario_id = %s
                    ORDER BY temporada DESC""",
                 (usuario_id,)
             )
@@ -310,7 +310,7 @@ def obter_historico_temporada(temporada: str) -> list:
                 """SELECT pp.usuario_id, u.nome, pp.posicao
                    FROM posicoes_participantes pp
                    JOIN usuarios u ON pp.usuario_id = u.id
-                   WHERE pp.temporada = ?
+                   WHERE pp.temporada = %s
                    ORDER BY pp.posicao ASC""",
                 (str(temporada),)
             )
@@ -331,7 +331,7 @@ def listar_todas_temporadas() -> list:
                    FROM posicoes_participantes
                    ORDER BY temporada DESC"""
             )
-            return [r[0] for r in c.fetchall()]
+            return [r['temporada'] for r in c.fetchall()]
     
     except Exception as e:
         logger.error(f"❌ Erro ao listar temporadas: {e}")

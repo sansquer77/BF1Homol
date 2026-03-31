@@ -214,22 +214,22 @@ def _render_aba_editar(df: pd.DataFrame):
                 cols = get_table_columns(conn, 'provas')
                 if "temporada" in cols and "circuit_id" in cols:
                     c.execute(
-                        "UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=?, temporada=?, circuit_id=? WHERE id=?",
+                        "UPDATE provas SET nome=%s, data=%s, horario_prova=%s, status=%s, tipo=%s, temporada=%s, circuit_id=%s WHERE id=%s",
                         (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, nova_temporada, novo_circuito_id, prova_id)
                     )
                 elif "temporada" in cols:
                     c.execute(
-                        "UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=?, temporada=? WHERE id=?",
+                        "UPDATE provas SET nome=%s, data=%s, horario_prova=%s, status=%s, tipo=%s, temporada=%s WHERE id=%s",
                         (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, nova_temporada, prova_id)
                     )
                 elif "circuit_id" in cols:
                     c.execute(
-                        "UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=?, circuit_id=? WHERE id=?",
+                        "UPDATE provas SET nome=%s, data=%s, horario_prova=%s, status=%s, tipo=%s, circuit_id=%s WHERE id=%s",
                         (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, novo_circuito_id, prova_id)
                     )
                 else:
                     c.execute(
-                        "UPDATE provas SET nome=?, data=?, horario_prova=?, status=?, tipo=? WHERE id=?",
+                        "UPDATE provas SET nome=%s, data=%s, horario_prova=%s, status=%s, tipo=%s WHERE id=%s",
                         (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, prova_id)
                     )
                 conn.commit()
@@ -243,7 +243,7 @@ def _render_aba_editar(df: pd.DataFrame):
         if st.button("🗑️ Excluir prova", key="btn_delete_prova"):
             with db_connect() as conn:
                 c = conn.cursor()
-                c.execute("DELETE FROM provas WHERE id=?", (prova_id,))
+                c.execute("DELETE FROM provas WHERE id=%s", (prova_id,))
                 conn.commit()
             
             st.success("✅ Prova excluída com sucesso!")
@@ -309,41 +309,41 @@ def _render_aba_adicionar():
                 # Verificar duplicidade (nome + data + temporada)
                 if "temporada" in cols:
                     c.execute(
-                        "SELECT COUNT(*) FROM provas WHERE nome = ? AND data = ? AND temporada = ?",
+                        "SELECT COUNT(*) AS cnt FROM provas WHERE nome = %s AND data = %s AND temporada = %s",
                         (nome_novo, data_nova_str, temporada_nova)
                     )
                 else:
                     c.execute(
-                        "SELECT COUNT(*) FROM provas WHERE nome = ? AND data = ?",
+                        "SELECT COUNT(*) AS cnt FROM provas WHERE nome = %s AND data = %s",
                         (nome_novo, data_nova_str)
                     )
                 
-                if c.fetchone()[0] > 0:
+                if c.fetchone()['cnt'] > 0:
                     st.error(f"❌ Já existe uma prova cadastrada com este nome e data para a temporada {temporada_nova}.")
                 else:
                     # Inserir nova prova
                     if "temporada" in cols and "circuit_id" in cols:
                         c.execute(
                             '''INSERT INTO provas (nome, data, horario_prova, status, tipo, temporada, circuit_id)
-                               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                               VALUES (%s, %s, %s, %s, %s, %s, %s)''',
                             (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo, temporada_nova, circuito_sel_id)
                         )
                     elif "temporada" in cols:
                         c.execute(
                             '''INSERT INTO provas (nome, data, horario_prova, status, tipo, temporada)
-                               VALUES (?, ?, ?, ?, ?, ?)''',
+                               VALUES (%s, %s, %s, %s, %s, %s)''',
                             (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo, temporada_nova)
                         )
                     elif "circuit_id" in cols:
                         c.execute(
                             '''INSERT INTO provas (nome, data, horario_prova, status, tipo, circuit_id)
-                               VALUES (?, ?, ?, ?, ?, ?)''',
+                               VALUES (%s, %s, %s, %s, %s, %s)''',
                             (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo, circuito_sel_id)
                         )
                     else:
                         c.execute(
                             '''INSERT INTO provas (nome, data, horario_prova, status, tipo)
-                               VALUES (?, ?, ?, ?, ?)''',
+                               VALUES (%s, %s, %s, %s, %s)''',
                             (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo)
                         )
                     conn.commit()
@@ -386,7 +386,7 @@ def main():
         cols = get_table_columns(conn, 'provas')
         if 'temporada' in cols:
             df = pd.read_sql_query(
-                "SELECT * FROM provas WHERE temporada = ? OR temporada IS NULL ORDER BY data ASC",
+                "SELECT * FROM provas WHERE temporada = %s OR temporada IS NULL ORDER BY data ASC",
                 conn,
                 params=(temporada_sel,)
             )

@@ -129,9 +129,9 @@ class MasterUserManager:
                 
                 # Insert com email do ambiente (não o email padrão)
                 cursor.execute('''
-                    INSERT INTO usuarios 
+                    INSERT INTO usuarios
                     (nome, email, senha_hash, perfil, status, faltas)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                 ''', (
                     creds['nome'],
                     creds['email'],  # Email da variável de ambiente

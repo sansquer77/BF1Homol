@@ -101,7 +101,7 @@ def _list_tables() -> list[str]:
             ORDER BY table_name
             """
         )
-        return [str(r[0]) for r in (c.fetchall() or []) if r and r[0]]
+        return [str(r['table_name']) for r in (c.fetchall() or []) if r and r['table_name']]
 
 
 def _order_tables_for_dump(tables: list[str]) -> list[str]:
@@ -183,14 +183,14 @@ def _build_data_only_sql() -> str:
                 """,
                 (table,),
             )
-            cols = [str(r[0]) for r in (c.fetchall() or []) if r and r[0]]
+            cols = [str(r['column_name']) for r in (c.fetchall() or []) if r and r['column_name']]
             if not cols:
                 continue
 
             col_sql = ", ".join(_quote_identifier(cn) for cn in cols)
             c.execute(f"SELECT {col_sql} FROM {_quote_identifier(table)}")
             for row in c.fetchall() or []:
-                values = ", ".join(_sql_literal(v) for v in row)
+                values = ", ".join(_sql_literal(v) for v in row.values())
                 lines.append(f"INSERT INTO {_quote_identifier(table)} ({col_sql}) VALUES ({values});")
 
     lines.append("COMMIT;")
@@ -452,7 +452,7 @@ def _table_columns(table_name: str) -> list[str]:
             """,
             (table_name,),
         )
-        return [str(r[0]) for r in (c.fetchall() or []) if r and r[0]]
+        return [str(r['column_name']) for r in (c.fetchall() or []) if r and r['column_name']]
 
 
 def download_tabela() -> None:
@@ -534,7 +534,7 @@ def list_temporadas() -> list[str]:
         c.execute("SELECT temporada FROM temporadas ORDER BY temporada")
         rows = c.fetchall() or []
         conn.commit()
-    return [str(r[0]) for r in rows if r and r[0]]
+    return [str(r['temporada']) for r in rows if r and r['temporada']]
 
 
 def create_next_temporada() -> str:

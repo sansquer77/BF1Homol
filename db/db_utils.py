@@ -7,7 +7,6 @@ import pandas as pd
 import bcrypt
 import logging
 import re
-import warnings
 from functools import lru_cache
 from typing import Optional
 from db.connection_pool import get_pool
@@ -16,16 +15,8 @@ from utils.logging_utils import redact_identifier
 
 logger = logging.getLogger(__name__)
 
-# Evita poluição de logs com warning conhecido do pandas ao usar adaptador DBAPI customizado.
-warnings.filterwarnings(
-    "ignore",
-    message=r"pandas only supports SQLAlchemy connectable.*",
-    category=UserWarning,
-)
-
 import datetime
 from db.rules_utils import init_rules_table
-from db.db_config import DB_BACKEND
 
 # NÃO inicializar pool aqui - será lazy-initialized em get_pool()
 # Isso evita criar pool com arquivo antigo antes da importação substituir
@@ -65,13 +56,11 @@ def get_table_columns(conn, table_name: str) -> list[str]:
         """,
         (table_name,),
     )
-    return [str(r[0]) for r in (c.fetchall() or []) if r and r[0]]
+    return [str(r['column_name']) for r in (c.fetchall() or []) if r and r['column_name']]
 
 
 def _sync_postgres_sequences(conn) -> None:
     """Sincroniza sequências de colunas id no PostgreSQL com o maior valor atual."""
-    if DB_BACKEND != "postgres":
-        return
     c = conn.cursor()
     c.execute(
         """
@@ -81,7 +70,7 @@ def _sync_postgres_sequences(conn) -> None:
           AND table_type = 'BASE TABLE'
         """
     )
-    table_names = [str(r[0]) for r in (c.fetchall() or []) if r and r[0]]
+    table_names = [str(r['table_name']) for r in (c.fetchall() or []) if r and r['table_name']]
 
     for table_name in table_names:
         try:
@@ -91,7 +80,7 @@ def _sync_postgres_sequences(conn) -> None:
 
             c.execute("SELECT pg_get_serial_sequence(%s, %s)", (table_name, "id"))
             row = c.fetchone()
-            seq_name = row[0] if row else None
+            seq_name = list(row.values())[0] if row else None
             if not seq_name:
                 continue
 
@@ -347,10 +336,8 @@ def _formatar_horario_para_armazenamento(data_iso: Optional[str], horario_hhmmss
     """
     if not horario_hhmmss:
         return None
-    if DB_BACKEND == "postgres":
-        base_date = data_iso if data_iso and re.fullmatch(r"\d{4}-\d{2}-\d{2}", data_iso) else "1970-01-01"
-        return f"{base_date} {horario_hhmmss}"
-    return horario_hhmmss
+    base_date = data_iso if data_iso and re.fullmatch(r"\d{4}-\d{2}-\d{2}", data_iso) else "1970-01-01"
+    return f"{base_date} {horario_hhmmss}"
 
 
 def sanitize_log_apostas_horario(conn=None) -> int:
@@ -380,9 +367,9 @@ def sanitize_log_apostas_horario(conn=None) -> int:
 
         rows = c.fetchall() or []
         for row in rows:
-            row_id = row[0]
-            data_old = row[1]
-            horario_old = row[2]
+            row_id = row['id']
+            data_old = row['data']
+            horario_old = row['horario']
 
             data_new, horario_new = _normalizar_data_horario_log(data_old, horario_old)
 
@@ -405,12 +392,12 @@ def sanitize_log_apostas_horario(conn=None) -> int:
 
             if has_data and data_new is not None:
                 c.execute(
-                    "UPDATE log_apostas SET data = ?, horario = ? WHERE id = ?",
+                    "UPDATE log_apostas SET data = %s, horario = %s WHERE id = %s",
                     (data_new, horario_store, row_id),
                 )
             else:
                 c.execute(
-                    "UPDATE log_apostas SET horario = ? WHERE id = ?",
+                    "UPDATE log_apostas SET horario = %s WHERE id = %s",
                     (horario_store, row_id),
                 )
             atualizados += 1
@@ -486,7 +473,7 @@ def get_user_by_email(email: str) -> Optional[dict]:
     cols_sql = ', '.join(_quote_identifier(c) for c in cols)
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute(f"SELECT {cols_sql} FROM usuarios WHERE email = ?", (email,))
+        c.execute(f"SELECT {cols_sql} FROM usuarios WHERE email = %s", (email,))
         row = c.fetchone()
         
         if row:
@@ -503,7 +490,7 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil: str = "particip
     with db_connect() as conn:
         c = conn.cursor()
         c.execute(
-            'INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?)',
+            'INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)',
             (nome, email, senha_hash, perfil)
         )
         conn.commit()
@@ -530,7 +517,7 @@ def get_user_by_id(user_id: int) -> Optional[dict]:
     cols_sql = ', '.join(_quote_identifier(c) for c in cols)
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute(f"SELECT {cols_sql} FROM usuarios WHERE id = ?", (user_id,))
+        c.execute(f"SELECT {cols_sql} FROM usuarios WHERE id = %s", (user_id,))
         row = c.fetchone()
         
         if row:
@@ -587,7 +574,7 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
         # Se existir tabela mas sem registros, usa status atual para evitar falso vazio.
         c = conn.cursor()
         c.execute("SELECT COUNT(*) FROM usuarios_status_historico")
-        historico_count = int(c.fetchone()[0] or 0)
+        historico_count = int(list(c.fetchone().values())[0] or 0)
         if historico_count == 0:
             return _fallback_status_atual()
 
@@ -596,8 +583,8 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
             FROM usuarios u
             JOIN usuarios_status_historico h ON h.usuario_id = u.id
                         WHERE lower(trim(coalesce(h.status, ''))) = 'ativo'
-              AND h.inicio_em <= ?
-              AND (h.fim_em IS NULL OR h.fim_em >= ?)
+              AND h.inicio_em <= %s
+              AND (h.fim_em IS NULL OR h.fim_em >= %s)
         """
         df_hist = pd.read_sql_query(query, conn, params=(season_end, season_start))
         if not df_hist.empty:
@@ -626,7 +613,7 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
                         """
                         SELECT DISTINCT TRIM(COALESCE(temporada, '')) AS temporada
                         FROM apostas
-                        WHERE usuario_id = ? AND TRIM(COALESCE(temporada, '')) <> ''
+                        WHERE usuario_id = %s AND TRIM(COALESCE(temporada, '')) <> ''
                         """,
                         conn,
                         params=(int(uid),),
@@ -642,7 +629,7 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
                         SELECT DISTINCT COALESCE(NULLIF({season_expr}, ''), NULLIF({date_expr}, '')) AS temporada
                         FROM apostas a
                         JOIN provas p ON p.id = a.prova_id
-                        WHERE a.usuario_id = ?
+                        WHERE a.usuario_id = %s
                         """,
                         conn,
                         params=(int(uid),),
@@ -668,7 +655,7 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
                         f"""
                         SELECT DISTINCT {season_expr} AS temporada
                         FROM log_apostas
-                        WHERE {user_col} = ?
+                        WHERE {user_col} = %s
                         """,
                         conn,
                         params=(int(uid),),
@@ -683,7 +670,7 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
                     """
                     SELECT DISTINCT TRIM(COALESCE(temporada, '')) AS temporada
                     FROM posicoes_participantes
-                    WHERE usuario_id = ? AND TRIM(COALESCE(temporada, '')) <> ''
+                    WHERE usuario_id = %s AND TRIM(COALESCE(temporada, '')) <> ''
                     """,
                     conn,
                     params=(int(uid),),
@@ -699,7 +686,7 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
                         f"""
                         SELECT DISTINCT TRIM(CAST(season AS TEXT)) AS temporada
                         FROM {tabela_campeonato}
-                        WHERE user_id = ? AND TRIM(CAST(season AS TEXT)) <> ''
+                        WHERE user_id = %s AND TRIM(CAST(season AS TEXT)) <> ''
                         """,
                         conn,
                         params=(int(uid),),
@@ -726,9 +713,9 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
             return []
 
         if not _usuarios_status_historico_exists(conn):
-            c.execute("SELECT status FROM usuarios WHERE id = ?", (int(user_id),))
+            c.execute("SELECT status FROM usuarios WHERE id = %s", (int(user_id),))
             row = c.fetchone()
-            status = str(row[0]).strip().lower() if row and row[0] is not None else ""
+            status = str(row['status']).strip().lower() if row and row['status'] is not None else ""
             if status == "ativo":
                 return temporadas_base
             return _infer_temporadas_por_atividade(conn, int(user_id))
@@ -740,7 +727,7 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
                 SELECT DISTINCT COALESCE(NULLIF(TRIM(temporada), ''), SUBSTR(data, 1, 4)) AS temporada
                 FROM provas
             ) s
-            JOIN usuarios_status_historico h ON h.usuario_id = ?
+            JOIN usuarios_status_historico h ON h.usuario_id = %s
             WHERE LOWER(TRIM(COALESCE(h.status, ''))) = 'ativo'
                             AND h.inicio_em <= (s.temporada || '-12-31 23:59:59')
                             AND (h.fim_em IS NULL OR h.fim_em >= (s.temporada || '-01-01 00:00:00'))
@@ -790,23 +777,23 @@ def registrar_historico_status_usuario(
             ''')
 
         cursor.execute(
-            "SELECT id, status FROM usuarios_status_historico WHERE usuario_id = ? AND fim_em IS NULL ORDER BY inicio_em DESC LIMIT 1",
+            "SELECT id, status FROM usuarios_status_historico WHERE usuario_id = %s AND fim_em IS NULL ORDER BY inicio_em DESC LIMIT 1",
             (usuario_id,)
         )
         row = cursor.fetchone()
-        if row and row[1] == novo_status:
+        if row and row['status'] == novo_status:
             return
 
         if row:
             cursor.execute(
-                "UPDATE usuarios_status_historico SET fim_em = ? WHERE id = ?",
-                (data_referencia, row[0])
+                "UPDATE usuarios_status_historico SET fim_em = %s WHERE id = %s",
+                (data_referencia, row['id'])
             )
 
         cursor.execute(
             """
             INSERT INTO usuarios_status_historico (usuario_id, status, inicio_em, fim_em, alterado_por, motivo)
-            VALUES (?, ?, ?, NULL, ?, ?)
+            VALUES (%s, %s, %s, NULL, %s, %s)
             """,
             (usuario_id, novo_status, data_referencia, alterado_por, motivo)
         )
@@ -834,7 +821,7 @@ def _read_table_df(table: str, temporada: Optional[str] = None, columns: Optiona
         if 'temporada' in cols:
             # Include rows where temporada matches OR temporada is NULL (backward compat)
             return pd.read_sql_query(
-                f"SELECT {cols_sql} FROM {table_name} WHERE temporada = ? OR temporada IS NULL",
+                f"SELECT {cols_sql} FROM {table_name} WHERE temporada = %s OR temporada IS NULL",
                 conn,
                 params=(temporada,)
             )
@@ -986,7 +973,7 @@ def registrar_log_aposta(*args, **kwargs):
             if 'status' in cols:
                 insert_cols.append('status')
                 insert_vals.append(status)
-            placeholders = ', '.join(['?'] * len(insert_cols))
+            placeholders = ', '.join(['%s'] * len(insert_cols))
             cols_sql = ', '.join(insert_cols)
             c.execute(
                 f'INSERT INTO log_apostas ({cols_sql}) VALUES ({placeholders})',
@@ -1032,12 +1019,12 @@ def registrar_log_aposta(*args, **kwargs):
         cols = get_table_columns(conn, 'apostas')
         if 'temporada' in cols:
             c.execute(
-                'INSERT INTO apostas (usuario_id, prova_id, piloto_id, pontos, temporada) VALUES (?, ?, ?, ?, ?)',
+                'INSERT INTO apostas (usuario_id, prova_id, piloto_id, pontos, temporada) VALUES (%s, %s, %s, %s, %s)',
                 (usuario_id, prova_id, piloto_id, pontos, temporada)
             )
         else:
             c.execute(
-                'INSERT INTO apostas (usuario_id, prova_id, piloto_id, pontos) VALUES (?, ?, ?, ?)',
+                'INSERT INTO apostas (usuario_id, prova_id, piloto_id, pontos) VALUES (%s, %s, %s, %s)',
                 (usuario_id, prova_id, piloto_id, pontos)
             )
         conn.commit()
@@ -1052,9 +1039,9 @@ def log_aposta_existe(usuario_id: int, prova_id: int, temporada: Optional[str] =
         c = conn.cursor()
         cols = get_table_columns(conn, 'apostas')
         if 'temporada' in cols:
-            c.execute('SELECT 1 FROM apostas WHERE usuario_id = ? AND prova_id = ? AND temporada = ?', (usuario_id, prova_id, temporada))
+            c.execute('SELECT 1 FROM apostas WHERE usuario_id = %s AND prova_id = %s AND temporada = %s', (usuario_id, prova_id, temporada))
         else:
-            c.execute('SELECT 1 FROM apostas WHERE usuario_id = ? AND prova_id = ?', (usuario_id, prova_id))
+            c.execute('SELECT 1 FROM apostas WHERE usuario_id = %s AND prova_id = %s', (usuario_id, prova_id))
         return c.fetchone() is not None
 
 def update_user_email(user_id: int, novo_email: str) -> bool:
@@ -1062,7 +1049,7 @@ def update_user_email(user_id: int, novo_email: str) -> bool:
     try:
         with db_connect() as conn:
             c = conn.cursor()
-            c.execute('UPDATE usuarios SET email = ? WHERE id = ?', (novo_email, user_id))
+            c.execute('UPDATE usuarios SET email = %s WHERE id = %s', (novo_email, user_id))
             conn.commit()
             logger.info(f"✓ Email do usuário {user_id} atualizado")
             return True
@@ -1082,11 +1069,11 @@ def update_user_password(user_id: int, nova_senha: str) -> bool:
             cols = get_table_columns(conn, 'usuarios')
             if 'must_change_password' in cols:
                 c.execute(
-                    'UPDATE usuarios SET senha_hash = ?, must_change_password = 0 WHERE id = ?',
+                    'UPDATE usuarios SET senha_hash = %s, must_change_password = 0 WHERE id = %s',
                     (senha_hash, user_id)
                 )
             else:
-                c.execute('UPDATE usuarios SET senha_hash = ? WHERE id = ?', (senha_hash, user_id))
+                c.execute('UPDATE usuarios SET senha_hash = %s WHERE id = %s', (senha_hash, user_id))
             conn.commit()
             logger.info(f"✓ Senha do usuário {user_id} atualizada")
             return True
@@ -1108,16 +1095,16 @@ def get_horario_prova(prova_id: int) -> tuple:
         c = conn.cursor()
         cols = get_table_columns(conn, 'provas')
         if 'horario_prova' in cols:
-            c.execute('SELECT nome, data, horario_prova FROM provas WHERE id = ?', (prova_id,))
+            c.execute('SELECT nome, data, horario_prova FROM provas WHERE id = %s', (prova_id,))
         else:
-            c.execute('SELECT nome, data FROM provas WHERE id = ?', (prova_id,))
+            c.execute('SELECT nome, data FROM provas WHERE id = %s', (prova_id,))
         row = c.fetchone()
 
         if row:
             if 'horario_prova' in cols:
-                nome, data, horario = row
+                nome, data, horario = row['nome'], row['data'], row['horario_prova']
             else:
-                nome, data = row
+                nome, data = row['nome'], row['data']
                 horario = "00:00"
             horario = horario or "00:00"
             return (nome, data, horario)

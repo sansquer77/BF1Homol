@@ -136,7 +136,7 @@ def _render_aba_editar(df: pd.DataFrame):
                 c = conn.cursor()
                 if novo_status == "Ativo":
                     c.execute(
-                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(?) AND status = 'Ativo' AND id != ?",
+                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(%s) AND status = 'Ativo' AND id != %s",
                         (novo_nome, piloto_id)
                     )
                     if c.fetchone():
@@ -144,7 +144,7 @@ def _render_aba_editar(df: pd.DataFrame):
                         return
                 else:
                     c.execute(
-                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(?) AND numero = ? AND LOWER(equipe) = LOWER(?) AND status = 'Inativo' AND id != ?",
+                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(%s) AND numero = %s AND LOWER(equipe) = LOWER(%s) AND status = 'Inativo' AND id != %s",
                         (novo_nome, int(novo_numero), nova_equipe, piloto_id)
                     )
                     if c.fetchone():
@@ -152,7 +152,7 @@ def _render_aba_editar(df: pd.DataFrame):
                         return
                 
                 c.execute(
-                    "UPDATE pilotos SET nome=?, numero=?, equipe=?, status=? WHERE id=?",
+                    "UPDATE pilotos SET nome=%s, numero=%s, equipe=%s, status=%s WHERE id=%s",
                     (novo_nome, int(novo_numero), nova_equipe, novo_status, piloto_id)
                 )
                 conn.commit()
@@ -166,7 +166,7 @@ def _render_aba_editar(df: pd.DataFrame):
         if st.button("🗑️ Excluir piloto", key="btn_delete_piloto"):
             with db_connect() as conn:
                 c = conn.cursor()
-                c.execute("DELETE FROM pilotos WHERE id=?", (piloto_id,))
+                c.execute("DELETE FROM pilotos WHERE id=%s", (piloto_id,))
                 conn.commit()
             
             st.success("✅ Piloto excluído com sucesso!")
@@ -192,7 +192,7 @@ def _render_aba_adicionar():
                 
                 if status_novo == "Ativo":
                     c.execute(
-                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(?) AND status = 'Ativo'",
+                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(%s) AND status = 'Ativo'",
                         (nome_novo,)
                     )
                     if c.fetchone():
@@ -200,7 +200,7 @@ def _render_aba_adicionar():
                         return
                 else:
                     c.execute(
-                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(?) AND numero = ? AND LOWER(equipe) = LOWER(?) AND status = 'Inativo'",
+                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(%s) AND numero = %s AND LOWER(equipe) = LOWER(%s) AND status = 'Inativo'",
                         (nome_novo, int(numero_novo), equipe_nova)
                     )
                     if c.fetchone():
@@ -209,7 +209,7 @@ def _render_aba_adicionar():
                 
                 c.execute(
                     '''INSERT INTO pilotos (nome, numero, equipe, status)
-                       VALUES (?, ?, ?, ?)''',
+                       VALUES (%s, %s, %s, %s)''',
                     (nome_novo, int(numero_novo), equipe_nova, status_novo)
                 )
                 conn.commit()

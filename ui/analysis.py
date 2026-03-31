@@ -68,11 +68,11 @@ def _get_log_apostas_df(
     params: list = []
 
     if temporada and 'temporada' in cols:
-        conditions.append("temporada = ?")
+        conditions.append("temporada = %s")
         params.append(temporada)
 
-    id_placeholders = ','.join(['?'] * len(participantes_ids)) if participantes_ids else ''
-    nome_placeholders = ','.join(['?'] * len(participantes_nomes)) if participantes_nomes else ''
+    id_placeholders = ','.join(['%s'] * len(participantes_ids)) if participantes_ids else ''
+    nome_placeholders = ','.join(['%s'] * len(participantes_nomes)) if participantes_nomes else ''
 
     if participantes_ids and 'usuario_id' in cols and participantes_nomes and 'apostador' in cols:
         conditions.append(f"(usuario_id IN ({id_placeholders}) OR apostador IN ({nome_placeholders}))")
@@ -115,13 +115,13 @@ def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Op
 
         with db_connect() as conn:
             cols = get_table_columns(conn, 'apostas')
-            placeholders = ','.join(['?'] * len(participantes_ids))
+            placeholders = ','.join(['%s'] * len(participantes_ids))
             if temporada and 'temporada' in cols:
                 query = (
                     "SELECT u.nome AS participante, a.pilotos "
                     "FROM apostas a "
                     "JOIN usuarios u ON a.usuario_id = u.id "
-                    f"WHERE a.usuario_id IN ({placeholders}) AND a.temporada = ?"
+                    f"WHERE a.usuario_id IN ({placeholders}) AND a.temporada = %s"
                 )
                 df = pd.read_sql(query, conn, params=(*participantes_ids, temporada))
             else:
@@ -172,13 +172,13 @@ def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df
 
         with db_connect() as conn:
             cols = get_table_columns(conn, 'apostas')
-            placeholders = ','.join(['?'] * len(participantes_ids))
+            placeholders = ','.join(['%s'] * len(participantes_ids))
             if temporada and 'temporada' in cols:
                 query = (
                     "SELECT u.nome AS participante, a.piloto_11 AS piloto_11 "
                     "FROM apostas a "
                     "JOIN usuarios u ON a.usuario_id = u.id "
-                    f"WHERE a.usuario_id IN ({placeholders}) AND a.temporada = ? "
+                    f"WHERE a.usuario_id IN ({placeholders}) AND a.temporada = %s "
                     "AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''"
                 )
                 df = pd.read_sql(query, conn, params=(*participantes_ids, temporada))

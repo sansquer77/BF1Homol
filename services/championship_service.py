@@ -86,9 +86,9 @@ def get_user_name(user_id: int) -> str:
     try:
         with db_connect() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT nome FROM usuarios WHERE id = ?", (user_id,))
+            cursor.execute("SELECT nome FROM usuarios WHERE id = %s", (user_id,))
             result = cursor.fetchone()
-        return result[0] if result else "Nome não encontrado"
+        return result['nome'] if result else "Nome não encontrado"
     except Exception as e:
         logger.exception(f"Erro ao buscar nome do usuário {user_id}: {e}")
         return "Erro ao buscar nome"
@@ -131,9 +131,9 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
             cursor = conn.cursor()
             cursor.execute(
                 '''
-                INSERT INTO championship_bets 
+                INSERT INTO championship_bets
                 (user_id, user_nome, champion, vice, team, season, bet_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id, season) DO UPDATE SET
                     user_nome = EXCLUDED.user_nome,
                     champion = EXCLUDED.champion,
@@ -144,9 +144,9 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
             )
             cursor.execute(
                 '''
-                INSERT INTO championship_bets_log 
+                INSERT INTO championship_bets_log
                 (user_id, user_nome, champion, vice, team, season, bet_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ''', (user_id, user_nome, champion, vice, team, season_val, now)
             )
             conn.commit()
@@ -204,14 +204,14 @@ def get_championship_bet(user_id: int, season: Optional[int] = None):
         cursor = conn.cursor()
         cursor.execute(
             '''
-            SELECT champion, vice, team, bet_time 
-            FROM championship_bets 
-            WHERE user_id = ? AND season = ?
+            SELECT champion, vice, team, bet_time
+            FROM championship_bets
+            WHERE user_id = %s AND season = %s
             ''', (user_id, season_val)
         )
         result = cursor.fetchone()
     if result:
-        return {"champion": result[0], "vice": result[1], "team": result[2], "bet_time": result[3]}
+        return {"champion": result['champion'], "vice": result['vice'], "team": result['team'], "bet_time": result['bet_time']}
     return None
 
 def get_championship_bet_log(user_id: int, season: Optional[int] = None):
@@ -223,7 +223,7 @@ def get_championship_bet_log(user_id: int, season: Optional[int] = None):
             '''
             SELECT user_nome, champion, vice, team, season, bet_time
             FROM championship_bets_log
-            WHERE user_id = ? AND season = ?
+            WHERE user_id = %s AND season = %s
             ORDER BY bet_time DESC
             ''', (user_id, season_val)
         )
@@ -253,9 +253,9 @@ def save_final_results(champion: str, vice: str, team: str, season: Optional[int
             cursor = conn.cursor()
             cursor.execute(
                 '''
-                INSERT INTO championship_results 
+                INSERT INTO championship_results
                 (season, champion, vice, team)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
                 ON CONFLICT (season) DO UPDATE SET
                     champion = EXCLUDED.champion,
                     vice = EXCLUDED.vice,
@@ -275,14 +275,14 @@ def get_final_results(season: Optional[int] = None):
         cursor = conn.cursor()
         cursor.execute(
             '''
-            SELECT champion, vice, team 
-            FROM championship_results 
-            WHERE season = ?
+            SELECT champion, vice, team
+            FROM championship_results
+            WHERE season = %s
             ''', (season_val,)
         )
         result = cursor.fetchone()
     if result:
-        return {"champion": result[0], "vice": result[1], "team": result[2]}
+        return {"champion": result['champion'], "vice": result['vice'], "team": result['team']}
     return None
 
 def calcular_pontuacao_campeonato(user_id: int, season: Optional[int] = None) -> int:
@@ -310,7 +310,7 @@ def get_championship_bets_df(season: Optional[int] = None):
         if season is None:
             df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets', conn)
         else:
-            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets WHERE season = ?', conn, params=(season,))
+            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets WHERE season = %s', conn, params=(season,))
     return df
 
 def get_championship_bets_log_df(season: Optional[int] = None):
@@ -319,7 +319,7 @@ def get_championship_bets_log_df(season: Optional[int] = None):
         if season is None:
             df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log', conn)
         else:
-            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log WHERE season = ?', conn, params=(season,))
+            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log WHERE season = %s', conn, params=(season,))
     return df
 
 def get_championship_results_df(season: Optional[int] = None):
@@ -328,5 +328,5 @@ def get_championship_results_df(season: Optional[int] = None):
         if season is None:
             df = pd.read_sql('SELECT season, champion, vice, team FROM championship_results', conn)
         else:
-            df = pd.read_sql('SELECT season, champion, vice, team FROM championship_results WHERE season = ?', conn, params=(season,))
+            df = pd.read_sql('SELECT season, champion, vice, team FROM championship_results WHERE season = %s', conn, params=(season,))
     return df
