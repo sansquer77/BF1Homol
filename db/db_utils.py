@@ -7,10 +7,7 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
-import os
 import threading
 from contextlib import contextmanager
 from datetime import datetime
@@ -18,8 +15,6 @@ from typing import Optional
 
 import bcrypt
 import pandas as pd
-import psycopg2
-import psycopg2.extras
 
 from db.connection_pool import get_pool
 
@@ -65,6 +60,28 @@ def db_connect():
     pool = get_pool()
     with pool.get_connection() as conn:
         yield conn
+
+
+# ---------------------------------------------------------------------------
+# Helper interno: query -> DataFrame
+# Substitui pd.read_sql que é incompatível com psycopg3 (dict_row).
+# Todos os DataFrame helpers devem usar esta função.
+# ---------------------------------------------------------------------------
+
+def _query_to_df(query: str, params: tuple | None = None) -> pd.DataFrame:
+    """Executa query via cursor psycopg3 e retorna DataFrame.
+
+    pd.read_sql é incompatível com psycopg3 quando row_factory=dict_row:
+    o pandas itera as chaves do dict em vez dos valores, resultando em
+    células com o nome da coluna repetido em cada linha.
+    """
+    with db_connect() as conn:
+        cur = conn.cursor()
+        cur.execute(query, params or ())
+        rows = cur.fetchall() or []
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame([dict(r) for r in rows])
 
 
 # ---------------------------------------------------------------------------
@@ -255,70 +272,63 @@ def autenticar_usuario(email: str, senha: str) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------------
-# DataFrame helpers
+# DataFrame helpers  (todos via _query_to_df — nunca pd.read_sql)
 # ---------------------------------------------------------------------------
 
 def get_usuarios_df() -> pd.DataFrame:
-    with db_connect() as conn:
-        return pd.read_sql("SELECT * FROM usuarios", conn)
+    return _query_to_df("SELECT * FROM usuarios")
 
 
 def get_pilotos_df() -> pd.DataFrame:
-    with db_connect() as conn:
-        return pd.read_sql("SELECT * FROM pilotos ORDER BY nome", conn)
+    return _query_to_df("SELECT * FROM pilotos ORDER BY nome")
 
 
 def get_provas_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    with db_connect() as conn:
-        if temporada:
-            return pd.read_sql(
-                "SELECT * FROM provas WHERE temporada = %s ORDER BY id",
-                conn,
-                params=(temporada,),
-            )
-        return pd.read_sql("SELECT * FROM provas ORDER BY id", conn)
+    if temporada:
+        return _query_to_df(
+            "SELECT * FROM provas WHERE temporada = %s ORDER BY id",
+            (temporada,),
+        )
+    return _query_to_df("SELECT * FROM provas ORDER BY id")
 
 
 def get_apostas_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    with db_connect() as conn:
-        if temporada:
-            return pd.read_sql(
-                "SELECT * FROM apostas WHERE temporada = %s",
-                conn,
-                params=(temporada,),
-            )
-        return pd.read_sql("SELECT * FROM apostas", conn)
+    if temporada:
+        return _query_to_df(
+            "SELECT * FROM apostas WHERE temporada = %s",
+            (temporada,),
+        )
+    return _query_to_df("SELECT * FROM apostas")
 
 
 def get_resultados_df(temporada: Optional[str] = None) -> pd.DataFrame:
     """
     Retorna DataFrame de resultados.
-    Quando a coluna `posicoes_jsonb` existir, inclui-a no SELECT para que os
-    services possam preferí-la sem casting extra.
+    Inclui posicoes_jsonb e abandono_arr quando existirem na tabela.
     """
     with db_connect() as conn:
-        cols = get_table_columns(conn, 'resultados')
-        has_jsonb = 'posicoes_jsonb' in cols
-        has_abandono_arr = 'abandono_arr' in cols
+        cols = get_table_columns(conn, "resultados")
 
-        extra = ''
-        if has_jsonb:
-            extra += ', posicoes_jsonb'
-        if has_abandono_arr:
-            extra += ', abandono_arr'
+    has_jsonb = "posicoes_jsonb" in cols
+    has_abandono_arr = "abandono_arr" in cols
 
-        if temporada:
-            return pd.read_sql(
-                f"SELECT prova_id, posicoes, abandono_pilotos{extra} FROM resultados "
-                "JOIN provas ON resultados.prova_id = provas.id "
-                "WHERE provas.temporada = %s",
-                conn,
-                params=(temporada,),
-            )
-        return pd.read_sql(
-            f"SELECT prova_id, posicoes, abandono_pilotos{extra} FROM resultados",
-            conn,
+    extra = ""
+    if has_jsonb:
+        extra += ", posicoes_jsonb"
+    if has_abandono_arr:
+        extra += ", abandono_arr"
+
+    if temporada:
+        return _query_to_df(
+            f"SELECT prova_id, posicoes, abandono_pilotos{extra} "
+            "FROM resultados "
+            "JOIN provas ON resultados.prova_id = provas.id "
+            "WHERE provas.temporada = %s",
+            (temporada,),
         )
+    return _query_to_df(
+        f"SELECT prova_id, posicoes, abandono_pilotos{extra} FROM resultados"
+    )
 
 
 # ---------------------------------------------------------------------------
