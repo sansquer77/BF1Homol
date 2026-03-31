@@ -246,7 +246,7 @@ def _render_aba_editar(df: pd.DataFrame):
                 c.execute("DELETE FROM provas WHERE id=%s", (prova_id,))
                 conn.commit()
             
-            st.success("✅ Prova excluída com sucesso!")
+            st.success("✅ Prova exluída com sucesso!")
             st.cache_data.clear()
             st.rerun()
 
@@ -381,17 +381,8 @@ def main():
         st.cache_data.clear()
         st.rerun()
 
-    # Buscar provas filtradas por temporada (ordenadas por data crescente)
-    with db_connect() as conn:
-        cols = get_table_columns(conn, 'provas')
-        if 'temporada' in cols:
-            df = pd.read_sql_query(
-                "SELECT * FROM provas WHERE temporada = %s OR temporada IS NULL ORDER BY data ASC",
-                conn,
-                params=(temporada_sel,)
-            )
-        else:
-            df = pd.read_sql_query("SELECT * FROM provas ORDER BY data ASC", conn)
+    # Buscar provas filtradas por temporada usando helper compatível com psycopg3
+    df = get_provas_df(temporada_sel)
     df = _normalizar_df_provas(df)
     
     # Criar abas
