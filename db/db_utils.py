@@ -20,36 +20,6 @@ from db.connection_pool import get_pool
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Cache simples thread-safe (TTL em segundos)
-# ---------------------------------------------------------------------------
-_cache_lock = threading.Lock()
-_cache: dict = {}
-
-
-def _cache_get(key: str) -> Optional[object]:
-    with _cache_lock:
-        entry = _cache.get(key)
-        if entry is None:
-            return None
-        value, expires_at = entry
-        if datetime.now().timestamp() > expires_at:
-            del _cache[key]
-            return None
-        return value
-
-
-def _cache_set(key: str, value: object, ttl: int = 30) -> None:
-    with _cache_lock:
-        _cache[key] = (value, datetime.now().timestamp() + ttl)
-
-
-def _cache_invalidate(prefix: str = "") -> None:
-    with _cache_lock:
-        keys = [k for k in _cache if k.startswith(prefix)]
-        for k in keys:
-            del _cache[k]
-
 
 # ---------------------------------------------------------------------------
 # Conexão
@@ -789,7 +759,7 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
             if "temporada" in log_cols:
                 parts.append("NULLIF(trim(coalesce(temporada,'')),'')")
             if "data" in log_cols:
-                parts.append("NULLIF(trim(substr(coalesce(data,''),1,4)),'')")
+                parts.append("NULLIF(trim(substr(coalesce(data,''),1,4)),'')") 
             if parts:
                 df2 = _query_to_df(
                     f"SELECT DISTINCT COALESCE({', '.join(parts)}) AS t "

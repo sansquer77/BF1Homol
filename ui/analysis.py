@@ -59,7 +59,7 @@ def _get_log_apostas_df(
     participantes_nomes: list[str],
     campos: list[str]
 ) -> pd.DataFrame:
-    cursor = conn.cursor()
+    """Busca log_apostas via cursor psycopg3 (compatível com dict_row)."""
     cols = get_table_columns(conn, 'log_apostas')
     if not cols:
         return pd.DataFrame()
@@ -88,10 +88,18 @@ def _get_log_apostas_df(
     if not conditions:
         return pd.DataFrame()
 
+    # Mapeia alias de campos para nomes reais (ex: 'apostador AS participante')
     select_cols = ', '.join(campos)
     where_sql = ' AND '.join(conditions)
     query = f"SELECT {select_cols} FROM log_apostas WHERE {where_sql}"
-    return pd.read_sql(query, conn, params=tuple(params))
+
+    cur = conn.cursor()
+    cur.execute(query, tuple(params))
+    rows = cur.fetchall() or []
+    cur.close()
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame([dict(r) for r in rows])
 
 
 def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Optional[pd.DataFrame] = None):
@@ -123,7 +131,7 @@ def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Op
                     "JOIN usuarios u ON a.usuario_id = u.id "
                     f"WHERE a.usuario_id IN ({placeholders}) AND a.temporada = %s"
                 )
-                df = pd.read_sql(query, conn, params=(*participantes_ids, temporada))
+                params = (*participantes_ids, temporada)
             else:
                 query = (
                     "SELECT u.nome AS participante, a.pilotos "
@@ -131,7 +139,12 @@ def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Op
                     "JOIN usuarios u ON a.usuario_id = u.id "
                     f"WHERE a.usuario_id IN ({placeholders})"
                 )
-                df = pd.read_sql(query, conn, params=tuple(participantes_ids))
+                params = tuple(participantes_ids)
+            cur = conn.cursor()
+            cur.execute(query, params)
+            rows = cur.fetchall() or []
+            cur.close()
+            df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
             if df.empty:
                 df = _get_log_apostas_df(
                     conn,
@@ -181,7 +194,7 @@ def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df
                     f"WHERE a.usuario_id IN ({placeholders}) AND a.temporada = %s "
                     "AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''"
                 )
-                df = pd.read_sql(query, conn, params=(*participantes_ids, temporada))
+                params = (*participantes_ids, temporada)
             else:
                 query = (
                     "SELECT u.nome AS participante, a.piloto_11 AS piloto_11 "
@@ -190,7 +203,12 @@ def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df
                     f"WHERE a.usuario_id IN ({placeholders}) "
                     "AND a.piloto_11 IS NOT NULL AND a.piloto_11 != ''"
                 )
-                df = pd.read_sql(query, conn, params=tuple(participantes_ids))
+                params = tuple(participantes_ids)
+            cur = conn.cursor()
+            cur.execute(query, params)
+            rows = cur.fetchall() or []
+            cur.close()
+            df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
             if df.empty:
                 df = _get_log_apostas_df(
                     conn,

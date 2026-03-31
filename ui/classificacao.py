@@ -554,31 +554,39 @@ def main():
 
     st.subheader("Classificação de Cada Participante ao Longo do Campeonato")
     with db_connect() as conn:
-        query = 'SELECT * FROM posicoes_participantes WHERE temporada = %s'
-        df_posicoes = pd.read_sql(query, conn, params=(season,))
-        fig_all = go.Figure()
-        for part in participantes['nome']:
-            u_id = participantes[participantes['nome'] == part].iloc[0]['id']
-            posicoes_part_raw = df_posicoes[df_posicoes['usuario_id'] == u_id]
-            if isinstance(posicoes_part_raw, pd.Series):
-                posicoes_part = pd.DataFrame([posicoes_part_raw])
-            else:
-                posicoes_part = posicoes_part_raw
-            posicoes_part = posicoes_part.sort_values(by='prova_id')
-            if not posicoes_part.empty:
-                x_vals = []
-                for pid in posicoes_part['prova_id']:
-                    p_name_arr = provas_df[provas_df['id'] == pid]['nome'].values
-                    x_vals.append(p_name_arr[0] if len(p_name_arr) > 0 else f"ID {pid}")
-                fig_all.add_trace(go.Scatter(
-                    x=x_vals,
-                    y=posicoes_part['posicao'],
-                    mode='lines+markers',
-                    name=part
-                ))
-        fig_all.update_yaxes(autorange="reversed")
-        fig_all.update_layout(xaxis_title="Prova", yaxis_title="Posição", legend_title="Participante")
-        st.plotly_chart(fig_all, width="stretch")
+        cur = conn.cursor()
+        cur.execute(
+            'SELECT * FROM posicoes_participantes WHERE temporada = %s',
+            (season,)
+        )
+        rows = cur.fetchall() or []
+        cur.close()
+    df_posicoes = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
+    fig_all = go.Figure()
+    for part in participantes['nome']:
+        u_id = participantes[participantes['nome'] == part].iloc[0]['id']
+        if df_posicoes.empty:
+            continue
+        posicoes_part_raw = df_posicoes[df_posicoes['usuario_id'] == u_id]
+        if isinstance(posicoes_part_raw, pd.Series):
+            posicoes_part = pd.DataFrame([posicoes_part_raw])
+        else:
+            posicoes_part = posicoes_part_raw
+        posicoes_part = posicoes_part.sort_values(by='prova_id')
+        if not posicoes_part.empty:
+            x_vals = []
+            for pid in posicoes_part['prova_id']:
+                p_name_arr = provas_df[provas_df['id'] == pid]['nome'].values
+                x_vals.append(p_name_arr[0] if len(p_name_arr) > 0 else f"ID {pid}")
+            fig_all.add_trace(go.Scatter(
+                x=x_vals,
+                y=posicoes_part['posicao'],
+                mode='lines+markers',
+                name=part
+            ))
+    fig_all.update_yaxes(autorange="reversed")
+    fig_all.update_layout(xaxis_title="Prova", yaxis_title="Posição", legend_title="Participante")
+    st.plotly_chart(fig_all, width="stretch")
 
 if __name__ == "__main__":
     main()
