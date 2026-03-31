@@ -183,10 +183,17 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
         senha_hashed = hash_password(senha)
         with db_connect() as conn:
             c = conn.cursor()
-            c.execute(
-                'INSERT INTO usuarios (nome, email, senha, perfil, status) VALUES (%s, %s, %s, %s, %s)',
-                (nome, email, senha_hashed, perfil, status)
-            )
+            cols = get_table_columns(conn, 'usuarios')
+            if 'faltas' in cols:
+                c.execute(
+                    'INSERT INTO usuarios (nome, email, senha, perfil, status, faltas) VALUES (%s, %s, %s, %s, %s, %s)',
+                    (nome, email, senha_hashed, perfil, status, 0)
+                )
+            else:
+                c.execute(
+                    'INSERT INTO usuarios (nome, email, senha, perfil, status) VALUES (%s, %s, %s, %s, %s)',
+                    (nome, email, senha_hashed, perfil, status)
+                )
             user_id = c.lastrowid
             conn.commit()
         try:
@@ -390,10 +397,17 @@ def criar_master_se_nao_existir():
         existe = c.fetchone()['cnt'] > 0
         if not existe:
             senha_hashed = hash_password(senha)
-            c.execute(
-                "INSERT INTO usuarios (nome, email, senha, perfil, status) VALUES (%s, %s, %s, %s, %s)",
-                (nome, email, senha_hashed, 'master', 'Ativo')
-            )
+            cols = get_table_columns(conn, 'usuarios')
+            if 'faltas' in cols:
+                c.execute(
+                    "INSERT INTO usuarios (nome, email, senha, perfil, status, faltas) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (nome, email, senha_hashed, 'master', 'Ativo', 0)
+                )
+            else:
+                c.execute(
+                    "INSERT INTO usuarios (nome, email, senha, perfil, status) VALUES (%s, %s, %s, %s, %s)",
+                    (nome, email, senha_hashed, 'master', 'Ativo')
+                )
             conn.commit()
 
 # Alias para compatibilidade
