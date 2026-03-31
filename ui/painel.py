@@ -7,7 +7,7 @@ import re
 
 from db.db_utils import (
     db_connect, get_user_by_id, get_provas_df, get_pilotos_df, get_apostas_df, get_resultados_df,
-    update_user_email, update_user_password, get_user_by_email
+    update_user_email, update_user_password, get_user_by_email, get_posicoes_participantes_df
 )
 from services.bets_service import salvar_aposta, calcular_pontuacao_lote, gerar_aposta_sem_ideias
 from services.auth_service import check_password, hash_password
@@ -621,8 +621,7 @@ def participante_view():
         user_id_logado = user['id']
         user_nome_logado = user['nome']
         try:
-            with db_connect() as conn:
-                df_posicoes = pd.read_sql('SELECT prova_id, usuario_id, posicao, temporada FROM posicoes_participantes', conn)
+            df_posicoes = get_posicoes_participantes_df(temporada)
         except Exception:
             st.info("Nenhum histórico de posições disponível ainda. Quando houver dados, eles aparecerão aqui.")
             df_posicoes = pd.DataFrame()
