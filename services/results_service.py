@@ -52,7 +52,7 @@ def salvar_resultado_prova(prova_id: int, posicoes: dict) -> bool:
             c.execute(
                 '''
                 INSERT INTO resultados (prova_id, posicoes)
-                VALUES (?, ?)
+                VALUES (%s, %s)
                 ON CONFLICT (prova_id) DO UPDATE SET
                     posicoes = EXCLUDED.posicoes
                 ''',
@@ -72,7 +72,7 @@ def obter_resultado_prova(prova_id: int):
     """Retorna o resultado de uma prova específica (dict) ou None."""
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute("SELECT posicoes FROM resultados WHERE prova_id = ?", (prova_id,))
+        c.execute("SELECT posicoes FROM resultados WHERE prova_id = %s", (prova_id,))
         row = c.fetchone()
     if row and row[0]:
         result = _parse_posicoes(row[0])
