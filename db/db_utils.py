@@ -362,9 +362,10 @@ def get_pilotos_df() -> pd.DataFrame:
 
 
 def get_provas_df(temporada: Optional[str] = None) -> pd.DataFrame:
+    # fix: inclui provas sem temporada definida (temporada IS NULL)
     if temporada:
         return _query_to_df(
-            "SELECT * FROM provas WHERE temporada = %s ORDER BY id",
+            "SELECT * FROM provas WHERE temporada = %s OR temporada IS NULL ORDER BY id",
             (temporada,),
         )
     return _query_to_df("SELECT * FROM provas ORDER BY id")
@@ -401,7 +402,7 @@ def get_resultados_df(temporada: Optional[str] = None) -> pd.DataFrame:
             f"SELECT prova_id, posicoes, abandono_pilotos{extra} "
             "FROM resultados "
             "JOIN provas ON resultados.prova_id = provas.id "
-            "WHERE provas.temporada = %s",
+            "WHERE provas.temporada = %s OR provas.temporada IS NULL",
             (temporada,),
         )
     return _query_to_df(
