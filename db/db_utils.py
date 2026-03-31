@@ -79,6 +79,7 @@ def _query_to_df(query: str, params: tuple | None = None) -> pd.DataFrame:
         cur = conn.cursor()
         cur.execute(query, params or ())
         rows = cur.fetchall() or []
+        cur.close()
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame([dict(r) for r in rows])
@@ -100,7 +101,9 @@ def get_table_columns(conn, table_name: str) -> list[str]:
         """,
         (table_name,),
     )
-    return [row["column_name"] for row in cur.fetchall()]
+    cols = [row["column_name"] for row in cur.fetchall()]
+    cur.close()
+    return cols
 
 
 def table_exists(conn, table_name: str) -> bool:
@@ -116,7 +119,9 @@ def table_exists(conn, table_name: str) -> bool:
         """,
         (table_name,),
     )
-    return cur.fetchone() is not None
+    exists = cur.fetchone() is not None
+    cur.close()
+    return exists
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +206,7 @@ def init_db() -> None:
     with db_connect() as conn:
         cur = conn.cursor()
         cur.execute(ddl)
+        cur.close()
         conn.commit()
     logger.info("✓ init_db concluído")
 
@@ -229,6 +235,7 @@ def get_user_by_email(email: str) -> Optional[dict]:
         cur = conn.cursor()
         cur.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
         row = cur.fetchone()
+        cur.close()
         return dict(row) if row else None
 
 
@@ -237,6 +244,7 @@ def get_user_by_id(user_id: int) -> Optional[dict]:
         cur = conn.cursor()
         cur.execute("SELECT * FROM usuarios WHERE id = %s", (user_id,))
         row = cur.fetchone()
+        cur.close()
         return dict(row) if row else None
 
 
@@ -245,6 +253,7 @@ def get_master_user() -> Optional[dict]:
         cur = conn.cursor()
         cur.execute("SELECT * FROM usuarios WHERE perfil = 'master' LIMIT 1")
         row = cur.fetchone()
+        cur.close()
         return dict(row) if row else None
 
 
@@ -257,6 +266,7 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil: str = "particip
                 "INSERT INTO usuarios (nome, email, senha, perfil) VALUES (%s, %s, %s, %s)",
                 (nome, email, hashed, perfil),
             )
+            cur.close()
             conn.commit()
         return True
     except Exception as exc:
@@ -280,6 +290,7 @@ def update_user_email(user_id: int, novo_email: str) -> bool:
                 "UPDATE usuarios SET email = %s WHERE id = %s",
                 (novo_email, user_id),
             )
+            cur.close()
             conn.commit()
         logger.info("Email do usuário %s atualizado", user_id)
         return True
@@ -308,6 +319,7 @@ def update_user_password(user_id: int, nova_senha: str) -> bool:
                     "UPDATE usuarios SET senha = %s WHERE id = %s",
                     (senha_hash, user_id),
                 )
+            cur.close()
             conn.commit()
         logger.info("Senha do usuário %s atualizada", user_id)
         return True
@@ -329,6 +341,7 @@ def update_usuario(user_id: int, **campos) -> bool:
         with db_connect() as conn:
             cur = conn.cursor()
             cur.execute(f"UPDATE usuarios SET {set_clause} WHERE id = %s", values)
+            cur.close()
             conn.commit()
         return True
     except Exception as exc:
@@ -342,6 +355,7 @@ def delete_usuario(user_id: int) -> bool:
         with db_connect() as conn:
             cur = conn.cursor()
             cur.execute("DELETE FROM usuarios WHERE id = %s", (user_id,))
+            cur.close()
             conn.commit()
         return True
     except Exception as exc:
@@ -384,30 +398,43 @@ def get_resultados_df(temporada: Optional[str] = None) -> pd.DataFrame:
     """
     Retorna DataFrame de resultados.
     Inclui posicoes_jsonb e abandono_arr quando existirem na tabela.
+
+    fix: toda a lógica (inspeção de colunas + query) ocorre dentro de uma
+    única conexão, eliminando a dupla abertura do pool que existia antes.
     """
     with db_connect() as conn:
         cols = get_table_columns(conn, "resultados")
 
-    has_jsonb = "posicoes_jsonb" in cols
-    has_abandono_arr = "abandono_arr" in cols
+        has_jsonb = "posicoes_jsonb" in cols
+        has_abandono_arr = "abandono_arr" in cols
 
-    extra = ""
-    if has_jsonb:
-        extra += ", posicoes_jsonb"
-    if has_abandono_arr:
-        extra += ", abandono_arr"
+        extra = ""
+        if has_jsonb:
+            extra += ", posicoes_jsonb"
+        if has_abandono_arr:
+            extra += ", abandono_arr"
 
-    if temporada:
-        return _query_to_df(
-            f"SELECT prova_id, posicoes, abandono_pilotos{extra} "
-            "FROM resultados "
-            "JOIN provas ON resultados.prova_id = provas.id "
-            "WHERE provas.temporada = %s OR provas.temporada IS NULL",
-            (temporada,),
-        )
-    return _query_to_df(
-        f"SELECT prova_id, posicoes, abandono_pilotos{extra} FROM resultados"
-    )
+        if temporada:
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT prova_id, posicoes, abandono_pilotos{extra} "
+                "FROM resultados "
+                "JOIN provas ON resultados.prova_id = provas.id "
+                "WHERE provas.temporada = %s OR provas.temporada IS NULL",
+                (temporada,),
+            )
+        else:
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT prova_id, posicoes, abandono_pilotos{extra} FROM resultados"
+            )
+
+        rows = cur.fetchall() or []
+        cur.close()
+
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame([dict(r) for r in rows])
 
 
 def get_posicoes_participantes_df(temporada: Optional[str] = None) -> pd.DataFrame:
@@ -433,6 +460,7 @@ def add_piloto(nome: str, equipe: str = "", status: str = "Ativo", numero: int =
                 "INSERT INTO pilotos (nome, equipe, status, numero) VALUES (%s, %s, %s, %s)",
                 (nome, equipe, status, numero),
             )
+            cur.close()
             conn.commit()
         return True
     except Exception as exc:
@@ -450,6 +478,7 @@ def update_piloto(piloto_id: int, **campos) -> bool:
         with db_connect() as conn:
             cur = conn.cursor()
             cur.execute(f"UPDATE pilotos SET {set_clause} WHERE id = %s", values)
+            cur.close()
             conn.commit()
         return True
     except Exception as exc:
@@ -463,6 +492,7 @@ def delete_piloto(piloto_id: int) -> bool:
         with db_connect() as conn:
             cur = conn.cursor()
             cur.execute("DELETE FROM pilotos WHERE id = %s", (piloto_id,))
+            cur.close()
             conn.commit()
         return True
     except Exception as exc:
@@ -485,6 +515,7 @@ def add_prova(nome: str, data: str, horario_prova: str = "", tipo: str = "Normal
                 "VALUES (%s, %s, %s, %s, %s, %s)",
                 (nome, data, horario_prova, tipo, status, temporada),
             )
+            cur.close()
             conn.commit()
         return True
     except Exception as exc:
@@ -502,6 +533,7 @@ def update_prova(prova_id: int, **campos) -> bool:
         with db_connect() as conn:
             cur = conn.cursor()
             cur.execute(f"UPDATE provas SET {set_clause} WHERE id = %s", values)
+            cur.close()
             conn.commit()
         return True
     except Exception as exc:
@@ -515,6 +547,7 @@ def delete_prova(prova_id: int) -> bool:
         with db_connect() as conn:
             cur = conn.cursor()
             cur.execute("DELETE FROM provas WHERE id = %s", (prova_id,))
+            cur.close()
             conn.commit()
         return True
     except Exception as exc:
@@ -535,6 +568,7 @@ def get_horario_prova(prova_id: int) -> tuple[Optional[str], Optional[str], Opti
             (prova_id,),
         )
         row = cur.fetchone()
+        cur.close()
     if row:
         return row["nome"], row["data"], row["horario_prova"]
     return None, None, None
@@ -559,6 +593,7 @@ def salvar_resultado(prova_id: int, posicoes: str, abandono_pilotos: str = "") -
                 """,
                 (prova_id, posicoes, abandono_pilotos),
             )
+            cur.close()
             conn.commit()
         return True
     except Exception as exc:
@@ -590,6 +625,7 @@ def registrar_log_aposta(
             cur = conn.cursor()
             cols = get_table_columns(conn, "log_apostas")
             if not cols:
+                cur.close()
                 return
             cur.execute(
                 """
@@ -605,6 +641,7 @@ def registrar_log_aposta(
                     ip_address, temporada, status,
                 ),
             )
+            cur.close()
             conn.commit()
     except Exception as exc:
         logger.debug("registrar_log_aposta falhou: %s", exc)
@@ -623,7 +660,9 @@ def log_aposta_existe(usuario_id: int, prova_id: int, temporada: Optional[str] =
                 "SELECT 1 FROM log_apostas WHERE usuario_id=%s AND prova_id=%s LIMIT 1",
                 (usuario_id, prova_id),
             )
-        return cur.fetchone() is not None
+        exists = cur.fetchone() is not None
+        cur.close()
+        return exists
 
 
 # ---------------------------------------------------------------------------
@@ -675,6 +714,7 @@ def registrar_historico_status_usuario(
         )
         row = cursor.fetchone()
         if row and row["status"] == novo_status:
+            cursor.close()
             return
 
         if row:
@@ -691,6 +731,7 @@ def registrar_historico_status_usuario(
             """,
             (usuario_id, novo_status, data_referencia, alterado_por, motivo),
         )
+        cursor.close()
         conn.commit()
 
 
@@ -708,6 +749,7 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) AS cnt FROM usuarios_status_historico")
         row = cur.fetchone()
+        cur.close()
         if not row or int(row["cnt"]) == 0:
             return _query_to_df("SELECT * FROM usuarios WHERE lower(trim(coalesce(status,''))) = 'ativo'")
 
@@ -745,9 +787,9 @@ def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
         if user_col:
             parts = []
             if "temporada" in log_cols:
-                parts.append("NULLIF(trim(coalesce(temporada,'')),'')")  
+                parts.append("NULLIF(trim(coalesce(temporada,'')),'')")
             if "data" in log_cols:
-                parts.append("NULLIF(trim(substr(coalesce(data,''),1,4)),'')")  
+                parts.append("NULLIF(trim(substr(coalesce(data,''),1,4)),'')")
             if parts:
                 df2 = _query_to_df(
                     f"SELECT DISTINCT COALESCE({', '.join(parts)}) AS t "
