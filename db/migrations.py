@@ -284,6 +284,76 @@ def create_missing_tables_if_needed() -> None:
             conn.rollback()
 
 
+def fix_sequences() -> None:
+    """Ressincroniza sequences SERIAL/IDENTITY com o maior id real de cada tabela.
+
+    Necessário quando linhas foram inseridas com id explícito (ex: restore de
+    backup) sem atualizar a sequence, causando UniqueViolation no próximo INSERT.
+    É idempotente: se a sequence já estiver adiantada, o setval não a retrocede.
+    """
+    tables = [
+        "login_attempts",
+        "access_logs",
+        "usuarios",
+        "apostas",
+        "provas",
+        "resultados",
+        "pilotos",
+        "posicoes_participantes",
+        "log_apostas",
+        "championship_bets",
+        "championship_bets_log",
+        "championship_results",
+        "hall_da_fama",
+        "usuarios_status_historico",
+    ]
+    pool = get_pool()
+    with pool.get_connection() as conn:
+        cursor = conn.cursor()
+        for table in tables:
+            try:
+                if not table_exists(conn, table):
+                    continue
+                # pg_get_serial_sequence funciona tanto para SERIAL quanto para
+                # GENERATED AS IDENTITY — retorna NULL se a tabela não tiver
+                # sequence associada à coluna id (ex: tabela sem PK serial).
+                cursor.execute(
+                    """
+                    SELECT pg_get_serial_sequence(%s, 'id') AS seq_name
+                    """,
+                    (table,),
+                )
+                row = cursor.fetchone()
+                seq_name = row["seq_name"] if row else None
+                if not seq_name:
+                    continue
+
+                cursor.execute(
+                    f"""
+                    SELECT setval(
+                        %s,
+                        GREATEST(
+                            (SELECT COALESCE(MAX(id), 0) FROM {table}),
+                            (SELECT last_value FROM {seq_name})
+                        ),
+                        true
+                    )
+                    """,
+                    (seq_name,),
+                )
+                logger.info("✓ Sequence `%s` ressincronizada para tabela `%s`", seq_name, table)
+            except Exception as exc:
+                logger.warning("⚠️  Falha ao ressincronizar sequence de `%s`: %s", table, exc)
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+        try:
+            conn.commit()
+        except Exception as exc:
+            logger.warning("⚠️  Falha no commit de fix_sequences: %s", exc)
+
+
 def run_migrations() -> None:
     init_db()
 
@@ -320,6 +390,13 @@ def run_migrations() -> None:
             logger.error("✗ Erro ao executar migrations: %s", exc)
             conn.rollback()
             raise
+
+    # -------------------------------------------------------------------
+    # Ressincroniza sequences de todas as tabelas.
+    # Corrige UniqueViolation causada por restore de backup com id explícito.
+    # Idempotente — seguro executar a cada startup.
+    # -------------------------------------------------------------------
+    fix_sequences()
 
     # -------------------------------------------------------------------
     # Migration de tipos nativos (DATE / TIMESTAMPTZ / JSONB / TEXT[])
