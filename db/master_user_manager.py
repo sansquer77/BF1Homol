@@ -49,7 +49,7 @@ class MasterUserManager:
         Fonte de busca:
         1. os.environ (Digital Ocean, Local com .env)
         
-        Suporta variáveis em MAIÚSCULAS ou minúsculas.
+        Suporta variáveis em MAIÚsCULAS ou minúsculas.
         
         Returns:
             Dict com credenciais ou None se não encontradas
@@ -125,17 +125,17 @@ class MasterUserManager:
                 cursor = conn.cursor()
                 
                 # Hash da senha com bcrypt
-                senha_hash = hash_password(creds['senha'])
+                senha_hashed = hash_password(creds['senha'])
                 
                 # Insert com email do ambiente (não o email padrão)
                 cursor.execute('''
                     INSERT INTO usuarios
-                    (nome, email, senha_hash, perfil, status, faltas)
+                    (nome, email, senha, perfil, status, faltas)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 ''', (
                     creds['nome'],
-                    creds['email'],  # Email da variável de ambiente
-                    senha_hash,
+                    creds['email'],
+                    senha_hashed,
                     'master',
                     'Ativo',
                     0
