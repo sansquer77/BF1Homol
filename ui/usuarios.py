@@ -27,6 +27,9 @@ def _normalizar_df_usuarios(df: pd.DataFrame) -> pd.DataFrame:
     if "status" in df_norm.columns:
         df_norm["status"] = df_norm["status"].astype(str).str.strip().str.title()
 
+    if "faltas" in df_norm.columns:
+        df_norm["faltas"] = pd.to_numeric(df_norm["faltas"], errors="coerce").fillna(0).astype(int)
+
     return df_norm
 
 
@@ -132,8 +135,19 @@ def _render_gestao_usuarios_tab(perfil: str):
 
     st.markdown("### Usuários Cadastrados")
     with st.expander("Lista Completa de Usuários", expanded=True):
-        show_df = df[["id", "nome", "email", "perfil", "status"]].copy()
-        show_df.columns = ["ID", "Nome", "Email", "Perfil", "Status"]
+        # Colunas base sempre presentes
+        base_cols = ["id", "nome", "email", "perfil", "status"]
+        base_labels = ["ID", "Nome", "Email", "Perfil", "Status"]
+
+        # Inclui 'faltas' de forma defensiva: só se a coluna existir no banco real.
+        # A coluna é adicionada pelo commit 35c1432 (faltas=0 nos INSERTs); em bancos
+        # restaurados sem a migration ela pode estar ausente.
+        if "faltas" in df.columns:
+            base_cols.append("faltas")
+            base_labels.append("Faltas")
+
+        show_df = df[base_cols].copy()
+        show_df.columns = base_labels
         st.dataframe(show_df, width="stretch")
 
     st.markdown("### Editar Usuário")
