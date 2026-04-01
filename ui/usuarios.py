@@ -140,8 +140,6 @@ def _render_gestao_usuarios_tab(perfil: str):
         base_labels = ["ID", "Nome", "Email", "Perfil", "Status"]
 
         # Inclui 'faltas' de forma defensiva: só se a coluna existir no banco real.
-        # A coluna é adicionada pelo commit 35c1432 (faltas=0 nos INSERTs); em bancos
-        # restaurados sem a migration ela pode estar ausente.
         if "faltas" in df.columns:
             base_cols.append("faltas")
             base_labels.append("Faltas")
@@ -169,6 +167,20 @@ def _render_gestao_usuarios_tab(perfil: str):
     status_index = status_opts.index(status_atual) if status_atual in status_opts else 0
     novo_status = st.selectbox("Status", status_opts, index=status_index)
 
+    # fix: campo de edição de faltas — ausente antes, forçando workaround
+    # de reimportar a tabela de usuários (o que quebrava as FK apostas.usuario_id).
+    # Renderiza de forma defensiva: só se a coluna existir no DataFrame.
+    novas_faltas = None
+    if "faltas" in df.columns:
+        faltas_atuais = int(user_row.get("faltas", 0) or 0)
+        novas_faltas = st.number_input(
+            "Faltas",
+            min_value=0,
+            value=faltas_atuais,
+            step=1,
+            help="Número de faltas do participante nesta temporada.",
+        )
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -176,10 +188,17 @@ def _render_gestao_usuarios_tab(perfil: str):
             status_anterior = str(user_row["status"]).strip()
             with db_connect() as conn:
                 c = conn.cursor()
-                c.execute(
-                    "UPDATE usuarios SET nome=%s, email=%s, perfil=%s, status=%s WHERE id=%s",
-                    (novo_nome, novo_email, novo_perfil, novo_status, int(user_row["id"]))
-                )
+                if novas_faltas is not None:
+                    # Inclui faltas no UPDATE quando a coluna está disponível
+                    c.execute(
+                        "UPDATE usuarios SET nome=%s, email=%s, perfil=%s, status=%s, faltas=%s WHERE id=%s",
+                        (novo_nome, novo_email, novo_perfil, novo_status, int(novas_faltas), int(user_row["id"]))
+                    )
+                else:
+                    c.execute(
+                        "UPDATE usuarios SET nome=%s, email=%s, perfil=%s, status=%s WHERE id=%s",
+                        (novo_nome, novo_email, novo_perfil, novo_status, int(user_row["id"]))
+                    )
                 conn.commit()
             if status_anterior != novo_status:
                 alterado_por = st.session_state.get("user_id")
@@ -214,11 +233,14 @@ def _render_gestao_usuarios_tab(perfil: str):
                     nova_hash = hash_password(nova_senha)
                     with db_connect() as conn:
                         c = conn.cursor()
-                        # fix(crítico #2): coluna no DDL é 'senha', não 'senha_hash'.
-                        # Usar 'senha' para garantir que o UPDATE afete a linha corretamente.
-                        c.execute("UPDATE usuarios SET senha=%s WHERE id=%s", (nova_hash, int(user_row["id"])))
+                        # fix: coluna correta é 'senha_hash' (DDL e banco de produção).
+                        # Antes usava 'senha', que não existe — UPDATE não afetava nenhuma linha.
+                        c.execute(
+                            "UPDATE usuarios SET senha_hash=%s, must_change_password=TRUE WHERE id=%s",
+                            (nova_hash, int(user_row["id"]))
+                        )
                         conn.commit()
-                    st.success("Senha atualizada com sucesso!")
+                    st.success("Senha atualizada com sucesso! O usuário deverá trocar a senha no próximo acesso.")
                     st.session_state["alterar_senha"] = False
                     st.rerun()
             if st.button("Cancelar alteração de senha"):
@@ -250,14 +272,14 @@ def _render_gestao_usuarios_tab(perfil: str):
         if not nome_novo or not email_novo or not senha_novo:
             st.error("Preencha todos os campos obrigatórios.")
         else:
-            from services.auth_service import cadastrar_usuario
-            sucesso = cadastrar_usuario(nome_novo, email_novo, senha_novo, perfil=perfil_novo, status=status_novo)
-            if sucesso:
-                st.success("Usuário adicionado com sucesso!")
-                st.cache_data.clear()
-                st.rerun()
-            else:
-                st.error("Email já cadastrado.")
+          from services.auth_service import cadastrar_usuario
+          sucesso = cadastrar_usuario(nome_novo, email_novo, senha_novo, perfil=perfil_novo, status=status_novo)
+          if sucesso:
+              st.success("Usuário adicionado com sucesso!")
+              st.cache_data.clear()
+              st.rerun()
+          else:
+              st.error("Email já cadastrado.")
 
 
 def _render_gestao_financeira_tab():
