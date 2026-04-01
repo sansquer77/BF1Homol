@@ -295,9 +295,8 @@ def login_view():
                 return
             
             # Verificar senha com bcrypt
-            # fix(crítico #1): coluna no DDL é 'senha', não 'senha_hash'.
-            # Usar usuario['senha'] para evitar KeyError em produção.
-            if not check_password(senha, usuario['senha']):
+            # fix(crítico): coluna real é `senha_hash` — confirmado via dump de produção.
+            if not check_password(senha, usuario['senha_hash']):
                 tentativas_restantes = MAX_LOGIN_ATTEMPTS - falhas - 1
                 
                 if tentativas_restantes > 0:
