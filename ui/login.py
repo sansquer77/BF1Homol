@@ -8,6 +8,7 @@ Melhorias:
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import logging
 from datetime import datetime, timedelta
 from services.auth_service import redefinir_senha_usuario, redefinir_senha_com_token
@@ -167,6 +168,58 @@ def limpar_tentativas_antigas():
 
 # ============ UI DE LOGIN ============
 
+def _injetar_autocomplete_login() -> None:
+    """Injeta atributos autocomplete nos inputs do form de login via JavaScript.
+
+    O Streamlit não expõe o atributo HTML `autocomplete` nos st.text_input,
+    o que impede que gerenciadores de senha (1Password, Bitwarden, etc.)
+    reconheçam o formulário e ofereçam preenchimento automático.
+
+    A injeção é feita via st.components.v1.html com um <script> que:
+    - aguarda o DOM ser montado (polling a cada 200ms, máximo 2s),
+    - localiza os inputs dentro do formulário `data-testid="stForm"`,
+    - atribui autocomplete="email" e autocomplete="current-password"
+      ao 1º e 2º inputs respectivamente.
+
+    Isso é executado dentro de um iframe sandboxed do Streamlit;
+    o script usa window.parent.document para acessar o DOM principal.
+    """
+    components.html(
+        """
+        <script>
+        (function() {
+            function applyAutocomplete() {
+                try {
+                    var doc = window.parent.document;
+                    var form = doc.querySelector('[data-testid="stForm"]');
+                    if (!form) return false;
+                    var inputs = form.querySelectorAll('input');
+                    if (inputs.length < 2) return false;
+                    inputs[0].setAttribute('autocomplete', 'email');
+                    inputs[0].setAttribute('name', 'email');
+                    inputs[1].setAttribute('autocomplete', 'current-password');
+                    inputs[1].setAttribute('name', 'password');
+                    return true;
+                } catch(e) {
+                    return false;
+                }
+            }
+            if (!applyAutocomplete()) {
+                var attempts = 0;
+                var interval = setInterval(function() {
+                    attempts++;
+                    if (applyAutocomplete() || attempts >= 10) {
+                        clearInterval(interval);
+                    }
+                }, 200);
+            }
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
 def login_view():
     """Interface de login com rate limiting e segurança"""
     
@@ -205,6 +258,10 @@ def login_view():
                 width="stretch",
                 type="primary"
             )
+
+        # fix(1Password): injeta autocomplete="email" / "current-password" via JS
+        # após o render do formulário — gerenciadores de senha reconhecem o form.
+        _injetar_autocomplete_login()
         
         # ========== PROCESSAMENTO DO LOGIN ==========
         if submit_button:
