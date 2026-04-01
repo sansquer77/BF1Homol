@@ -8,7 +8,6 @@ Melhorias:
 """
 
 import streamlit as st
-import streamlit.components.v1 as components
 import logging
 from datetime import datetime, timedelta
 from services.auth_service import redefinir_senha_usuario, redefinir_senha_com_token
@@ -175,7 +174,7 @@ def _injetar_autocomplete_login() -> None:
     o que impede que gerenciadores de senha (1Password, Bitwarden, etc.)
     reconheçam o formulário e ofereçam preenchimento automático.
 
-    A injeção é feita via st.components.v1.html com um <script> que:
+    A injeção é feita via st.iframe com um <script> que:
     - aguarda o DOM ser montado (polling a cada 200ms, máximo 2s),
     - localiza os inputs dentro do formulário `data-testid="stForm"`,
     - atribui autocomplete="email" e autocomplete="current-password"
@@ -184,8 +183,8 @@ def _injetar_autocomplete_login() -> None:
     Isso é executado dentro de um iframe sandboxed do Streamlit;
     o script usa window.parent.document para acessar o DOM principal.
     """
-    components.html(
-        """
+    st.iframe(
+        srcdoc="""
         <script>
         (function() {
             function applyAutocomplete() {
