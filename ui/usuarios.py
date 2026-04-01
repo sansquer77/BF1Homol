@@ -214,15 +214,12 @@ def _render_gestao_usuarios_tab(perfil: str):
                     nova_hash = hash_password(nova_senha)
                     with db_connect() as conn:
                         c = conn.cursor()
-                        c.execute("UPDATE usuarios SET senha_hash=%s WHERE id=%s", (nova_hash, int(user_row["id"])))
+                        # fix(crítico #2): coluna no DDL é 'senha', não 'senha_hash'.
+                        # Usar 'senha' para garantir que o UPDATE afete a linha corretamente.
+                        c.execute("UPDATE usuarios SET senha=%s WHERE id=%s", (nova_hash, int(user_row["id"])))
                         conn.commit()
                     st.success("Senha atualizada com sucesso!")
                     st.session_state["alterar_senha"] = False
-                    
-                    # TODO: add email and password validation to user management
-                    # Use utils.validators in the user management interface to ensure that new
-                    # users are created with valid email formats and strong passwords. This
-                    # addresses vulnerabilities related to predictable/default credentials.
                     st.rerun()
             if st.button("Cancelar alteração de senha"):
                 st.session_state["alterar_senha"] = False

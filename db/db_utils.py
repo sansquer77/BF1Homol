@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Optional
@@ -19,6 +18,19 @@ import pandas as pd
 from db.connection_pool import get_pool
 
 logger = logging.getLogger(__name__)
+
+# Allowlists de colunas válidas para funções de update dinâmico.
+# fix(crítico #3): evita SQL injection via nomes de campo arbitrários em kwargs.
+_COLUNAS_USUARIOS_VALIDAS: frozenset[str] = frozenset({
+    "nome", "email", "senha", "perfil", "status",
+    "must_change_password", "faltas", "criado_em",
+})
+_COLUNAS_PILOTOS_VALIDAS: frozenset[str] = frozenset({
+    "nome", "equipe", "status", "numero",
+})
+_COLUNAS_PROVAS_VALIDAS: frozenset[str] = frozenset({
+    "nome", "data", "horario_prova", "tipo", "status", "temporada",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -325,9 +337,16 @@ def update_usuario(user_id: int, **campos) -> bool:
     """Atualiza campos arbitrários de um usuário.
 
     Uso: update_usuario(1, nome='Novo Nome', perfil='admin')
+
+    fix(crítico #3): valida cada chave contra allowlist antes de montar
+    o SET clause — impede SQL injection via nomes de campo arbitrários.
     """
     if not campos:
         return False
+    campos_invalidos = set(campos) - _COLUNAS_USUARIOS_VALIDAS
+    if campos_invalidos:
+        logger.error("update_usuario: colunas não permitidas rejeitadas: %s", campos_invalidos)
+        raise ValueError(f"Colunas não permitidas em update_usuario: {campos_invalidos}")
     set_clause = ", ".join(f"{k} = %s" for k in campos)
     values = list(campos.values()) + [user_id]
     try:
@@ -468,9 +487,17 @@ def add_piloto(nome: str, equipe: str = "", status: str = "Ativo", numero: int =
 
 
 def update_piloto(piloto_id: int, **campos) -> bool:
-    """Atualiza campos de um piloto."""
+    """Atualiza campos de um piloto.
+
+    fix(crítico #3): valida cada chave contra allowlist antes de montar
+    o SET clause — impede SQL injection via nomes de campo arbitrários.
+    """
     if not campos:
         return False
+    campos_invalidos = set(campos) - _COLUNAS_PILOTOS_VALIDAS
+    if campos_invalidos:
+        logger.error("update_piloto: colunas não permitidas rejeitadas: %s", campos_invalidos)
+        raise ValueError(f"Colunas não permitidas em update_piloto: {campos_invalidos}")
     set_clause = ", ".join(f"{k} = %s" for k in campos)
     values = list(campos.values()) + [piloto_id]
     try:
@@ -523,9 +550,17 @@ def add_prova(nome: str, data: str, horario_prova: str = "", tipo: str = "Normal
 
 
 def update_prova(prova_id: int, **campos) -> bool:
-    """Atualiza campos de uma prova."""
+    """Atualiza campos de uma prova.
+
+    fix(crítico #3): valida cada chave contra allowlist antes de montar
+    o SET clause — impede SQL injection via nomes de campo arbitrários.
+    """
     if not campos:
         return False
+    campos_invalidos = set(campos) - _COLUNAS_PROVAS_VALIDAS
+    if campos_invalidos:
+        logger.error("update_prova: colunas não permitidas rejeitadas: %s", campos_invalidos)
+        raise ValueError(f"Colunas não permitidas em update_prova: {campos_invalidos}")
     set_clause = ", ".join(f"{k} = %s" for k in campos)
     values = list(campos.values()) + [prova_id]
     try:

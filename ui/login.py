@@ -210,7 +210,7 @@ def login_view():
         if submit_button:
             if not email or not senha:
                 st.error("❌ Por favor, preencha email e senha")
-                logger.warning(f"Tentativa de login com campos vazios")
+                logger.warning("Tentativa de login com campos vazios")
                 return
             try:
                 login_input = LoginInput(email=email, senha=senha)
@@ -295,7 +295,9 @@ def login_view():
                 return
             
             # Verificar senha com bcrypt
-            if not check_password(senha, usuario['senha_hash']):
+            # fix(crítico #1): coluna no DDL é 'senha', não 'senha_hash'.
+            # Usar usuario['senha'] para evitar KeyError em produção.
+            if not check_password(senha, usuario['senha']):
                 tentativas_restantes = MAX_LOGIN_ATTEMPTS - falhas - 1
                 
                 if tentativas_restantes > 0:
