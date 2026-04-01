@@ -343,17 +343,21 @@ def _render_gestao_financeira_tab():
         email = str(part.get("email", "") or "").strip()
         pago_default = bool(pagamentos_db.get(usuario_id, False))
         checkbox_key = f"finance_pago_{temporada}_{usuario_id}"
+        # fix: inicializar session_state antes de criar o widget evita o aviso
+        # "widget criado com default mas também definido via Session State API".
+        # A chave só é gravada na primeira vez (não sobrescreve interações do usuário).
         if checkbox_key not in st.session_state:
             st.session_state[checkbox_key] = pago_default
-        pago_atual = bool(st.session_state.get(checkbox_key, pago_default))
+        pago_atual = bool(st.session_state[checkbox_key])
 
         if not (mostrar_apenas_devendo and pago_atual):
+            # Omite value= pois a chave já está no session_state: o Streamlit usa
+            # o valor armazenado e não emite o aviso de conflito.
             st.checkbox(
                 f"{part.get('nome', 'Participante')} ({email if email else 'sem e-mail'})",
-                value=pago_atual,
                 key=checkbox_key,
             )
-            pago_atual = bool(st.session_state.get(checkbox_key, pago_atual))
+            pago_atual = bool(st.session_state[checkbox_key])
 
         pagamentos_tela[usuario_id] = pago_atual
         if not pago_atual:
