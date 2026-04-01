@@ -976,7 +976,7 @@ def salvar_aposta(
     except Exception:
         tipo_prova_regra = 'Sprint' if 'sprint' in str(nome_prova_bd).lower() else 'Normal'
     regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova_regra)
-    
+
     quantidade_fichas = regras.get('quantidade_fichas', 15)
     min_pilotos = regras.get('min_pilotos', 3)
     max_por_piloto = int(regras.get('fichas_por_piloto', quantidade_fichas))
@@ -1118,3 +1118,208 @@ def salvar_aposta(
                 "</ul>"
                 "<p>Boa sorte na prova!</p>"
             )
+
+            try:
+                contexto_ergast_email = _get_contexto_temporada_atual_ergast(
+                    temporada=str(temporada or datetime.now().year),
+                    nome_prova=nome_prova_bd,
+                )
+                estimativa_email = _estimar_pontos_aposta_ergast(
+                    pilotos=pilotos,
+                    fichas=fichas,
+                    piloto_11=piloto_11,
+                    tipo_prova=tipo_prova_regra,
+                    regras=regras,
+                    contexto_ergast=contexto_ergast_email,
+                )
+                pontos_estimados = estimativa_email.get("pontos_estimados")
+                bonus_11_estimado = estimativa_email.get("bonus_11_estimado")
+                chance_11 = estimativa_email.get("chance_11")
+                probabilidade_combinada = estimativa_email.get("probabilidade_combinada")
+                criterios_estimativa = str(estimativa_email.get("criterios", "Ergast + regras da prova"))
+                detalhes_estimativa = str(estimativa_email.get("detalhes", "")).strip()
+
+                analise = gerar_analise_aposta_com_probabilidade(
+                    nome_usuario=usuario.get('nome', ''),
+                    contexto_aposta=f"Prova {nome_prova_bd}",
+                    detalhes_aposta=(
+                        f"Pilotos: {', '.join(pilotos)}; "
+                        f"Fichas: {', '.join(map(str, fichas))}; "
+                        f"11º: {piloto_11}; "
+                        f"Estimativa de pontos (Ergast): {pontos_estimados}; "
+                        f"Bônus 11º esperado: {bonus_11_estimado} ({chance_11}%); "
+                        f"Critérios: {criterios_estimativa}; "
+                        f"Sinais: {detalhes_estimativa}"
+                    ),
+                )
+                comentario = str(analise.get("comentario", "")).strip()
+                probabilidade = analise.get("probabilidade")
+                resumo = str(analise.get("resumo", "")).strip()
+
+                # Probabilidade principal do email deve seguir a combinação das probabilidades por piloto.
+                if probabilidade_combinada is not None:
+                    probabilidade = probabilidade_combinada
+
+                # Mantém coerência entre chance de acerto e pontos projetados.
+                try:
+                    prob_i = int(float(probabilidade)) if probabilidade is not None else None
+                except Exception:
+                    prob_i = None
+                try:
+                    pontos_i = float(pontos_estimados) if pontos_estimados is not None else None
+                except Exception:
+                    pontos_i = None
+                if pontos_i is not None:
+                    cap_por_pontos = int(max(10, min(95, round(pontos_i * 1.6))))
+                    if prob_i is None:
+                        prob_i = cap_por_pontos
+                    else:
+                        prob_i = min(prob_i, cap_por_pontos)
+                if prob_i is not None:
+                    probabilidade = max(0, min(100, prob_i))
+
+                abertura_email, fechamento_email = _gerar_copy_email_aposta(
+                    nome_usuario=str(usuario.get('nome', 'Participante')),
+                    nome_prova=nome_prova_bd,
+                    pilotos=pilotos,
+                    fichas=fichas,
+                    piloto_11=piloto_11,
+                    pontos_estimados=(float(pontos_estimados) if pontos_estimados is not None else None),
+                    probabilidade=probabilidade,
+                )
+
+                previsao_html = ""
+                if comentario:
+                    previsao_html += "<p>" + "<br>".join(html.escape(comentario).splitlines()) + "</p>"
+                if pontos_estimados is not None:
+                    previsao_html += (
+                        f"<p><b>Estimativa de pontos:</b> {float(pontos_estimados):.1f}</p>"
+                    )
+                if chance_11 is not None:
+                    previsao_html += f"<p><b>Probabilidade de acerto do 11º colocado:</b> {int(chance_11)}%</p>"
+                if probabilidade is not None:
+                    previsao_html += f"<p><b>Probabilidade estimada de acerto:</b> {int(probabilidade)}%</p>"
+
+                corpo_email = (
+                    f"<p>Olá {html.escape(usuario['nome'])},</p>"
+                    f"<p>Sua aposta para a prova <b>{html.escape(nome_prova_bd)}</b> foi registrada com sucesso.</p>"
+                    f"<p>{html.escape(abertura_email)}</p>"
+                    "<p><b>Detalhes:</b></p>"
+                    "<ul>"
+                    f"<li>Pilotos: {html.escape(', '.join(pilotos))}</li>"
+                    f"<li>Fichas: {html.escape(', '.join(map(str, fichas)))}</li>"
+                    f"<li>Palpite para 11º colocado: {html.escape(piloto_11)}</li>"
+                    "</ul>"
+                    f"{previsao_html}"
+                    f"<p>{html.escape(fechamento_email)}</p>"
+                    "<p><small><b>Aviso de estimativa:</b> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</small></p>"
+                )
+            except Exception as e:
+                logger.exception(
+                    "Falha ao montar conteúdo avançado do email de aposta para %s: %s",
+                    redact_identifier(str(usuario.get('email', ''))),
+                    e,
+                )
+
+            try:
+                email_ok = enviar_email(usuario['email'], f"Aposta registrada - {nome_prova_bd}", corpo_email)
+                if not email_ok:
+                    logger.warning(
+                        "Falha de envio de email de aposta para %s (prova_id=%s)",
+                        redact_identifier(str(usuario.get('email', ''))),
+                        prova_id,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Falha ao enviar email de aposta para %s: %s",
+                    redact_identifier(str(usuario.get('email', ''))),
+                    e,
+                )
+
+    except Exception as e:
+        _report_error("Erro ao salvar aposta.")
+        logger.exception("Erro ao salvar aposta: %s", e)
+        return False
+
+    registrar_log_aposta(
+        usuario_id=usuario_id,
+        prova_id=prova_id,
+        apostador=usuario['nome'],
+        pilotos=dados_pilotos,
+        aposta=dados_fichas,
+        nome_prova=nome_prova_bd,
+        piloto_11=piloto_11,
+        tipo_aposta=tipo_aposta,
+        automatica=automatica,
+        horario=agora_sp,
+        ip_address=ip_apostador,
+        temporada=temporada,
+        status='Registrada'
+    )
+    return True
+
+def gerar_aposta_aleatoria(pilotos_df):
+    import random
+    if pilotos_df is None or pilotos_df.empty:
+        return [], [], ""
+    pilotos_lista = pilotos_df['nome'].tolist()
+    if len(pilotos_lista) < 4:
+        return [], [], ""
+    selecionados = random.sample(pilotos_lista, 3)
+    fichas = [5, 5, 5]
+    piloto_11 = random.choice([p for p in pilotos_lista if p not in selecionados])
+    return selecionados, fichas, piloto_11
+
+
+def gerar_aposta_estrategica(
+    usuario_id: int,
+    prova_id: int,
+    temporada: Optional[str] = None,
+    nome_prova: Optional[str] = None,
+) -> Optional[tuple[list[str], list[int], str]]:
+    """Gera aposta estratégica via Perplexity com fallback para aleatória."""
+    try:
+        pilotos_df = get_pilotos_df(temporada)
+        apostas_df = get_apostas_df(temporada)
+        resultados_df = get_resultados_df(temporada)
+        provas_df = get_provas_df(temporada)
+
+        tipo_prova = 'Normal'
+        nome_prova_bd = nome_prova or ''
+        if not provas_df.empty:
+            row = provas_df[provas_df['id'] == prova_id]
+            if not row.empty:
+                if 'tipo' in row.columns and pd.notna(row.iloc[0].get('tipo')):
+                    tipo_col = str(row.iloc[0]['tipo']).strip()
+                    tipo_prova = 'Sprint' if tipo_col.lower() == 'sprint' else 'Normal'
+                if not nome_prova_bd and 'nome' in row.columns:
+                    nome_prova_bd = str(row.iloc[0]['nome']).strip()
+        if not nome_prova_bd and nome_prova:
+            nome_prova_bd = nome_prova
+
+        regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova)
+        ultimas_apostas = _get_resumo_ultimas_apostas(usuario_id, apostas_df)
+        cenario = _get_resumo_cenario_campeonato(resultados_df, provas_df)
+        contexto_ergast = _get_contexto_temporada_atual_ergast(
+            temporada=str(temporada or datetime.now().year),
+            nome_prova=nome_prova_bd or None,
+        )
+
+        resultado = _gerar_aposta_perplexity(
+            pilotos_df=pilotos_df,
+            regras=regras,
+            nome_prova=nome_prova_bd,
+            tipo_prova=tipo_prova,
+            ultimas_apostas=ultimas_apostas,
+            cenario=cenario,
+            contexto_ergast=contexto_ergast,
+        )
+        if resultado:
+            pilotos, fichas, piloto_11 = resultado
+            if _aposta_valida_regras(pilotos, fichas, piloto_11, pilotos_df, regras):
+                return pilotos, fichas, piloto_11
+
+        return gerar_aposta_aleatoria(pilotos_df)
+    except Exception as e:
+        logger.exception("Erro em gerar_aposta_estrategica: %s", e)
+        return None
