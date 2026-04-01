@@ -477,6 +477,8 @@ def participante_view():
             apostas_part = apostas_df[apostas_df['usuario_id'] == user['id']]
             if 'temporada' in apostas_part.columns:
                 apostas_part = apostas_part[apostas_part['temporada'] == temporada]
+            # fix: só aplica filtro por provas_df quando ele não está vazio;
+            # evita descartar todas as apostas quando force_change=True (provas_df = DataFrame()).
             if not provas_df.empty and 'id' in provas_df.columns:
                 apostas_part = apostas_part[apostas_part['prova_id'].isin(provas_df['id'])]
             apostas_part = apostas_part.sort_values('prova_id')
@@ -685,7 +687,8 @@ def participante_view():
             if senha_atual or nova_senha or confirma_senha:
                 if not senha_atual:
                     erros.append("Informe a senha atual para alterar a senha.")
-                elif not check_password(senha_atual, user['senha']):
+                # fix(crítico): coluna real é `senha_hash` — era `user['senha']` (KeyError silencioso)
+                elif not check_password(senha_atual, user['senha_hash']):
                     erros.append("Senha atual incorreta.")
                 elif not nova_senha:
                     erros.append("Informe a nova senha.")
