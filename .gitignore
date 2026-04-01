@@ -1,24 +1,23 @@
+# macOS
 .DS_Store
-.DS_Store
-.DS_Store
+
+# Documentos internos de auditoria/relatórios
 RESUMO_EXECUTIVO.md
 RELATORIO_FINAL_AUDITORIA.md
 RELATORIO_AUDITORIA_INTEGRACAO.md
 INDICE_DOCUMENTOS.md
 GUIA_DEPLOYMENT.md
 CHECKLIST_FINALIZACAO.md
+
+# Logs
 bf1dev.log
-db/__pycache__/backup_utils.cpython-313.pyc
-db/__pycache__/migrations.cpython-313.pyc
-db/__pycache__/backup_utils.cpython-313.pyc
-*.md
-*.pyc
 *.log
+
+# Python bytecode
 *.pyc
 /db/__pycache__
-services/__pycache__/bets_service.cpython-313.pyc
-*.pyc
-*.pyc
+/services/__pycache__
+/ui/__pycache__
 
 # Environment secrets
 .env
