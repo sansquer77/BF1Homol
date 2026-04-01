@@ -200,6 +200,46 @@ def _get_serial_columns(conn, table: str) -> list[str]:
     return result
 
 
+def _get_pk_columns(conn, table: str) -> list[str]:
+    """Retorna as colunas que compõem a PRIMARY KEY da tabela."""
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_schema    = kcu.table_schema
+        WHERE tc.table_schema  = current_schema()
+          AND tc.table_name    = %s
+          AND tc.constraint_type = 'PRIMARY KEY'
+        ORDER BY kcu.ordinal_position
+        """,
+        (table,),
+    )
+    return [str(r['column_name']) for r in (c.fetchall() or []) if r and r['column_name']]
+
+
+def _get_tables_with_fk_children(conn) -> set[str]:
+    """
+    Retorna o conjunto de tabelas que são referenciadas por FK de outras tabelas
+    (i.e. tabelas "pai" que têm ao menos um filho). Essas tabelas não podem ser
+    truncadas com CASCADE sem apagar seus filhos.
+    """
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT DISTINCT ccu.table_name AS parent_table
+        FROM information_schema.referential_constraints rc
+        JOIN information_schema.constraint_column_usage ccu
+          ON ccu.constraint_name = rc.unique_constraint_name
+         AND ccu.table_schema    = rc.constraint_schema
+        WHERE rc.constraint_schema = current_schema()
+        """
+    )
+    return {str(r['parent_table']) for r in (c.fetchall() or []) if r and r['parent_table']}
+
+
 def _build_data_only_sql() -> str:
     lines: list[str] = [
         "-- BF1 POSTGRES DATA-ONLY DUMP",
@@ -530,9 +570,6 @@ def download_tabela() -> None:
     if not selected:
         return
 
-    # fix: pd.read_sql_query é incompatível com psycopg3 — retorna nomes de
-    # colunas como valores em todas as linhas. Substituído por cursor + fetchall
-    # manual para construir o DataFrame corretamente.
     with db_connect() as conn:
         c = conn.cursor()
         c.execute(f"SELECT * FROM {_quote_identifier(selected)}")
@@ -578,22 +615,81 @@ def upload_tabela() -> None:
             return
 
         payload = df[use_cols].astype(object)
-        placeholders = ", ".join(["%s"] * len(use_cols))
-        col_sql = ", ".join(_quote_identifier(c) for c in use_cols)
         rows = []
         for row in payload.itertuples(index=False, name=None):
             rows.append(tuple(None if pd.isna(v) else v for v in row))
 
         with db_connect() as conn:
+            # Detecta em tempo real se esta tabela tem filhos FK no banco.
+            # Se tiver, TRUNCATE ... CASCADE apagaria os filhos — usa UPSERT.
+            # Se não tiver, TRUNCATE + INSERT é seguro e mais simples.
+            fk_parent_tables = _get_tables_with_fk_children(conn)
+            is_fk_parent = selected.lower() in {t.lower() for t in fk_parent_tables}
+
             c = conn.cursor()
-            c.execute(f"TRUNCATE TABLE {_quote_identifier(selected)} RESTART IDENTITY CASCADE")
-            c.executemany(
-                f"INSERT INTO {_quote_identifier(selected)} ({col_sql}) VALUES ({placeholders})",
-                rows,
-            )
-            # fix: ressincroniza a sequence após inserção de linhas com id
-            # explícito vindos do Excel, prevenindo UniqueViolation no próximo
-            # INSERT automático. Aplicado apenas à tabela afetada.
+            col_sql = ", ".join(_quote_identifier(col) for col in use_cols)
+            placeholders = ", ".join(["%s"] * len(use_cols))
+
+            if is_fk_parent:
+                # Tabela pai de FK: usa UPSERT para preservar os filhos.
+                # Requer que a tabela tenha PK definida (obrigatório para ON CONFLICT).
+                pk_cols = _get_pk_columns(conn, selected)
+                if not pk_cols:
+                    # Sem PK conhecida, cai no TRUNCATE+INSERT com aviso.
+                    st.warning(
+                        f"Tabela '{selected}' referenciada por FK mas sem PRIMARY KEY detectada. "
+                        "Usando TRUNCATE+INSERT — registros filhos podem ser afetados."
+                    )
+                    c.execute(
+                        f"TRUNCATE TABLE {_quote_identifier(selected)} RESTART IDENTITY CASCADE"
+                    )
+                    c.executemany(
+                        f"INSERT INTO {_quote_identifier(selected)} ({col_sql}) VALUES ({placeholders})",
+                        rows,
+                    )
+                else:
+                    # UPSERT: insere ou atualiza. Linhas no banco que NÃO estão
+                    # no Excel são mantidas (não apagadas), preservando os filhos FK.
+                    # Colunas de atualização = todas exceto as de PK.
+                    pk_set = {col.lower() for col in pk_cols}
+                    update_cols = [col for col in use_cols if col.lower() not in pk_set]
+                    conflict_target = ", ".join(_quote_identifier(col) for col in pk_cols)
+
+                    if update_cols:
+                        update_clause = ", ".join(
+                            f"{_quote_identifier(col)} = EXCLUDED.{_quote_identifier(col)}"
+                            for col in update_cols
+                        )
+                        upsert_sql = (
+                            f"INSERT INTO {_quote_identifier(selected)} ({col_sql}) "
+                            f"VALUES ({placeholders}) "
+                            f"ON CONFLICT ({conflict_target}) DO UPDATE SET {update_clause}"
+                        )
+                    else:
+                        # Todas as colunas são PK (tabela de chave composta pura): ignora duplicatas.
+                        upsert_sql = (
+                            f"INSERT INTO {_quote_identifier(selected)} ({col_sql}) "
+                            f"VALUES ({placeholders}) "
+                            f"ON CONFLICT ({conflict_target}) DO NOTHING"
+                        )
+
+                    c.executemany(upsert_sql, rows)
+                    st.info(
+                        f"⚠️ '{selected}' é referenciada por outras tabelas: linhas existentes foram "
+                        "atualizadas (UPSERT) e linhas ausentes no Excel foram mantidas. "
+                        "Nenhum dado filho foi apagado."
+                    )
+            else:
+                # Tabela folha: sem filhos FK, TRUNCATE+INSERT é seguro.
+                c.execute(
+                    f"TRUNCATE TABLE {_quote_identifier(selected)} RESTART IDENTITY CASCADE"
+                )
+                c.executemany(
+                    f"INSERT INTO {_quote_identifier(selected)} ({col_sql}) VALUES ({placeholders})",
+                    rows,
+                )
+
+            # Ressincroniza sequences para colunas SERIAL/IDENTITY.
             serial_cols = _get_serial_columns(conn, selected)
             for col in serial_cols:
                 qt = _quote_identifier(selected)
