@@ -350,7 +350,6 @@ def _render_gestao_financeira_tab():
         if not (mostrar_apenas_devendo and pago_atual):
             st.checkbox(
                 f"{part.get('nome', 'Participante')} ({email if email else 'sem e-mail'})",
-                value=pago_atual,
                 key=checkbox_key,
             )
             pago_atual = bool(st.session_state.get(checkbox_key, pago_atual))

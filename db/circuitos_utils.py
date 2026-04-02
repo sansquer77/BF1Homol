@@ -181,14 +181,17 @@ def get_circuitos_df():
 
     ensure_circuitos_f1_table()
     with db_connect() as conn:
-        return pd.read_sql_query(
+        c = conn.cursor()
+        c.execute(
             """
             SELECT circuit_id, circuit_name, country, locality, aliases, atualizado_em
             FROM circuitos_f1
             ORDER BY circuit_name ASC
-            """,
-            conn,
+            """
         )
+        rows = c.fetchall()
+        records = [dict(r) for r in rows]
+        return pd.DataFrame(records)
 
 
 def get_temporadas_existentes_provas() -> list[str]:

@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from utils.helpers import render_page_header
 
 def main():
@@ -64,15 +63,19 @@ O BF1-2026 terá início, oficialmente, em 08 de março, no dia do GP da Austrá
 Para dúvidas, consulte a administração ou acesse o grupo oficial do BF1 e lembrem-se: The best decision is my decision! 🏁
     """)
 
-    components.html(
-        """
+    html_content = """
         <div style="display:flex; justify-content:center;">
             <div class="tenor-gif-embed" data-postid="14649753" data-share-method="host" data-aspect-ratio="1.77778" data-width="50%"><a href="https://tenor.com/view/the-best-decision-is-my-decision-the-best-decisions-my-decision-gif-14649753">The Best Decision Is My Decision Decisions GIF</a>from <a href="https://tenor.com/search/the+best+decision+is+my+decision-gifs">The Best Decision Is My Decision GIFs</a></div>
         </div>
         <script type="text/javascript" async src="https://tenor.com/embed.js"></script>
-        """,
-        height=520,
-    )
+    """
+
+    if hasattr(st, "html"):
+        st.html(html_content, unsafe_allow_javascript=True)
+    else:
+        import streamlit.components.v1 as components
+
+        components.html(html_content, height=520)
 
 if __name__ == "__main__":
     main()

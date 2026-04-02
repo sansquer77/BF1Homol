@@ -8,7 +8,6 @@ Melhorias:
 """
 
 import streamlit as st
-import streamlit.components.v1 as components
 import logging
 from datetime import datetime, timedelta
 from services.auth_service import redefinir_senha_usuario, redefinir_senha_com_token
@@ -175,49 +174,53 @@ def _injetar_autocomplete_login() -> None:
     o que impede que gerenciadores de senha (1Password, Bitwarden, etc.)
     reconheçam o formulário e ofereçam preenchimento automático.
 
-    A injeção é feita via st.components.v1.html com um <script> que:
+    A injeção é feita via st.html com JavaScript habilitado (com fallback
+    para components.html em versões antigas), com um <script> que:
     - aguarda o DOM ser montado (polling a cada 200ms, máximo 2s),
     - localiza os inputs dentro do formulário `data-testid="stForm"`,
     - atribui autocomplete="email" e autocomplete="current-password"
       ao 1º e 2º inputs respectivamente.
 
-    Isso é executado dentro de um iframe sandboxed do Streamlit;
-    o script usa window.parent.document para acessar o DOM principal.
+    Como st.html não usa iframe, o script atua diretamente sobre document.
     """
-    components.html(
-        """
-        <script>
-        (function() {
-            function applyAutocomplete() {
-                try {
-                    var doc = window.parent.document;
-                    var form = doc.querySelector('[data-testid="stForm"]');
-                    if (!form) return false;
-                    var inputs = form.querySelectorAll('input');
-                    if (inputs.length < 2) return false;
-                    inputs[0].setAttribute('autocomplete', 'email');
-                    inputs[0].setAttribute('name', 'email');
-                    inputs[1].setAttribute('autocomplete', 'current-password');
-                    inputs[1].setAttribute('name', 'password');
-                    return true;
-                } catch(e) {
-                    return false;
+    script_html = """
+    <script>
+    (function() {
+        function applyAutocomplete() {
+            try {
+                var form = document.querySelector('[data-testid="stForm"]');
+                if (!form) return false;
+                var inputs = form.querySelectorAll('input');
+                if (inputs.length < 2) return false;
+                inputs[0].setAttribute('autocomplete', 'email');
+                inputs[0].setAttribute('name', 'email');
+                inputs[1].setAttribute('autocomplete', 'current-password');
+                inputs[1].setAttribute('name', 'password');
+                return true;
+            } catch(e) {
+                return false;
+            }
+        }
+        if (!applyAutocomplete()) {
+            var attempts = 0;
+            var interval = setInterval(function() {
+                attempts++;
+                if (applyAutocomplete() || attempts >= 10) {
+                    clearInterval(interval);
                 }
-            }
-            if (!applyAutocomplete()) {
-                var attempts = 0;
-                var interval = setInterval(function() {
-                    attempts++;
-                    if (applyAutocomplete() || attempts >= 10) {
-                        clearInterval(interval);
-                    }
-                }, 200);
-            }
-        })();
-        </script>
-        """,
-        height=0,
-    )
+            }, 200);
+        }
+    })();
+    </script>
+    """
+
+    if hasattr(st, "html"):
+        st.html(script_html, unsafe_allow_javascript=True)
+        return
+
+    import streamlit.components.v1 as components
+
+    components.html(script_html, height=0)
 
 
 def login_view():
