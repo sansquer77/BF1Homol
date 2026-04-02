@@ -13,7 +13,7 @@ from db.db_utils import (
 )
 from services.rules_service import get_regras_aplicaveis
 from utils.helpers import render_page_header
-from utils.season_utils import get_season_options
+from utils.season_utils import get_season_options, get_default_season_index
 
 
 def _table_height(total_rows: int, row_height: int = 36, max_height: int = 560) -> int:
@@ -92,6 +92,22 @@ def _plot_colunas(df: pd.DataFrame, x_col: str, y_col: str, title: str) -> None:
             yaxis=dict(automargin=True),
         )
     st.plotly_chart(fig, width="stretch")
+
+
+def _is_participante() -> bool:
+    return str(st.session_state.get("user_role", "participante")).strip().lower() == "participante"
+
+
+def _get_logged_user_name() -> str:
+    return str(st.session_state.get("user_nome", "")).strip()
+
+
+def _get_logged_user_id() -> Optional[int]:
+    raw = st.session_state.get("user_id")
+    try:
+        return int(raw) if raw is not None and str(raw).strip() != "" else None
+    except (TypeError, ValueError):
+        return None
 
 def _get_participantes_temporada(temporada: Optional[str] = None) -> pd.DataFrame:
     participantes_df = get_participantes_temporada_df(temporada)
@@ -181,7 +197,7 @@ def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Op
             placeholders = ','.join(['%s'] * len(participantes_ids))
             if temporada and 'temporada' in cols:
                 query = (
-                    "SELECT u.nome AS participante, a.pilotos "
+                    "SELECT a.usuario_id AS user_id, u.nome AS participante, a.pilotos "
                     "FROM apostas a "
                     "JOIN usuarios u ON a.usuario_id = u.id "
                     f"WHERE a.usuario_id IN ({placeholders}) AND a.temporada = %s"
@@ -189,7 +205,7 @@ def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Op
                 params = (*participantes_ids, temporada)
             else:
                 query = (
-                    "SELECT u.nome AS participante, a.pilotos "
+                    "SELECT a.usuario_id AS user_id, u.nome AS participante, a.pilotos "
                     "FROM apostas a "
                     "JOIN usuarios u ON a.usuario_id = u.id "
                     f"WHERE a.usuario_id IN ({placeholders})"
@@ -206,12 +222,12 @@ def get_apostas_por_piloto(temporada: Optional[str] = None, participantes_df: Op
                     temporada,
                     participantes_ids,
                     participantes_nomes,
-                    ['apostador AS participante', 'pilotos']
+                    ['usuario_id AS user_id', 'apostador AS participante', 'pilotos']
                 )
             if not df.empty and 'pilotos' in df.columns:
                 df['piloto'] = df['pilotos'].str.split(',')
                 df = df.explode('piloto')
-                df = df.groupby(['participante', 'piloto']).size().reset_index(name='total_apostas')
+                df = df.groupby(['user_id', 'participante', 'piloto'], dropna=False).size().reset_index(name='total_apostas')
             else:
                 df = pd.DataFrame()
     except Exception as e:
@@ -243,7 +259,7 @@ def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df
             placeholders = ','.join(['%s'] * len(participantes_ids))
             if temporada and 'temporada' in cols:
                 query = (
-                    "SELECT u.nome AS participante, a.piloto_11 AS piloto_11 "
+                    "SELECT a.usuario_id AS user_id, u.nome AS participante, a.piloto_11 AS piloto_11 "
                     "FROM apostas a "
                     "JOIN usuarios u ON a.usuario_id = u.id "
                     f"WHERE a.usuario_id IN ({placeholders}) AND a.temporada = %s "
@@ -252,7 +268,7 @@ def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df
                 params = (*participantes_ids, temporada)
             else:
                 query = (
-                    "SELECT u.nome AS participante, a.piloto_11 AS piloto_11 "
+                    "SELECT a.usuario_id AS user_id, u.nome AS participante, a.piloto_11 AS piloto_11 "
                     "FROM apostas a "
                     "JOIN usuarios u ON a.usuario_id = u.id "
                     f"WHERE a.usuario_id IN ({placeholders}) "
@@ -270,7 +286,7 @@ def get_distribuicao_piloto_11(temporada: Optional[str] = None, participantes_df
                     temporada,
                     participantes_ids,
                     participantes_nomes,
-                    ['apostador AS participante', 'piloto_11']
+                    ['usuario_id AS user_id', 'apostador AS participante', 'piloto_11']
                 )
     except Exception as e:
         st.error(f"Erro ao buscar distribuição do 11º colocado: {str(e)}")
@@ -291,11 +307,31 @@ def main():
     if not season_options:
         st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
         return
-    season = st.selectbox("Temporada", season_options, key="analysis_season")
+    season_default_idx = get_default_season_index(season_options)
+    season = st.selectbox("Temporada", season_options, index=season_default_idx, key="analysis_season")
     participantes_df = _get_participantes_temporada(season)
 
     apostas_pilotos = get_apostas_por_piloto(season, participantes_df)
     df_11 = get_distribuicao_piloto_11(season, participantes_df)
+
+    participante_only_mode = _is_participante()
+    participante_logado = _get_logged_user_name()
+    participante_logado_id = _get_logged_user_id()
+
+    def _apply_participante_scope(df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty:
+            return df
+        mask = pd.Series(False, index=df.index)
+        if participante_logado_id is not None and 'user_id' in df.columns:
+            ids = pd.to_numeric(df['user_id'], errors='coerce')
+            mask = mask | (ids == participante_logado_id)
+        if participante_logado and 'participante' in df.columns:
+            mask = mask | (df['participante'].astype(str).str.strip() == participante_logado)
+        return df[mask].copy()
+
+    if participante_only_mode and (participante_logado or participante_logado_id is not None):
+        apostas_pilotos = _apply_participante_scope(apostas_pilotos)
+        df_11 = _apply_participante_scope(df_11)
 
     if apostas_pilotos.empty and df_11.empty:
         st.info("Ainda não há apostas cadastradas para análise.")
@@ -315,11 +351,15 @@ def main():
             st.info("Sem dados para análise por piloto.")
         else:
             participantes = sorted(apostas_pilotos['participante'].unique().tolist())
-            participante_sel = st.selectbox(
-                "Participante",
-                participantes,
-                key=f"analysis_piloto_participante_{season}"
-            )
+            if participante_only_mode and participante_logado:
+                participante_sel = participante_logado
+                st.caption(f"Exibindo estatísticas individuais de: {participante_sel}")
+            else:
+                participante_sel = st.selectbox(
+                    "Participante",
+                    participantes,
+                    key=f"analysis_piloto_participante_{season}"
+                )
             df_filtrado = apostas_pilotos[apostas_pilotos['participante'] == participante_sel]
             _plot_colunas(
                 df_filtrado,
@@ -332,11 +372,15 @@ def main():
         st.subheader("Distribuição do 11º Colocado - Individual")
         if not df_11.empty:
             participantes_11 = sorted(df_11['participante'].unique().tolist())
-            participante_11_sel = st.selectbox(
-                "Participante (11º)",
-                participantes_11,
-                key=f"analysis_11_participante_{season}"
-            )
+            if participante_only_mode and participante_logado:
+                participante_11_sel = participante_logado
+                st.caption(f"Exibindo estatísticas individuais (11º) de: {participante_11_sel}")
+            else:
+                participante_11_sel = st.selectbox(
+                    "Participante (11º)",
+                    participantes_11,
+                    key=f"analysis_11_participante_{season}"
+                )
             df_part = df_11[df_11['participante'] == participante_11_sel]
             contagem = df_part['piloto_11'].value_counts().reset_index()
             contagem.columns = ['Piloto', 'Total']
