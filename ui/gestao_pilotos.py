@@ -6,7 +6,8 @@ Reorganizado em abas: Editar Pilotos / Adicionar Novo Piloto
 
 import streamlit as st
 import pandas as pd
-from db.db_utils import get_pilotos_df, db_connect
+from db.db_schema import db_connect
+from db.repo_races import get_pilotos_df
 from utils.helpers import render_page_header
 
 

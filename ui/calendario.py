@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from streamlit_calendar import calendar
-from db.db_utils import get_provas_df
+from db.repo_races import get_provas_df
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 

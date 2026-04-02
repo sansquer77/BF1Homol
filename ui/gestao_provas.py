@@ -8,7 +8,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from db.db_utils import get_provas_df, db_connect, get_table_columns
+from db.db_schema import db_connect, get_table_columns
+from db.repo_races import get_provas_df
 from db.circuitos_utils import atualizar_base_circuitos, get_circuitos_df, get_temporadas_existentes_provas
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options

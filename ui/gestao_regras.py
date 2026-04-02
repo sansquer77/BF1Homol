@@ -17,7 +17,7 @@ from db.rules_utils import (
     listar_temporadas_por_regra,
     clonar_regra
 )
-from services.bets_service import atualizar_classificacoes_todas_as_provas
+from services.bets_scoring import atualizar_classificacoes_todas_as_provas
 from utils.helpers import render_page_header
 from utils.season_utils import get_current_year_str, get_season_options
 

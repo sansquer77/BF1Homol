@@ -1,6 +1,8 @@
 import streamlit as st
-from db.db_utils import get_participantes_temporada_df, get_provas_df, get_apostas_df, usuarios_status_historico_disponivel
-from services.bets_service import gerar_aposta_automatica
+from db.repo_bets import get_apostas_df, get_participantes_temporada_df
+from db.repo_races import get_provas_df
+from db.repo_users import usuarios_status_historico_disponivel
+from services.bets_write import gerar_aposta_automatica
 from services.email_service import enviar_email
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options

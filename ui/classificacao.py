@@ -9,10 +9,13 @@ import datetime as dt
 import ast
 from zoneinfo import ZoneInfo
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from db.db_utils import db_connect, get_participantes_temporada_df, get_provas_df, get_apostas_df, get_resultados_df, usuarios_status_historico_disponivel, get_posicoes_participantes_df
+from db.db_schema import db_connect
+from db.repo_bets import get_apostas_df, get_participantes_temporada_df, get_posicoes_participantes_df
+from db.repo_races import get_provas_df, get_resultados_df
+from db.repo_users import usuarios_status_historico_disponivel
 from services.championship_service import get_championship_bets_df, get_final_results
 from services.rules_service import get_regras_aplicaveis
-from services.bets_service import calcular_pontuacao_lote, atualizar_classificacoes_todas_as_provas, _parse_datetime_sp
+from services.bets_scoring import _parse_datetime_sp, calcular_pontuacao_lote, atualizar_classificacoes_todas_as_provas
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 

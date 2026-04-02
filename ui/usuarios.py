@@ -1,8 +1,13 @@
 import streamlit as st
 import pandas as pd
-from db.db_utils import get_usuarios_df, db_connect, registrar_historico_status_usuario
+from db.db_schema import db_connect
+from db.repo_bets import get_participantes_temporada_df
+from db.repo_users import (
+    get_usuarios_df,
+    registrar_historico_status_usuario,
+    usuarios_status_historico_disponivel,
+)
 from services.auth_service import hash_password
-from db.db_utils import get_participantes_temporada_df, usuarios_status_historico_disponivel
 from services.email_service import enviar_email
 from datetime import datetime
 from utils.helpers import render_page_header

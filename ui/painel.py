@@ -2,132 +2,42 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import ast
-import datetime
-import re
 
-from db.db_utils import (
-    db_connect, get_user_by_id, get_provas_df, get_pilotos_df, get_apostas_df, get_resultados_df,
-    update_user_email, update_user_password, get_user_by_email, get_posicoes_participantes_df
-)
-from services.bets_service import salvar_aposta, calcular_pontuacao_lote, gerar_aposta_sem_ideias
+from db.db_schema import db_connect
+from db.repo_bets import get_apostas_df, get_posicoes_participantes_df
+from db.repo_races import get_pilotos_df, get_provas_df, get_resultados_df
+from db.repo_users import get_user_by_email, get_user_by_id, update_user_email, update_user_password
+from services.bets_scoring import calcular_pontuacao_lote
+from services.bets_write import gerar_aposta_sem_ideias, salvar_aposta
 from services.auth_service import check_password, hash_password
+from services.painel_controller import (
+    get_proxima_prova_id as _controller_get_proxima_prova_id,
+    ordenar_provas_por_calendario as _controller_ordenar_provas_por_calendario,
+    parse_data_prova as _controller_parse_data_prova,
+    parse_evento_prova_dt as _controller_parse_evento_prova_dt,
+)
 from services.rules_service import get_regras_aplicaveis
-from utils.datetime_utils import now_sao_paulo, parse_datetime_sao_paulo
+from utils.datetime_utils import now_sao_paulo
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
 
 def _parse_data_prova(data_raw):
-    """Parse tolerante para datas de prova (yyyy-mm-dd e formatos locais)."""
-    if data_raw is None:
-        return None
-    raw = str(data_raw).strip()
-    if not raw:
-        return None
-
-    formatos_explicitos = (
-        "%Y-%m-%d",
-        "%Y/%m/%d",
-        "%d/%m/%Y",
-        "%d-%m-%Y",
-    )
-    for formato in formatos_explicitos:
-        parsed = pd.to_datetime(raw, format=formato, errors='coerce')
-        if pd.notna(parsed):
-            return parsed
-
-    usa_dayfirst = bool(re.match(r"^\d{1,2}[-/]\d{1,2}[-/]\d{4}$", raw))
-    parsed = pd.to_datetime(raw, errors='coerce', dayfirst=usa_dayfirst)
-    if pd.notna(parsed):
-        return parsed
-    return None
+    return _controller_parse_data_prova(data_raw)
 
 
 def _parse_evento_prova_dt(data_raw, hora_raw, tzinfo):
-    data_dt = _parse_data_prova(data_raw)
-    if data_dt is None:
-        return None
-
-    data_iso = data_dt.strftime("%Y-%m-%d")
-    hora = str(hora_raw or "00:00")
-    try:
-        return parse_datetime_sao_paulo(data_iso, hora)
-    except Exception:
-        return datetime.datetime(
-            data_dt.year,
-            data_dt.month,
-            data_dt.day,
-            0,
-            0,
-            tzinfo=tzinfo,
-        )
+    return _controller_parse_evento_prova_dt(data_raw, hora_raw, tzinfo)
 
 
 def _get_proxima_prova_id(provas_df: pd.DataFrame):
-    """Retorna o ID da próxima prova (data/hora >= agora em Sao Paulo).
-
-    fix(item 6): substituído for/iterrows() por df.apply(axis=1) —
-    elimina o anti-padrão pandas sem alterar o comportamento.
-    """
-    if provas_df.empty or 'id' not in provas_df.columns:
-        return None
-
-    agora_sp = now_sao_paulo()
-    tzinfo = agora_sp.tzinfo
-
-    def _evento_dt(row):
-        if row.get('id') is None or not row.get('data'):
-            return None
-        return _parse_evento_prova_dt(row['data'], row.get('horario_prova', '00:00'), tzinfo)
-
-    evento_dts = provas_df.apply(_evento_dt, axis=1)
-
-    futuras = [
-        (dt, row['id'])
-        for dt, (_, row) in zip(evento_dts, provas_df.iterrows())
-        if dt is not None and dt >= agora_sp
-    ]
-    passadas = [
-        (dt, row['id'])
-        for dt, (_, row) in zip(evento_dts, provas_df.iterrows())
-        if dt is not None and dt < agora_sp
-    ]
-
-    if futuras:
-        return min(futuras, key=lambda x: x[0])[1]
-    if passadas:
-        return max(passadas, key=lambda x: x[0])[1]
-    return None
+    """Retorna o ID da próxima prova (data/hora >= agora em Sao Paulo)."""
+    return _controller_get_proxima_prova_id(provas_df)
 
 
 def _ordenar_provas_por_calendario(provas_df: pd.DataFrame) -> pd.DataFrame:
     """Ordena provas por data/hora do calendário (ascendente), com fallback estável."""
-    if provas_df.empty:
-        return provas_df
-
-    ordered = provas_df.copy()
-    tzinfo = now_sao_paulo().tzinfo
-
-    if 'data' in ordered.columns:
-        ordered['__data_dt'] = ordered['data'].apply(_parse_data_prova)
-        ordered['__evento_dt'] = ordered.apply(
-            lambda row: _parse_evento_prova_dt(
-                row.get('data'),
-                row.get('horario_prova', '00:00'),
-                tzinfo,
-            ),
-            axis=1,
-        )
-    else:
-        ordered['__data_dt'] = pd.NaT
-        ordered['__evento_dt'] = pd.NaT
-
-    ordered = ordered.sort_values(
-        by=['__evento_dt', '__data_dt', 'id'],
-        na_position='last'
-    ).reset_index(drop=True)
-
-    return ordered
+    return _controller_ordenar_provas_por_calendario(provas_df)
 
 def participante_view():
     if 'token' not in st.session_state or 'user_id' not in st.session_state:

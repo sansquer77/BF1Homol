@@ -1,12 +1,14 @@
 import streamlit as st
-from db.backup_utils import (
+from db.backup_excel import (
+    download_tabela,
+    upload_tabela,
+)
+from db.backup_sql import (
     create_next_temporada,
     download_db,
-    download_tabela,
     get_postgres_backup_mode,
     list_temporadas,
     upload_db,
-    upload_tabela,
 )
 from utils.helpers import render_page_header
 

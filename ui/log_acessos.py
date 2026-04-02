@@ -2,7 +2,7 @@ import datetime
 import pandas as pd
 import streamlit as st
 
-from db.db_utils import db_connect
+from db.db_schema import db_connect
 from utils.helpers import render_page_header
 
 

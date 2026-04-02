@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import logging
-from db.db_utils import db_connect
-from db.db_utils import get_table_columns
+from db.db_schema import db_connect, get_table_columns
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 

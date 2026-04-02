@@ -7,7 +7,8 @@ from services.championship_service import (
     get_championship_bets_df,
     can_place_championship_bet
 )
-from db.db_utils import get_pilotos_df, get_usuarios_df
+from db.repo_races import get_pilotos_df
+from db.repo_users import get_usuarios_df
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
