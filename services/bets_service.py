@@ -1529,11 +1529,17 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
     if not pilotos_ant:
         return False, "Não há dados válidos para gerar aposta automática."
         
+    # Usa `usuarios.faltas` como contador oficial de faltas por aposta automática.
+    # A 2a falta em diante deve acionar a penalidade dinamica de porcentagem.
+    faltas_atuais = 0
     with db_connect() as conn:
         c = conn.cursor()
-        c.execute('SELECT MAX(automatica) AS max_auto FROM apostas WHERE usuario_id=%s', (usuario_id,))
-        max_auto = c.fetchone()['max_auto'] or 0
-        nova_auto = 1 if max_auto is None else max_auto + 1
+        cols_usuarios = get_table_columns(conn, 'usuarios')
+        if 'faltas' in cols_usuarios:
+            c.execute('SELECT COALESCE(faltas, 0) AS faltas FROM usuarios WHERE id=%s', (usuario_id,))
+            row = c.fetchone()
+            faltas_atuais = int((row or {}).get('faltas', 0) or 0)
+    nova_auto = faltas_atuais + 1
         
     sucesso = salvar_aposta(
         usuario_id, prova_id, pilotos_ant, fichas_ant, piloto_11_ant, nome_prova,
@@ -1541,7 +1547,21 @@ def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas
         permitir_salvar_tardia=True
     )
     
-    return (True, "Aposta automática gerada!") if sucesso else (False, "Falha ao salvar.")
+    if not sucesso:
+        return False, "Falha ao salvar."
+
+    # Incrementa faltas somente apos efetivar a aposta automatica.
+    with db_connect() as conn:
+        c = conn.cursor()
+        cols_usuarios = get_table_columns(conn, 'usuarios')
+        if 'faltas' in cols_usuarios:
+            c.execute(
+                'UPDATE usuarios SET faltas = COALESCE(faltas, 0) + 1 WHERE id=%s',
+                (usuario_id,),
+            )
+            conn.commit()
+
+    return True, "Aposta automática gerada!"
 
 
 def gerar_aposta_sem_ideias(usuario_id, prova_id, nome_prova, temporada=None):
