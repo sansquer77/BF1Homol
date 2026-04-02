@@ -1323,3 +1323,145 @@ def gerar_aposta_estrategica(
     except Exception as e:
         logger.exception("Erro em gerar_aposta_estrategica: %s", e)
         return None
+
+
+def calcular_pontuacao_lote(
+    apostas_df: pd.DataFrame,
+    resultados_df: pd.DataFrame,
+    provas_df: pd.DataFrame,
+    temporada_descarte: Optional[str] = None,
+) -> list[Optional[float]]:
+    """Calcula a pontuação de cada aposta em apostas_df, retornando uma lista paralela.
+
+    Para apostas sem resultado cadastrado retorna None.
+    Aplica as regras vigentes (pontos_posicoes, pontos_11_colocado, penalidade_abandono,
+    pontos_dobrada, penalidade_auto_percent) de forma idêntica ao painel.
+    """
+    pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+    pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]
+    temporada = temporada_descarte or str(datetime.now().year)
+
+    resultado_list: list[Optional[float]] = []
+
+    for _, aposta in apostas_df.iterrows():
+        try:
+            prova_id = aposta['prova_id']
+            prova_nome = aposta.get('nome_prova', '')
+            automatica = int(aposta.get('automatica', 0) or 0)
+
+            # Determinar tipo da prova
+            tipo_raw = 'Normal'
+            if not provas_df.empty:
+                prova_row = provas_df[provas_df['id'] == prova_id]
+                if not prova_row.empty:
+                    tipo_raw = prova_row.iloc[0].get('tipo', 'Normal') or 'Normal'
+            tipo_prova = 'Sprint' if str(tipo_raw).strip().lower() == 'sprint' or 'sprint' in str(prova_nome).lower() else 'Normal'
+            regras = get_regras_aplicaveis(temporada, tipo_prova)
+
+            # Pontos por posição
+            if tipo_prova == 'Sprint':
+                pontos_lista = regras.get('pontos_sprint_posicoes') or regras.get('pontos_posicoes') or pontos_sprint
+            else:
+                pontos_lista = regras.get('pontos_posicoes') or pontos_f1
+            n_pos = len(pontos_lista)
+
+            # Resultado da prova
+            resultado_row = resultados_df[resultados_df['prova_id'] == prova_id]
+            if resultado_row.empty:
+                resultado_list.append(None)
+                continue
+
+            try:
+                posicoes_dict = ast.literal_eval(str(resultado_row.iloc[0]['posicoes']))
+            except Exception:
+                posicoes_dict = {}
+
+            piloto_para_pos = {str(v).strip(): int(k) for k, v in posicoes_dict.items()}
+
+            pilotos_apostados = [p.strip() for p in str(aposta['pilotos']).split(',')]
+            fichas_apostadas = [int(f) for f in str(aposta['fichas']).split(',')]
+            piloto_11_apostado = str(aposta.get('piloto_11', '')).strip()
+
+            total_pontos = 0.0
+            for i in range(min(len(pilotos_apostados), len(fichas_apostadas))):
+                piloto = pilotos_apostados[i]
+                ficha = fichas_apostadas[i]
+                pos_real = piloto_para_pos.get(piloto)
+                if pos_real is not None and 1 <= pos_real <= n_pos:
+                    total_pontos += ficha * pontos_lista[pos_real - 1]
+
+            # Bônus 11º
+            bonus_11 = int(regras.get('pontos_11_colocado', 25) or 25)
+            piloto_11_real = str(posicoes_dict.get(11, '')).strip()
+            if piloto_11_apostado == piloto_11_real:
+                total_pontos += bonus_11
+
+            # Penalidade abandono
+            if regras.get('penalidade_abandono') and 'abandono_pilotos' in resultado_row.columns:
+                raw_aband = resultado_row.iloc[0].get('abandono_pilotos', '') or ''
+                abandonos = {p.strip() for p in str(raw_aband).split(',') if p.strip()}
+                if abandonos:
+                    num_aband = sum(1 for p in pilotos_apostados if p.strip() in abandonos)
+                    total_pontos -= int(regras.get('pontos_penalidade', 0)) * num_aband
+
+            # Pontos dobrados (sprint)
+            if tipo_prova == 'Sprint' and regras.get('pontos_dobrada'):
+                total_pontos *= 2
+
+            # Penalidade aposta automática (automatica >= 2)
+            if automatica >= 2:
+                penalidade_auto_percent = regras.get('penalidade_auto_percent', 20)
+                fator = max(0.0, 1.0 - float(penalidade_auto_percent) / 100.0)
+                total_pontos = round(total_pontos * fator, 2)
+
+            resultado_list.append(float(total_pontos))
+        except Exception as e:
+            logger.warning("calcular_pontuacao_lote: erro na aposta prova_id=%s: %s", aposta.get('prova_id'), e)
+            resultado_list.append(None)
+
+    return resultado_list
+
+
+def gerar_aposta_sem_ideias(
+    usuario_id: int,
+    prova_id: int,
+    nome_prova: str,
+    temporada: Optional[str] = None,
+) -> tuple[bool, str]:
+    """Gera e salva uma aposta estratégica (ou aleatória como fallback) para o usuário.
+
+    Chamado pelo botão 'Sem ideias' no painel do participante.
+    Retorna (True, mensagem_sucesso) ou (False, mensagem_erro).
+    """
+    try:
+        resultado = gerar_aposta_estrategica(
+            usuario_id=usuario_id,
+            prova_id=prova_id,
+            temporada=temporada,
+            nome_prova=nome_prova,
+        )
+        if not resultado:
+            return False, "Não foi possível gerar uma aposta automática. Tente novamente ou faça sua aposta manualmente."
+
+        pilotos_gerados, fichas_geradas, piloto_11_gerado = resultado
+
+        ok = salvar_aposta(
+            usuario_id=usuario_id,
+            prova_id=prova_id,
+            pilotos=pilotos_gerados,
+            fichas=fichas_geradas,
+            piloto_11=piloto_11_gerado,
+            nome_prova=nome_prova,
+            automatica=0,
+            temporada=temporada,
+            show_errors=False,
+        )
+        if ok:
+            pilotos_str = ', '.join(pilotos_gerados)
+            fichas_str = ', '.join(map(str, fichas_geradas))
+            return True, f"Aposta gerada e registrada! Pilotos: {pilotos_str} | Fichas: {fichas_str} | 11º: {piloto_11_gerado}"
+        else:
+            return False, "A aposta foi gerada mas não pôde ser salva. Verifique o horário limite ou tente manualmente."
+    except Exception as e:
+        logger.exception("Erro em gerar_aposta_sem_ideias usuario_id=%s prova_id=%s: %s", usuario_id, prova_id, e)
+        return False, "Erro interno ao gerar aposta automática. Tente novamente."
