@@ -57,12 +57,15 @@ def adicionar_resultado_historico(usuario_id: int, posicao: int, temporada: str)
             c.execute(
                 """INSERT INTO posicoes_participantes 
                    (usuario_id, posicao, temporada, data_atualizacao) 
-                   VALUES (%s, %s, %s, %s)""",
+                   VALUES (%s, %s, %s, %s)
+                   RETURNING id""",
                 (usuario_id, posicao, temporada, datetime.now().isoformat())
             )
+
+            inserted = c.fetchone()
+            new_id = inserted['id'] if inserted else None
             conn.commit()
-            
-            new_id = c.lastrowid
+
             logger.info(f"✅ Resultado adicionado: usuario_id={usuario_id}, posicao={posicao}, temporada={temporada}")
             
             return {

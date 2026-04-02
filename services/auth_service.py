@@ -185,7 +185,7 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
             c = conn.cursor()
             cols = get_table_columns(conn, 'usuarios')
             if 'faltas' in cols:
-                # fix #1: psycopg3 não expõe lastrowid — usar RETURNING id
+                # Inserção compatível com PostgreSQL, retornando o id criado.
                 c.execute(
                     'INSERT INTO usuarios (nome, email, senha, perfil, status, faltas) '
                     'VALUES (%s, %s, %s, %s, %s, %s) RETURNING id',
@@ -400,7 +400,6 @@ def criar_master_se_nao_existir():
             senha_hashed = hash_password(senha)
             cols = get_table_columns(conn, 'usuarios')
             if 'faltas' in cols:
-                # fix #1: usar RETURNING id consistentemente (sem lastrowid)
                 c.execute(
                     "INSERT INTO usuarios (nome, email, senha, perfil, status, faltas) "
                     "VALUES (%s, %s, %s, %s, %s, %s)",

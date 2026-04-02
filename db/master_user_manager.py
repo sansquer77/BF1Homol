@@ -132,6 +132,7 @@ class MasterUserManager:
                     INSERT INTO usuarios
                     (nome, email, senha, perfil, status, faltas)
                     VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id
                 ''', (
                     creds['nome'],
                     creds['email'],
@@ -140,9 +141,11 @@ class MasterUserManager:
                     'Ativo',
                     0
                 ))
+
+                inserted = cursor.fetchone()
+                master_id = inserted['id'] if inserted else None
                 
                 conn.commit()
-                master_id = cursor.lastrowid
                 
                 logger.info(f"✓ Usuário Master criado com sucesso (ID: {master_id})")
                 logger.info(f"  Nome: {creds['nome']}")

@@ -246,6 +246,7 @@ def clonar_regra(regra_id: int, novo_nome: str) -> Optional[int]:
                     qtd_minima_pilotos, penalidade_abandono, pontos_penalidade, penalidade_auto_percent,
                     pontos_campeao, pontos_vice, pontos_equipe
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
             ''', (
                 novo_nome,
                 regra['quantidade_fichas'], regra['fichas_por_piloto'], int(regra['mesma_equipe']),
@@ -255,7 +256,8 @@ def clonar_regra(regra_id: int, novo_nome: str) -> Optional[int]:
                 regra['qtd_minima_pilotos'], int(regra['penalidade_abandono']), regra.get('pontos_penalidade', 0), regra.get('penalidade_auto_percent', 20),
                 regra['pontos_campeao'], regra['pontos_vice'], regra['pontos_equipe']
             ))
-            new_id = c.lastrowid
+            inserted = c.fetchone()
+            new_id = inserted['id'] if inserted else None
             conn.commit()
             return new_id
     except Exception as e:

@@ -750,11 +750,6 @@ def create_next_temporada() -> str:
 
     return next_year
 
-
-def migrar_sqlite_para_postgres() -> None:
-    st.info("SQLite migration was removed. This app is PostgreSQL-only.")
-
-
 def backup_banco(backup_dir: str = "backups") -> str:
     Path(backup_dir).mkdir(parents=True, exist_ok=True)
     sql_content, _ = _generate_backup_sql_content()
