@@ -1000,6 +1000,30 @@ def _get_table_column_types(conn, table_name: str) -> dict[str, str]:
     }
 
 
+def _get_required_columns_for_insert(conn, table_name: str) -> list[str]:
+    """Retorna colunas obrigatórias em INSERT sem valor padrão/identity."""
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = %s
+          AND is_nullable = 'NO'
+          AND column_default IS NULL
+          AND is_identity = 'NO'
+          AND COALESCE(is_generated, 'NEVER') = 'NEVER'
+        ORDER BY ordinal_position
+        """,
+        (table_name,),
+    )
+    return [
+        str(r['column_name'])
+        for r in (c.fetchall() or [])
+        if r and r.get('column_name')
+    ]
+
+
 def _normalize_excel_typed_value(value: Any, data_type: str) -> Any:
     dtype = (data_type or "").lower()
     if value is None:
@@ -1176,6 +1200,7 @@ def upload_tabela() -> None:
 
     if st.button("Import table", type="primary", width="stretch"):
         df = pd.read_excel(uploaded)
+        df.columns = [str(col).strip() for col in df.columns]
         db_cols = _table_columns(selected)
         use_cols = [c for c in df.columns if c in db_cols]
         if not use_cols:
@@ -1184,6 +1209,20 @@ def upload_tabela() -> None:
 
         with db_connect() as conn:
             col_types = _get_table_column_types(conn, selected)
+            required_cols = _get_required_columns_for_insert(conn, selected)
+
+            missing_required = [c for c in required_cols if c not in use_cols]
+            if missing_required:
+                st.error(
+                    "Importação bloqueada: o arquivo não contém colunas obrigatórias "
+                    f"da tabela '{selected}'."
+                )
+                st.caption(
+                    "Isso normalmente indica seleção incorreta da tabela de destino "
+                    "ou arquivo Excel de outra tabela."
+                )
+                st.caption(f"Colunas obrigatórias ausentes: {', '.join(missing_required)}")
+                return
 
             payload = df[use_cols].astype(object)
             rows = []
@@ -1201,6 +1240,22 @@ def upload_tabela() -> None:
                         normalized_cells += 1
                     normalized_row.append(typed_value)
                 rows.append(tuple(normalized_row))
+
+            col_idx = {col: idx for idx, col in enumerate(use_cols)}
+            for req_col in required_cols:
+                idx = col_idx.get(req_col)
+                if idx is None:
+                    continue
+                for row_number, row in enumerate(rows, start=2):
+                    if row[idx] is None:
+                        st.error(
+                            "Importação bloqueada: coluna obrigatória com valor vazio "
+                            f"na tabela '{selected}'."
+                        )
+                        st.caption(
+                            f"Coluna: {req_col} | Linha Excel: {row_number}"
+                        )
+                        return
 
             # Detecta em tempo real se esta tabela tem filhos FK no banco.
             # Se tiver, TRUNCATE ... CASCADE apagaria os filhos — usa UPSERT.
