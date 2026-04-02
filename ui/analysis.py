@@ -38,6 +38,61 @@ def _extrair_ids_validos(df: pd.DataFrame, column: str = "id") -> list[int]:
     ids = pd.to_numeric(df[column], errors="coerce").dropna().astype(int)
     return ids.tolist()
 
+
+def _plot_colunas(df: pd.DataFrame, x_col: str, y_col: str, title: str) -> None:
+    """Renderiza gráfico de barras adaptando orientação para melhorar legibilidade."""
+    if df.empty or x_col not in df.columns or y_col not in df.columns:
+        return
+    plot_df = df.copy()
+    categorias = plot_df[x_col].astype(str).nunique()
+    usar_horizontal = categorias >= 10
+
+    if usar_horizontal:
+        # Em listas longas, barras horizontais evitam corte de rótulos no eixo categórico.
+        plot_df = plot_df.sort_values(y_col, ascending=True)
+        fig = px.bar(
+            plot_df,
+            x=y_col,
+            y=x_col,
+            title=title,
+            orientation='h',
+            text=y_col,
+        )
+    else:
+        plot_df = plot_df.sort_values(y_col, ascending=False)
+        fig = px.bar(
+            plot_df,
+            x=x_col,
+            y=y_col,
+            title=title,
+            text=y_col,
+        )
+
+    fig.update_traces(
+        marker_color="#1f77b4",
+        textposition="outside",
+        cliponaxis=False,
+    )
+    if usar_horizontal:
+        fig.update_layout(
+            showlegend=False,
+            xaxis_title=y_col,
+            yaxis_title=x_col,
+            margin=dict(t=70, r=30, l=190, b=40),
+            xaxis=dict(automargin=True),
+            yaxis=dict(automargin=True),
+        )
+    else:
+        fig.update_layout(
+            showlegend=False,
+            xaxis_title=x_col,
+            yaxis_title=y_col,
+            margin=dict(t=70, r=20, l=20, b=130),
+            xaxis=dict(tickangle=-35, automargin=True),
+            yaxis=dict(automargin=True),
+        )
+    st.plotly_chart(fig, width="stretch")
+
 def _get_participantes_temporada(temporada: Optional[str] = None) -> pd.DataFrame:
     participantes_df = get_participantes_temporada_df(temporada)
     if participantes_df.empty:
@@ -266,11 +321,12 @@ def main():
                 key=f"analysis_piloto_participante_{season}"
             )
             df_filtrado = apostas_pilotos[apostas_pilotos['participante'] == participante_sel]
-            fig = px.pie(
-                df_filtrado, names='piloto', values='total_apostas',
+            _plot_colunas(
+                df_filtrado,
+                x_col='piloto',
+                y_col='total_apostas',
                 title=f"Apostas de {participante_sel}"
             )
-            st.plotly_chart(fig, width="stretch")
 
     with tab2:
         st.subheader("Distribuição do 11º Colocado - Individual")
@@ -284,11 +340,12 @@ def main():
             df_part = df_11[df_11['participante'] == participante_11_sel]
             contagem = df_part['piloto_11'].value_counts().reset_index()
             contagem.columns = ['Piloto', 'Total']
-            fig = px.pie(
-                contagem, names='Piloto', values='Total',
+            _plot_colunas(
+                contagem,
+                x_col='Piloto',
+                y_col='Total',
                 title=f"Pilotos apostados como 11º por {participante_11_sel}"
             )
-            st.plotly_chart(fig, width="stretch")
             st.dataframe(
                 contagem,
                 width="stretch",
@@ -306,11 +363,12 @@ def main():
         st.subheader("Consolidado de Apostas por Piloto")
         if not apostas_pilotos.empty:
             consolidado_pilotos = apostas_pilotos.groupby('piloto')['total_apostas'].sum().reset_index()
-            fig = px.pie(
-                consolidado_pilotos, names='piloto', values='total_apostas',
+            _plot_colunas(
+                consolidado_pilotos,
+                x_col='piloto',
+                y_col='total_apostas',
                 title="Distribuição Geral de Apostas por Piloto"
             )
-            st.plotly_chart(fig, width="stretch")
             st.dataframe(
                 consolidado_pilotos,
                 width="stretch",
@@ -329,11 +387,12 @@ def main():
         if not df_11.empty:
             consolidado_11 = df_11['piloto_11'].value_counts().reset_index()
             consolidado_11.columns = ['Piloto', 'Total']
-            fig = px.pie(
-                consolidado_11, names='Piloto', values='Total',
+            _plot_colunas(
+                consolidado_11,
+                x_col='Piloto',
+                y_col='Total',
                 title="Distribuição Geral de Pilotos apostados como 11º"
             )
-            st.plotly_chart(fig, width="stretch")
             st.dataframe(
                 consolidado_11,
                 width="stretch",
