@@ -1,5 +1,13 @@
 # macOS
 .DS_Store
+**/.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Desktop.ini
 
 # Documentos internos de auditoria/relatórios
 RESUMO_EXECUTIVO.md
@@ -12,6 +20,7 @@ CHECKLIST_FINALIZACAO.md
 # Logs
 bf1dev.log
 *.log
+*.log.*
 
 # Python bytecode
 *.pyc
@@ -19,7 +28,45 @@ bf1dev.log
 /services/__pycache__
 /ui/__pycache__
 
+# Python caches and virtual environments
+__pycache__/
+*.pyo
+*.pyd
+*.so
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.venv/
+venv/
+env/
+
+# Python packaging/build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
 # Environment secrets
 .env
 .env.*
 !.env.example
+
+# Local/editor config
+.streamlit/secrets.toml
+
+# IDE/editor
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.code-workspace
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
