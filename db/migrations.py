@@ -127,6 +127,47 @@ def add_penalidade_auto_percent_if_missing() -> None:
             conn.rollback()
 
 
+def harden_log_apostas_datetime_fields() -> None:
+    """Reforça integridade de data/horario sem gerar valores posteriores."""
+    pool = get_pool()
+    with pool.get_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            if not table_exists(conn, "log_apostas"):
+                conn.commit()
+                return
+
+            cols = set(get_table_columns(conn, "log_apostas"))
+            if "horario" in cols:
+                cursor.execute("ALTER TABLE log_apostas ALTER COLUMN horario DROP DEFAULT")
+                cursor.execute("SELECT COUNT(*) AS qtd FROM log_apostas WHERE horario IS NULL")
+                horario_nulos = int((cursor.fetchone() or {}).get("qtd", 0))
+                if horario_nulos == 0:
+                    cursor.execute("ALTER TABLE log_apostas ALTER COLUMN horario SET NOT NULL")
+                else:
+                    logger.warning(
+                        "⚠️  log_apostas.horario possui %s registros nulos; corrija via import/ajuste de dados antes de aplicar NOT NULL",
+                        horario_nulos,
+                    )
+
+            if "data" in cols:
+                cursor.execute("ALTER TABLE log_apostas ALTER COLUMN data DROP DEFAULT")
+                cursor.execute("SELECT COUNT(*) AS qtd FROM log_apostas WHERE data IS NULL OR BTRIM(data) = ''")
+                data_vazia = int((cursor.fetchone() or {}).get("qtd", 0))
+                if data_vazia == 0:
+                    cursor.execute("ALTER TABLE log_apostas ALTER COLUMN data SET NOT NULL")
+                else:
+                    logger.warning(
+                        "⚠️  log_apostas.data possui %s registros vazios/nulos; corrija via import/ajuste de dados antes de aplicar NOT NULL",
+                        data_vazia,
+                    )
+
+            conn.commit()
+        except Exception as exc:
+            logger.warning("⚠️  Falha ao reforçar data/horario em log_apostas: %s", exc)
+            conn.rollback()
+
+
 def create_access_logs_table_if_missing() -> None:
     pool = get_pool()
     with pool.get_connection() as conn:
@@ -386,6 +427,7 @@ def run_migrations() -> None:
             add_login_attempts_action_if_missing()
             add_login_attempts_ip_if_missing()
             add_penalidade_auto_percent_if_missing()
+            harden_log_apostas_datetime_fields()
             create_access_logs_table_if_missing()
             create_usuarios_status_historico_if_missing()
             create_hall_da_fama_table()

@@ -661,6 +661,22 @@ def registrar_log_aposta(
     status: str = "Registrada",
 ) -> None:
     try:
+        horario_dt = horario if isinstance(horario, datetime) else None
+        if horario_dt is None:
+            try:
+                horario_dt = pd.to_datetime(horario, errors="coerce").to_pydatetime() if horario is not None else None
+            except Exception:
+                horario_dt = None
+        if horario_dt is None:
+            logger.error(
+                "registrar_log_aposta ignorado: horario ausente/invalido para usuario_id=%s prova_id=%s",
+                usuario_id,
+                prova_id,
+            )
+            return
+
+        data_txt = horario_dt.strftime("%Y-%m-%d")
+
         with db_connect() as conn:
             cur = conn.cursor()
             cols = get_table_columns(conn, "log_apostas")
@@ -671,13 +687,13 @@ def registrar_log_aposta(
                 """
                 INSERT INTO log_apostas
                     (usuario_id, prova_id, apostador, aposta, nome_prova,
-                     pilotos, piloto_11, tipo_aposta, automatica, horario,
+                     pilotos, piloto_11, tipo_aposta, automatica, data, horario,
                      ip_address, temporada, status)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
                 (
                     usuario_id, prova_id, apostador, aposta, nome_prova,
-                    pilotos, piloto_11, tipo_aposta, automatica, horario,
+                    pilotos, piloto_11, tipo_aposta, automatica, data_txt, horario_dt,
                     ip_address, temporada, status,
                 ),
             )
