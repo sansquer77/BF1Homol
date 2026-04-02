@@ -56,6 +56,10 @@ def _hall_queries(source_table: str) -> dict[str, str]:
                 "WHERE usuario_id = %s AND temporada = %s "
                 "LIMIT 1"
             ),
+            "all_user_positions": (
+                "SELECT usuario_id, temporada, posicao AS posicao, pontos "
+                "FROM posicoes_participantes"
+            ),
             "count_seasons": "SELECT COUNT(DISTINCT temporada) AS cnt FROM posicoes_participantes",
             "top_winners": (
                 "SELECT u.nome, COUNT(*) as vitorias "
@@ -93,6 +97,10 @@ def _hall_queries(source_table: str) -> dict[str, str]:
             "WHERE usuario_id = %s AND temporada = %s "
             "LIMIT 1"
         ),
+        "all_user_positions": (
+            "SELECT usuario_id, temporada, posicao_final AS posicao, pontos "
+            "FROM hall_da_fama"
+        ),
         "count_seasons": "SELECT COUNT(DISTINCT temporada) AS cnt FROM hall_da_fama",
         "top_winners": (
             "SELECT u.nome, COUNT(*) as vitorias "
@@ -129,7 +137,7 @@ def hall_da_fama():
     st.caption(f"🔑 Perfil atual: {user_role}")
 
     with db_connect() as conn:
-        source_table, pos_col = _resolve_hall_source(conn)
+        source_table, _ = _resolve_hall_source(conn)
         queries = _hall_queries(source_table)
         if source_table == "posicoes_participantes":
             st.info("ℹ️ Exibindo histórico legado da tabela posicoes_participantes.")
@@ -157,6 +165,14 @@ def hall_da_fama():
             return
         
         st.write(f"**Temporadas disponíveis:** {', '.join(seasons)}")
+
+        c.execute(queries["all_user_positions"])
+        pos_rows = c.fetchall() or []
+        pos_lookup: dict[tuple[int, str], dict[str, object]] = {
+            (int(r["usuario_id"]), str(r["temporada"])): dict(r)
+            for r in pos_rows
+            if r.get("usuario_id") is not None and r.get("temporada") is not None
+        }
         
         # Build the hall of fame table
         hall_data = []
@@ -167,11 +183,10 @@ def hall_da_fama():
             row = {'Participante': user_name}
             
             for season in seasons:
-                c.execute(queries["user_pos"], (user_id, season))
-                result = c.fetchone()
+                result = pos_lookup.get((int(user_id), str(season)))
 
-                if result and result[pos_col] is not None:
-                    pos_val = result[pos_col]
+                if result and result.get('posicao') is not None:
+                    pos_val = result['posicao']
                     pts_val = result.get('pontos') if result.get('pontos') is not None else 0
                     # Format points nicely (avoid .0 when integer)
                     try:

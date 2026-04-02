@@ -36,6 +36,8 @@ INDICES = {
         "CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email)",
         "CREATE INDEX IF NOT EXISTS idx_usuarios_perfil ON usuarios(perfil)",
         "CREATE INDEX IF NOT EXISTS idx_usuarios_status ON usuarios(status)",
+        "CREATE INDEX IF NOT EXISTS idx_usuarios_status_norm ON usuarios ((lower(trim(coalesce(status, '')))))",
+        "CREATE INDEX IF NOT EXISTS idx_usuarios_perfil_norm ON usuarios ((lower(trim(coalesce(perfil, '')))))",
     ],
     "apostas": [
         "CREATE INDEX IF NOT EXISTS idx_apostas_usuario ON apostas(usuario_id)",

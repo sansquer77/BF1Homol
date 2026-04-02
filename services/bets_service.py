@@ -51,6 +51,15 @@ except ImportError:
     httpx = None
 
 
+def _fetch_df(conn, query: str, params: tuple | None = None) -> pd.DataFrame:
+    cur = conn.cursor()
+    cur.execute(query, params or ())
+    rows = cur.fetchall() or []
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame([dict(r) for r in rows])
+
+
 def _extrair_json_texto(raw_text: str) -> Optional[dict]:
     if not raw_text:
         return None
@@ -1820,18 +1829,18 @@ def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
     with db_connect() as conn:
         usrs = cast(
             pd.DataFrame,
-            pd.read_sql(
+            _fetch_df(
+                conn,
                 """
                 SELECT id
                 FROM usuarios
                 WHERE lower(trim(coalesce(status, ''))) = 'ativo'
                 """,
-                conn,
             ),
         )
-        provs = cast(pd.DataFrame, pd.read_sql('SELECT id, nome, data, tipo, temporada FROM provas', conn))
-        apts = cast(pd.DataFrame, pd.read_sql('SELECT usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, automatica, temporada FROM apostas', conn))
-        ress = cast(pd.DataFrame, pd.read_sql('SELECT prova_id, posicoes, abandono_pilotos FROM resultados', conn))
+        provs = cast(pd.DataFrame, _fetch_df(conn, 'SELECT id, nome, data, tipo, temporada FROM provas'))
+        apts = cast(pd.DataFrame, _fetch_df(conn, 'SELECT usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, automatica, temporada FROM apostas'))
+        ress = cast(pd.DataFrame, _fetch_df(conn, 'SELECT prova_id, posicoes, abandono_pilotos FROM resultados'))
         
         import ast
         # Se temporada for fornecida, processa apenas provas dessa temporada

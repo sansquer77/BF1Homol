@@ -19,8 +19,14 @@ def _load_access_logs(
     ip_contains: str,
     usuario_contains: str,
 ) -> pd.DataFrame:
-    where = ["DATE(created_at) >= %s", "DATE(created_at) <= %s"]
-    params: list[object] = [data_inicial.isoformat(), data_final.isoformat()]
+    start_ts = datetime.datetime.combine(data_inicial, datetime.time.min)
+    end_ts_exclusive = datetime.datetime.combine(
+        data_final + datetime.timedelta(days=1),
+        datetime.time.min,
+    )
+
+    where = ["created_at >= %s", "created_at < %s"]
+    params: list[object] = [start_ts, end_ts_exclusive]
 
     if perfil_sel != "Todos":
         where.append("LOWER(COALESCE(perfil, '')) = %s")

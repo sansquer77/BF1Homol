@@ -12,6 +12,15 @@ from utils.input_models import ChampionshipBetInput, ChampionshipResultInput, Va
 logger = logging.getLogger(__name__)
 
 
+def _fetch_df(conn, query: str, params: tuple | None = None) -> pd.DataFrame:
+    cursor = conn.cursor()
+    cursor.execute(query, params or ())
+    rows = cursor.fetchall() or []
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame([dict(r) for r in rows])
+
+
 def _season_or_current(season: Optional[int]) -> int:
     """Retorna a temporada fornecida ou o ano corrente."""
     return season if season is not None else datetime.now().year
@@ -308,25 +317,25 @@ def get_championship_bets_df(season: Optional[int] = None):
     """Retorna apostas de campeonato; se season informado, filtra."""
     with db_connect() as conn:
         if season is None:
-            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets', conn)
+            df = _fetch_df(conn, 'SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets')
         else:
-            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets WHERE season = %s', conn, params=(season,))
+            df = _fetch_df(conn, 'SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets WHERE season = %s', (season,))
     return df
 
 def get_championship_bets_log_df(season: Optional[int] = None):
     """Retorna log de apostas; se season informado, filtra."""
     with db_connect() as conn:
         if season is None:
-            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log', conn)
+            df = _fetch_df(conn, 'SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log')
         else:
-            df = pd.read_sql('SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log WHERE season = %s', conn, params=(season,))
+            df = _fetch_df(conn, 'SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log WHERE season = %s', (season,))
     return df
 
 def get_championship_results_df(season: Optional[int] = None):
     """Retorna resultados oficiais; se season informado, filtra."""
     with db_connect() as conn:
         if season is None:
-            df = pd.read_sql('SELECT season, champion, vice, team FROM championship_results', conn)
+            df = _fetch_df(conn, 'SELECT season, champion, vice, team FROM championship_results')
         else:
-            df = pd.read_sql('SELECT season, champion, vice, team FROM championship_results WHERE season = %s', conn, params=(season,))
+            df = _fetch_df(conn, 'SELECT season, champion, vice, team FROM championship_results WHERE season = %s', (season,))
     return df

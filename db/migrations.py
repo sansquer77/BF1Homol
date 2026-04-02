@@ -56,6 +56,8 @@ def add_legacy_columns_if_missing() -> None:
                 _add_column_if_missing(cursor, conn, "pilotos", "equipe", "equipe TEXT DEFAULT ''")
                 _add_column_if_missing(cursor, conn, "pilotos", "status", "status TEXT DEFAULT 'Ativo'")
                 _add_column_if_missing(cursor, conn, "pilotos", "numero", "numero INTEGER DEFAULT 0")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_pilotos_nome_norm ON pilotos ((lower(nome)))")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_pilotos_nome_num_eq_norm ON pilotos ((lower(nome)), numero, (lower(equipe)), status)")
 
             if table_exists(conn, "provas"):
                 _add_column_if_missing(cursor, conn, "provas", "horario_prova", "horario_prova TEXT DEFAULT ''")
@@ -150,6 +152,8 @@ def create_access_logs_table_if_missing() -> None:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_access_logs_created_at ON access_logs(created_at)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_access_logs_perfil ON access_logs(perfil)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_access_logs_sucesso ON access_logs(sucesso)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_access_logs_created_at_id_desc ON access_logs(created_at DESC, id DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_access_logs_perfil_created_at_desc ON access_logs(perfil, created_at DESC)")
             conn.commit()
         except Exception as exc:
             logger.debug("Erro ao criar access_logs: %s", exc)
@@ -253,6 +257,10 @@ def create_missing_tables_if_needed() -> None:
                 """
             )
 
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_championship_bets_season ON championship_bets(season)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_championship_bets_user_season ON championship_bets(user_id, season)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_championship_bets_log_user_season_time ON championship_bets_log(user_id, season, bet_time DESC)")
+
             cursor.execute(
                 f"""
                 CREATE TABLE IF NOT EXISTS log_apostas (
@@ -277,6 +285,9 @@ def create_missing_tables_if_needed() -> None:
                 )
                 """
             )
+
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_log_apostas_temporada_usuario_id_desc ON log_apostas(temporada, usuario_id, id DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_log_apostas_temporada_id_desc ON log_apostas(temporada, id DESC)")
 
             conn.commit()
         except Exception as exc:
@@ -375,14 +386,13 @@ def run_migrations() -> None:
             create_usuarios_status_historico_if_missing()
             create_hall_da_fama_table()
 
-            for idx in INDICES.get("usuarios", []):
-                cursor.execute(idx)
-            for idx in INDICES.get("apostas", []):
-                cursor.execute(idx)
-            for idx in INDICES.get("provas", []):
-                cursor.execute(idx)
-            for idx in INDICES.get("resultados", []):
-                cursor.execute(idx)
+            if table_exists(conn, "posicoes_participantes"):
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_posicoes_participantes_usuario_temporada ON posicoes_participantes(usuario_id, temporada)")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_posicoes_participantes_temporada_posicao ON posicoes_participantes(temporada, posicao)")
+
+            for table_indexes in INDICES.values():
+                for idx in table_indexes:
+                    cursor.execute(idx)
 
             conn.commit()
             logger.info("✓ Todas as migrations executadas com sucesso")
@@ -431,6 +441,8 @@ def create_hall_da_fama_table() -> None:
                 )
                 """
             )
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_hall_da_fama_usuario_temporada ON hall_da_fama(usuario_id, temporada)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_hall_da_fama_temporada_posicao ON hall_da_fama(temporada, posicao_final)")
             conn.commit()
             logger.info("✓ Tabela hall_da_fama criada com sucesso")
     except Exception as exc:
