@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -240,6 +241,115 @@ def _get_tables_with_fk_children(conn) -> set[str]:
     return {str(r['parent_table']) for r in (c.fetchall() or []) if r and r['parent_table']}
 
 
+def _get_fk_constraints(conn, table: str) -> list[dict[str, Any]]:
+    """Retorna constraints FK da tabela destino para validação prévia opcional."""
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT
+            tc.constraint_name,
+            kcu.column_name AS local_column,
+            ccu.table_name AS parent_table,
+            ccu.column_name AS parent_column,
+            kcu.ordinal_position
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.constraint_column_usage ccu
+          ON ccu.constraint_name = tc.constraint_name
+         AND ccu.table_schema = tc.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND tc.table_schema = current_schema()
+          AND tc.table_name = %s
+        ORDER BY tc.constraint_name, kcu.ordinal_position
+        """,
+        (table,),
+    )
+
+    grouped: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {"local_columns": [], "parent_columns": [], "parent_table": ""}
+    )
+    for row in c.fetchall() or []:
+        name = str(row["constraint_name"])
+        grouped[name]["parent_table"] = str(row["parent_table"])
+        grouped[name]["local_columns"].append(str(row["local_column"]))
+        grouped[name]["parent_columns"].append(str(row["parent_column"]))
+
+    constraints: list[dict[str, Any]] = []
+    for name, data in grouped.items():
+        constraints.append(
+            {
+                "constraint_name": name,
+                "parent_table": data["parent_table"],
+                "local_columns": data["local_columns"],
+                "parent_columns": data["parent_columns"],
+            }
+        )
+    return constraints
+
+
+def _prevalidate_fk_values(
+    conn,
+    selected: str,
+    use_cols: list[str],
+    rows: list[tuple[Any, ...]],
+) -> list[str]:
+    """Valida FKs do payload antes de gravar para erro amigável pré-transação de escrita."""
+    if not rows:
+        return []
+
+    constraints = _get_fk_constraints(conn, selected)
+    if not constraints:
+        return []
+
+    col_idx = {col: idx for idx, col in enumerate(use_cols)}
+    errors: list[str] = []
+    c = conn.cursor()
+
+    for fk in constraints:
+        local_cols = fk["local_columns"]
+        parent_cols = fk["parent_columns"]
+        parent_table = fk["parent_table"]
+        fk_name = fk["constraint_name"]
+
+        # Só valida FKs cujas colunas estão presentes no arquivo importado.
+        if any(col not in col_idx for col in local_cols):
+            continue
+
+        distinct_keys: set[tuple[Any, ...]] = set()
+        for row in rows:
+            values = tuple(row[col_idx[col]] for col in local_cols)
+            # FK com qualquer coluna NULL é permitida (sem checar referência).
+            if any(v is None for v in values):
+                continue
+            distinct_keys.add(values)
+
+        for key_values in distinct_keys:
+            where_sql = " AND ".join(f"{_quote_identifier(pc)} = %s" for pc in parent_cols)
+            check_sql = (
+                f"SELECT 1 FROM {_quote_identifier(parent_table)} "
+                f"WHERE {where_sql} LIMIT 1"
+            )
+            c.execute(check_sql, key_values)
+            if c.fetchone() is None:
+                key_map = ", ".join(f"{lc}={val!r}" for lc, val in zip(local_cols, key_values))
+                errors.append(
+                    f"FK {fk_name}: valor não encontrado em {parent_table} ({key_map})"
+                )
+                if len(errors) >= 10:
+                    return errors
+
+    return errors
+
+
+def _run_fix_sequences_after_restore() -> None:
+    """Ressincroniza sequences após restore SQL para evitar colisões de ID."""
+    from db.migrations import fix_sequences
+
+    fix_sequences()
+
+
 def _build_data_only_sql() -> str:
     lines: list[str] = [
         "-- BF1 POSTGRES DATA-ONLY DUMP",
@@ -443,6 +553,10 @@ def restore_backup_from_sql(sql_content: str) -> bool:
             env_overrides=pg_env,
         )
         if ok:
+            try:
+                _run_fix_sequences_after_restore()
+            except Exception as exc:
+                st.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
             return True
         st.warning(f"psql failed, trying statement execution. Detail: {err.strip()}")
 
@@ -520,6 +634,11 @@ def restore_backup_from_sql(sql_content: str) -> bool:
                 )
 
             conn.commit()
+
+        try:
+            _run_fix_sequences_after_restore()
+        except Exception as exc:
+            st.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
         return True
     except Exception as exc:
         st.error(f"Restore failed: {exc}")
@@ -603,6 +722,11 @@ def upload_tabela() -> None:
 
     selected = st.selectbox("Destination table", tables, key="import_table_select")
     uploaded = st.file_uploader("Upload Excel (.xlsx)", type=["xlsx"], key="upload_table_xlsx")
+    validate_fks = st.checkbox(
+        "Pré-validar chaves estrangeiras antes de importar (recomendado)",
+        value=True,
+        key="import_table_validate_fks",
+    )
     if not selected or not uploaded:
         return
 
@@ -626,6 +750,17 @@ def upload_tabela() -> None:
             fk_parent_tables = _get_tables_with_fk_children(conn)
             is_fk_parent = selected.lower() in {t.lower() for t in fk_parent_tables}
 
+            if validate_fks:
+                fk_errors = _prevalidate_fk_values(conn, selected, use_cols, rows)
+                if fk_errors:
+                    st.error(
+                        "Importação bloqueada por inconsistência de FK no arquivo Excel. "
+                        "Corrija os valores e tente novamente."
+                    )
+                    for item in fk_errors:
+                        st.caption(f"- {item}")
+                    return
+
             c = conn.cursor()
             col_sql = ", ".join(_quote_identifier(col) for col in use_cols)
             placeholders = ", ".join(["%s"] * len(use_cols))
@@ -635,18 +770,15 @@ def upload_tabela() -> None:
                 # Requer que a tabela tenha PK definida (obrigatório para ON CONFLICT).
                 pk_cols = _get_pk_columns(conn, selected)
                 if not pk_cols:
-                    # Sem PK conhecida, cai no TRUNCATE+INSERT com aviso.
-                    st.warning(
-                        f"Tabela '{selected}' referenciada por FK mas sem PRIMARY KEY detectada. "
-                        "Usando TRUNCATE+INSERT — registros filhos podem ser afetados."
+                    st.error(
+                        f"Importação bloqueada: a tabela '{selected}' é referenciada por FK "
+                        "e não possui PRIMARY KEY detectada para UPSERT seguro."
                     )
-                    c.execute(
-                        f"TRUNCATE TABLE {_quote_identifier(selected)} RESTART IDENTITY CASCADE"
+                    st.info(
+                        "Para evitar quebra de integridade, esse cenário não executa TRUNCATE CASCADE. "
+                        "Defina uma PK na tabela ou use restore SQL completo."
                     )
-                    c.executemany(
-                        f"INSERT INTO {_quote_identifier(selected)} ({col_sql}) VALUES ({placeholders})",
-                        rows,
-                    )
+                    return
                 else:
                     # UPSERT: insere ou atualiza. Linhas no banco que NÃO estão
                     # no Excel são mantidas (não apagadas), preservando os filhos FK.
