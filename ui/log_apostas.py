@@ -57,6 +57,33 @@ def _to_int_safe(value: object) -> int:
         return 0
 
 
+def _sorted_unique_non_null(series: pd.Series, reverse: bool = False) -> list[object]:
+    """Retorna valores únicos não nulos com ordenação robusta para tipos mistos."""
+    values = [v for v in series.dropna().tolist() if not pd.isna(v)]
+    if not values:
+        return []
+    try:
+        return sorted(set(values), reverse=reverse)
+    except TypeError:
+        # Fallback para cenários com mistura de tipos (ex.: str + None já filtrado)
+        return sorted({str(v) for v in values}, reverse=reverse)
+
+
+def _normalize_date_for_filter(value: object) -> str:
+    """Normaliza valor de data para yyyy-mm-dd para uso em filtros."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+
+    txt = str(value).strip()
+    if not txt:
+        return ""
+
+    dt = pd.to_datetime(txt, errors="coerce")
+    if pd.isna(dt):
+        return txt
+    return dt.strftime("%Y-%m-%d")
+
+
 def carregar_logs(temporada=None, usuario_id=None, usuario_nome=None, is_admin=False):
     """Carrega logs de apostas, opcionalmente filtrando por temporada."""
     with db_connect() as conn:
@@ -154,6 +181,19 @@ def main():
     tipos_map = {0: "Dentro do Prazo", 1: "Fora do Prazo"}
 
     st.markdown("### Filtros")
+    normalizar_data = st.checkbox(
+        "Normalizar Data para yyyy-mm-dd nos filtros",
+        value=True,
+        help="Padroniza o valor de Data apenas para seleção de filtro, sem alterar os dados originais.",
+    )
+
+    df_filtro = df.copy()
+    if "data" in df_filtro.columns:
+        if normalizar_data:
+            df_filtro["_data_filtro"] = df_filtro["data"].apply(_normalize_date_for_filter)
+        else:
+            df_filtro["_data_filtro"] = df_filtro["data"]
+
     colunas_filtro = []
     if perfil in ("admin", "master"):
         colunas_filtro.append("apostador")
@@ -161,7 +201,7 @@ def main():
     idx_filtro = 0
 
     if "apostador" in colunas_filtro:
-        apostador_opcoes = ["Todos"] + sorted(df["apostador"].unique())
+        apostador_opcoes = ["Todos"] + _sorted_unique_non_null(df["apostador"])
         apostador_sel = cols[idx_filtro].selectbox("Apostador", apostador_opcoes)
         idx_filtro += 1
     else:
@@ -172,7 +212,7 @@ def main():
     )
     idx_filtro += 1
     data_sel = cols[idx_filtro].selectbox(
-        "Data", ["Todas"] + sorted(df["data"].unique(), reverse=True)
+        "Data", ["Todas"] + _sorted_unique_non_null(df_filtro["_data_filtro"], reverse=True)
     )
     idx_filtro += 1
 
@@ -182,7 +222,7 @@ def main():
 
     mostrar_automaticas = st.checkbox("Mostrar apenas apostas automáticas (automatica > 0)", value=False)
 
-    filtro = df.copy()
+    filtro = df_filtro.copy()
 
     if is_admin:
         if apostador_sel != "Todos":
@@ -193,7 +233,7 @@ def main():
         # tipo_aposta já é int graças à conversão em carregar_logs
         filtro = filtro[filtro["tipo_aposta"] == inv_tipos_map[tipo_filtro]]
     if data_sel != "Todas":
-        filtro = filtro[filtro["data"] == data_sel]
+        filtro = filtro[filtro["_data_filtro"] == data_sel]
     if status_sel != "Todos":
         filtro = filtro[filtro["status"].fillna("Registrada") == status_sel]
     if mostrar_automaticas:
