@@ -325,6 +325,10 @@ def fix_sequences() -> None:
             try:
                 if not table_exists(conn, table):
                     continue
+                # Nem toda tabela usa coluna id (ex.: resultados usa prova_id).
+                # Nesses casos, não há sequence padrão para ressincronizar.
+                if "id" not in get_table_columns(conn, table):
+                    continue
                 # pg_get_serial_sequence funciona tanto para SERIAL quanto para
                 # GENERATED AS IDENTITY — retorna NULL se a tabela não tiver
                 # sequence associada à coluna id (ex: tabela sem PK serial).

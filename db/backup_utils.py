@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import pandas as pd
 import streamlit as st
+from openpyxl.utils import get_column_letter
 
 from db.db_config import DATABASE_URL
 from db.db_utils import db_connect
@@ -981,6 +982,143 @@ def _table_columns(table_name: str) -> list[str]:
         return [str(r['column_name']) for r in (c.fetchall() or []) if r and r['column_name']]
 
 
+def _get_table_column_types(conn, table_name: str) -> dict[str, str]:
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = %s
+        """,
+        (table_name,),
+    )
+    return {
+        str(r['column_name']).lower(): str(r['data_type']).lower()
+        for r in (c.fetchall() or [])
+        if r and r.get('column_name') and r.get('data_type')
+    }
+
+
+def _normalize_excel_typed_value(value: Any, data_type: str) -> Any:
+    dtype = (data_type or "").lower()
+    if value is None:
+        return None
+
+    if dtype in {"json", "jsonb"}:
+        if isinstance(value, (dict, list, tuple)):
+            return json.dumps(value, ensure_ascii=False)
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+            try:
+                parsed = json.loads(raw)
+                return json.dumps(parsed, ensure_ascii=False)
+            except Exception:
+                try:
+                    parsed = ast.literal_eval(raw)
+                    if isinstance(parsed, (dict, list, tuple)):
+                        return json.dumps(parsed, ensure_ascii=False)
+                except Exception:
+                    return value
+        return value
+
+    if dtype == "array":
+        if isinstance(value, (list, tuple)):
+            return list(value)
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+            try:
+                parsed = ast.literal_eval(raw)
+                if isinstance(parsed, (list, tuple)):
+                    return list(parsed)
+            except Exception:
+                return value
+        return value
+
+    return value
+
+
+def _prepare_dataframe_for_excel(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    safe_df = df.copy()
+
+    for col in safe_df.columns:
+        series = safe_df[col]
+        if pd.api.types.is_datetime64tz_dtype(series.dtype):
+            safe_df[col] = series.dt.tz_convert("UTC").dt.tz_localize(None)
+            continue
+
+        if pd.api.types.is_object_dtype(series.dtype):
+            def _normalize_obj(value: Any) -> Any:
+                if value is None:
+                    return None
+                if isinstance(value, datetime):
+                    if value.tzinfo is None:
+                        return value
+                    return pd.Timestamp(value).tz_convert("UTC").tz_localize(None).to_pydatetime()
+                return value
+
+            safe_df[col] = series.map(_normalize_obj)
+
+    return safe_df
+
+
+def _apply_excel_datetime_format(
+    writer: pd.ExcelWriter,
+    sheet_name: str,
+    df: pd.DataFrame,
+    col_types: dict[str, str],
+) -> None:
+    """Aplica formato explícito de data/hora para consistência visual no Excel."""
+    if df.empty:
+        return
+
+    ws = writer.sheets.get(sheet_name)
+    if ws is None:
+        return
+
+    datetime_cols: set[str] = set()
+    for col in df.columns:
+        dtype = df[col].dtype
+        db_type = col_types.get(str(col).lower(), "")
+        if pd.api.types.is_datetime64_any_dtype(dtype):
+            datetime_cols.add(str(col))
+            continue
+        if "timestamp" in db_type or db_type in {"date", "time", "timetz"}:
+            datetime_cols.add(str(col))
+
+    if not datetime_cols:
+        return
+
+    excel_dt_format = "yyyy-mm-dd hh:mm:ss"
+    excel_date_format = "yyyy-mm-dd"
+    excel_time_format = "hh:mm:ss"
+
+    for idx, col_name in enumerate(df.columns, start=1):
+        if str(col_name) not in datetime_cols:
+            continue
+
+        db_type = col_types.get(str(col_name).lower(), "")
+        if db_type == "date":
+            number_format = excel_date_format
+        elif db_type in {"time", "timetz"}:
+            number_format = excel_time_format
+        else:
+            number_format = excel_dt_format
+
+        col_letter = get_column_letter(idx)
+        for row_idx in range(2, len(df) + 2):
+            cell = ws[f"{col_letter}{row_idx}"]
+            if cell.value is not None:
+                cell.number_format = number_format
+
+
 def download_tabela() -> None:
     tables = _list_tables()
     if not tables:
@@ -992,6 +1130,7 @@ def download_tabela() -> None:
         return
 
     with db_connect() as conn:
+        col_types = _get_table_column_types(conn, selected)
         c = conn.cursor()
         c.execute(f"SELECT * FROM {_quote_identifier(selected)}")
         rows = c.fetchall() or []
@@ -1002,9 +1141,12 @@ def download_tabela() -> None:
         columns=col_names,
     )
 
+    df_excel = _prepare_dataframe_for_excel(df)
+
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="data")
+        df_excel.to_excel(writer, index=False, sheet_name="data")
+        _apply_excel_datetime_format(writer, "data", df_excel, col_types)
     buffer.seek(0)
 
     st.download_button(
@@ -1040,12 +1182,26 @@ def upload_tabela() -> None:
             st.error("No compatible columns were found.")
             return
 
-        payload = df[use_cols].astype(object)
-        rows = []
-        for row in payload.itertuples(index=False, name=None):
-            rows.append(tuple(None if pd.isna(v) else v for v in row))
-
         with db_connect() as conn:
+            col_types = _get_table_column_types(conn, selected)
+
+            payload = df[use_cols].astype(object)
+            rows = []
+            normalized_cells = 0
+            for row in payload.itertuples(index=False, name=None):
+                normalized_row: list[Any] = []
+                for idx, value in enumerate(row):
+                    col_name = use_cols[idx]
+                    base_value = None if pd.isna(value) else value
+                    typed_value = _normalize_excel_typed_value(
+                        base_value,
+                        col_types.get(col_name.lower(), ""),
+                    )
+                    if typed_value is not base_value:
+                        normalized_cells += 1
+                    normalized_row.append(typed_value)
+                rows.append(tuple(normalized_row))
+
             # Detecta em tempo real se esta tabela tem filhos FK no banco.
             # Se tiver, TRUNCATE ... CASCADE apagaria os filhos — usa UPSERT.
             # Se não tiver, TRUNCATE + INSERT é seguro e mais simples.
@@ -1139,6 +1295,12 @@ def upload_tabela() -> None:
                     (selected, col),
                 )
             conn.commit()
+
+        if normalized_cells > 0:
+            st.info(
+                f"{normalized_cells} valores foram normalizados para tipos PostgreSQL "
+                "(JSON/ARRAY) durante a importação."
+            )
 
         st.success(f"Table {selected} imported successfully.")
 
