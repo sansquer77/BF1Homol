@@ -169,6 +169,28 @@ def _sql_literal(value: Any) -> str:
     return f"'{text}'"
 
 
+def _sql_literal_typed(value: Any, data_type: str) -> str:
+    dtype = (data_type or "").lower()
+
+    if value is None:
+        return "NULL"
+
+    if dtype in {"json", "jsonb"}:
+        if isinstance(value, (dict, list, tuple)):
+            text = json.dumps(value, ensure_ascii=False).replace("'", "''")
+            return f"'{text}'"
+        text = str(value).replace("'", "''")
+        return f"'{text}'"
+
+    if dtype == "array":
+        if isinstance(value, (list, tuple)):
+            return _python_to_sql_expression(list(value))
+        text = str(value).replace("'", "''")
+        return f"'{text}'"
+
+    return _sql_literal(value)
+
+
 def _get_serial_columns(conn, table: str) -> list[str]:
     """Retorna colunas com sequence associada (SERIAL / GENERATED ALWAYS AS IDENTITY)."""
     c = conn.cursor()
@@ -374,7 +396,7 @@ def _build_data_only_sql() -> str:
         for table in tables:
             c.execute(
                 """
-                SELECT column_name
+                SELECT column_name, data_type
                 FROM information_schema.columns
                 WHERE table_schema = current_schema()
                   AND table_name = %s
@@ -382,14 +404,23 @@ def _build_data_only_sql() -> str:
                 """,
                 (table,),
             )
-            cols = [str(r['column_name']) for r in (c.fetchall() or []) if r and r['column_name']]
+            col_meta = c.fetchall() or []
+            cols = [str(r['column_name']) for r in col_meta if r and r['column_name']]
+            col_types = {
+                str(r['column_name']): str(r['data_type'])
+                for r in col_meta
+                if r and r['column_name']
+            }
             if not cols:
                 continue
 
             col_sql = ", ".join(_quote_identifier(cn) for cn in cols)
             c.execute(f"SELECT {col_sql} FROM {_quote_identifier(table)}")
             for row in c.fetchall() or []:
-                values = ", ".join(_sql_literal(v) for v in row.values())
+                values = ", ".join(
+                    _sql_literal_typed(row[col], col_types.get(col, ""))
+                    for col in cols
+                )
                 lines.append(f"INSERT INTO {_quote_identifier(table)} ({col_sql}) VALUES ({values});")
 
             # Prepara resets de sequence para colunas SERIAL/IDENTITY
@@ -535,9 +566,33 @@ def _get_json_columns(conn, table_name: str) -> set[str]:
     }
 
 
+def _get_array_columns(conn, table_name: str) -> set[str]:
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = %s
+          AND data_type = 'ARRAY'
+        """,
+        (table_name,),
+    )
+    return {
+        str(r['column_name']).lower()
+        for r in (c.fetchall() or [])
+        if r and r['column_name']
+    }
+
+
 def _is_json_syntax_error(exc: Exception) -> bool:
     msg = str(exc).lower()
     return "invalid input syntax for type json" in msg
+
+
+def _is_array_syntax_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "malformed array literal" in msg or "must introduce explicitly-specified array dimensions" in msg
 
 
 def _normalize_legacy_json_sql_literal(value_literal: str) -> str | None:
@@ -561,6 +616,41 @@ def _normalize_legacy_json_sql_literal(value_literal: str) -> str | None:
     fixed_json = json.dumps(parsed, ensure_ascii=False)
     escaped = fixed_json.replace("'", "''")
     return f"'{escaped}'"
+
+
+def _python_to_sql_expression(value: Any) -> str:
+    if value is None:
+        return "NULL"
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, (list, tuple)):
+        return "ARRAY[" + ", ".join(_python_to_sql_expression(v) for v in value) + "]"
+
+    text = str(value).replace("\\", "\\\\").replace("'", "''")
+    return f"'{text}'"
+
+
+def _normalize_legacy_array_sql_literal(value_literal: str) -> str | None:
+    token = (value_literal or "").strip()
+    if len(token) < 2 or not (token.startswith("'") and token.endswith("'")):
+        return None
+
+    inner = token[1:-1].replace("''", "'").strip()
+    # Converte apenas serialização legada em formato Python, ex: "['a', 'b']".
+    if not (inner.startswith("[") or inner.startswith("(")):
+        return None
+
+    try:
+        parsed = ast.literal_eval(inner)
+    except Exception:
+        return None
+
+    if not isinstance(parsed, (list, tuple)):
+        return None
+
+    return _python_to_sql_expression(list(parsed))
 
 
 def _repair_insert_json_literals(conn, statement: str, table_name: str) -> str | None:
@@ -595,6 +685,57 @@ def _repair_insert_json_literals(conn, statement: str, table_name: str) -> str |
         statement,
         flags=re.IGNORECASE | re.DOTALL,
     )
+
+
+def _repair_insert_array_literals(conn, statement: str, table_name: str) -> str | None:
+    array_cols = _get_array_columns(conn, table_name)
+    if not array_cols:
+        return None
+
+    cols = _extract_insert_columns(statement)
+    payload = _extract_values_payload(statement)
+    if not cols or payload is None:
+        return None
+
+    values = _split_sql_csv(payload)
+    if len(cols) != len(values):
+        return None
+
+    changed = False
+    for idx, col in enumerate(cols):
+        if col.lower() not in array_cols:
+            continue
+        repaired = _normalize_legacy_array_sql_literal(values[idx])
+        if repaired and repaired != values[idx]:
+            values[idx] = repaired
+            changed = True
+
+    if not changed:
+        return None
+
+    return re.sub(
+        r'(\bVALUES\s*\().*(\)\s*$)',
+        lambda m: f"{m.group(1)}{', '.join(values)}{m.group(2)}",
+        statement,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+
+def _repair_insert_legacy_literals(conn, statement: str, table_name: str) -> str | None:
+    repaired_stmt = statement
+    changed = False
+
+    json_stmt = _repair_insert_json_literals(conn, repaired_stmt, table_name)
+    if json_stmt and json_stmt != repaired_stmt:
+        repaired_stmt = json_stmt
+        changed = True
+
+    array_stmt = _repair_insert_array_literals(conn, repaired_stmt, table_name)
+    if array_stmt and array_stmt != repaired_stmt:
+        repaired_stmt = array_stmt
+        changed = True
+
+    return repaired_stmt if changed else None
 
 
 def _is_fk_violation_error(exc: Exception) -> bool:
@@ -748,8 +889,10 @@ def restore_backup_from_sql(sql_content: str) -> bool:
                 if ok_stmt:
                     continue
 
-                if insert_table and err_stmt and _is_json_syntax_error(err_stmt):
-                    repaired_stmt = _repair_insert_json_literals(conn, stmt, insert_table)
+                if insert_table and err_stmt and (
+                    _is_json_syntax_error(err_stmt) or _is_array_syntax_error(err_stmt)
+                ):
+                    repaired_stmt = _repair_insert_legacy_literals(conn, stmt, insert_table)
                     if repaired_stmt and repaired_stmt != stmt:
                         ok_repaired, err_repaired = _execute_with_savepoint(c, repaired_stmt)
                         if ok_repaired:
