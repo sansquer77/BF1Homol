@@ -180,30 +180,15 @@ def get_circuitos_df():
     import pandas as pd
 
     ensure_circuitos_f1_table()
-    # Usa cursor manual em vez de pd.read_sql_query para evitar UserWarning:
-    # "pandas only supports SQLAlchemy connectable or database string URI or
-    # sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested."
-    # A conexão do db_connect() é psycopg2 puro (DBAPI2), não SQLAlchemy.
     with db_connect() as conn:
-        c = conn.cursor()
-        c.execute(
+        return pd.read_sql_query(
             """
             SELECT circuit_id, circuit_name, country, locality, aliases, atualizado_em
             FROM circuitos_f1
             ORDER BY circuit_name ASC
-            """
+            """,
+            conn,
         )
-        rows = c.fetchall()
-
-    if not rows:
-        return pd.DataFrame(
-            columns=["circuit_id", "circuit_name", "country", "locality", "aliases", "atualizado_em"]
-        )
-
-    return pd.DataFrame(
-        [dict(r) for r in rows],
-        columns=["circuit_id", "circuit_name", "country", "locality", "aliases", "atualizado_em"],
-    )
 
 
 def get_temporadas_existentes_provas() -> list[str]:

@@ -183,43 +183,41 @@ def _injetar_autocomplete_login() -> None:
 
     Isso é executado dentro de um iframe sandboxed do Streamlit;
     o script usa window.parent.document para acessar o DOM principal.
-
-    Nota: st.components.v1.html está marcado para deprecação após 2026-06-01
-    (substituição prevista por st.iframe quando este suportar srcdoc).
-    Até lá, components.v1.html é a única API que suporta HTML inline.
     """
-    html_snippet = """
-    <script>
-    (function() {
-        function applyAutocomplete() {
-            try {
-                var doc = window.parent.document;
-                var form = doc.querySelector('[data-testid="stForm"]');
-                if (!form) return false;
-                var inputs = form.querySelectorAll('input');
-                if (inputs.length < 2) return false;
-                inputs[0].setAttribute('autocomplete', 'email');
-                inputs[0].setAttribute('name', 'email');
-                inputs[1].setAttribute('autocomplete', 'current-password');
-                inputs[1].setAttribute('name', 'password');
-                return true;
-            } catch(e) {
-                return false;
-            }
-        }
-        if (!applyAutocomplete()) {
-            var attempts = 0;
-            var interval = setInterval(function() {
-                attempts++;
-                if (applyAutocomplete() || attempts >= 10) {
-                    clearInterval(interval);
+    components.html(
+        """
+        <script>
+        (function() {
+            function applyAutocomplete() {
+                try {
+                    var doc = window.parent.document;
+                    var form = doc.querySelector('[data-testid="stForm"]');
+                    if (!form) return false;
+                    var inputs = form.querySelectorAll('input');
+                    if (inputs.length < 2) return false;
+                    inputs[0].setAttribute('autocomplete', 'email');
+                    inputs[0].setAttribute('name', 'email');
+                    inputs[1].setAttribute('autocomplete', 'current-password');
+                    inputs[1].setAttribute('name', 'password');
+                    return true;
+                } catch(e) {
+                    return false;
                 }
-            }, 200);
-        }
-    })();
-    </script>
-    """
-    components.html(html_snippet, height=0)
+            }
+            if (!applyAutocomplete()) {
+                var attempts = 0;
+                var interval = setInterval(function() {
+                    attempts++;
+                    if (applyAutocomplete() || attempts >= 10) {
+                        clearInterval(interval);
+                    }
+                }, 200);
+            }
+        })();
+        </script>
+        """,
+        height=0,
+    )
 
 
 def login_view():

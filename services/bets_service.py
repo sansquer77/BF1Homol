@@ -976,7 +976,7 @@ def salvar_aposta(
     except Exception:
         tipo_prova_regra = 'Sprint' if 'sprint' in str(nome_prova_bd).lower() else 'Normal'
     regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova_regra)
-
+    
     quantidade_fichas = regras.get('quantidade_fichas', 15)
     min_pilotos = regras.get('min_pilotos', 3)
     max_por_piloto = int(regras.get('fichas_por_piloto', quantidade_fichas))
@@ -1043,24 +1043,6 @@ def salvar_aposta(
                             piloto_11, nome_prova_bd, automatica
                         )
                     )
-
-                # Incrementa falta do usuário quando a aposta foi gerada automaticamente
-                # (usuario não apostou manualmente antes do prazo)
-                if automatica == 1:
-                    try:
-                        c.execute(
-                            'UPDATE usuarios SET faltas = faltas + 1 WHERE id = %s',
-                            (usuario_id,)
-                        )
-                        logger.info(
-                            "Falta registrada para usuario_id=%s prova_id=%s (aposta automatica)",
-                            usuario_id, prova_id,
-                        )
-                    except Exception as e_falta:
-                        logger.warning(
-                            "Falha ao incrementar falta para usuario_id=%s: %s",
-                            usuario_id, e_falta,
-                        )
             else:
                 # Aposta tardia não salva quando não permitido
                 _report_error("Aposta fora do horário limite.")
@@ -1260,208 +1242,670 @@ def salvar_aposta(
 
 def gerar_aposta_aleatoria(pilotos_df):
     import random
-    if pilotos_df is None or pilotos_df.empty:
-        return [], [], ""
-    pilotos_lista = pilotos_df['nome'].tolist()
-    if len(pilotos_lista) < 4:
-        return [], [], ""
-    selecionados = random.sample(pilotos_lista, 3)
-    fichas = [5, 5, 5]
-    piloto_11 = random.choice([p for p in pilotos_lista if p not in selecionados])
-    return selecionados, fichas, piloto_11
+    if not pilotos_df.empty and 'status' in pilotos_df.columns:
+        pilotos_df = cast(pd.DataFrame, pilotos_df[pilotos_df['status'] == 'Ativo'])
+    equipes_unicas = [e for e in pilotos_df['equipe'].unique().tolist() if e]
+    if len(equipes_unicas) < 3 or pilotos_df.empty:
+        return [], [], None
+    
+    equipes_selecionadas = random.sample(equipes_unicas, min(5, len(equipes_unicas)))
+    pilotos_sel = []
+    for equipe in equipes_selecionadas:
+        pilotos_equipe = pilotos_df[pilotos_df['equipe'] == equipe]['nome'].tolist()
+        if pilotos_equipe:
+            pilotos_sel.append(random.choice(pilotos_equipe))
+    
+    # Validar se conseguimos selecionar piloto suficientes
+    if len(pilotos_sel) < 3:
+        return [], [], None
+    
+    # Gerar fichas que totalizam exatamente 15
+    num_pilotos = len(pilotos_sel)
+    fichas = [1] * num_pilotos  # Cada piloto começa com 1 ficha
+    fichas_restantes = 15 - num_pilotos  # Fichas a distribuir
+    
+    # Distribuir fichas restantes aleatoriamente
+    for _ in range(fichas_restantes):
+        idx = random.randint(0, num_pilotos - 1)
+        fichas[idx] += 1
+        
+    todos_pilotos = pilotos_df['nome'].tolist()
+    candidatos_11 = [p for p in todos_pilotos if p not in pilotos_sel]
+    piloto_11 = random.choice(candidatos_11) if candidatos_11 else random.choice(todos_pilotos)
+    
+    return pilotos_sel, fichas, piloto_11
 
-
-def gerar_aposta_estrategica(
-    usuario_id: int,
-    prova_id: int,
-    temporada: Optional[str] = None,
-    nome_prova: Optional[str] = None,
-) -> Optional[tuple[list[str], list[int], str]]:
-    """Gera aposta estratégica via Perplexity com fallback para aleatória."""
-    try:
-        pilotos_df = get_pilotos_df(temporada)
-        apostas_df = get_apostas_df(temporada)
-        resultados_df = get_resultados_df(temporada)
-        provas_df = get_provas_df(temporada)
-
-        tipo_prova = 'Normal'
-        nome_prova_bd = nome_prova or ''
-        if not provas_df.empty:
-            row = provas_df[provas_df['id'] == prova_id]
-            if not row.empty:
-                if 'tipo' in row.columns and pd.notna(row.iloc[0].get('tipo')):
-                    tipo_col = str(row.iloc[0]['tipo']).strip()
-                    tipo_prova = 'Sprint' if tipo_col.lower() == 'sprint' else 'Normal'
-                if not nome_prova_bd and 'nome' in row.columns:
-                    nome_prova_bd = str(row.iloc[0]['nome']).strip()
-        if not nome_prova_bd and nome_prova:
-            nome_prova_bd = nome_prova
-
-        regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova)
-        ultimas_apostas = _get_resumo_ultimas_apostas(usuario_id, apostas_df)
-        cenario = _get_resumo_cenario_campeonato(resultados_df, provas_df)
-        contexto_ergast = _get_contexto_temporada_atual_ergast(
-            temporada=str(temporada or datetime.now().year),
-            nome_prova=nome_prova_bd or None,
-        )
-
-        resultado = _gerar_aposta_perplexity(
-            pilotos_df=pilotos_df,
-            regras=regras,
-            nome_prova=nome_prova_bd,
-            tipo_prova=tipo_prova,
-            ultimas_apostas=ultimas_apostas,
-            cenario=cenario,
-            contexto_ergast=contexto_ergast,
-        )
-        if resultado:
-            pilotos, fichas, piloto_11 = resultado
-            if _aposta_valida_regras(pilotos, fichas, piloto_11, pilotos_df, regras):
-                return pilotos, fichas, piloto_11
-
-        return gerar_aposta_aleatoria(pilotos_df)
-    except Exception as e:
-        logger.exception("Erro em gerar_aposta_estrategica: %s", e)
-        return None
-
-
-def calcular_pontuacao_lote(
-    apostas_df: pd.DataFrame,
-    resultados_df: pd.DataFrame,
-    provas_df: pd.DataFrame,
-    temporada_descarte: Optional[str] = None,
-) -> list[Optional[float]]:
-    """Calcula a pontuação de cada aposta em apostas_df, retornando uma lista paralela.
-
-    Para apostas sem resultado cadastrado retorna None.
-    Aplica as regras vigentes (pontos_posicoes, pontos_11_colocado, penalidade_abandono,
-    pontos_dobrada, penalidade_auto_percent) de forma idêntica ao painel.
+def gerar_aposta_aleatoria_com_regras(pilotos_df, regras: dict):
+    """Gera aposta aleatória respeitando as regras (total de fichas, mínimo de pilotos, limite por piloto).
+    Considera possibilidade de mesma equipe quando necessário para atingir o número de pilotos requerido.
     """
-    pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
-    pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]
-    temporada = temporada_descarte or str(datetime.now().year)
+    import random
+    import math
+    if not pilotos_df.empty and 'status' in pilotos_df.columns:
+        pilotos_df = cast(pd.DataFrame, pilotos_df[pilotos_df['status'] == 'Ativo'])
+    if pilotos_df.empty:
+        return [], [], None
+    equipes_unicas = [e for e in pilotos_df['equipe'].unique().tolist() if e]
+    min_pilotos = int(regras.get('qtd_minima_pilotos') or regras.get('min_pilotos', 3))
+    qtd_fichas = int(regras.get('quantidade_fichas', 15))
+    fichas_max = int(regras.get('fichas_por_piloto', qtd_fichas))
+    permite_mesma_equipe = bool(regras.get('mesma_equipe', False))
 
-    resultado_list: list[Optional[float]] = []
+    # Quantidade mínima de pilotos para suportar o limite por piloto
+    pilotos_necessarios_por_cap = max(1, math.ceil(qtd_fichas / max(1, fichas_max)))
+    alvo_pilotos = max(min_pilotos, pilotos_necessarios_por_cap)
 
-    for _, aposta in apostas_df.iterrows():
-        try:
-            prova_id = aposta['prova_id']
-            prova_nome = aposta.get('nome_prova', '')
-            automatica = int(aposta.get('automatica', 0) or 0)
+    pilotos_sel = []
+    if len(equipes_unicas) >= alvo_pilotos:
+        # Escolhe equipes diferentes
+        equipes_selecionadas = random.sample(equipes_unicas, alvo_pilotos)
+        for equipe in equipes_selecionadas:
+            pilotos_equipe = pilotos_df[pilotos_df['equipe'] == equipe]['nome'].tolist()
+            if pilotos_equipe:
+                pilotos_sel.append(random.choice(pilotos_equipe))
+    else:
+        # Não há equipes suficientes; se permitido, escolhe pilotos adicionais de equipes repetidas
+        if not permite_mesma_equipe:
+            return [], [], None
+        # Primeiro pega um de cada equipe
+        for equipe in equipes_unicas:
+            pilotos_equipe = pilotos_df[pilotos_df['equipe'] == equipe]['nome'].tolist()
+            if pilotos_equipe:
+                pilotos_sel.append(random.choice(pilotos_equipe))
+        # Completa com pilotos aleatórios (permitindo 2 da mesma equipe)
+        todos_pilotos = pilotos_df['nome'].tolist()
+        safety = 10000
+        while len(pilotos_sel) < alvo_pilotos and safety > 0:
+            safety -= 1
+            candidato = random.choice(todos_pilotos)
+            if candidato not in pilotos_sel:
+                pilotos_sel.append(candidato)
+        if len(pilotos_sel) < alvo_pilotos:
+            return [], [], None
 
-            # Determinar tipo da prova
-            tipo_raw = 'Normal'
-            if not provas_df.empty:
-                prova_row = provas_df[provas_df['id'] == prova_id]
-                if not prova_row.empty:
-                    tipo_raw = prova_row.iloc[0].get('tipo', 'Normal') or 'Normal'
-            tipo_prova = 'Sprint' if str(tipo_raw).strip().lower() == 'sprint' or 'sprint' in str(prova_nome).lower() else 'Normal'
-            regras = get_regras_aplicaveis(temporada, tipo_prova)
+    # Distribuição de fichas obedecendo limite por piloto
+    num_pilotos = len(pilotos_sel)
+    fichas = [1] * num_pilotos
+    fichas_restantes = qtd_fichas - num_pilotos
+    if fichas_restantes < 0:
+        return [], [], None
+    safety = 10000
+    while fichas_restantes > 0 and safety > 0:
+        safety -= 1
+        idx = random.randint(0, num_pilotos - 1)
+        if fichas[idx] < fichas_max:
+            fichas[idx] += 1
+            fichas_restantes -= 1
+    if fichas_restantes > 0:
+        return [], [], None
 
-            # Pontos por posição
-            if tipo_prova == 'Sprint':
-                pontos_lista = regras.get('pontos_sprint_posicoes') or regras.get('pontos_posicoes') or pontos_sprint
-            else:
-                pontos_lista = regras.get('pontos_posicoes') or pontos_f1
-            n_pos = len(pontos_lista)
+    todos_pilotos = pilotos_df['nome'].tolist()
+    candidatos_11 = [p for p in todos_pilotos if p not in pilotos_sel]
+    piloto_11 = random.choice(candidatos_11) if candidatos_11 else random.choice(todos_pilotos)
 
-            # Resultado da prova
-            resultado_row = resultados_df[resultados_df['prova_id'] == prova_id]
-            if resultado_row.empty:
-                resultado_list.append(None)
-                continue
+    return pilotos_sel, fichas, piloto_11
 
-            try:
-                posicoes_dict = ast.literal_eval(str(resultado_row.iloc[0]['posicoes']))
-            except Exception:
-                posicoes_dict = {}
-
-            piloto_para_pos = {str(v).strip(): int(k) for k, v in posicoes_dict.items()}
-
-            pilotos_apostados = [p.strip() for p in str(aposta['pilotos']).split(',')]
-            fichas_apostadas = [int(f) for f in str(aposta['fichas']).split(',')]
-            piloto_11_apostado = str(aposta.get('piloto_11', '')).strip()
-
-            total_pontos = 0.0
-            for i in range(min(len(pilotos_apostados), len(fichas_apostadas))):
-                piloto = pilotos_apostados[i]
-                ficha = fichas_apostadas[i]
-                pos_real = piloto_para_pos.get(piloto)
-                if pos_real is not None and 1 <= pos_real <= n_pos:
-                    total_pontos += ficha * pontos_lista[pos_real - 1]
-
-            # Bônus 11º
-            bonus_11 = int(regras.get('pontos_11_colocado', 25) or 25)
-            piloto_11_real = str(posicoes_dict.get(11, '')).strip()
-            if piloto_11_apostado == piloto_11_real:
-                total_pontos += bonus_11
-
-            # Penalidade abandono
-            if regras.get('penalidade_abandono') and 'abandono_pilotos' in resultado_row.columns:
-                raw_aband = resultado_row.iloc[0].get('abandono_pilotos', '') or ''
-                abandonos = {p.strip() for p in str(raw_aband).split(',') if p.strip()}
-                if abandonos:
-                    num_aband = sum(1 for p in pilotos_apostados if p.strip() in abandonos)
-                    total_pontos -= int(regras.get('pontos_penalidade', 0)) * num_aband
-
-            # Pontos dobrados (sprint)
-            if tipo_prova == 'Sprint' and regras.get('pontos_dobrada'):
-                total_pontos *= 2
-
-            # Penalidade aposta automática (automatica >= 2)
-            if automatica >= 2:
-                penalidade_auto_percent = regras.get('penalidade_auto_percent', 20)
-                fator = max(0.0, 1.0 - float(penalidade_auto_percent) / 100.0)
-                total_pontos = round(total_pontos * fator, 2)
-
-            resultado_list.append(float(total_pontos))
-        except Exception as e:
-            logger.warning("calcular_pontuacao_lote: erro na aposta prova_id=%s: %s", aposta.get('prova_id'), e)
-            resultado_list.append(None)
-
-    return resultado_list
-
-
-def gerar_aposta_sem_ideias(
-    usuario_id: int,
-    prova_id: int,
-    nome_prova: str,
-    temporada: Optional[str] = None,
-) -> tuple[bool, str]:
-    """Gera e salva uma aposta estratégica (ou aleatória como fallback) para o usuário.
-
-    Chamado pelo botão 'Sem ideias' no painel do participante.
-    Retorna (True, mensagem_sucesso) ou (False, mensagem_erro).
+def ajustar_aposta_para_regras(pilotos: list[str], fichas: list[int], regras: dict, pilotos_df: pd.DataFrame):
+    """Ajusta uma aposta existente (copiada) para obedecer regras da temporada.
+    - Garante soma de fichas conforme regra
+    - Respeita limite por piloto
+    - Garante mínimo de pilotos (adicionando pilotos se necessário)
+    Retorna (pilotos_ajustados, fichas_ajustadas) ou ([], []) se não for possível.
     """
+    import math, random
+    if not pilotos:
+        return [], []
+    qtd_fichas = int(regras.get('quantidade_fichas', 15))
+    fichas_max = int(regras.get('fichas_por_piloto', qtd_fichas))
+    min_pilotos = int(regras.get('qtd_minima_pilotos') or regras.get('min_pilotos', 3))
+
+    # Normalizar tamanhos
+    n = min(len(pilotos), len(fichas))
+    pilotos = [p.strip() for p in pilotos[:n]]
+    fichas = [int(x) for x in fichas[:n]]
+    # Trocar zeros negativos por zero e tratar negativos
+    fichas = [max(0, x) for x in fichas]
+
+    # Garante mínimo de pilotos
+    if len(pilotos) < min_pilotos:
+        todos_pilotos = pilotos_df['nome'].tolist()
+        candidatos = [p for p in todos_pilotos if p not in set(pilotos)]
+        safety = 10000
+        while len(pilotos) < min_pilotos and candidatos and safety > 0:
+            safety -= 1
+            novo = random.choice(candidatos)
+            candidatos.remove(novo)
+            pilotos.append(novo)
+            fichas.append(0)
+        if len(pilotos) < min_pilotos:
+            return [], []
+
+    # Impõe limite por piloto
+    fichas = [min(x, fichas_max) for x in fichas]
+
+    soma = sum(fichas)
+    # Ajusta soma para o exigido
+    if soma > qtd_fichas:
+        # Reduz das maiores entradas primeiro
+        for _ in range(soma - qtd_fichas):
+            idx_max = max(range(len(fichas)), key=lambda i: fichas[i])
+            if fichas[idx_max] > 0:
+                fichas[idx_max] -= 1
+    elif soma < qtd_fichas:
+        # Aumenta respeitando limite por piloto
+        faltam = qtd_fichas - soma
+        safety = 100000
+        while faltam > 0 and safety > 0:
+            safety -= 1
+            idx = random.randint(0, len(fichas) - 1)
+            if fichas[idx] < fichas_max:
+                fichas[idx] += 1
+                faltam -= 1
+            # Se ficar travado por limite, tenta expandir pilotos
+            if safety % 1000 == 0 and faltam > 0:
+                todos_pilotos = pilotos_df['nome'].tolist()
+                candidatos = [p for p in todos_pilotos if p not in set(pilotos)]
+                if candidatos:
+                    novo = random.choice(candidatos)
+                    pilotos.append(novo)
+                    fichas.append(0)
+    # Validação final
+    if sum(fichas) != qtd_fichas or len(pilotos) < min_pilotos:
+        return [], []
+    return pilotos, fichas
+
+def _determinar_tipo_prova(prova_row: Union[pd.Series, dict], nome_prova: Optional[str]) -> str:
     try:
-        resultado = gerar_aposta_estrategica(
-            usuario_id=usuario_id,
-            prova_id=prova_id,
-            temporada=temporada,
-            nome_prova=nome_prova,
-        )
-        if not resultado:
-            return False, "Não foi possível gerar uma aposta automática. Tente novamente ou faça sua aposta manualmente."
-
-        pilotos_gerados, fichas_geradas, piloto_11_gerado = resultado
-
-        ok = salvar_aposta(
-            usuario_id=usuario_id,
-            prova_id=prova_id,
-            pilotos=pilotos_gerados,
-            fichas=fichas_geradas,
-            piloto_11=piloto_11_gerado,
-            nome_prova=nome_prova,
-            automatica=0,
-            temporada=temporada,
-            show_errors=False,
-        )
-        if ok:
-            pilotos_str = ', '.join(pilotos_gerados)
-            fichas_str = ', '.join(map(str, fichas_geradas))
-            return True, f"Aposta gerada e registrada! Pilotos: {pilotos_str} | Fichas: {fichas_str} | 11º: {piloto_11_gerado}"
+        if isinstance(prova_row, dict):
+            t = prova_row.get('tipo')
         else:
-            return False, "A aposta foi gerada mas não pôde ser salva. Verifique o horário limite ou tente manualmente."
+            t = prova_row['tipo'] if 'tipo' in prova_row and pd.notna(prova_row['tipo']) else None
+    except Exception:
+        t = None
+    if t and str(t).strip().lower() == 'sprint':
+        return 'Sprint'
+    if nome_prova and 'sprint' in str(nome_prova).lower():
+        return 'Sprint'
+    return 'Normal'
+
+def gerar_aposta_automatica(usuario_id, prova_id, nome_prova, apostas_df, provas_df, temporada=None):
+    try:
+        usuario_id = int(usuario_id)
+        prova_id = int(prova_id)
     except Exception as e:
-        logger.exception("Erro em gerar_aposta_sem_ideias usuario_id=%s prova_id=%s: %s", usuario_id, prova_id, e)
-        return False, "Erro interno ao gerar aposta automática. Tente novamente."
+        return False, f"IDs inválidos: {e}"
+        
+    prova_atual = provas_df[provas_df['id'] == prova_id]
+    if prova_atual.empty:
+        return False, "Prova não encontrada."
+        
+    tipo_prova = _determinar_tipo_prova(prova_atual.iloc[0], nome_prova)
+    regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova)
+    
+    aposta_existente = apostas_df[
+        (apostas_df["usuario_id"] == usuario_id) & 
+        (apostas_df["prova_id"] == prova_id) & 
+        ((apostas_df["automatica"].isnull()) | (apostas_df["automatica"] == 0))
+    ]
+    if not aposta_existente.empty:
+        return False, "Já existe aposta manual para esta prova."
+        
+    ap_ant = pd.DataFrame()
+    prova_id_min = None
+    try:
+        prova_id_min = int(provas_df['id'].min()) if not provas_df.empty else None
+    except Exception:
+        prova_id_min = None
+
+    # Encontrar a prova anterior pela data/horario (na mesma temporada)
+    try:
+        provas_tmp = provas_df.copy()
+        if 'data' in provas_tmp.columns:
+            provas_tmp['__data_dt'] = pd.to_datetime(provas_tmp['data'], errors='coerce')
+        else:
+            provas_tmp['__data_dt'] = pd.NaT
+        provas_tmp['__hora_str'] = provas_tmp.get('horario_prova', '00:00:00')
+        provas_tmp['__hora_dt'] = pd.to_datetime(provas_tmp['__hora_str'], format='%H:%M:%S', errors='coerce')
+        provas_tmp['__hora_dt'] = provas_tmp['__hora_dt'].fillna(
+            pd.to_datetime('00:00:00', format='%H:%M:%S')
+        )
+        provas_tmp['__prova_dt'] = provas_tmp['__data_dt'] + pd.to_timedelta(
+            provas_tmp['__hora_dt'].dt.hour, unit='h'
+        ) + pd.to_timedelta(
+            provas_tmp['__hora_dt'].dt.minute, unit='m'
+        ) + pd.to_timedelta(
+            provas_tmp['__hora_dt'].dt.second, unit='s'
+        )
+        provas_tmp = provas_tmp.sort_values(['__prova_dt', 'id'])
+
+        prova_atual_row = provas_tmp[provas_tmp['id'] == prova_id]
+        if not prova_atual_row.empty:
+            prova_atual_dt = prova_atual_row.iloc[0]['__prova_dt']
+            provas_anteriores = provas_tmp[provas_tmp['__prova_dt'] < prova_atual_dt]
+            if not provas_anteriores.empty:
+                prova_ant_id = int(provas_anteriores.iloc[-1]['id'])
+                ap_ant = apostas_df[
+                    (apostas_df['usuario_id'] == usuario_id) &
+                    (apostas_df['prova_id'] == prova_ant_id)
+                ]
+    except Exception:
+        ap_ant = pd.DataFrame()
+
+    if ap_ant.empty:
+        try:
+            provas_sorted = provas_df.sort_values('id')
+            prev_rows = provas_sorted[provas_sorted['id'] < prova_id]
+            if not prev_rows.empty:
+                prova_ant_id = int(prev_rows.iloc[-1]['id'])
+                ap_ant = apostas_df[
+                    (apostas_df['usuario_id'] == usuario_id) &
+                    (apostas_df['prova_id'] == prova_ant_id)
+                ]
+        except Exception:
+            ap_ant = pd.DataFrame()
+    
+    pilotos_df = get_pilotos_df()
+    if not pilotos_df.empty and 'status' in pilotos_df.columns:
+        pilotos_df = cast(pd.DataFrame, pilotos_df[pilotos_df['status'] == 'Ativo'])
+
+    if not ap_ant.empty:
+        ap_ant = ap_ant.iloc[0]
+        pilotos_ant = [p.strip() for p in ap_ant['pilotos'].split(",")]
+        fichas_ant = list(map(int, ap_ant['fichas'].split(",")))
+        piloto_11_ant = ap_ant['piloto_11'].strip()
+        # Ajustar aposta copiada para obedecer regras da prova atual (ex.: Sprint x Normal)
+        pilotos_aj, fichas_aj = ajustar_aposta_para_regras(pilotos_ant, fichas_ant, regras, pilotos_df)
+        if not pilotos_aj:
+            # Se não conseguir ajustar, gera aleatória com regras
+            pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria_com_regras(pilotos_df, regras)
+        else:
+            pilotos_ant, fichas_ant = pilotos_aj, fichas_aj
+    else:
+        # Gerar aleatoria apenas na primeira prova do campeonato
+        if prova_id_min is not None and prova_id != prova_id_min:
+            return False, "Sem aposta anterior para copiar. Gere apenas na primeira prova."
+        pilotos_ant, fichas_ant, piloto_11_ant = gerar_aposta_aleatoria_com_regras(pilotos_df, regras)
+        
+    if not pilotos_ant:
+        return False, "Não há dados válidos para gerar aposta automática."
+        
+    with db_connect() as conn:
+        c = conn.cursor()
+        c.execute('SELECT MAX(automatica) AS max_auto FROM apostas WHERE usuario_id=%s', (usuario_id,))
+        max_auto = c.fetchone()['max_auto'] or 0
+        nova_auto = 1 if max_auto is None else max_auto + 1
+        
+    sucesso = salvar_aposta(
+        usuario_id, prova_id, pilotos_ant, fichas_ant, piloto_11_ant, nome_prova,
+        automatica=nova_auto, temporada=temporada, show_errors=False,
+        permitir_salvar_tardia=True
+    )
+    
+    return (True, "Aposta automática gerada!") if sucesso else (False, "Falha ao salvar.")
+
+
+def gerar_aposta_sem_ideias(usuario_id, prova_id, nome_prova, temporada=None):
+    """Gera e efetiva aposta para o participante dentro do prazo, com tentativa estratégica via Perplexity e fallback aleatório seguro."""
+    try:
+        usuario_id = int(usuario_id)
+        prova_id = int(prova_id)
+    except Exception as e:
+        return False, f"IDs inválidos: {e}"
+
+    provas_df = get_provas_df(temporada)
+    prova_atual = provas_df[provas_df['id'] == prova_id]
+    if prova_atual.empty:
+        return False, "Prova não encontrada."
+
+    data_prova = str(prova_atual['data'].iloc[0])
+    horario_prova = str(prova_atual['horario_prova'].iloc[0])
+    pode, msg, _ = pode_fazer_aposta(data_prova, horario_prova)
+    if not pode:
+        return False, f"Aposta fora do prazo. {msg}"
+
+    tipo_prova = _determinar_tipo_prova(prova_atual.iloc[0], nome_prova)
+    regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova)
+
+    pilotos_df = get_pilotos_df()
+    if not pilotos_df.empty and 'status' in pilotos_df.columns:
+        pilotos_df = cast(pd.DataFrame, pilotos_df[pilotos_df['status'] == 'Ativo'])
+    if pilotos_df.empty:
+        return False, "Não há pilotos ativos para gerar aposta."
+
+    apostas_df = get_apostas_df(temporada)
+    resultados_df = get_resultados_df(temporada)
+    ultimas_apostas = _get_resumo_ultimas_apostas(usuario_id, apostas_df, limite=2)
+    cenario = _get_resumo_cenario_campeonato(resultados_df, provas_df, limite=2)
+    contexto_ergast = _get_contexto_temporada_atual_ergast(
+        temporada=str(temporada or datetime.now().year),
+        nome_prova=nome_prova,
+    )
+
+    origem = "aleatória"
+    sugestao = _gerar_aposta_perplexity(
+        pilotos_df,
+        regras,
+        nome_prova,
+        tipo_prova,
+        ultimas_apostas,
+        cenario,
+        contexto_ergast,
+    )
+    if sugestao:
+        pilotos_sel, fichas_sel, piloto_11_sel = sugestao
+        if _aposta_valida_regras(pilotos_sel, fichas_sel, piloto_11_sel, pilotos_df, regras):
+            origem = "estratégica"
+        else:
+            sugestao = None
+
+    if not sugestao:
+        pilotos_sel, fichas_sel, piloto_11_sel = gerar_aposta_aleatoria_com_regras(pilotos_df, regras)
+        if not pilotos_sel:
+            return False, "Não foi possível gerar aposta viável com as regras atuais."
+
+    ok = salvar_aposta(
+        usuario_id=usuario_id,
+        prova_id=prova_id,
+        pilotos=pilotos_sel,
+        fichas=fichas_sel,
+        piloto_11=piloto_11_sel,
+        nome_prova=nome_prova,
+        automatica=0,
+        temporada=temporada,
+        show_errors=False,
+        permitir_salvar_tardia=False,
+    )
+
+    if not ok:
+        return False, "Falha ao salvar aposta gerada."
+
+    if origem == "estratégica":
+        return True, "Aposta 'Sem ideias' gerada com estratégia assistida e registrada!"
+    return True, "Aposta 'Sem ideias' aleatória (fallback) registrada com sucesso!"
+
+def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
+    """
+    Calcula pontuação usando:
+    - Tabelas de pontos da REGRA (Normal/Sprint), com fallback FIA hardcoded
+    - Fichas DINÂMICAS da aposta do usuário
+    - Bônus 11º DINÂMICO da regra da temporada
+    - Penalidades DINÂMICAS das regras
+    
+    Fórmula: Pontos = (Pontos_Regra x Fichas) + Bônus_11º - Penalidades
+    """
+    import ast
+    
+    # Tabelas de pontos FIXAS da FIA
+    PONTOS_F1_NORMAL = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+    PONTOS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1]
+    
+    ress_map = {}
+    abandonos_map = {}
+    for _, r in res_df.iterrows():
+        try:
+            ress_map[r['prova_id']] = ast.literal_eval(r['posicoes'])
+        except Exception:
+            continue
+        # Ler lista de abandonos (comma-separated), se disponível
+        try:
+            if 'abandono_pilotos' in res_df.columns:
+                raw = r.get('abandono_pilotos', '')
+                if raw is None:
+                    raw = ''
+                # Normaliza string -> lista de nomes limpos
+                aband_list = [p.strip() for p in str(raw).split(',') if p and p.strip()]
+                abandonos_map[r['prova_id']] = set(aband_list)
+            else:
+                abandonos_map[r['prova_id']] = set()
+        except Exception:
+            abandonos_map[r['prova_id']] = set()
+    
+    # Mapear tipo de prova com fallback pelo nome (contém "Sprint")
+    tipos = []
+    if 'tipo' in prov_df.columns:
+        tipos = prov_df['tipo'].fillna('').astype(str).tolist()
+    else:
+        tipos = [''] * len(prov_df)
+    nomes = prov_df['nome'].fillna('').astype(str).tolist() if 'nome' in prov_df.columns else [''] * len(prov_df)
+    tipos_resolvidos = []
+    for i in range(len(prov_df)):
+        t = tipos[i].strip().lower()
+        n = nomes[i].strip().lower()
+        if t == 'sprint' or ('sprint' in n):
+            tipos_resolvidos.append('Sprint')
+        else:
+            tipos_resolvidos.append('Normal')
+    tipos_prova = dict(zip(prov_df['id'], tipos_resolvidos))
+    temporadas_prova = dict(zip(prov_df['id'], prov_df['temporada'] if 'temporada' in prov_df.columns else [str(datetime.now().year)]*len(prov_df)))
+    has_temp_aposta = 'temporada' in ap_df.columns
+    
+    pontos = []
+    for _, aposta in ap_df.iterrows():
+        prova_id = aposta['prova_id']
+        
+        if prova_id not in ress_map:
+            pontos.append(None)
+            continue
+        
+        res = ress_map[prova_id]
+        tipo = tipos_prova.get(prova_id, 'Normal')
+        temporada_aposta = None
+        if has_temp_aposta:
+            try:
+                temporada_aposta = aposta.get('temporada', None)
+            except Exception:
+                temporada_aposta = None
+        if temporada_aposta is not None and str(temporada_aposta).strip() != "" and not pd.isna(temporada_aposta):
+            temporada_prova = str(temporada_aposta)
+        else:
+            temporada_prova = temporadas_prova.get(prova_id, str(datetime.now().year))
+        
+        # Busca REGRAS DINÂMICAS da temporada (não altera pontos FIA)
+        regras = get_regras_aplicaveis(temporada_prova, tipo)
+        
+        # Seleciona tabela de pontos da REGRA.
+        # Corridas Sprint sempre usam a tabela de sprint; regra_sprint só afeta fichas/minimo, não a tabela.
+        if tipo == 'Sprint':
+            pontos_tabela = regras.get('pontos_sprint_posicoes') or regras.get('pontos_posicoes') or ([])
+            if not pontos_tabela:
+                pontos_tabela = PONTOS_SPRINT
+        else:
+            pontos_tabela = regras.get('pontos_posicoes') or ([])
+            if not pontos_tabela:
+                pontos_tabela = PONTOS_F1_NORMAL
+        n_posicoes = len(pontos_tabela)
+        
+        # Bônus 11º DINÂMICO da regra
+        bonus_11 = regras.get('pontos_11_colocado', 25)
+        
+        # Dados da aposta (fichas são DINÂMICAS - definidas pelo usuário)
+        pilotos = [p.strip() for p in aposta['pilotos'].split(",")]
+        fichas = list(map(int, aposta['fichas'].split(",")))  # DINÂMICO
+        piloto_11 = aposta['piloto_11']
+        automatica = int(aposta.get('automatica', 0))
+        
+        piloto_para_pos = {str(v).strip(): int(k) for k, v in res.items()}
+        
+        # Cálculo base: Pontos da Regra x Fichas (dinâmico)
+        # Observação: multiplicador de sprint será aplicado APÓS bônus e penalidades
+        pt = 0
+        for i in range(len(pilotos)):
+            piloto = pilotos[i]
+            ficha = fichas[i] if i < len(fichas) else 0
+            pos_real = piloto_para_pos.get(piloto, None)
+            
+            if pos_real is not None and 1 <= pos_real <= n_posicoes:
+                base = pontos_tabela[pos_real - 1]
+                pt += ficha * base
+        
+        # Bônus 11º colocado (DINÂMICO da regra)
+        piloto_11_real = res.get(11, "")
+        if piloto_11 == piloto_11_real:
+            pt += bonus_11
+        
+        # Penalidade por abandono (DINÂMICA da regra):
+        # Deduz `pontos_penalidade` por cada piloto apostado que esteja na lista de abandonos
+        if regras.get('penalidade_abandono'):
+            aband_prova = abandonos_map.get(prova_id, set())
+            if aband_prova:
+                # Conta apenas abandonos dentre os pilotos apostados (exclui palpite do 11º)
+                num_aband_apostados = sum(1 for p in pilotos if p in aband_prova)
+                deduz = regras.get('pontos_penalidade', 0) * num_aband_apostados
+                if deduz:
+                    pt -= deduz
+
+        # Aplicar multiplicador de sprint APÓS bônus e penalidades
+        if tipo == 'Sprint' and regras.get('pontos_dobrada'):
+            pt = pt * 2
+
+        # Penalidade apostas automáticas consecutivas (DINÂMICA)
+        if automatica >= 2:
+            penalidade_auto_percent = regras.get('penalidade_auto_percent', 20)
+            fator = max(0, 1 - (float(penalidade_auto_percent) / 100))
+            pt = round(pt * fator, 2)
+        
+        pontos.append(pt)
+    
+    return pontos
+
+def salvar_classificacao_prova(p_id, df_c, temp=None):
+    if temp is None:
+        temp = str(datetime.now().year)
+    
+    with db_connect() as conn:
+        c = conn.cursor()
+        cols = get_table_columns(conn, 'posicoes_participantes')
+        has_temporada = 'temporada' in cols
+        
+        # Safeguard: limpar entradas existentes para esta prova e temporada
+        if has_temporada:
+            c.execute('DELETE FROM posicoes_participantes WHERE prova_id=%s AND temporada=%s', (p_id, temp))
+        else:
+            c.execute('DELETE FROM posicoes_participantes WHERE prova_id=%s', (p_id,))
+        
+        for _, r in df_c.iterrows():
+            if has_temporada:
+                c.execute(
+                    'INSERT INTO posicoes_participantes (prova_id, usuario_id, posicao, pontos, temporada) VALUES (%s,%s,%s,%s,%s)',
+                    (p_id, int(r['usuario_id']), int(r['posicao']), float(r['pontos']), temp)
+                )
+            else:
+                c.execute(
+                    'INSERT INTO posicoes_participantes (prova_id, usuario_id, posicao, pontos) VALUES (%s,%s,%s,%s)',
+                    (p_id, int(r['usuario_id']), int(r['posicao']), float(r['pontos']))
+                )
+        conn.commit()
+
+def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
+    with db_connect() as conn:
+        usrs = cast(
+            pd.DataFrame,
+            pd.read_sql(
+                """
+                SELECT id
+                FROM usuarios
+                WHERE lower(trim(coalesce(status, ''))) = 'ativo'
+                """,
+                conn,
+            ),
+        )
+        provs = cast(pd.DataFrame, pd.read_sql('SELECT id, nome, data, tipo, temporada FROM provas', conn))
+        apts = cast(pd.DataFrame, pd.read_sql('SELECT usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, automatica, temporada FROM apostas', conn))
+        ress = cast(pd.DataFrame, pd.read_sql('SELECT prova_id, posicoes, abandono_pilotos FROM resultados', conn))
+        
+        import ast
+        # Se temporada for fornecida, processa apenas provas dessa temporada
+        if temporada and 'temporada' in provs.columns:
+            provs = provs[provs['temporada'] == temporada]
+
+        # Identificar primeira prova por temporada (quando disponível)
+        primeira_prova_por_temp = {}
+        if not provs.empty:
+            if 'temporada' in provs.columns and 'data' in provs.columns:
+                provs_dt = provs.copy()
+                provs_dt['__data_dt'] = pd.to_datetime(provs_dt['data'], errors='coerce')
+                for temp_val, grp in provs_dt.groupby('temporada'):
+                    grp = cast(pd.DataFrame, grp)
+                    grp = grp.sort_values(by=['__data_dt'])
+                    if not grp.empty:
+                        primeira_prova_por_temp[str(temp_val)] = int(grp.iloc[0]['id'])
+            elif 'data' in provs.columns:
+                provs_dt = cast(pd.DataFrame, provs.copy())
+                provs_dt['__data_dt'] = pd.to_datetime(provs_dt['data'], errors='coerce')
+                provs_dt = provs_dt.sort_values(by=['__data_dt'])
+                if not provs_dt.empty:
+                    primeira_prova_por_temp[str(datetime.now().year)] = int(provs_dt.iloc[0]['id'])
+            elif not provs.empty:
+                primeira_prova_por_temp[str(datetime.now().year)] = int(provs.iloc[0]['id'])
+        
+        for _, pr in provs.iterrows():
+            pid = pr['id']
+            if pid not in ress['prova_id'].values:
+                continue
+            
+            temporada_prova = pr.get('temporada', str(datetime.now().year))
+            aps = apts[apts['prova_id'] == pid]
+            # Filtra apostas pela temporada se a coluna existir
+            if 'temporada' in aps.columns:
+                aps = aps[(aps['temporada'] == temporada_prova) | (aps['temporada'].isna())]
+            if aps.empty:
+                continue
+                
+            res_row = ress[ress['prova_id'] == pid].iloc[0]
+            res_p = ast.literal_eval(res_row['posicoes'])
+            piloto_11_real = res_p.get(11, "")
+            
+            tab = []
+            first_no_base_flags = {}
+            for _, u in usrs.iterrows():
+                ap = aps[aps['usuario_id'] == u['id']]
+                
+                if ap.empty:
+                    pontos_val = 0
+                    data_envio = None
+                    acerto_11 = 0
+                    # Primeira prova sem base
+                    if str(pid) == str(primeira_prova_por_temp.get(str(temporada_prova), None)):
+                        first_no_base_flags[int(u['id'])] = True
+                else:
+                    p_list = calcular_pontuacao_lote(ap, ress, provs)
+                    pontos_val = sum(p_list) if p_list else 0
+                    data_envio = ap.iloc[0].get('data_envio', None)
+                    acerto_11 = 1 if ap.iloc[0]['piloto_11'] == piloto_11_real else 0
+                    # Primeira prova com aposta automática (sem base)
+                    if str(pid) == str(primeira_prova_por_temp.get(str(temporada_prova), None)):
+                        try:
+                            if int(ap.iloc[0].get('automatica', 0)) > 0:
+                                first_no_base_flags[int(u['id'])] = True
+                        except Exception:
+                            pass
+                
+                tab.append({
+                    'usuario_id': u['id'],
+                    'pontos': pontos_val,
+                    'data_envio': data_envio,
+                    'acerto_11': acerto_11
+                })
+
+            # Aplicar regra de 85% do pior pontuador na primeira corrida sem base
+            if first_no_base_flags:
+                try:
+                    pontos_validos = [
+                        t['pontos'] for t in tab
+                        if t['pontos'] is not None and not first_no_base_flags.get(int(t['usuario_id']), False)
+                    ]
+                    pior_pontuador = min(pontos_validos) if pontos_validos else 0
+                except Exception:
+                    pior_pontuador = 0
+                for t in tab:
+                    if first_no_base_flags.get(int(t['usuario_id']), False):
+                        t['pontos'] = round(pior_pontuador * 0.85, 2)
+            
+            df = pd.DataFrame(tab)
+            df['data_envio'] = pd.to_datetime(df['data_envio'], errors='coerce')
+            df = df.sort_values(
+                by=['pontos', 'acerto_11', 'data_envio'],
+                ascending=[False, False, True]
+            ).reset_index(drop=True)
+            df['posicao'] = df.index + 1
+            salvar_classificacao_prova(pid, df, temporada_prova)
