@@ -1,4 +1,6 @@
 import io
+import ast
+import json
 import os
 import re
 import shutil
@@ -160,6 +162,9 @@ def _sql_literal(value: Any) -> str:
         return "TRUE" if value else "FALSE"
     if isinstance(value, (int, float)):
         return str(value)
+    if isinstance(value, (dict, list, tuple)):
+        text = json.dumps(value, ensure_ascii=False).replace("'", "''")
+        return f"'{text}'"
     text = str(value).replace("'", "''")
     return f"'{text}'"
 
@@ -446,6 +451,152 @@ def _extract_insert_table(statement: str) -> str | None:
         return None
 
 
+def _extract_insert_columns(statement: str) -> list[str] | None:
+    match = re.match(
+        r'^\s*INSERT\s+INTO\s+"?[A-Za-z_][A-Za-z0-9_]*"?\s*\((.*?)\)\s+VALUES\s*\(',
+        statement,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not match:
+        return None
+
+    raw_cols = match.group(1) or ""
+    cols = _split_sql_csv(raw_cols)
+    out: list[str] = []
+    for col in cols:
+        col_name = (col or "").strip().strip('"')
+        if not col_name:
+            return None
+        try:
+            out.append(_sanitize_identifier(col_name))
+        except ValueError:
+            return None
+    return out
+
+
+def _extract_values_payload(statement: str) -> str | None:
+    match = re.match(
+        r'^\s*INSERT\s+INTO\s+"?[A-Za-z_][A-Za-z0-9_]*"?\s*\(.*?\)\s+VALUES\s*\((.*)\)\s*$',
+        statement,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not match:
+        return None
+    return match.group(1)
+
+
+def _split_sql_csv(content: str) -> list[str]:
+    parts: list[str] = []
+    current: list[str] = []
+    in_single = False
+    i = 0
+    while i < len(content):
+        ch = content[i]
+        if ch == "'":
+            if in_single and i + 1 < len(content) and content[i + 1] == "'":
+                current.append("''")
+                i += 2
+                continue
+            in_single = not in_single
+            current.append(ch)
+            i += 1
+            continue
+        if ch == "," and not in_single:
+            parts.append("".join(current).strip())
+            current = []
+            i += 1
+            continue
+
+        current.append(ch)
+        i += 1
+
+    tail = "".join(current).strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def _get_json_columns(conn, table_name: str) -> set[str]:
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = %s
+          AND data_type IN ('json', 'jsonb')
+        """,
+        (table_name,),
+    )
+    return {
+        str(r['column_name']).lower()
+        for r in (c.fetchall() or [])
+        if r and r['column_name']
+    }
+
+
+def _is_json_syntax_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "invalid input syntax for type json" in msg
+
+
+def _normalize_legacy_json_sql_literal(value_literal: str) -> str | None:
+    token = (value_literal or "").strip()
+    if len(token) < 2 or not (token.startswith("'") and token.endswith("'")):
+        return None
+
+    inner = token[1:-1].replace("''", "'").strip()
+    if not inner.startswith("{") and not inner.startswith("["):
+        return None
+
+    parsed = None
+    try:
+        parsed = json.loads(inner)
+    except Exception:
+        try:
+            parsed = ast.literal_eval(inner)
+        except Exception:
+            return None
+
+    fixed_json = json.dumps(parsed, ensure_ascii=False)
+    escaped = fixed_json.replace("'", "''")
+    return f"'{escaped}'"
+
+
+def _repair_insert_json_literals(conn, statement: str, table_name: str) -> str | None:
+    json_cols = _get_json_columns(conn, table_name)
+    if not json_cols:
+        return None
+
+    cols = _extract_insert_columns(statement)
+    payload = _extract_values_payload(statement)
+    if not cols or payload is None:
+        return None
+
+    values = _split_sql_csv(payload)
+    if len(cols) != len(values):
+        return None
+
+    changed = False
+    for idx, col in enumerate(cols):
+        if col.lower() not in json_cols:
+            continue
+        repaired = _normalize_legacy_json_sql_literal(values[idx])
+        if repaired and repaired != values[idx]:
+            values[idx] = repaired
+            changed = True
+
+    if not changed:
+        return None
+
+    return re.sub(
+        r'(\bVALUES\s*\().*(\)\s*$)',
+        lambda m: f"{m.group(1)}{', '.join(values)}{m.group(2)}",
+        statement,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+
 def _is_fk_violation_error(exc: Exception) -> bool:
     msg = str(exc).lower()
     return "violates foreign key constraint" in msg or "foreign key constraint" in msg
@@ -596,6 +747,14 @@ def restore_backup_from_sql(sql_content: str) -> bool:
                 ok_stmt, err_stmt = _execute_with_savepoint(c, stmt)
                 if ok_stmt:
                     continue
+
+                if insert_table and err_stmt and _is_json_syntax_error(err_stmt):
+                    repaired_stmt = _repair_insert_json_literals(conn, stmt, insert_table)
+                    if repaired_stmt and repaired_stmt != stmt:
+                        ok_repaired, err_repaired = _execute_with_savepoint(c, repaired_stmt)
+                        if ok_repaired:
+                            continue
+                        err_stmt = err_repaired if err_repaired else err_stmt
 
                 if insert_table and err_stmt and _is_fk_violation_error(err_stmt):
                     pending_fk_inserts.append((stmt, str(err_stmt)))
