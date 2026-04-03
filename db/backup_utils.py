@@ -824,6 +824,7 @@ def download_db() -> None:
         data=sql_content.encode("utf-8"),
         file_name=f"bf1_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql",
         mime="application/sql",
+        on_click="ignore",
         width="stretch",
     )
 
@@ -1178,6 +1179,7 @@ def download_tabela() -> None:
         data=buffer.getvalue(),
         file_name=f"{selected}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        on_click="ignore",
         width="stretch",
     )
 

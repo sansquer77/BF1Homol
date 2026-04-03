@@ -69,6 +69,7 @@ def download_db() -> None:
         data=sql_content.encode("utf-8"),
         file_name=f"bf1_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql",
         mime="application/sql",
+        on_click="ignore",
         width="stretch",
     )
 

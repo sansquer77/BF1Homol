@@ -177,7 +177,6 @@ def menu_master():
         "Backup dos Bancos de Dados",
         "Regulamento",
         "Sobre",
-        "Logout"
     ]
 
 def menu_admin():
@@ -197,7 +196,6 @@ def menu_admin():
         "Dashboard F1",
         "Regulamento",
         "Sobre",
-        "Logout"
     ]
 
 def menu_participante():
@@ -212,7 +210,6 @@ def menu_participante():
         "Dashboard F1",
         "Regulamento",
         "Sobre",
-        "Logout"
     ]
 
 
@@ -221,6 +218,7 @@ def grouped_menu_master():
         "Participante": [
             "Painel do Participante",
             _calendario_label(),
+            "Logout",
         ],
         "Operação": [
             "Gestão de Apostas",
@@ -246,7 +244,6 @@ def grouped_menu_master():
             "Backup dos Bancos de Dados",
             "Regulamento",
             "Sobre",
-            "Logout",
         ],
     }
 
@@ -256,6 +253,7 @@ def grouped_menu_admin():
         "Participante": [
             "Painel do Participante",
             _calendario_label(),
+            "Logout",
         ],
         "Operação": [
             "Gestão de Apostas",
@@ -277,7 +275,6 @@ def grouped_menu_admin():
         "Sistema": [
             "Regulamento",
             "Sobre",
-            "Logout",
         ],
     }
 
@@ -309,6 +306,38 @@ def _flatten_grouped_menu(grouped_menu: dict[str, list[str]]) -> list[str]:
     for items in grouped_menu.values():
         flattened.extend(items)
     return flattened
+
+
+def _normalize_grouped_menu(menu_items: list[str], grouped_menu: dict[str, list[str]]) -> tuple[list[str], dict[str, list[str]]]:
+    normalized_menu = {section: list(items) for section, items in grouped_menu.items()}
+
+    # Remove duplicatas mantendo a ordem por seção.
+    for section_name, items in normalized_menu.items():
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for item in items:
+            if item in seen:
+                continue
+            deduped.append(item)
+            seen.add(item)
+        normalized_menu[section_name] = deduped
+
+    has_logout = "Logout" in menu_items or any("Logout" in items for items in normalized_menu.values())
+    if has_logout:
+        for section_name, items in normalized_menu.items():
+            normalized_menu[section_name] = [item for item in items if item != "Logout"]
+
+        participante_items = normalized_menu.setdefault("Participante", [])
+        participante_items.append("Logout")
+
+    # Garante consistência entre menu linear e agrupado.
+    grouped_items = _flatten_grouped_menu(normalized_menu)
+    for item in menu_items:
+        if item not in grouped_items:
+            normalized_menu.setdefault("Outros", []).append(item)
+            grouped_items.append(item)
+
+    return _flatten_grouped_menu(normalized_menu), normalized_menu
 
 
 def _default_group_for_page(grouped_menu: dict[str, list[str]], page: str) -> str:
@@ -492,12 +521,7 @@ def sidebar_menu():
             grouped_menu = {"Acesso": menu_items}
             st.session_state["pagina"] = "Login"
 
-    # Garante consistencia entre menus linear e agrupado.
-    grouped_items = _flatten_grouped_menu(grouped_menu)
-    for item in menu_items:
-        if item not in grouped_items:
-            grouped_menu.setdefault("Outros", []).append(item)
-    menu_items = _flatten_grouped_menu(grouped_menu)
+    menu_items, grouped_menu = _normalize_grouped_menu(menu_items, grouped_menu)
 
     if "menu_lateral" in st.session_state and st.session_state["menu_lateral"] not in menu_items:
         del st.session_state["menu_lateral"]

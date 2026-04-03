@@ -176,6 +176,7 @@ def download_tabela() -> None:
 		data=buffer.getvalue(),
 		file_name=f"{selected}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
 		mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		on_click="ignore",
 		width="stretch",
 	)
 

@@ -443,7 +443,8 @@ def main():
         label="Baixar tabela da classificação (CSV)",
         data=csv_classificacao,
         file_name="classificacao_geral.csv",
-        mime="text/csv"
+        mime="text/csv",
+        on_click="ignore",
     )
 
     if perfil_usuario in ['admin', 'master']:
@@ -452,7 +453,8 @@ def main():
             label='Baixar imagem da tabela',
             data=imagem_buffer,
             file_name='classificacao_geral.png',
-            mime='image/png'
+            mime='image/png',
+            on_click="ignore",
         )
 
     st.subheader("Pontuação por Prova")
@@ -503,7 +505,8 @@ def main():
                     label=f"Baixar imagem da classificação da prova {prova_selecionada}",
                     data=imagem_buffer_prova,
                     file_name=f'classificacao_{prova_selecionada}.png',
-                    mime='image/png'
+                    mime='image/png',
+                    on_click="ignore",
                 )
             else:
                 st.warning("Prova selecionada não contém dados para gerar imagem.")
