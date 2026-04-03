@@ -89,8 +89,9 @@ def _plot_colunas(df: pd.DataFrame, x_col: str, y_col: str, title: str) -> None:
     st.plotly_chart(fig, width="stretch")
 
 
-def _is_participante() -> bool:
-    return str(st.session_state.get("user_role", "participante")).strip().lower() == "participante"
+def _is_restricted_individual_profile() -> bool:
+    role = str(st.session_state.get("user_role", "participante")).strip().lower()
+    return role in {"participante", "inativo"}
 
 
 def _get_logged_user_name() -> str:
@@ -309,9 +310,13 @@ def main():
     apostas_pilotos = get_apostas_por_piloto(season, participantes_df)
     df_11 = get_distribuicao_piloto_11(season, participantes_df)
 
-    participante_only_mode = _is_participante()
+    participante_only_mode = _is_restricted_individual_profile()
     participante_logado = _get_logged_user_name()
     participante_logado_id = _get_logged_user_id()
+
+    if participante_only_mode and not participante_logado and participante_logado_id is None:
+        st.warning("Não foi possível identificar o usuário logado para limitar as análises individuais.")
+        return
 
     def _apply_participante_scope(df: pd.DataFrame) -> pd.DataFrame:
         if df.empty:
