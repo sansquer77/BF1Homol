@@ -152,6 +152,8 @@ def participante_view():
                     temporada_default_aposta = st.session_state.get("aposta_default_temporada")
                     prova_atual_sel = st.session_state.get("sel_prova_aposta")
 
+                    st.markdown("### Etapa 1 de 3 - Selecione a prova")
+
                     if proxima_prova_id is not None:
                         if temporada_default_aposta != temporada:
                             st.session_state["sel_prova_aposta"] = proxima_prova_id
@@ -240,6 +242,7 @@ def participante_view():
                             for msg in erros_atuais:
                                 st.error(msg)
 
+                    st.markdown("### Etapa 2 de 3 - Monte sua aposta")
                     st.write(
                         f"Escolha seus pilotos e distribua suas fichas entre eles de acordo com as regras "
                         f"(mínimo de {min_pilotos_regra} pilotos com fichas > 0)."
@@ -320,6 +323,9 @@ def participante_view():
                         unsafe_allow_html=True,
                     )
 
+                    passo2_ok = total_ok and len(pilotos_com_ficha) >= min_pilotos_regra
+                    st.progress(1.0 if passo2_ok else 0.67, text="Progresso do preenchimento")
+
                     pilotos_11_opcoes = [p for p in pilotos if p not in pilotos_validos]
                     if not pilotos_11_opcoes:
                         pilotos_11_opcoes = pilotos
@@ -329,6 +335,12 @@ def participante_view():
                     piloto_11 = st.selectbox(
                         "Palpite para 11º colocado", pilotos_11_opcoes,
                         key="piloto_11"
+                    )
+
+                    st.markdown("### Etapa 3 de 3 - Revise e confirme")
+                    st.caption(
+                        f"Resumo rapido: {len(pilotos_com_ficha)} pilotos com fichas, "
+                        f"total {total_fichas}/{quantidade_fichas}, 11o: {piloto_11}."
                     )
 
                     if st.button("Efetivar Aposta"):

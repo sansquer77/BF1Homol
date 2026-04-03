@@ -215,6 +215,108 @@ def menu_participante():
         "Logout"
     ]
 
+
+def grouped_menu_master():
+    return {
+        "Participante": [
+            "Painel do Participante",
+            _calendario_label(),
+        ],
+        "Operação": [
+            "Gestão de Apostas",
+            "Atualização de resultados",
+            "Apostas Campeonato",
+            "Resultado Campeonato",
+        ],
+        "Gestão": [
+            "Gestão de Usuários",
+            "Gestão de Pilotos",
+            "Gestão de Provas",
+            "Gestão de Regras",
+        ],
+        "Monitoramento": [
+            "Análise de Apostas",
+            "Log de Apostas",
+            "Log de Acessos",
+            "Classificação",
+            "Hall da Fama",
+            "Dashboard F1",
+        ],
+        "Sistema": [
+            "Backup dos Bancos de Dados",
+            "Regulamento",
+            "Sobre",
+            "Logout",
+        ],
+    }
+
+
+def grouped_menu_admin():
+    return {
+        "Participante": [
+            "Painel do Participante",
+            _calendario_label(),
+        ],
+        "Operação": [
+            "Gestão de Apostas",
+            "Atualização de resultados",
+            "Apostas Campeonato",
+            "Resultado Campeonato",
+        ],
+        "Gestão": [
+            "Gestão de Pilotos",
+            "Gestão de Provas",
+        ],
+        "Monitoramento": [
+            "Análise de Apostas",
+            "Log de Apostas",
+            "Classificação",
+            "Hall da Fama",
+            "Dashboard F1",
+        ],
+        "Sistema": [
+            "Regulamento",
+            "Sobre",
+            "Logout",
+        ],
+    }
+
+
+def grouped_menu_participante():
+    return {
+        "Participante": [
+            "Painel do Participante",
+            _calendario_label(),
+        ],
+        "Acompanhamento": [
+            "Apostas Campeonato",
+            "Análise de Apostas",
+            "Log de Apostas",
+            "Classificação",
+            "Hall da Fama",
+            "Dashboard F1",
+        ],
+        "Sistema": [
+            "Regulamento",
+            "Sobre",
+            "Logout",
+        ],
+    }
+
+
+def _flatten_grouped_menu(grouped_menu: dict[str, list[str]]) -> list[str]:
+    flattened: list[str] = []
+    for items in grouped_menu.values():
+        flattened.extend(items)
+    return flattened
+
+
+def _default_group_for_page(grouped_menu: dict[str, list[str]], page: str) -> str:
+    for section_name, items in grouped_menu.items():
+        if page in items:
+            return section_name
+    return next(iter(grouped_menu.keys()))
+
 def get_payload():
     token = st.session_state.get('token')
     if not token:
@@ -367,28 +469,71 @@ PAGES = {
 def sidebar_menu():
     token_ok = _sync_session_from_token()
     token = st.session_state.get("token")
+    profile_key = "anon"
     if not token:
         menu_items = ["Login"]
+        grouped_menu = {"Acesso": menu_items}
         st.session_state["pagina"] = "Login"
     else:
         perfil = st.session_state.get("user_role", "participante")
+        profile_key = str(perfil).strip().lower() or "participante"
         if perfil == "master":
             menu_items = menu_master()
+            grouped_menu = grouped_menu_master()
         elif perfil == "admin":
             menu_items = menu_admin()
+            grouped_menu = grouped_menu_admin()
         else:
             menu_items = menu_participante()
+            grouped_menu = grouped_menu_participante()
 
         if not token_ok:
             menu_items = ["Login"]
+            grouped_menu = {"Acesso": menu_items}
             st.session_state["pagina"] = "Login"
+
+    # Garante consistencia entre menus linear e agrupado.
+    grouped_items = _flatten_grouped_menu(grouped_menu)
+    for item in menu_items:
+        if item not in grouped_items:
+            grouped_menu.setdefault("Outros", []).append(item)
+    menu_items = _flatten_grouped_menu(grouped_menu)
 
     if "menu_lateral" in st.session_state and st.session_state["menu_lateral"] not in menu_items:
         del st.session_state["menu_lateral"]
     if st.session_state.get("pagina") not in menu_items:
         st.session_state["pagina"] = menu_items[0]
-    
-    escolha = st.sidebar.radio("Menu", menu_items, key="menu_lateral")
+
+    current_page = st.session_state.get("pagina", menu_items[0])
+    last_section_key = f"menu_secao_last_{profile_key}"
+    persisted_section = st.session_state.get(last_section_key)
+    default_section = persisted_section if persisted_section in grouped_menu else _default_group_for_page(grouped_menu, current_page)
+    section_names = list(grouped_menu.keys())
+    default_section_index = section_names.index(default_section) if default_section in section_names else 0
+
+    if "menu_secao" in st.session_state and st.session_state["menu_secao"] not in section_names:
+        del st.session_state["menu_secao"]
+
+    chosen_section = st.sidebar.selectbox(
+        "Seção",
+        section_names,
+        index=default_section_index,
+        key="menu_secao",
+    )
+    st.session_state[last_section_key] = chosen_section
+
+    section_items = grouped_menu.get(chosen_section, menu_items)
+    if "menu_lateral" in st.session_state and st.session_state["menu_lateral"] not in section_items:
+        del st.session_state["menu_lateral"]
+
+    section_default = current_page if current_page in section_items else section_items[0]
+    section_default_index = section_items.index(section_default)
+    escolha = st.sidebar.radio(
+        "Menu",
+        section_items,
+        index=section_default_index,
+        key="menu_lateral",
+    )
     st.session_state["pagina"] = escolha
 
 # ============ APP PRINCIPAL ============
