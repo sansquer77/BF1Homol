@@ -232,123 +232,45 @@ def check_password(plain: str, hashed: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def get_user_by_email(email: str) -> Optional[dict]:
-    with db_connect() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
-        row = cur.fetchone()
-        cur.close()
-        return dict(row) if row else None
+    from db.repo_users import get_user_by_email as _repo_get_user_by_email
+
+    return _repo_get_user_by_email(email)
 
 
 def get_user_by_id(user_id: int) -> Optional[dict]:
-    with db_connect() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM usuarios WHERE id = %s", (user_id,))
-        row = cur.fetchone()
-        cur.close()
-        return dict(row) if row else None
+    from db.repo_users import get_user_by_id as _repo_get_user_by_id
+
+    return _repo_get_user_by_id(user_id)
 
 
 def get_master_user() -> Optional[dict]:
-    with db_connect() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM usuarios WHERE perfil = 'master' LIMIT 1")
-        row = cur.fetchone()
-        cur.close()
-        return dict(row) if row else None
+    from db.repo_users import get_master_user as _repo_get_master_user
+
+    return _repo_get_master_user()
 
 
 def cadastrar_usuario(nome: str, email: str, senha: str, perfil: str = "participante") -> bool:
-    """Cria novo usuário. Inclui faltas=0 defensivamente se a coluna existir no banco real."""
-    try:
-        hashed = hash_password(senha)
-        with db_connect() as conn:
-            cur = conn.cursor()
-            cols = get_table_columns(conn, 'usuarios')
-            if 'faltas' in cols:
-                cur.execute(
-                    "INSERT INTO usuarios (nome, email, senha_hash, perfil, faltas) VALUES (%s, %s, %s, %s, %s)",
-                    (nome, email, hashed, perfil, 0),
-                )
-            else:
-                cur.execute(
-                    "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)",
-                    (nome, email, hashed, perfil),
-                )
-            cur.close()
-            conn.commit()
-        return True
-    except Exception as exc:
-        logger.warning("cadastrar_usuario falhou: %s", exc)
-        return False
+    from db.repo_users import cadastrar_usuario as _repo_cadastrar_usuario
+
+    return _repo_cadastrar_usuario(nome, email, senha, perfil)
 
 
 def autenticar_usuario(email: str, senha: str) -> Optional[dict]:
-    # fix(crítico): coluna real é `senha_hash` — alinhado com dump de produção
-    user = get_user_by_email(email)
-    if user and check_password(senha, user["senha_hash"]):
-        return user
-    return None
+    from db.repo_users import autenticar_usuario as _repo_autenticar_usuario
+
+    return _repo_autenticar_usuario(email, senha)
 
 
 def update_user_email(user_id: int, novo_email: str) -> bool:
-    """Atualiza o email do usuário."""
-    try:
-        with db_connect() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                "UPDATE usuarios SET email = %s WHERE id = %s",
-                (novo_email, user_id),
-            )
-            cur.close()
-            conn.commit()
-        logger.info("Email do usuário %s atualizado", user_id)
-        return True
-    except Exception as exc:
-        logger.error("Erro ao atualizar email: %s", exc)
-        return False
+    from db.repo_users import update_user_email as _repo_update_user_email
+
+    return _repo_update_user_email(user_id, novo_email)
 
 
 def update_user_password(user_id: int, nova_senha: str, must_change_password: bool = False) -> bool:
-    """Atualiza a senha do usuário (aceita plain-text ou hash já computado)."""
-    try:
-        if isinstance(nova_senha, str) and nova_senha.startswith("$2"):
-            senha_hash = nova_senha
-        else:
-            senha_hash = hash_password(nova_senha)
-        with db_connect() as conn:
-            cur = conn.cursor()
-            cols = get_table_columns(conn, "usuarios")
-            if "must_change_password" in cols:
-                cur.execute(
-                    """
-                    SELECT data_type
-                    FROM information_schema.columns
-                    WHERE table_schema = 'public'
-                      AND table_name = 'usuarios'
-                      AND column_name = 'must_change_password'
-                    """
-                )
-                row = cur.fetchone() or {}
-                data_type = str(row.get("data_type", "")).strip().lower()
-                must_change_value = bool(must_change_password) if data_type == "boolean" else (1 if must_change_password else 0)
-                cur.execute(
-                    # fix(crítico): SET senha_hash (era SET senha — nome errado)
-                    "UPDATE usuarios SET senha_hash = %s, must_change_password = %s WHERE id = %s",
-                    (senha_hash, must_change_value, user_id),
-                )
-            else:
-                cur.execute(
-                    "UPDATE usuarios SET senha_hash = %s WHERE id = %s",
-                    (senha_hash, user_id),
-                )
-            cur.close()
-            conn.commit()
-        logger.info("Senha do usuário %s atualizada", user_id)
-        return True
-    except Exception as exc:
-        logger.error("Erro ao atualizar senha: %s", exc)
-        return False
+    from db.repo_users import update_user_password as _repo_update_user_password
+
+    return _repo_update_user_password(user_id, nova_senha, must_change_password)
 
 
 def update_usuario(user_id: int, **campos) -> bool:
@@ -398,7 +320,9 @@ def delete_usuario(user_id: int) -> bool:
 # ---------------------------------------------------------------------------
 
 def get_usuarios_df() -> pd.DataFrame:
-    return _query_to_df("SELECT * FROM usuarios")
+    from db.repo_users import get_usuarios_df as _repo_get_usuarios_df
+
+    return _repo_get_usuarios_df()
 
 
 def get_pilotos_df() -> pd.DataFrame:
@@ -406,71 +330,21 @@ def get_pilotos_df() -> pd.DataFrame:
 
 
 def get_provas_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    # fix(item 3): ordena por data ASC, id ASC para garantir ordem cronológica
-    # em todos os módulos que consomem get_provas_df diretamente
-    # (ex: gestao_provas.py), sem depender de _ordenar_provas_por_calendario.
-    # Inclui provas sem temporada definida (temporada IS NULL).
-    if temporada:
-        return _query_to_df(
-            "SELECT * FROM provas WHERE temporada = %s OR temporada IS NULL "
-            "ORDER BY data ASC, id ASC",
-            (temporada,),
-        )
-    return _query_to_df("SELECT * FROM provas ORDER BY data ASC, id ASC")
+    from db.repo_races import get_provas_df as _repo_get_provas_df
+
+    return _repo_get_provas_df(temporada)
 
 
 def get_apostas_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    if temporada:
-        return _query_to_df(
-            "SELECT * FROM apostas WHERE temporada = %s",
-            (temporada,),
-        )
-    return _query_to_df("SELECT * FROM apostas")
+    from db.repo_bets import get_apostas_df as _repo_get_apostas_df
+
+    return _repo_get_apostas_df(temporada)
 
 
 def get_resultados_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    """
-    Retorna DataFrame de resultados.
-    Inclui posicoes_jsonb e abandono_arr quando existirem na tabela.
+    from db.repo_races import get_resultados_df as _repo_get_resultados_df
 
-    fix: toda a lógica (inspeção de colunas + query) ocorre dentro de uma
-    única conexão, eliminando a dupla abertura do pool que existia antes.
-    """
-    with db_connect() as conn:
-        cols = get_table_columns(conn, "resultados")
-
-        has_jsonb = "posicoes_jsonb" in cols
-        has_abandono_arr = "abandono_arr" in cols
-
-        extra = ""
-        if has_jsonb:
-            extra += ", posicoes_jsonb"
-        if has_abandono_arr:
-            extra += ", abandono_arr"
-
-        if temporada:
-            cur = conn.cursor()
-            cur.execute(
-                f"SELECT prova_id, posicoes, abandono_pilotos{extra} "
-                "FROM resultados "
-                "JOIN provas ON resultados.prova_id = provas.id "
-                "WHERE provas.temporada = %s OR provas.temporada IS NULL",
-                (temporada,),
-            )
-        else:
-            cur = conn.cursor()
-            cur.execute(
-                f"SELECT prova_id, posicoes, abandono_pilotos{extra} FROM resultados"
-            )
-
-        rows = cur.fetchall() or []
-        if not rows:
-            col_names = [desc[0] for desc in (cur.description or [])]
-            cur.close()
-            return pd.DataFrame(columns=col_names)
-        cur.close()
-
-    return pd.DataFrame([dict(r) for r in rows])
+    return _repo_get_resultados_df(temporada)
 
 
 def get_posicoes_participantes_df(temporada: Optional[str] = None) -> pd.DataFrame:
@@ -804,119 +678,12 @@ def registrar_historico_status_usuario(
 
 
 def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFrame:
-    """Retorna participantes ativos na temporada selecionada."""
-    if temporada is None:
-        temporada = str(datetime.now().year)
-    season_start = f"{temporada}-01-01 00:00:00"
-    season_end = f"{temporada}-12-31 23:59:59"
+    from db.repo_users import get_participantes_temporada_df as _repo_get_participantes_temporada_df
 
-    with db_connect() as conn:
-        has_hist = _usuarios_status_historico_exists(conn)
-        if not has_hist:
-            return _query_to_df("SELECT * FROM usuarios WHERE lower(trim(coalesce(status,''))) = 'ativo'")
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) AS cnt FROM usuarios_status_historico")
-        row = cur.fetchone()
-        cur.close()
-        if not row or int(row["cnt"]) == 0:
-            return _query_to_df("SELECT * FROM usuarios WHERE lower(trim(coalesce(status,''))) = 'ativo'")
-
-    df = _query_to_df(
-        """
-        SELECT DISTINCT u.*
-        FROM usuarios u
-        JOIN usuarios_status_historico h ON h.usuario_id = u.id
-        WHERE lower(trim(coalesce(h.status,''))) = 'ativo'
-          AND h.inicio_em <= %s
-          AND (h.fim_em IS NULL OR h.fim_em >= %s)
-        """,
-        (season_end, season_start),
-    )
-    if not df.empty:
-        return df
-    return _query_to_df("SELECT * FROM usuarios WHERE lower(trim(coalesce(status,''))) = 'ativo'")
+    return _repo_get_participantes_temporada_df(temporada)
 
 
 def get_usuario_temporadas_ativas(user_id: int) -> list[str]:
-    """Retorna temporadas em que o usuário esteve com status ativo."""
+    from db.repo_users import get_usuario_temporadas_ativas as _repo_get_usuario_temporadas_ativas
 
-    def _infer_por_atividade(user_id: int) -> list[str]:
-        temporadas: set[str] = set()
-        df = _query_to_df(
-            "SELECT DISTINCT trim(coalesce(temporada,'')) AS t FROM apostas "
-            "WHERE usuario_id = %s AND trim(coalesce(temporada,'')) <> ''",
-            (int(user_id),),
-        )
-        temporadas.update(df["t"].tolist() if not df.empty else [])
-
-        with db_connect() as conn:
-            log_cols = set(get_table_columns(conn, "log_apostas")) if table_exists(conn, "log_apostas") else set()
-        user_col = "usuario_id" if "usuario_id" in log_cols else ("user_id" if "user_id" in log_cols else None)
-        if user_col:
-            parts = []
-            if "temporada" in log_cols:
-                parts.append("NULLIF(trim(coalesce(temporada,'')),'')")
-            if "data" in log_cols:
-                parts.append("NULLIF(trim(substr(coalesce(data,''),1,4)),'')")
-            if parts:
-                df2 = _query_to_df(
-                    f"SELECT DISTINCT COALESCE({', '.join(parts)}) AS t "
-                    f"FROM log_apostas WHERE {user_col} = %s",
-                    (int(user_id),),
-                )
-                temporadas.update([v for v in df2["t"].tolist() if v] if not df2.empty else [])
-
-        with db_connect() as conn:
-            has_pos = table_exists(conn, "posicoes_participantes")
-        if has_pos:
-            df3 = _query_to_df(
-                "SELECT DISTINCT trim(coalesce(temporada,'')) AS t "
-                "FROM posicoes_participantes "
-                "WHERE usuario_id = %s AND trim(coalesce(temporada,'')) <> ''",
-                (int(user_id),),
-            )
-            temporadas.update(df3["t"].tolist() if not df3.empty else [])
-
-        return sorted(temporadas)
-
-    df_base = _query_to_df(
-        """
-        SELECT DISTINCT COALESCE(NULLIF(trim(temporada),''), substr(data,1,4)) AS t
-        FROM provas
-        WHERE COALESCE(NULLIF(trim(temporada),''), substr(data,1,4)) IS NOT NULL
-        ORDER BY t
-        """
-    )
-    temporadas_base = [str(v).strip() for v in df_base["t"].tolist() if v] if not df_base.empty else []
-    if not temporadas_base:
-        return []
-
-    with db_connect() as conn:
-        has_hist = _usuarios_status_historico_exists(conn)
-
-    if not has_hist:
-        user = get_user_by_id(int(user_id))
-        status = str(user.get("status", "")).strip().lower() if user else ""
-        if status == "ativo":
-            return temporadas_base
-        return _infer_por_atividade(int(user_id))
-
-    df_ativas = _query_to_df(
-        """
-        SELECT DISTINCT s.t
-        FROM (
-            SELECT COALESCE(NULLIF(trim(temporada),''), substr(data,1,4)) AS t
-            FROM provas
-        ) s
-        JOIN usuarios_status_historico h ON h.usuario_id = %s
-        WHERE lower(trim(coalesce(h.status,''))) = 'ativo'
-          AND h.inicio_em <= (s.t || '-12-31 23:59:59')::timestamp
-          AND (h.fim_em IS NULL OR h.fim_em >= (s.t || '-01-01 00:00:00')::timestamp)
-        ORDER BY s.t
-        """,
-        (int(user_id),),
-    )
-    if not df_ativas.empty:
-        return [str(v).strip() for v in df_ativas["t"].tolist() if v]
-
-    return _infer_por_atividade(int(user_id))
+    return _repo_get_usuario_temporadas_ativas(user_id)

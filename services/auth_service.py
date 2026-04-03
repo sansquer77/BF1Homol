@@ -11,9 +11,10 @@ try:
 except ImportError:
     stx = None
 
-# Funções de hash/check de senha - importadas de db_utils para evitar duplicação
-# Re-exportadas aqui para manter compatibilidade com módulos que importam de auth_service
-from db.db_utils import db_connect, get_table_columns, hash_password, check_password, get_user_by_id
+# Funções de auth/usuário importadas dos módulos focados de dados
+# para reduzir acoplamento com db_utils monolítico.
+from db.db_schema import db_connect, get_table_columns
+from db.repo_users import hash_password, check_password, get_user_by_id
 
 # Exportar explicitamente para manter compatibilidade
 __all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_token',
@@ -30,6 +31,22 @@ _JWT_SECRET_LOGGED = False
 _COOKIE_MANAGER_INSTANCE = None
 _COOKIE_MANAGER_KEY = "bf1_auth_cookie_manager"
 _FALLBACK_COOKIE_STORE: dict[str, str] = {}
+
+
+def _get_usuarios_password_column(conn) -> str:
+    """Resolve a coluna de senha da tabela usuarios, priorizando senha_hash."""
+    cols = get_table_columns(conn, "usuarios")
+    if "senha_hash" in cols:
+        return "senha_hash"
+    if "senha" in cols:
+        return "senha"
+    return "senha_hash"
+
+
+def _extract_password_hash(user_row: dict | None) -> str:
+    if not user_row:
+        return ""
+    return str(user_row.get("senha_hash") or user_row.get("senha") or "")
 
 
 def _get_session_store() -> dict:
@@ -142,10 +159,14 @@ JWT_EXP_MINUTES = 120
 def autenticar_usuario(email: str, senha: str):
     """Retorna o usuário autenticado (tupla de dados) ou None."""
     with db_connect() as conn:
+        pwd_col = _get_usuarios_password_column(conn)
         c = conn.cursor()
-        c.execute("SELECT id, nome, email, senha, perfil, status FROM usuarios WHERE email=%s", (email,))
+        c.execute(
+            f"SELECT id, nome, email, {pwd_col} AS senha_hash, perfil, status FROM usuarios WHERE email=%s",
+            (email,),
+        )
         user = c.fetchone()
-    if user and check_password(senha, user['senha']):
+    if user and check_password(senha, _extract_password_hash(user)):
         return user
     return None
 
@@ -184,16 +205,17 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
         with db_connect() as conn:
             c = conn.cursor()
             cols = get_table_columns(conn, 'usuarios')
+            pwd_col = _get_usuarios_password_column(conn)
             if 'faltas' in cols:
                 # Inserção compatível com PostgreSQL, retornando o id criado.
                 c.execute(
-                    'INSERT INTO usuarios (nome, email, senha, perfil, status, faltas) '
+                    f'INSERT INTO usuarios (nome, email, {pwd_col}, perfil, status, faltas) '
                     'VALUES (%s, %s, %s, %s, %s, %s) RETURNING id',
                     (nome, email, senha_hashed, perfil, status, 0)
                 )
             else:
                 c.execute(
-                    'INSERT INTO usuarios (nome, email, senha, perfil, status) '
+                    f'INSERT INTO usuarios (nome, email, {pwd_col}, perfil, status) '
                     'VALUES (%s, %s, %s, %s, %s) RETURNING id',
                     (nome, email, senha_hashed, perfil, status)
                 )
@@ -202,7 +224,7 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
             conn.commit()
         try:
             if isinstance(user_id, int):
-                from db.db_utils import registrar_historico_status_usuario
+                from db.repo_users import registrar_historico_status_usuario
                 registrar_historico_status_usuario(
                     user_id,
                     status,
@@ -220,9 +242,10 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
 # --- BUSCA DE USUÁRIOS ---
 def get_user_by_email(email: str):
     with db_connect() as conn:
+        pwd_col = _get_usuarios_password_column(conn)
         c = conn.cursor()
         c.execute(
-            "SELECT id, nome, email, senha, perfil, status FROM usuarios WHERE email=%s",
+            f"SELECT id, nome, email, {pwd_col} AS senha_hash, perfil, status FROM usuarios WHERE email=%s",
             (email,)
         )
         user = c.fetchone()
@@ -359,6 +382,7 @@ def redefinir_senha_com_token(email: str, token: str, nova_senha: str):
             return False, "Token inválido ou expirado."
 
         senha_hashed = hash_password(nova_senha)
+        pwd_col = _get_usuarios_password_column(conn)
         cols = get_table_columns(conn, 'usuarios')
         if 'must_change_password' in cols:
             c.execute(
@@ -374,11 +398,11 @@ def redefinir_senha_com_token(email: str, token: str, nova_senha: str):
             data_type = str(type_row.get('data_type', '')).strip().lower()
             must_change_value = False if data_type == 'boolean' else 0
             c.execute(
-                "UPDATE usuarios SET senha=%s, must_change_password=%s WHERE email=%s",
+                f"UPDATE usuarios SET {pwd_col}=%s, must_change_password=%s WHERE email=%s",
                 (senha_hashed, must_change_value, email),
             )
         else:
-            c.execute("UPDATE usuarios SET senha=%s WHERE email=%s", (senha_hashed, email))
+            c.execute(f"UPDATE usuarios SET {pwd_col}=%s WHERE email=%s", (senha_hashed, email))
 
         c.execute(
             "UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=%s",
@@ -404,6 +428,7 @@ def criar_master_se_nao_existir():
     if not (nome and email and senha):
         return
     with db_connect() as conn:
+        pwd_col = _get_usuarios_password_column(conn)
         c = conn.cursor()
         c.execute("SELECT COUNT(*) AS cnt FROM usuarios WHERE perfil = %s", ('master',))
         existe = c.fetchone()['cnt'] > 0
@@ -412,13 +437,13 @@ def criar_master_se_nao_existir():
             cols = get_table_columns(conn, 'usuarios')
             if 'faltas' in cols:
                 c.execute(
-                    "INSERT INTO usuarios (nome, email, senha, perfil, status, faltas) "
+                    f"INSERT INTO usuarios (nome, email, {pwd_col}, perfil, status, faltas) "
                     "VALUES (%s, %s, %s, %s, %s, %s)",
                     (nome, email, senha_hashed, 'master', 'Ativo', 0)
                 )
             else:
                 c.execute(
-                    "INSERT INTO usuarios (nome, email, senha, perfil, status) "
+                    f"INSERT INTO usuarios (nome, email, {pwd_col}, perfil, status) "
                     "VALUES (%s, %s, %s, %s, %s)",
                     (nome, email, senha_hashed, 'master', 'Ativo')
                 )

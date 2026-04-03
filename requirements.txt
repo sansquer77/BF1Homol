@@ -3,7 +3,6 @@
 
 # Core Framework
 streamlit>=1.55.0
-streamlit-option-menu>=0.3.0
 extra-streamlit-components>=0.1.56
 streamlit-calendar>=1.4.0
 
@@ -13,7 +12,6 @@ psycopg-pool>=3.2.0
 
 # Segurança
 bcrypt>=4.1.0
-cryptography>=41.0.0
 PyJWT>=2.8.0
 
 # Data Processing
@@ -24,18 +22,10 @@ pydantic>=2.9.0
 
 # Visualização
 plotly>=5.18.0
-altair>=5.2.0
 matplotlib>=3.8.0
 
 # Utilitários
-python-dotenv>=1.0.0
 requests>=2.31.0
-
-# FastF1 (opcional - para integração F1)
-FastF1>=3.7.0
-
-# Logging e Monitoring
-python-json-logger>=2.0.0
 
 # API Integration
 httpx>=0.25.0

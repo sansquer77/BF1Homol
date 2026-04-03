@@ -108,7 +108,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============ INICIALIZAÇÃO DO BANCO ============
-from db.db_utils import get_user_by_id, get_usuario_temporadas_ativas
+from db.repo_users import get_user_by_id, get_usuario_temporadas_ativas
 from db.migrations import run_migrations
 from db.master_user_manager import MasterUserManager
 
