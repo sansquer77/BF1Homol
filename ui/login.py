@@ -428,6 +428,7 @@ def login_view():
                 nome=usuario.get('nome'),
                 perfil=usuario.get('perfil'),
                 ip_address=client_ip,
+                detalhes="status=Inativo" if (status_usuario != 'ativo' or perfil_usuario == 'inativo') else None,
             )
 
             logger.info("Login bem-sucedido: %s perfil=%s status=%s", redact_identifier(email), usuario['perfil'], usuario.get('status', 'Ativo'))
