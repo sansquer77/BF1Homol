@@ -5,6 +5,7 @@ from db.repo_bets import get_participantes_temporada_df
 from db.repo_users import (
     get_usuarios_df,
     registrar_historico_status_usuario,
+    update_user_password,
     usuarios_status_historico_disponivel,
 )
 from services.auth_service import hash_password
@@ -236,18 +237,13 @@ def _render_gestao_usuarios_tab(perfil: str):
                     st.error("Digite a nova senha.")
                 else:
                     nova_hash = hash_password(nova_senha)
-                    with db_connect() as conn:
-                        c = conn.cursor()
-                        # fix: coluna correta é 'senha_hash' (DDL e banco de produção).
-                        # Antes usava 'senha', que não existe — UPDATE não afetava nenhuma linha.
-                        c.execute(
-                            "UPDATE usuarios SET senha_hash=%s, must_change_password=TRUE WHERE id=%s",
-                            (nova_hash, int(user_row["id"]))
-                        )
-                        conn.commit()
-                    st.success("Senha atualizada com sucesso! O usuário deverá trocar a senha no próximo acesso.")
-                    st.session_state["alterar_senha"] = False
-                    st.rerun()
+                    ok = update_user_password(int(user_row["id"]), nova_hash, must_change_password=True)
+                    if ok:
+                        st.success("Senha atualizada com sucesso! O usuário deverá trocar a senha no próximo acesso.")
+                        st.session_state["alterar_senha"] = False
+                        st.rerun()
+                    else:
+                        st.error("Não foi possível atualizar a senha deste usuário.")
             if st.button("Cancelar alteração de senha"):
                 st.session_state["alterar_senha"] = False
 

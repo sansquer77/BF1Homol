@@ -309,7 +309,7 @@ def update_user_email(user_id: int, novo_email: str) -> bool:
         return False
 
 
-def update_user_password(user_id: int, nova_senha: str) -> bool:
+def update_user_password(user_id: int, nova_senha: str, must_change_password: bool = False) -> bool:
     """Atualiza a senha do usuário (aceita plain-text ou hash já computado)."""
     try:
         if isinstance(nova_senha, str) and nova_senha.startswith("$2"):
@@ -321,9 +321,21 @@ def update_user_password(user_id: int, nova_senha: str) -> bool:
             cols = get_table_columns(conn, "usuarios")
             if "must_change_password" in cols:
                 cur.execute(
+                    """
+                    SELECT data_type
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                      AND table_name = 'usuarios'
+                      AND column_name = 'must_change_password'
+                    """
+                )
+                row = cur.fetchone() or {}
+                data_type = str(row.get("data_type", "")).strip().lower()
+                must_change_value = bool(must_change_password) if data_type == "boolean" else (1 if must_change_password else 0)
+                cur.execute(
                     # fix(crítico): SET senha_hash (era SET senha — nome errado)
-                    "UPDATE usuarios SET senha_hash = %s, must_change_password = FALSE WHERE id = %s",
-                    (senha_hash, user_id),
+                    "UPDATE usuarios SET senha_hash = %s, must_change_password = %s WHERE id = %s",
+                    (senha_hash, must_change_value, user_id),
                 )
             else:
                 cur.execute(

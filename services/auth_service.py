@@ -361,10 +361,21 @@ def redefinir_senha_com_token(email: str, token: str, nova_senha: str):
         senha_hashed = hash_password(nova_senha)
         cols = get_table_columns(conn, 'usuarios')
         if 'must_change_password' in cols:
-            # fix #2: usar FALSE (bool nativo PostgreSQL) em vez de 0 (int)
             c.execute(
-                "UPDATE usuarios SET senha=%s, must_change_password=FALSE WHERE email=%s",
-                (senha_hashed, email),
+                """
+                SELECT data_type
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'usuarios'
+                  AND column_name = 'must_change_password'
+                """
+            )
+            type_row = c.fetchone() or {}
+            data_type = str(type_row.get('data_type', '')).strip().lower()
+            must_change_value = False if data_type == 'boolean' else 0
+            c.execute(
+                "UPDATE usuarios SET senha=%s, must_change_password=%s WHERE email=%s",
+                (senha_hashed, must_change_value, email),
             )
         else:
             c.execute("UPDATE usuarios SET senha=%s WHERE email=%s", (senha_hashed, email))

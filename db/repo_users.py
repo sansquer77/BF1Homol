@@ -44,6 +44,27 @@ def _usuarios_status_historico_exists(conn) -> bool:
     return table_exists(conn, "usuarios_status_historico")
 
 
+def _must_change_password_db_value(conn, must_change: bool):
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT data_type
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'usuarios'
+          AND column_name = 'must_change_password'
+        """
+    )
+    row = cur.fetchone()
+    cur.close()
+    if not row:
+        return 1 if must_change else 0
+    data_type = str(row.get("data_type", "")).strip().lower()
+    if data_type == "boolean":
+        return bool(must_change)
+    return 1 if must_change else 0
+
+
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
@@ -130,7 +151,7 @@ def update_user_email(user_id: int, novo_email: str) -> bool:
         return False
 
 
-def update_user_password(user_id: int, nova_senha: str) -> bool:
+def update_user_password(user_id: int, nova_senha: str, must_change_password: bool = False) -> bool:
     try:
         if isinstance(nova_senha, str) and nova_senha.startswith("$2"):
             senha_hash = nova_senha
@@ -140,9 +161,10 @@ def update_user_password(user_id: int, nova_senha: str) -> bool:
             cur = conn.cursor()
             cols = get_table_columns(conn, "usuarios")
             if "must_change_password" in cols:
+                must_change_value = _must_change_password_db_value(conn, must_change_password)
                 cur.execute(
-                    "UPDATE usuarios SET senha_hash = %s, must_change_password = FALSE WHERE id = %s",
-                    (senha_hash, user_id),
+                    "UPDATE usuarios SET senha_hash = %s, must_change_password = %s WHERE id = %s",
+                    (senha_hash, must_change_value, user_id),
                 )
             else:
                 cur.execute(
