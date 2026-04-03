@@ -287,6 +287,8 @@ def grouped_menu_participante():
         "Participante": [
             "Painel do Participante",
             _calendario_label(),
+            "Regulamento",
+            "Logout",
         ],
         "Acompanhamento": [
             "Apostas Campeonato",
@@ -297,9 +299,7 @@ def grouped_menu_participante():
             "Dashboard F1",
         ],
         "Sistema": [
-            "Regulamento",
             "Sobre",
-            "Logout",
         ],
     }
 
