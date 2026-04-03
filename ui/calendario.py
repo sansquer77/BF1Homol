@@ -100,9 +100,10 @@ def main():
 
     temporada = st.selectbox("Temporada", temporadas, key="calendario_temporada")
 
-    provas_df = get_provas_df(temporada)
+    # Exibe calendário global com provas de todas as temporadas.
+    provas_df = get_provas_df()
     if provas_df.empty:
-        st.info("Nenhuma prova cadastrada para a temporada selecionada.")
+        st.info("Nenhuma prova cadastrada.")
         return
 
     df = provas_df.copy()
@@ -151,6 +152,15 @@ def main():
         now_dt = datetime.now()
 
         df_horario = df.copy()
+        if 'temporada' in df_horario.columns:
+            df_horario = df_horario[
+                df_horario['temporada'].astype(str).str.strip() == str(temporada).strip()
+            ]
+
+        if df_horario.empty:
+            st.info("Nenhuma prova cadastrada para a temporada selecionada.")
+            return
+
         df_horario["limite_dt"] = df_horario.apply(
             lambda row: _build_limite_datetime(row.get("data_dt"), row.get("horario_prova")),
             axis=1,
