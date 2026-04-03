@@ -369,31 +369,38 @@ def render_admin_panel(conn, seasons):
                 else:
                     errors = []
                     success_count = 0
-                    
+                    user_id_by_name = {
+                        str(row['nome']): int(row['id'])
+                        for _, row in usuarios[['id', 'nome']].iterrows()
+                    }
+                    batch_values = []
+
                     for entry in entries:
                         try:
-                            user_id = usuarios[usuarios['nome'] == entry['user']]['id'].values[0]
-                            user_id = int(user_id)  # Garantir tipo INTEGER para o banco
-                            
-                            # Check if record already exists
-                            c.execute(
-                                "SELECT id, posicao_final FROM hall_da_fama WHERE usuario_id = %s AND temporada = %s",
-                                (user_id, str(season_year))
+                            user_name = str(entry['user'])
+                            user_id = user_id_by_name.get(user_name)
+                            if not user_id:
+                                errors.append(f"❌ **{user_name}**: usuário não encontrado")
+                                continue
+
+                            batch_values.append(
+                                (user_id, int(entry['position']), float(entry.get('points', 0)), str(season_year))
                             )
-                            existing = c.fetchone()
-                            
-                            if existing:
-                                errors.append(f"⚠️ **{entry['user']}** já possui registro para {season_year}")
-                            else:
-                                c.execute(
-                                    """INSERT INTO hall_da_fama
-                                       (usuario_id, posicao_final, pontos, temporada)
-                                       VALUES (%s, %s, %s, %s)""",
-                                    (user_id, int(entry['position']), float(entry.get('points', 0)), str(season_year))
-                                )
-                                success_count += 1
                         except Exception as e:
                             errors.append(f"❌ **{entry['user']}**: {str(e)}")
+
+                    if batch_values:
+                        c.executemany(
+                            """
+                            INSERT INTO hall_da_fama (usuario_id, posicao_final, pontos, temporada)
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (usuario_id, temporada) DO UPDATE SET
+                                posicao_final = EXCLUDED.posicao_final,
+                                pontos = EXCLUDED.pontos
+                            """,
+                            batch_values,
+                        )
+                        success_count = len(batch_values)
                     
                     conn.commit()
                     
@@ -590,6 +597,7 @@ def import_historical_data(conn):
     progress_bar = st.progress(0)
     status_text = st.empty()
     
+    batch_values = []
     for idx, (temporada, usuario_id, posicao) in enumerate(historical_data):
         status_text.text(f"Processando {idx + 1}/{len(historical_data)}...")
         
@@ -601,29 +609,25 @@ def import_historical_data(conn):
 
         usuario_id = int(usuario_id)  # Garantir tipo INTEGER para o banco
         try:
-            # Check if record already exists
-            c.execute(
-                "SELECT id FROM hall_da_fama WHERE usuario_id = %s AND temporada = %s",
-                (usuario_id, str(temporada))
-            )
-            if c.fetchone():
-                skipped += 1
-                progress_bar.progress((idx + 1) / len(historical_data))
-                continue
-            
-            # Insert new record (SEM data_atualizacao)
-            c.execute(
-                """INSERT INTO hall_da_fama
-                   (usuario_id, posicao_final, pontos, temporada)
-                   VALUES (%s, %s, %s, %s)""",
-                (usuario_id, posicao, 0.0, str(temporada))
-            )
+            batch_values.append((usuario_id, int(posicao), 0.0, str(temporada)))
             imported += 1
         except Exception as e:
             errors.append(f"usuario_id={usuario_id}, temporada={temporada}: {str(e)}")
             skipped += 1
         
         progress_bar.progress((idx + 1) / len(historical_data))
+
+    if batch_values:
+        c.executemany(
+            """
+            INSERT INTO hall_da_fama (usuario_id, posicao_final, pontos, temporada)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (usuario_id, temporada) DO UPDATE SET
+                posicao_final = EXCLUDED.posicao_final,
+                pontos = EXCLUDED.pontos
+            """,
+            batch_values,
+        )
     
     conn.commit()
     progress_bar.empty()

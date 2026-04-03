@@ -84,15 +84,19 @@ def _salvar_pagamentos_temporada(temporada: str, pagamentos: dict[int, bool]) ->
     _ensure_gestao_financeira_table()
     with db_connect() as conn:
         c = conn.cursor()
-        for usuario_id, pago in pagamentos.items():
-            c.execute(
+        batch_values = [
+            (int(usuario_id), str(temporada), 1 if pago else 0)
+            for usuario_id, pago in pagamentos.items()
+        ]
+        if batch_values:
+            c.executemany(
                 '''
                 INSERT INTO financeiro_participantes (usuario_id, temporada, pago, atualizado_em)
                 VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
                 ON CONFLICT(usuario_id, temporada)
                 DO UPDATE SET pago = excluded.pago, atualizado_em = CURRENT_TIMESTAMP
                 ''',
-                (int(usuario_id), str(temporada), 1 if pago else 0)
+                batch_values,
             )
         conn.commit()
 

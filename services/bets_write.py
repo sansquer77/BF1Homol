@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import html
+import json
 import logging
 import math
+import os
 import random
 from datetime import datetime
 from typing import Callable, Optional, Union, cast
@@ -33,6 +35,32 @@ from utils.logging_utils import redact_identifier
 from utils.request_utils import get_client_ip
 
 logger = logging.getLogger(__name__)
+
+
+def _flag_true(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "sim"}
+
+
+def _telemetria_estimativa_ativa(regras: dict) -> bool:
+    if _flag_true(os.getenv("BF1_ESTIMATIVA_TELEMETRIA")):
+        return True
+    if not isinstance(regras, dict):
+        return False
+    return _flag_true(regras.get("telemetria_estimativa")) or _flag_true(regras.get("modo_telemetria"))
+
+
+def _assinatura_aposta_telemetria(
+    pilotos_validos: list[tuple[str, int]],
+    piloto_11: str,
+    tipo_prova: str,
+) -> str:
+    pilotos_partes = [f"{_norm_nome_piloto(p)}:{int(f)}" for p, f in pilotos_validos]
+    base = f"{tipo_prova}|{'|'.join(pilotos_partes)}|{_norm_nome_piloto(piloto_11)}"
+    return hashlib.sha256(base.encode("utf-8")).hexdigest()[:12]
 
 
 def gerar_aposta_aleatoria(pilotos_df):
@@ -115,6 +143,27 @@ def _estimar_pontos_aposta_ergast(
     fr11 = contexto_ergast.get("fr11", {}) if isinstance(contexto_ergast, dict) else {}
     dnf = contexto_ergast.get("dnf", {}) if isinstance(contexto_ergast, dict) else {}
 
+    # Parametros ajustaveis por regra para calibracao da estimativa
+    default_mu_weights = (0.45, 0.35, 0.20) if is_sprint else (0.40, 0.35, 0.25)
+    mu_weights_raw = regras.get("pesos_mu_sprint" if is_sprint else "pesos_mu_normal")
+    if isinstance(mu_weights_raw, dict):
+        w_qg = float(mu_weights_raw.get("qg", default_mu_weights[0]))
+        w_rp5 = float(mu_weights_raw.get("rp5", default_mu_weights[1]))
+        w_hc = float(mu_weights_raw.get("hc", default_mu_weights[2]))
+    elif isinstance(mu_weights_raw, (list, tuple)) and len(mu_weights_raw) == 3:
+        w_qg, w_rp5, w_hc = (float(mu_weights_raw[0]), float(mu_weights_raw[1]), float(mu_weights_raw[2]))
+    else:
+        w_qg, w_rp5, w_hc = default_mu_weights
+
+    soma_w = w_qg + w_rp5 + w_hc
+    if soma_w <= 0:
+        w_qg, w_rp5, w_hc = default_mu_weights
+        soma_w = w_qg + w_rp5 + w_hc
+    w_qg, w_rp5, w_hc = (w_qg / soma_w, w_rp5 / soma_w, w_hc / soma_w)
+
+    dnf_mu_penalty = float(regras.get("dnf_mu_penalty", 1.8 if is_sprint else 2.5))
+    dnf_points_penalty_scale = float(regras.get("dnf_points_penalty_scale", 0.75))
+
     pos_por_nome: dict[str, int] = {}
     for row in tp if isinstance(tp, list) else []:
         nome = _norm_nome_piloto(row.get("n"))
@@ -154,7 +203,9 @@ def _estimar_pontos_aposta_ergast(
         }
 
     prob_por_piloto: list[list[float]] = []
-    for piloto, _ in pilotos_validos:
+    dnf_rate_por_piloto: list[float] = []
+    telemetria_componentes_por_piloto: list[dict] = []
+    for piloto, ficha_i_int in pilotos_validos:
         nome_key = _norm_nome_piloto(piloto)
         base_rank = pos_por_nome.get(nome_key)
         delta = int(delta_por_nome.get(nome_key, 0))
@@ -182,11 +233,20 @@ def _estimar_pontos_aposta_ergast(
 
         componentes: list[tuple[float, float]] = []
         if qg_pos is not None and qg_pos > 0:
-            componentes.append((0.40, float(qg_pos)))
+            componentes.append((w_qg, float(qg_pos)))
         if rec5 is not None and rec5 > 0:
-            componentes.append((0.35, rec5))
+            componentes.append((w_rp5, rec5))
         if hist is not None and hist > 0:
-            componentes.append((0.25, hist))
+            componentes.append((w_hc, hist))
+
+        componentes_map: dict[str, Optional[float]] = {
+            "qg": float(qg_pos) if qg_pos is not None else None,
+            "rp5": float(rec5) if rec5 is not None else None,
+            "hc": float(hist) if hist is not None else None,
+            "base_rank": float(base_rank) if base_rank is not None else None,
+            "delta": float(delta),
+            "ajuste_vr": float(ajuste_vr),
+        }
 
         if componentes:
             soma_pesos = sum(w for w, _ in componentes)
@@ -204,7 +264,9 @@ def _estimar_pontos_aposta_ergast(
                 dnf_rate = float(dnf.get(nome_key, 0.0) or 0.0)
             except Exception:
                 dnf_rate = 0.0
-        mu += _clamp(dnf_rate, 0.0, 0.8) * 4.0
+        dnf_rate = _clamp(dnf_rate, 0.0, 0.8)
+        dnf_rate_por_piloto.append(dnf_rate)
+        mu += dnf_rate * dnf_mu_penalty
         mu = _clamp(mu, 1.0, float(n_pos))
 
         sigma = 1.9 if not is_sprint else 1.5
@@ -230,8 +292,22 @@ def _estimar_pontos_aposta_ergast(
             row = [v / s for v in row]
         prob_por_piloto.append(row)
 
+        componentes_map["mu_final"] = float(mu)
+        componentes_map["sigma"] = float(sigma)
+        componentes_map["dnf_rate"] = float(dnf_rate)
+        componentes_map["dnf_penalidade_mu"] = float(dnf_rate * dnf_mu_penalty)
+        telemetria_componentes_por_piloto.append(
+            {
+                "piloto": redact_identifier(piloto),
+                "fichas": int(ficha_i_int),
+                "componentes": componentes_map,
+            }
+        )
+
     pilotos_top = pilotos_validos[:n_pos]
     probs_top = prob_por_piloto[:n_pos]
+    dnf_rate_top = dnf_rate_por_piloto[:n_pos]
+    fator_dnf_top = [1.0 - _clamp(float(r) * dnf_points_penalty_scale, 0.0, 0.90) for r in dnf_rate_top]
     m = len(pilotos_top)
 
     dp: dict[tuple[int, int], tuple[float, list[int]]] = {(0, 0): (0.0, [])}
@@ -245,7 +321,9 @@ def _estimar_pontos_aposta_ergast(
                 if mask & bit:
                     continue
                 p = probs_top[i][pos0]
-                ganho = p
+                ficha_i = float(pilotos_top[i][1])
+                fator_dnf = float(fator_dnf_top[i]) if i < len(fator_dnf_top) else 1.0
+                ganho = p * float(pontos_lista[pos0]) * ficha_i * fator_dnf
                 chave = (i + 1, mask | bit)
                 atual = novo_dp.get(chave)
                 candidato = (score + ganho, escolha + [pos0 + 1])
@@ -272,20 +350,30 @@ def _estimar_pontos_aposta_ergast(
     pontos_estimados = 0.0
     detalhes_linhas: list[str] = []
     probs_media_simples: list[float] = []
-    for (piloto, ficha_i), pos_sel, row in zip(pilotos_top, melhor_escolha, probs_top):
+    probs_ponderadas_por_ficha: list[tuple[float, int]] = []
+    telemetria_posicoes: list[dict] = []
+    for idx, ((piloto, ficha_i), pos_sel, row) in enumerate(zip(pilotos_top, melhor_escolha, probs_top)):
         prob_sel = max(0.001, min(0.999, float(row[pos_sel - 1])))
-        nome_key = _norm_nome_piloto(piloto)
-        dnf_rate = 0.0
-        if isinstance(dnf, dict):
-            try:
-                dnf_rate = float(dnf.get(nome_key, 0.0) or 0.0)
-            except Exception:
-                dnf_rate = 0.0
-        fator_dnf = 1.0 - _clamp(dnf_rate, 0.0, 1.0)
-        pontos_estimados += float(pontos_lista[pos_sel - 1]) * float(ficha_i) * fator_dnf
+        dnf_rate = float(dnf_rate_top[idx]) if idx < len(dnf_rate_top) else 0.0
+        fator_dnf = float(fator_dnf_top[idx]) if idx < len(fator_dnf_top) else 1.0
+        pontos_base = float(pontos_lista[pos_sel - 1]) * float(ficha_i)
+        pontos_esperados = pontos_base * fator_dnf
+        pontos_estimados += pontos_esperados
         probs_media_simples.append(prob_sel)
+        probs_ponderadas_por_ficha.append((prob_sel, int(ficha_i)))
         detalhes_linhas.append(
             f"{piloto}: ficha={ficha_i}, pos~{pos_sel}, p={prob_sel:.3f}, dnf={dnf_rate:.2f}, fator_dnf={fator_dnf:.2f}"
+        )
+        telemetria_posicoes.append(
+            {
+                "piloto": redact_identifier(piloto),
+                "fichas": int(ficha_i),
+                "posicao_escolhida": int(pos_sel),
+                "prob_posicao": round(prob_sel, 4),
+                "fator_dnf": round(fator_dnf, 4),
+                "pontos_base": round(pontos_base, 3),
+                "pontos_esperados": round(pontos_esperados, 3),
+            }
         )
 
     bonus_11 = float(regras.get("pontos_11_colocado", 25) or 25)
@@ -308,18 +396,45 @@ def _estimar_pontos_aposta_ergast(
         except Exception:
             media_campo_11 = 0.05
 
+    # Sinal de circuito para P11: proximidade da media historica de chegada ao 11o.
+    circuito_prior = media_campo_11
+    if isinstance(hc, dict):
+        try:
+            hc_val = hc.get(p11_key)
+            if hc_val is not None:
+                hc_pos = float(hc_val)
+                proximidade_11 = 1.0 - _clamp(abs(hc_pos - 11.0) / 10.0, 0.0, 1.0)
+                circuito_prior = 0.02 + (0.18 * proximidade_11)
+        except Exception:
+            pass
+
+    # Sinal recente para P11: proximidade da media recente ao 11o.
+    recente_prior = media_campo_11
+    if isinstance(rp5, dict) and isinstance(rp5.get(p11_key), list):
+        try:
+            rp5_vals = [int(x) for x in rp5.get(p11_key, []) if int(x) > 0]
+            if rp5_vals:
+                rec_pos = float(sum(rp5_vals)) / float(len(rp5_vals))
+                proximidade_11 = 1.0 - _clamp(abs(rec_pos - 11.0) / 10.0, 0.0, 1.0)
+                recente_prior = 0.02 + (0.18 * proximidade_11)
+        except Exception:
+            pass
+
+    rank_prior = media_campo_11
+    if p11_pos is not None:
+        if p11_pos <= 5:
+            rank_prior = 0.03
+        elif p11_pos <= 8:
+            rank_prior = 0.06
+        elif p11_pos <= 14:
+            rank_prior = 0.11
+        else:
+            rank_prior = 0.09
+
     if freq_11 is not None:
-        chance_11 = _clamp(freq_11, 0.01, 0.35)
+        chance_11 = _clamp((0.55 * float(freq_11)) + (0.25 * circuito_prior) + (0.20 * recente_prior), 0.01, 0.40)
     else:
-        chance_11 = media_campo_11
-        if p11_pos is not None:
-            if p11_pos <= 5:
-                chance_11 *= 0.60
-            elif 8 <= p11_pos <= 14:
-                chance_11 *= 1.40
-            elif p11_pos >= 15:
-                chance_11 *= 1.20
-        chance_11 = _clamp(chance_11, 0.01, 0.35)
+        chance_11 = _clamp((0.45 * rank_prior) + (0.30 * circuito_prior) + (0.25 * recente_prior), 0.01, 0.35)
 
     bonus_11_estimado = bonus_11 * chance_11
 
@@ -349,8 +464,71 @@ def _estimar_pontos_aposta_ergast(
     conc_fichas = (fichas_em_top5 / soma_fichas) if soma_fichas > 0 else 0.0
 
     prob_media = (sum(probs_media_simples) / len(probs_media_simples)) if probs_media_simples else 0.0
-    indice = (0.35 * cob_sinal) + (0.25 * conc_fichas) + (0.40 * prob_media)
+    soma_fichas_prob = float(sum(f for _, f in probs_ponderadas_por_ficha)) if probs_ponderadas_por_ficha else 0.0
+    prob_media_ponderada = (
+        sum(float(p) * float(f) for p, f in probs_ponderadas_por_ficha) / soma_fichas_prob
+        if soma_fichas_prob > 0
+        else prob_media
+    )
+
+    if len(probs_media_simples) > 1:
+        media_prob = prob_media
+        std_prob = math.sqrt(sum((p - media_prob) ** 2 for p in probs_media_simples) / len(probs_media_simples))
+        consistencia_prob = 1.0 - _clamp(std_prob / 0.25, 0.0, 1.0)
+    else:
+        consistencia_prob = 0.5
+
+    conc_score = 1.0 - _clamp(abs(conc_fichas - 0.55) / 0.55, 0.0, 1.0)
+
+    indice = (
+        (0.45 * prob_media_ponderada)
+        + (0.30 * cob_sinal)
+        + (0.15 * consistencia_prob)
+        + (0.10 * conc_score)
+    )
     probabilidade_combinada = int(round(_clamp(indice, 0.0, 1.0) * 100.0))
+
+    if _telemetria_estimativa_ativa(regras):
+        payload = {
+            "evento": "estimativa_aposta",
+            "versao": 1,
+            "assinatura_aposta": _assinatura_aposta_telemetria(pilotos_validos, piloto_11, tipo_prova),
+            "tipo_prova": str(tipo_prova),
+            "n_pilotos": int(len(pilotos_validos)),
+            "pesos_mu": {
+                "qg": round(float(w_qg), 4),
+                "rp5": round(float(w_rp5), 4),
+                "hc": round(float(w_hc), 4),
+            },
+            "penalidades": {
+                "dnf_mu_penalty": round(float(dnf_mu_penalty), 4),
+                "dnf_points_penalty_scale": round(float(dnf_points_penalty_scale), 4),
+            },
+            "componentes_pilotos": telemetria_componentes_por_piloto,
+            "escolha_posicoes": telemetria_posicoes,
+            "sinais_11": {
+                "piloto_11": redact_identifier(piloto_11),
+                "freq_11": round(float(freq_11), 4) if freq_11 is not None else None,
+                "rank_prior": round(float(rank_prior), 4),
+                "circuito_prior": round(float(circuito_prior), 4),
+                "recente_prior": round(float(recente_prior), 4),
+                "chance_11": round(float(chance_11), 4),
+            },
+            "combinacao": {
+                "prob_media": round(float(prob_media), 4),
+                "prob_media_ponderada": round(float(prob_media_ponderada), 4),
+                "cob_sinal": round(float(cob_sinal), 4),
+                "consistencia_prob": round(float(consistencia_prob), 4),
+                "conc_score": round(float(conc_score), 4),
+                "indice": round(float(indice), 4),
+                "probabilidade_combinada": int(probabilidade_combinada),
+            },
+            "resultado": {
+                "pontos_estimados": round(float(pontos_estimados), 3),
+                "bonus_11_estimado": round(float(bonus_11_estimado), 3),
+            },
+        }
+        logger.info("TELEMETRIA_ESTIMATIVA %s", json.dumps(payload, sort_keys=True))
 
     return {
         "pontos_estimados": round(pontos_estimados, 1),

@@ -250,26 +250,28 @@ def _canonical_json(data: dict) -> str:
 def _reduce_context_for_limit(data: dict) -> dict:
     d = dict(data)
     erg = dict(d.get("erg", {}))
-    if "vr" in erg:
-        erg = dict(erg)
-        erg["vr"] = []
-        d["erg"] = erg
 
-    if "ua" in d:
-        d["ua"] = d.get("ua", [])[:1]
-    if "cz" in d:
-        d["cz"] = d.get("cz", [])[:1]
+    # Remove primeiro campos geralmente mais verbosos, preservando fr11
+    # (sinal chave para escolha do piloto_11).
+    for heavy_key in ("rp8", "hc", "vr"):
+        erg.pop(heavy_key, None)
 
-    erg2 = dict(d.get("erg", {}))
+    erg2 = dict(erg)
     if "tp" in erg2:
-        erg2["tp"] = erg2.get("tp", [])[:3]
+        erg2["tp"] = erg2.get("tp", [])[:5]
     if "tc" in erg2:
-        erg2["tc"] = erg2.get("tc", [])[:2]
+        erg2["tc"] = erg2.get("tc", [])[:3]
     du = dict(erg2.get("du", {}))
     if du:
-        du["top"] = du.get("top", [])[:2]
-        du["bot"] = du.get("bot", [])[:1]
+        du["top"] = du.get("top", [])[:3]
+        du["bot"] = du.get("bot", [])[:2]
         erg2["du"] = du
+
+    if "ua" in d:
+        d["ua"] = d.get("ua", [])[:2]
+    if "cz" in d:
+        d["cz"] = d.get("cz", [])[:2]
+
     d["erg"] = erg2
     return d
 
@@ -333,25 +335,57 @@ def _build_compact_prompt_payload(
     return _build_compact_json_with_meta(payload_data)
 
 
-def _validar_formato_json_resposta(parsed: dict) -> bool:
+def _validar_formato_json_resposta(
+    parsed: dict,
+    pilotos_disponiveis: list[str] | None = None,
+    qtd_fichas: int | None = None,
+    fichas_max: int | None = None,
+    min_pilotos: int = 1,
+) -> bool:
     if not isinstance(parsed, dict):
         return False
     expected = {"pilotos", "fichas", "piloto_11"}
     if set(parsed.keys()) != expected:
         return False
-    pilotos = parsed.get("pilotos")
-    fichas = parsed.get("fichas")
-    piloto_11 = parsed.get("piloto_11")
-    if not isinstance(pilotos, list) or not isinstance(fichas, list) or not isinstance(piloto_11, str):
+    pilotos = parsed.get("pilotos", [])
+    fichas = parsed.get("fichas", [])
+    piloto_11 = str(parsed.get("piloto_11", "")).strip()
+
+    if not isinstance(pilotos, list) or not isinstance(fichas, list):
         return False
-    if len(pilotos) == 0 or len(fichas) == 0 or len(pilotos) != len(fichas):
+    if len(pilotos) == 0 or len(pilotos) != len(fichas):
         return False
+    if len(pilotos) < int(min_pilotos):
+        return False
+    if not piloto_11:
+        return False
+
     try:
-        _ = [str(p).strip() for p in pilotos]
-        _ = [int(x) for x in fichas]
+        pilotos_norm = [str(p).strip() for p in pilotos]
+        fichas_int = [int(x) for x in fichas]
     except Exception:
         return False
-    return piloto_11.strip() != ""
+
+    if any(f <= 0 for f in fichas_int):
+        return False
+    if qtd_fichas is not None and sum(fichas_int) != int(qtd_fichas):
+        return False
+    if fichas_max is not None and any(f > int(fichas_max) for f in fichas_int):
+        return False
+
+    if len(set(p.lower() for p in pilotos_norm)) != len(pilotos_norm):
+        return False
+    if piloto_11.lower() in {p.lower() for p in pilotos_norm}:
+        return False
+
+    if pilotos_disponiveis:
+        pd_norm = {str(p).strip().lower() for p in pilotos_disponiveis}
+        if any(p.lower() not in pd_norm for p in pilotos_norm):
+            return False
+        if piloto_11.lower() not in pd_norm:
+            return False
+
+    return True
 
 
 def _gerar_aposta_perplexity(
@@ -399,15 +433,23 @@ def _gerar_aposta_perplexity(
     system_prompt = (
         "Você é um assistente de estratégia de bolão de F1. "
         "Responda apenas JSON válido, sem markdown. "
-        "Não invente pilotos fora da lista disponível. "
+        "Não invente pilotos fora da lista pd. "
         "Se houver incerteza, faça uma aposta conservadora e viável. "
         "Use criatividade controlada: varie escolhas e distribuição entre chamadas quando houver alternativas plausíveis, "
         "mas evite sugestões irreais. "
         "Priorize pilotos de melhor desempenho recente/classificação e só assuma risco moderado. "
         "Evite concentrar muitas fichas em pilotos de baixo desempenho. "
-        "Legenda das chaves do JSON de entrada: "
-        "alvo={nome,tipo}, pd=pilotos_disponiveis, rg={min,qf,fmax,me}, ua=ultimas_apostas, cz=cenario_local, "
-        "erg={src,s,tp,tc,du,vr}, tp={p,n,e,pt}, tc={p,n,pt}, du={top,bot}."
+        "Legenda: alvo={nome,tipo}, pd=pilotos_disponiveis, "
+        "rg={min=min_pilotos,qf=total_fichas,fmax=max_fichas_por_piloto,me=permite_mesma_equipe}, "
+        "ua=ultimas_apostas_do_usuario, cz=top3_resultados_recentes, "
+        "erg.tp=classificacao_pilotos[{p=posicao,n=nome,e=equipe,pt=pontos}], "
+        "erg.tc=classificacao_construtores, erg.du=delta_quali_corrida[top=ganhou,bot=perdeu], "
+        "erg.qg=grid_quali_ultima_corrida[nome:posicao], "
+        "erg.rp5/rp8=posicoes_ultimas_corridas[nome:[pos1,pos2,...]], "
+        "erg.hc=media_posicao_neste_circuito[nome:media], "
+        "erg.fr11=frequencia_P11[nome:0.0_a_1.0], "
+        "erg.dnf=taxa_abandono[nome:0.0_a_1.0]. "
+        "Priorize rp5, hc e tp. Use fr11 para piloto_11. Evite dnf alto."
     )
     user_prompt = (
         "Dados de entrada (JSON canônico compacto):\n"
@@ -439,7 +481,13 @@ def _gerar_aposta_perplexity(
         parsed = _extrair_json_texto(content)
         if not parsed:
             return None
-        if not _validar_formato_json_resposta(parsed):
+        if not _validar_formato_json_resposta(
+            parsed,
+            pilotos_disponiveis=pilotos_disponiveis,
+            qtd_fichas=qtd_fichas,
+            fichas_max=fichas_max,
+            min_pilotos=min_pilotos,
+        ):
             return None
         pilotos = [str(p).strip() for p in parsed.get("pilotos", []) if str(p).strip()]
         fichas = [int(x) for x in parsed.get("fichas", [])]

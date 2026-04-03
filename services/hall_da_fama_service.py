@@ -225,27 +225,40 @@ def importar_resultados_em_lote(dados: list) -> dict:
                         skipped += 1
                         continue
                     
-                    # Check if record already exists
-                    c.execute(
-                        "SELECT id FROM posicoes_participantes WHERE usuario_id = %s AND temporada = %s",
-                        (usuario_id, str(temporada))
-                    )
-                    if c.fetchone():
-                        skipped += 1
-                        continue
-                    
-                    # Insert new record
-                    c.execute(
-                        """INSERT INTO posicoes_participantes 
-                           (usuario_id, posicao, temporada, data_atualizacao) 
-                           VALUES (%s, %s, %s, %s)""",
-                        (usuario_id, int(posicao), str(temporada), datetime.now().isoformat())
-                    )
-                    imported += 1
+                    dados[idx] = {
+                        'usuario_id': int(usuario_id),
+                        'posicao': int(posicao),
+                        'temporada': str(temporada),
+                    }
                 
                 except Exception as e:
                     errors.append(f"Erro no item {idx}: {str(e)}")
                     skipped += 1
+
+            # Carrega chaves existentes em uma única leitura para evitar SELECT por item
+            c.execute("SELECT usuario_id, temporada FROM posicoes_participantes")
+            existing_keys = {(int(r['usuario_id']), str(r['temporada'])) for r in c.fetchall()}
+
+            now_iso = datetime.now().isoformat()
+            batch_values = []
+            for item in dados:
+                if not isinstance(item, dict) or 'usuario_id' not in item:
+                    continue
+                key = (item['usuario_id'], item['temporada'])
+                if key in existing_keys:
+                    skipped += 1
+                    continue
+                batch_values.append((item['usuario_id'], item['posicao'], item['temporada'], now_iso))
+                existing_keys.add(key)
+
+            if batch_values:
+                c.executemany(
+                    """INSERT INTO posicoes_participantes
+                       (usuario_id, posicao, temporada, data_atualizacao)
+                       VALUES (%s, %s, %s, %s)""",
+                    batch_values,
+                )
+                imported += len(batch_values)
             
             conn.commit()
             
