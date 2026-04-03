@@ -76,12 +76,29 @@ def main():
     render_page_header(st, "Calendário da Temporada")
 
     temporadas = get_season_options()
+    temporada_atual = str(datetime.now().year)
+    user_status = str(st.session_state.get("user_status", "")).strip().lower()
+    if user_status and user_status != "ativo":
+        if temporada_atual not in temporadas:
+            temporadas = sorted(set([*temporadas, temporada_atual]))
+
     if not temporadas:
         st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
         return
-    default_index = get_default_season_index(temporadas)
 
-    temporada = st.selectbox("Temporada", temporadas, index=default_index, key="calendario_temporada")
+    entering_calendar_page = st.session_state.get("_previous_page") != st.session_state.get("_current_page")
+    selected_temporada = st.session_state.get("calendario_temporada")
+
+    if entering_calendar_page and temporada_atual in temporadas:
+        st.session_state["calendario_temporada"] = temporada_atual
+    elif selected_temporada not in temporadas:
+        if temporada_atual in temporadas:
+            st.session_state["calendario_temporada"] = temporada_atual
+        else:
+            default_index = get_default_season_index(temporadas)
+            st.session_state["calendario_temporada"] = temporadas[default_index]
+
+    temporada = st.selectbox("Temporada", temporadas, key="calendario_temporada")
 
     provas_df = get_provas_df(temporada)
     if provas_df.empty:

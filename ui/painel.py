@@ -62,8 +62,14 @@ def participante_view():
         season = st.selectbox("Temporada", season_options, index=default_index)
         st.session_state['temporada'] = season
     else:
-        season = st.session_state.get('temporada', str(now_sao_paulo().year))
-        if is_inactive_profile:
+        allowed_seasons = [str(s).strip() for s in (st.session_state.get("allowed_seasons", []) or []) if str(s).strip()]
+        if is_inactive_profile and inactive_has_history and allowed_seasons:
+            season = allowed_seasons[-1]
+            st.session_state['temporada'] = season
+        else:
+            season = st.session_state.get('temporada', str(now_sao_paulo().year))
+
+        if is_inactive_profile and not inactive_has_history:
             st.info("Não há temporadas com histórico para este usuário inativo.")
         else:
             st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
@@ -72,7 +78,10 @@ def participante_view():
 
     force_change = bool(user.get('must_change_password', 0) or st.session_state.get('force_password_change'))
     show_apostas_tab = (not force_change) and (not is_inactive_profile) and has_season_data
-    show_historico_tab = (not force_change) and has_season_data and ((not is_inactive_profile) or inactive_has_history)
+    show_historico_tab = (not force_change) and (
+        ((not is_inactive_profile) and has_season_data)
+        or (is_inactive_profile and inactive_has_history)
+    )
 
     if force_change:
         st.warning("⚠️ Você precisa alterar sua senha temporária antes de continuar.")

@@ -655,7 +655,10 @@ def sidebar_menu():
 # ============ APP PRINCIPAL ============
 def main():
     sidebar_menu()
+    previous_page = st.session_state.get("_current_page")
     pagina = st.session_state["pagina"]
+    st.session_state["_previous_page"] = previous_page
+    st.session_state["_current_page"] = pagina
     
     # LOGOUT
     if pagina == "Logout":
