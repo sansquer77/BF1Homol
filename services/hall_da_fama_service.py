@@ -5,6 +5,7 @@ Funções para adicionar, editar e deletar registros de classificações
 
 import logging
 from datetime import datetime
+from typing import Optional
 from db.db_utils import db_connect
 
 logger = logging.getLogger("services.hall_da_fama")
@@ -79,7 +80,7 @@ def adicionar_resultado_historico(usuario_id: int, posicao: int, temporada: str)
         return {"success": False, "message": f"Erro ao adicionar resultado: {str(e)}"}
 
 
-def editar_resultado_historico(registro_id: int, posicao: int = None, temporada: str = None) -> dict:
+def editar_resultado_historico(registro_id: int, posicao: Optional[int] = None, temporada: Optional[str] = None) -> dict:
     """
     Edita um resultado histórico existente.
     
