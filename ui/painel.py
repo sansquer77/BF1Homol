@@ -55,14 +55,20 @@ def participante_view():
     is_inactive_profile = user_role == "inativo" or str(user.get("status", "")).strip().lower() != "ativo"
     inactive_has_history = bool(st.session_state.get("inactive_has_history", False) or st.session_state.get("allowed_seasons", []))
 
-    season_options = get_season_options(fallback_years=["2025", "2026"])
+    allowed_seasons = [
+        str(s).strip() for s in (st.session_state.get("allowed_seasons", []) or []) if str(s).strip()
+    ]
+    if is_inactive_profile and inactive_has_history:
+        # Para inativo com histórico, a lista deve refletir apenas temporadas do próprio participante.
+        season_options = sorted(set(allowed_seasons))
+    else:
+        season_options = get_season_options(fallback_years=["2025", "2026"])
     has_season_data = bool(season_options)
     if has_season_data:
         default_index = get_default_season_index(season_options)
         season = st.selectbox("Temporada", season_options, index=default_index)
         st.session_state['temporada'] = season
     else:
-        allowed_seasons = [str(s).strip() for s in (st.session_state.get("allowed_seasons", []) or []) if str(s).strip()]
         if is_inactive_profile and inactive_has_history and allowed_seasons:
             season = allowed_seasons[-1]
             st.session_state['temporada'] = season
