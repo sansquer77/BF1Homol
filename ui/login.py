@@ -445,7 +445,6 @@ def login_view():
             logger.info("Login bem-sucedido: %s perfil=%s", redact_identifier(email), usuario['perfil'])
 
             st.success(f"✅ Bem-vindo, {usuario['nome']}!")
-            st.balloons()
 
             # Rerun para carregar próxima página
             st.rerun()

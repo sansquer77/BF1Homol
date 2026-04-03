@@ -36,10 +36,8 @@ def hall_da_fama():
     """Exibe hall da fama com histórico plurianual."""
     render_page_header(st, "Hall da Fama")
     st.write("📈 Histórico de classificações por temporada - Melhores posições em cada ano")
-    
-    # Debug info (temporário - remover depois)
+
     user_role = st.session_state.get('user_role', 'não definido')
-    st.caption(f"🔑 Perfil atual: {user_role}")
 
     with db_connect() as conn:
         source_table, _ = _resolve_hall_source(conn)

@@ -180,46 +180,49 @@ def main():
     tipos_map = {0: "Dentro do Prazo", 1: "Fora do Prazo"}
 
     st.markdown("### Filtros")
-    normalizar_data = st.checkbox(
-        "Normalizar Data para yyyy-mm-dd nos filtros",
-        value=True,
-        help="Padroniza o valor de Data apenas para seleção de filtro, sem alterar os dados originais.",
-    )
+    with st.expander("Abrir filtros", expanded=False):
+        normalizar_data = st.checkbox(
+            "Normalizar Data para yyyy-mm-dd nos filtros",
+            value=True,
+            help="Padroniza o valor de Data apenas para seleção de filtro, sem alterar os dados originais.",
+        )
 
-    df_filtro = df.copy()
-    if "data" in df_filtro.columns:
-        if normalizar_data:
-            df_filtro["_data_filtro"] = df_filtro["data"].apply(_normalize_date_for_filter)
+        df_filtro = df.copy()
+        if "data" in df_filtro.columns:
+            if normalizar_data:
+                df_filtro["_data_filtro"] = df_filtro["data"].apply(_normalize_date_for_filter)
+            else:
+                df_filtro["_data_filtro"] = df_filtro["data"]
+
+        colunas_filtro = []
+        if perfil in ("admin", "master"):
+            colunas_filtro.append("apostador")
+
+        row1_col1, row1_col2 = st.columns(2)
+        row2_col1, row2_col2 = st.columns(2)
+
+        if "apostador" in colunas_filtro:
+            apostador_opcoes = ["Todos"] + _sorted_unique_non_null(df["apostador"])
+            apostador_sel = row1_col1.selectbox("Apostador", apostador_opcoes)
         else:
-            df_filtro["_data_filtro"] = df_filtro["data"]
+            apostador_sel = "Todos"
 
-    colunas_filtro = []
-    if perfil in ("admin", "master"):
-        colunas_filtro.append("apostador")
-    cols = st.columns(4)
-    idx_filtro = 0
+        tipo_filtro = row1_col2.selectbox(
+            "Tipo de Aposta", ["Todas"] + list(tipos_map.values())
+        )
 
-    if "apostador" in colunas_filtro:
-        apostador_opcoes = ["Todos"] + _sorted_unique_non_null(df["apostador"])
-        apostador_sel = cols[idx_filtro].selectbox("Apostador", apostador_opcoes)
-        idx_filtro += 1
-    else:
-        apostador_sel = "Todos"
+        data_sel = row2_col1.selectbox(
+            "Data", ["Todas"] + _sorted_unique_non_null(df_filtro["_data_filtro"], reverse=True)
+        )
 
-    tipo_filtro = cols[idx_filtro].selectbox(
-        "Tipo de Aposta", ["Todas"] + list(tipos_map.values())
-    )
-    idx_filtro += 1
-    data_sel = cols[idx_filtro].selectbox(
-        "Data", ["Todas"] + _sorted_unique_non_null(df_filtro["_data_filtro"], reverse=True)
-    )
-    idx_filtro += 1
+        status_sel = row2_col2.selectbox(
+            "Status", ["Todos"] + sorted(df["status"].fillna("Registrada").unique().tolist())
+        )
 
-    status_sel = cols[idx_filtro].selectbox(
-        "Status", ["Todos"] + sorted(df["status"].fillna("Registrada").unique().tolist())
-    )
-
-    mostrar_automaticas = st.checkbox("Mostrar apenas apostas automáticas (automatica > 0)", value=False)
+        mostrar_automaticas = st.checkbox(
+            "Mostrar apenas apostas automáticas (automatica > 0)",
+            value=False,
+        )
 
     filtro = df_filtro.copy()
 

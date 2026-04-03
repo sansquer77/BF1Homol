@@ -169,7 +169,7 @@ def participante_view():
                             on_change=_on_prova_change
                         )
                     with col_btn:
-                        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                        st.write("")
                         if st.button("Ver regras", width="content"):
                             prova_nome_sel = provas[provas['id'] == prova_id]['nome'].values[0]
                             tipo_raw = provas[provas['id'] == prova_id]['tipo'].values[0] if not provas[provas['id'] == prova_id].empty else 'Normal'
@@ -177,7 +177,7 @@ def participante_view():
                             regras_sel = get_regras_aplicaveis(temporada, tipo_sel)
                             _mostrar_regras_dialog(regras_sel, temporada, tipo_sel)
                     with col_sem_ideias:
-                        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                        st.write("")
                         if st.button("Sem ideias", width="content"):
                             nome_prova_sem_ideias = provas[provas['id'] == prova_id]['nome'].values[0]
                             ok_auto, msg_auto = gerar_aposta_sem_ideias(
