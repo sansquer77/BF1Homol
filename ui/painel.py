@@ -67,7 +67,7 @@ def participante_view():
         st.warning("⚠️ Você precisa alterar sua senha temporária antes de continuar.")
         tabs = st.tabs(["Minha Conta"])
     else:
-        tabs = st.tabs(["Apostas", "Minha Conta"])
+        tabs = st.tabs(["Apostas", "Histórico", "Minha Conta"])
 
     def _on_prova_change():
         st.session_state["aposta_form_force_reload"] = True
@@ -98,7 +98,7 @@ def participante_view():
     # fix: inicializa apostas_part, provas_df e resultados_df antes do bloco
     # condicional para evitar NameError nas seções 'Regra de Descarte' e
     # 'Gráfico de Evolução' quando force_change=True.
-    temporada = st.session_state.get('temporada', str(datetime.datetime.now().year))
+    temporada = st.session_state.get('temporada', str(now_sao_paulo().year))
     apostas_part = pd.DataFrame()
     provas_df = pd.DataFrame()
     resultados_df = pd.DataFrame()
@@ -106,7 +106,7 @@ def participante_view():
     # ------------------ Aba: Apostas ----------------------
     if not force_change:
         with tabs[0]:
-            temporada = st.session_state.get('temporada', str(datetime.datetime.now().year))
+            temporada = st.session_state.get('temporada', str(now_sao_paulo().year))
 
             # fix(itens 4 e 5): cada DataFrame é buscado UMA única vez por render
             # e reutilizado em todo o escopo da aba — elimina as 2x get_apostas_df
@@ -380,6 +380,7 @@ def participante_view():
             else:
                 st.info("Usuário inativo: você só pode visualizar suas apostas anteriores.")
 
+        with tabs[1]:
             # --- Exibição detalhada das apostas do participante ---
             st.subheader("Minhas apostas detalhadas")
             # apostas_df, provas_df e resultados_df já foram buscados no topo da aba —
@@ -484,99 +485,99 @@ def participante_view():
             else:
                 st.info("Nenhuma aposta registrada.")
 
-        # --- NOVA SEÇÃO: Prova de Descarte ---
-        st.subheader("⚠️ Regra de Descarte")
-        regras_temporada = get_regras_aplicaveis(temporada, "Normal")
-        descarte_ativo = regras_temporada.get('descarte', False)
+            # --- NOVA SEÇÃO: Prova de Descarte ---
+            st.subheader("⚠️ Regra de Descarte")
+            regras_temporada = get_regras_aplicaveis(temporada, "Normal")
+            descarte_ativo = regras_temporada.get('descarte', False)
 
-        if descarte_ativo:
-            if not apostas_part.empty:
-                pontos_por_prova = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=temporada)
+            if descarte_ativo:
+                if not apostas_part.empty:
+                    pontos_por_prova = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=temporada)
 
-                provas_pontos = []
-                for idx, (_, aposta) in enumerate(apostas_part.iterrows()):
-                    if pontos_por_prova[idx] is not None:
-                        prova_nome = aposta['nome_prova']
-                        prova_id_val = aposta['prova_id']
-                        pontos_val = pontos_por_prova[idx]
-                        provas_pontos.append({
-                            'prova_id': prova_id_val,
-                            'nome_prova': prova_nome,
-                            'pontos': pontos_val
-                        })
+                    provas_pontos = []
+                    for idx, (_, aposta) in enumerate(apostas_part.iterrows()):
+                        if pontos_por_prova[idx] is not None:
+                            prova_nome = aposta['nome_prova']
+                            prova_id_val = aposta['prova_id']
+                            pontos_val = pontos_por_prova[idx]
+                            provas_pontos.append({
+                                'prova_id': prova_id_val,
+                                'nome_prova': prova_nome,
+                                'pontos': pontos_val
+                            })
 
-                if provas_pontos:
-                    df_provas_pontos = pd.DataFrame(provas_pontos)
-                    prova_descarte = df_provas_pontos.loc[df_provas_pontos['pontos'].idxmin()]
+                    if provas_pontos:
+                        df_provas_pontos = pd.DataFrame(provas_pontos)
+                        prova_descarte = df_provas_pontos.loc[df_provas_pontos['pontos'].idxmin()]
 
-                    st.info(
-                        f"✅ **Regra de Descarte ATIVA para {temporada}**\n\n"
-                        f"Sua prova com **menor pontuação** será descartada no cálculo final do campeonato:\n\n"
-                        f"**{prova_descarte['nome_prova']}** - {prova_descarte['pontos']:.2f} pontos\n\n"
-                        f"_Esta prova NÃO será contabilizada na sua pontuação final quando o resultado do campeonato for cadastrado._"
-                    )
+                        st.info(
+                            f"✅ **Regra de Descarte ATIVA para {temporada}**\n\n"
+                            f"Sua prova com **menor pontuação** será descartada no cálculo final do campeonato:\n\n"
+                            f"**{prova_descarte['nome_prova']}** - {prova_descarte['pontos']:.2f} pontos\n\n"
+                            f"_Esta prova NÃO será contabilizada na sua pontuação final quando o resultado do campeonato for cadastrado._"
+                        )
+                    else:
+                        st.info(
+                            f"✅ **Regra de Descarte ATIVA para {temporada}**\n\n"
+                            f"Quando houver resultados cadastrados, sua prova com menor pontuação será automaticamente descartada no cálculo final do campeonato."
+                        )
                 else:
                     st.info(
                         f"✅ **Regra de Descarte ATIVA para {temporada}**\n\n"
                         f"Quando houver resultados cadastrados, sua prova com menor pontuação será automaticamente descartada no cálculo final do campeonato."
                     )
             else:
-                st.info(
-                    f"✅ **Regra de Descarte ATIVA para {temporada}**\n\n"
-                    f"Quando houver resultados cadastrados, sua prova com menor pontuação será automaticamente descartada no cálculo final do campeonato."
+                st.warning(
+                    f"❌ **Regra de Descarte NÃO está vigente para {temporada}**\n\n"
+                    f"Todas as provas serão contabilizadas no cálculo final do campeonato."
                 )
-        else:
-            st.warning(
-                f"❌ **Regra de Descarte NÃO está vigente para {temporada}**\n\n"
-                f"Todas as provas serão contabilizadas no cálculo final do campeonato."
-            )
 
-        # --------- Gráfico de evolução da posição do participante logado ---------
-        st.subheader("Evolução da Posição no Campeonato")
-        user_id_logado = user['id']
-        user_nome_logado = user['nome']
-        try:
-            df_posicoes = get_posicoes_participantes_df(temporada)
-        except Exception:
-            st.info("Nenhum histórico de posições disponível ainda. Quando houver dados, eles aparecerão aqui.")
-            df_posicoes = pd.DataFrame()
+            # --------- Gráfico de evolução da posição do participante logado ---------
+            st.subheader("Evolução da Posição no Campeonato")
+            user_id_logado = user['id']
+            user_nome_logado = user['nome']
+            try:
+                df_posicoes = get_posicoes_participantes_df(temporada)
+            except Exception:
+                st.info("Nenhum histórico de posições disponível ainda. Quando houver dados, eles aparecerão aqui.")
+                df_posicoes = pd.DataFrame()
 
-        if not df_posicoes.empty and {'usuario_id', 'prova_id', 'posicao'}.issubset(df_posicoes.columns):
-            posicoes_part = df_posicoes[df_posicoes['usuario_id'] == user_id_logado]
-            if 'temporada' in df_posicoes.columns:
-                posicoes_part = posicoes_part[(posicoes_part['temporada'] == temporada) | (posicoes_part['temporada'].isna())]
+            if not df_posicoes.empty and {'usuario_id', 'prova_id', 'posicao'}.issubset(df_posicoes.columns):
+                posicoes_part = df_posicoes[df_posicoes['usuario_id'] == user_id_logado]
+                if 'temporada' in df_posicoes.columns:
+                    posicoes_part = posicoes_part[(posicoes_part['temporada'] == temporada) | (posicoes_part['temporada'].isna())]
+                else:
+                    provas_ids_temp = set(provas_df['id'].tolist())
+                    posicoes_part = posicoes_part[posicoes_part['prova_id'].isin(provas_ids_temp)]
+                posicoes_part = posicoes_part.sort_values('prova_id')
+                if not posicoes_part.empty:
+                    provas_nomes = [
+                        provas_df[provas_df['id'] == pid]['nome'].values[0]
+                        if len(provas_df[provas_df['id'] == pid]) > 0 else f"Prova {pid}"
+                        for pid in posicoes_part['prova_id']
+                    ]
+                    fig_pos = go.Figure()
+                    fig_pos.add_trace(go.Scatter(
+                        x=provas_nomes,
+                        y=posicoes_part['posicao'],
+                        mode='lines+markers',
+                        name=user_nome_logado if user_nome_logado else "Você"
+                    ))
+                    fig_pos.update_yaxes(autorange="reversed")
+                    fig_pos.update_layout(
+                        xaxis_title="Prova",
+                        yaxis_title="Posição",
+                        title=f"Evolução da Posição - {user_nome_logado if user_nome_logado else 'Você'}",
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig_pos, width="stretch")
+                else:
+                    st.info("Ainda não há histórico de posições para o seu usuário.")
             else:
-                provas_ids_temp = set(provas_df['id'].tolist())
-                posicoes_part = posicoes_part[posicoes_part['prova_id'].isin(provas_ids_temp)]
-            posicoes_part = posicoes_part.sort_values('prova_id')
-            if not posicoes_part.empty:
-                provas_nomes = [
-                    provas_df[provas_df['id'] == pid]['nome'].values[0]
-                    if len(provas_df[provas_df['id'] == pid]) > 0 else f"Prova {pid}"
-                    for pid in posicoes_part['prova_id']
-                ]
-                fig_pos = go.Figure()
-                fig_pos.add_trace(go.Scatter(
-                    x=provas_nomes,
-                    y=posicoes_part['posicao'],
-                    mode='lines+markers',
-                    name=user_nome_logado if user_nome_logado else "Você"
-                ))
-                fig_pos.update_yaxes(autorange="reversed")
-                fig_pos.update_layout(
-                    xaxis_title="Prova",
-                    yaxis_title="Posição",
-                    title=f"Evolução da Posição - {user_nome_logado if user_nome_logado else 'Você'}",
-                    showlegend=False
-                )
-                st.plotly_chart(fig_pos, width="stretch")
-            else:
-                st.info("Ainda não há histórico de posições para o seu usuário.")
-        else:
-            st.info("Ainda não há histórico de posições registrado.")
+                st.info("Ainda não há histórico de posições registrado.")
 
     # ---------------- Aba: Minha Conta ----------------------
-    with tabs[0] if force_change else tabs[1]:
+    with tabs[0] if force_change else tabs[2]:
         st.header("Gestão da Minha Conta")
         st.write(f"Usuário: **{user['nome']}**")
         novo_email = st.text_input("Email cadastrado", value=user['email'])
