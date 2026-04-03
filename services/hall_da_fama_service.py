@@ -6,7 +6,7 @@ Funções para adicionar, editar e deletar registros de classificações
 import logging
 from datetime import datetime
 from typing import Optional
-from db.db_utils import db_connect
+from db.db_schema import db_connect
 
 logger = logging.getLogger("services.hall_da_fama")
 

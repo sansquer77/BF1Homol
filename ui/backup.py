@@ -1,9 +1,7 @@
 import streamlit as st
-from db.backup_excel import (
+from services.data_access_backup import (
     download_tabela,
     upload_tabela,
-)
-from db.backup_sql import (
     create_next_temporada,
     download_db,
     get_postgres_backup_mode,

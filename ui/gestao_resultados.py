@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import ast
 
-from db.db_schema import db_connect, get_table_columns
-from db.repo_races import get_pilotos_df, get_provas_df, get_resultados_df
+from services.data_access_core import db_connect, get_table_columns
+from services.data_access_provas import get_pilotos_df, get_provas_df, get_resultados_df
 from services.bets_scoring import atualizar_classificacoes_todas_as_provas
 from utils.helpers import render_page_header
 from utils.season_utils import get_current_year_str, get_default_season_index, get_season_options

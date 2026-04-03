@@ -44,10 +44,12 @@ from db.db_config import (
     INDICES
 )
 
-# Database Utilities
-from db.db_utils import (
+# Database Access
+from db.db_schema import (
     init_db,
     db_connect,
+)
+from db.repo_users import (
     hash_password,
     check_password,
     get_user_by_email,
@@ -56,10 +58,16 @@ from db.db_utils import (
     cadastrar_usuario,
     autenticar_usuario,
     get_usuarios_df,
+)
+from db.repo_races import (
     get_pilotos_df,
     get_provas_df,
-    get_apostas_df,
     get_resultados_df,
+)
+from db.repo_bets import (
+    get_apostas_df,
+)
+from db.repo_logs import (
     registrar_log_aposta,
     log_aposta_existe
 )

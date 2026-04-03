@@ -26,7 +26,7 @@ import logging
 from typing import Optional
 
 from db.connection_pool import get_pool
-from db.db_utils import get_table_columns, table_exists
+from db.db_schema import get_table_columns, table_exists
 
 logger = logging.getLogger(__name__)
 

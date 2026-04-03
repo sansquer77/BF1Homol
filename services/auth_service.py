@@ -11,8 +11,7 @@ try:
 except ImportError:
     stx = None
 
-# Funções de auth/usuário importadas dos módulos focados de dados
-# para reduzir acoplamento com db_utils monolítico.
+# Funções de auth/usuário importadas dos módulos focados de dados.
 from db.db_schema import db_connect, get_table_columns
 from db.repo_users import hash_password, check_password, get_user_by_id
 
@@ -251,9 +250,7 @@ def get_user_by_email(email: str):
         user = c.fetchone()
     return user
 
-# fix #4: get_user_by_id removido daqui — re-exportado de db_utils via import acima.
-# db_utils.get_user_by_id faz SELECT * retornando todas as colunas incluindo 'senha',
-# evitando inconsistência de contrato entre callers que acessam user['senha'].
+# fix #4: get_user_by_id removido daqui — importado de db.repo_users.
 
 # --- GESTÃO DE COOKIES (para login) ---
 def set_auth_cookies(token, expires_minutes=JWT_EXP_MINUTES):

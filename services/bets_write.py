@@ -12,8 +12,7 @@ from typing import Callable, Optional, Union, cast
 
 import pandas as pd
 
-from db.db_utils import db_connect
-from db.db_schema import get_table_columns
+from db.db_schema import db_connect, get_table_columns
 from db.repo_bets import get_apostas_df
 from db.repo_races import get_horario_prova, get_pilotos_df, get_provas_df, get_resultados_df
 from db.repo_users import get_user_by_id

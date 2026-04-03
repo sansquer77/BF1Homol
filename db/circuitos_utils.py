@@ -8,7 +8,7 @@ from typing import Iterable
 
 import requests
 
-from db.db_utils import db_connect, get_table_columns
+from db.db_schema import db_connect, get_table_columns
 
 logger = logging.getLogger(__name__)
 

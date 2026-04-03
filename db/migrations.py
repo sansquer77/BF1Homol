@@ -6,7 +6,7 @@ import logging
 from db.circuitos_utils import ensure_circuitos_f1_table, ensure_provas_circuit_id_column
 from db.connection_pool import get_pool
 from db.db_config import INDICES
-from db.db_utils import get_table_columns, init_db, table_exists
+from db.db_schema import get_table_columns, init_db, table_exists
 
 logger = logging.getLogger(__name__)
 

@@ -8,9 +8,16 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime as dt_datetime
-from db.db_schema import db_connect
-from db.repo_bets import get_participantes_temporada_df
-from db.repo_users import get_usuarios_df, usuarios_status_historico_disponivel
+from services.data_access_core import (
+    db_connect,
+)
+from services.data_access_apostas import (
+    get_participantes_temporada_df,
+)
+from services.data_access_auth import (
+    get_usuarios_df,
+    usuarios_status_historico_disponivel,
+)
 from services.hall_da_fama_controller import (
     hall_queries as _controller_hall_queries,
     resolve_hall_source as _controller_resolve_hall_source,

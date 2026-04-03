@@ -3,10 +3,24 @@ import pandas as pd
 import plotly.graph_objects as go
 import ast
 
-from db.db_schema import db_connect
-from db.repo_bets import get_apostas_df, get_posicoes_participantes_df
-from db.repo_races import get_pilotos_df, get_provas_df, get_resultados_df
-from db.repo_users import get_user_by_email, get_user_by_id, update_user_email, update_user_password
+from services.data_access_core import (
+    db_connect,
+)
+from services.data_access_apostas import (
+    get_apostas_df,
+    get_posicoes_participantes_df,
+)
+from services.data_access_provas import (
+    get_pilotos_df,
+    get_provas_df,
+    get_resultados_df,
+)
+from services.data_access_auth import (
+    get_user_by_email,
+    get_user_by_id,
+    update_user_email,
+    update_user_password,
+)
 from services.bets_scoring import calcular_pontuacao_lote
 from services.bets_write import gerar_aposta_sem_ideias, salvar_aposta
 from services.auth_service import check_password, hash_password

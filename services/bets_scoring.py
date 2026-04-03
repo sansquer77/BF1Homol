@@ -8,7 +8,7 @@ from typing import Optional, cast
 
 import pandas as pd
 
-from db.db_utils import db_connect, get_table_columns
+from db.db_schema import db_connect, get_table_columns
 from services.rules_service import get_regras_aplicaveis
 from utils.datetime_utils import parse_datetime_sao_paulo
 

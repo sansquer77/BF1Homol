@@ -3,7 +3,7 @@
 Contém helpers de fonte de dados e consultas para manter a UI enxuta.
 """
 
-from db.db_utils import table_exists
+from db.db_schema import table_exists
 
 
 def table_height(total_rows: int, row_height: int = 36, max_height: int = 620) -> int:

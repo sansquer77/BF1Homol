@@ -27,6 +27,12 @@ mindmap
       Depende de utils
     services (regras e fluxos)
       auth_service
+      data_access_core
+      data_access_auth
+      data_access_apostas
+      data_access_provas
+      data_access_regras
+      data_access_backup
       bets_write
       bets_scoring
       championship_service
@@ -38,7 +44,6 @@ mindmap
       Depende de utils
     db (persistência e acesso a dados)
       db_schema
-      db_utils
       repo_users
       repo_races
       repo_bets
@@ -91,11 +96,11 @@ graph LR
 - ui.classificacao: usa services.bets_scoring e services.championship_service, além de repos db.
 - services.bets_write: é um ponto de integração central entre db, regras, email e utilitários.
 - services.auth_service: centraliza autenticação e consulta usuário via db.repo_users/db.db_schema.
-- db.db_utils: atua como camada legada com delegações para repo_users/repo_races/repo_bets.
+- services.data_access_*: fachadas por dominio para reduzir acoplamento entre telas.
 
 ## Observações de Arquitetura
 
 - A camada ui ainda acessa db diretamente em vários módulos, além de services.
 - services concentra regras de negócio principais e orquestra gravações complexas.
-- db mistura componentes legados (db_utils) com repositórios mais focados (repo_*).
+- camada db foi consolidada em db_schema + repo_* (db_utils removido).
 - utils contém funções transversais e utilitários de apresentação compartilhados.

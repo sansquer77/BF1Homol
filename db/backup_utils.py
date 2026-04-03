@@ -16,7 +16,7 @@ import streamlit as st
 from openpyxl.utils import get_column_letter
 
 from db.db_config import DATABASE_URL
-from db.db_utils import db_connect
+from db.db_schema import db_connect
 
 
 def _sanitize_identifier(identifier: str) -> str:

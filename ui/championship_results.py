@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-from db.db_schema import db_connect
-from db.repo_races import get_pilotos_df
+from services.data_access_core import db_connect
+from services.data_access_provas import get_pilotos_df
 from services.championship_service import (
     get_final_results, save_final_results
 )

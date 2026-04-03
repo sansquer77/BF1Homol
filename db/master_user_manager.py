@@ -8,7 +8,7 @@ import os
 import logging
 from typing import Optional, TypedDict
 from db.connection_pool import get_pool
-from db.db_utils import hash_password, get_user_by_email
+from db.repo_users import hash_password, get_user_by_email
 from utils.logging_utils import redact_identifier
 
 logger = logging.getLogger(__name__)
@@ -130,7 +130,7 @@ class MasterUserManager:
                 # Insert com email do ambiente (não o email padrão)
                 cursor.execute('''
                     INSERT INTO usuarios
-                    (nome, email, senha, perfil, status, faltas)
+                    (nome, email, senha_hash, perfil, status, faltas)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING id
                 ''', (

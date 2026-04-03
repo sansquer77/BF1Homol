@@ -6,7 +6,7 @@ import pandas as pd
 import datetime
 import json
 import traceback
-from db.rules_utils import (
+from services.data_access_regras import (
     criar_regra,
     atualizar_regra,
     excluir_regra,

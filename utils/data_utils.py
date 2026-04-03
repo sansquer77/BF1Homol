@@ -452,7 +452,7 @@ def get_circuit_id_por_nome_prova(season: str, nome_prova: str) -> Optional[str]
         return None
 
     try:
-        from db.db_utils import db_connect, get_table_columns
+        from db.db_schema import db_connect, get_table_columns
 
         with db_connect() as conn:
             c = conn.cursor()

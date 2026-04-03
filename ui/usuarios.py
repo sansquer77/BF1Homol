@@ -1,8 +1,12 @@
 import streamlit as st
 import pandas as pd
-from db.db_schema import db_connect
-from db.repo_bets import get_participantes_temporada_df
-from db.repo_users import (
+from services.data_access_core import (
+    db_connect,
+)
+from services.data_access_apostas import (
+    get_participantes_temporada_df,
+)
+from services.data_access_auth import (
     get_usuarios_df,
     registrar_historico_status_usuario,
     update_user_password,

@@ -3,7 +3,9 @@ import logging
 from datetime import datetime, timedelta
 import html
 from typing import Optional
-from db.db_utils import db_connect, get_user_by_id, get_provas_df
+from db.db_schema import db_connect
+from db.repo_users import get_user_by_id
+from db.repo_races import get_provas_df
 from services.rules_service import get_regras_aplicaveis
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
 from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, normalize_time_string, parse_datetime_sao_paulo

@@ -18,8 +18,10 @@ from utils.request_utils import get_client_ip
 from utils.validators import validar_email
 from utils.input_models import LoginInput, ValidationError
 from utils.logging_utils import redact_identifier
-from db import (
+from services.data_access_core import (
     db_connect,
+)
+from services.data_access_auth import (
     check_password,
     get_user_by_email,
     MAX_LOGIN_ATTEMPTS,

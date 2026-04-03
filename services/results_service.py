@@ -3,7 +3,8 @@ import json
 import ast
 from datetime import datetime
 import logging
-from db.db_utils import db_connect, get_provas_df, get_resultados_df
+from db.db_schema import db_connect
+from db.repo_races import get_provas_df, get_resultados_df
 from db.migrations_native_types import (
     parse_posicoes_safe,
     posicoes_to_json,
