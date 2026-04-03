@@ -51,23 +51,42 @@ def participante_view():
 
     render_page_header(st, "Painel do Participante")
 
-    season_options = get_season_options(fallback_years=["2025", "2026"])
-    if not season_options:
-        st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
-        return
-    default_index = get_default_season_index(season_options)
+    user_role = str(st.session_state.get("user_role", user.get("perfil", "participante"))).strip().lower()
+    is_inactive_profile = user_role == "inativo" or str(user.get("status", "")).strip().lower() != "ativo"
+    inactive_has_history = bool(st.session_state.get("inactive_has_history", False) or st.session_state.get("allowed_seasons", []))
 
-    season = st.selectbox("Temporada", season_options, index=default_index)
-    st.session_state['temporada'] = season
+    season_options = get_season_options(fallback_years=["2025", "2026"])
+    has_season_data = bool(season_options)
+    if has_season_data:
+        default_index = get_default_season_index(season_options)
+        season = st.selectbox("Temporada", season_options, index=default_index)
+        st.session_state['temporada'] = season
+    else:
+        season = st.session_state.get('temporada', str(now_sao_paulo().year))
+        if is_inactive_profile:
+            st.info("Não há temporadas com histórico para este usuário inativo.")
+        else:
+            st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
 
     st.write(f"Bem-vindo, {user['nome']} ({user['email']}) - Status: {user['perfil']}")
 
     force_change = bool(user.get('must_change_password', 0) or st.session_state.get('force_password_change'))
+    show_apostas_tab = (not force_change) and (not is_inactive_profile) and has_season_data
+    show_historico_tab = (not force_change) and has_season_data and ((not is_inactive_profile) or inactive_has_history)
+
     if force_change:
         st.warning("⚠️ Você precisa alterar sua senha temporária antes de continuar.")
-        tabs = st.tabs(["Minha Conta"])
-    else:
-        tabs = st.tabs(["Apostas", "Histórico", "Minha Conta"])
+    elif is_inactive_profile and not inactive_has_history:
+        st.info("Usuário inativo sem histórico: apenas Minha Conta está disponível no Painel do Participante.")
+
+    tab_labels = []
+    if show_apostas_tab:
+        tab_labels.append("Apostas")
+    if show_historico_tab:
+        tab_labels.append("Histórico")
+    tab_labels.append("Minha Conta")
+    tabs = st.tabs(tab_labels)
+    tab_map = {label: tab for label, tab in zip(tab_labels, tabs)}
 
     def _on_prova_change():
         st.session_state["aposta_form_force_reload"] = True
@@ -100,12 +119,13 @@ def participante_view():
     # 'Gráfico de Evolução' quando force_change=True.
     temporada = st.session_state.get('temporada', str(now_sao_paulo().year))
     apostas_part = pd.DataFrame()
+    apostas_df = pd.DataFrame()
     provas_df = pd.DataFrame()
     resultados_df = pd.DataFrame()
 
     # ------------------ Aba: Apostas ----------------------
-    if not force_change:
-        with tabs[0]:
+    if show_apostas_tab:
+        with tab_map["Apostas"]:
             temporada = st.session_state.get('temporada', str(now_sao_paulo().year))
 
             # fix(itens 4 e 5): cada DataFrame é buscado UMA única vez por render
@@ -145,8 +165,7 @@ def participante_view():
                 equipes = []
                 pilotos_equipe = {}
 
-            if user['status'] == "Ativo":
-                if len(provas) > 0 and len(pilotos_df) > 2:
+            if len(provas) > 0 and len(pilotos_df) > 2:
                     prova_ids_validos = set(provas['id'].tolist())
                     proxima_prova_id = _get_proxima_prova_id(provas)
                     temporada_default_aposta = st.session_state.get("aposta_default_temporada")
@@ -387,12 +406,22 @@ def participante_view():
                             if ok:
                                 st.success("Aposta registrada/atualizada!")
                                 st.rerun()
-                else:
-                    st.warning("Administração deve cadastrar provas e pilotos antes das apostas.")
             else:
+                st.warning("Administração deve cadastrar provas e pilotos antes das apostas.")
+
+    if show_historico_tab:
+        with tab_map["Histórico"]:
+            if is_inactive_profile:
                 st.info("Usuário inativo: você só pode visualizar suas apostas anteriores.")
 
-        with tabs[1]:
+            temporada = st.session_state.get('temporada', str(now_sao_paulo().year))
+            if apostas_df.empty:
+                apostas_df = get_apostas_df(temporada)
+            if provas_df.empty:
+                provas_df = get_provas_df(temporada)
+            if resultados_df.empty:
+                resultados_df = get_resultados_df(temporada)
+
             # --- Exibição detalhada das apostas do participante ---
             st.subheader("Minhas apostas detalhadas")
             # apostas_df, provas_df e resultados_df já foram buscados no topo da aba —
@@ -589,7 +618,7 @@ def participante_view():
                 st.info("Ainda não há histórico de posições registrado.")
 
     # ---------------- Aba: Minha Conta ----------------------
-    with tabs[0] if force_change else tabs[2]:
+    with tab_map["Minha Conta"]:
         st.header("Gestão da Minha Conta")
         st.write(f"Usuário: **{user['nome']}**")
         novo_email = st.text_input("Email cadastrado", value=user['email'])

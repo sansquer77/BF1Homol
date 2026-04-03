@@ -213,6 +213,24 @@ def menu_participante():
     ]
 
 
+def menu_inativo(has_history: bool):
+    base = [
+        "Painel do Participante",
+        _calendario_label(),
+        "Hall da Fama",
+        "Dashboard F1",
+    ]
+    if has_history:
+        base.extend([
+            "Análise de Apostas",
+            "Log de Apostas",
+            "Classificação",
+            "Regulamento",
+            "Sobre",
+        ])
+    return base
+
+
 def grouped_menu_master():
     return {
         "Participante": [
@@ -301,6 +319,33 @@ def grouped_menu_participante():
     }
 
 
+def grouped_menu_inativo(has_history: bool):
+    menu = {
+        "Participante": [
+            "Painel do Participante",
+            _calendario_label(),
+            "Logout",
+        ],
+        "Monitoramento": [
+            "Hall da Fama",
+            "Dashboard F1",
+        ],
+    }
+    if has_history:
+        menu["Monitoramento"] = [
+            "Análise de Apostas",
+            "Log de Apostas",
+            "Classificação",
+            "Hall da Fama",
+            "Dashboard F1",
+        ]
+        menu["Sistema"] = [
+            "Regulamento",
+            "Sobre",
+        ]
+    return menu
+
+
 def _flatten_grouped_menu(grouped_menu: dict[str, list[str]]) -> list[str]:
     flattened: list[str] = []
     for items in grouped_menu.values():
@@ -372,10 +417,9 @@ ROLE_GUARDS = {
     "Resultado Campeonato": ("admin", "master"),
 }
 
-INATIVO_ALLOWED_PAGES = {
+INATIVO_ALLOWED_PAGES_WITH_HISTORY = {
     "Painel do Participante",
     "Calendário (" + str(datetime.datetime.now().year) + ")",
-    "Apostas Campeonato",
     "Análise de Apostas",
     "Log de Apostas",
     "Classificação",
@@ -383,6 +427,13 @@ INATIVO_ALLOWED_PAGES = {
     "Dashboard F1",
     "Regulamento",
     "Sobre",
+}
+
+INATIVO_ALLOWED_PAGES_NO_HISTORY = {
+    "Painel do Participante",
+    "Calendário (" + str(datetime.datetime.now().year) + ")",
+    "Hall da Fama",
+    "Dashboard F1",
 }
 
 
@@ -418,9 +469,34 @@ def _sync_session_from_token() -> bool:
         return False
 
     perfil = str(payload.get("perfil", "participante")).strip().lower()
-    st.session_state["user_role"] = perfil
-    st.session_state["user_id"] = payload.get("user_id")
+    user_id = payload.get("user_id")
+
+    st.session_state["user_id"] = user_id
     st.session_state["user_nome"] = payload.get("nome", st.session_state.get("user_nome"))
+
+    user = get_user_by_id(int(user_id)) if user_id else None
+    if not user:
+        st.session_state["user_role"] = perfil
+        st.session_state["user_status"] = str(payload.get("status", "")).strip().lower()
+        st.session_state["allowed_seasons"] = []
+        st.session_state["inactive_has_history"] = False
+        return True
+
+    status_usuario = str(user.get("status", "")).strip().lower()
+    perfil_usuario = str(user.get("perfil", perfil)).strip().lower()
+    usuario_inativo = (status_usuario != "ativo") or (perfil_usuario == "inativo")
+
+    if usuario_inativo:
+        allowed_seasons = get_usuario_temporadas_ativas(int(user_id))
+        st.session_state["allowed_seasons"] = allowed_seasons
+        st.session_state["inactive_has_history"] = bool(allowed_seasons)
+        st.session_state["user_role"] = "inativo"
+    else:
+        st.session_state["allowed_seasons"] = []
+        st.session_state["inactive_has_history"] = False
+        st.session_state["user_role"] = perfil_usuario
+
+    st.session_state["user_status"] = status_usuario
     return True
 
 
@@ -448,24 +524,36 @@ def _enforce_route_guard(pagina: str):
         _clear_session_and_redirect_login("Usuário não encontrado. Faça login novamente.")
 
     status_usuario = str(user.get("status", "")).strip().lower()
+    perfil_usuario = str(user.get("perfil", perfil)).strip().lower()
+    usuario_inativo = (status_usuario != "ativo") or (perfil_usuario == "inativo")
 
     # Sincroniza sessão com claims assinadas do JWT a cada rota.
     st.session_state["user_id"] = user_id
-    st.session_state["user_role"] = perfil
+    st.session_state["user_role"] = "inativo" if usuario_inativo else perfil_usuario
     st.session_state["user_nome"] = payload.get("nome", st.session_state.get("user_nome"))
     st.session_state["user_status"] = status_usuario
 
-    if status_usuario != "ativo":
-        st.session_state["allowed_seasons"] = get_usuario_temporadas_ativas(int(user_id))
-        if pagina not in INATIVO_ALLOWED_PAGES:
-            st.error("Usuário inativo possui acesso somente para consulta das temporadas em que esteve ativo.")
+    if usuario_inativo:
+        allowed_seasons = get_usuario_temporadas_ativas(int(user_id))
+        has_history = bool(allowed_seasons)
+        allowed_pages = INATIVO_ALLOWED_PAGES_WITH_HISTORY if has_history else INATIVO_ALLOWED_PAGES_NO_HISTORY
+        st.session_state["allowed_seasons"] = allowed_seasons
+        st.session_state["inactive_has_history"] = has_history
+        if pagina not in allowed_pages:
+            st.error(
+                "Usuário inativo possui acesso restrito."
+                if has_history
+                else "Usuário inativo sem histórico possui acesso apenas a Hall da Fama, Calendário, Dashboard F1 e Minha Conta."
+            )
             st.session_state["pagina"] = "Painel do Participante"
             st.stop()
     else:
         st.session_state["allowed_seasons"] = []
+        st.session_state["inactive_has_history"] = False
 
     allowed_roles = ROLE_GUARDS.get(pagina)
-    if allowed_roles and perfil not in allowed_roles:
+    perfil_efetivo = st.session_state.get("user_role", perfil_usuario)
+    if allowed_roles and perfil_efetivo not in allowed_roles:
         st.error("Acesso negado: você não possui permissão para esta página.")
         st.session_state["pagina"] = "Painel do Participante"
         st.stop()
@@ -512,6 +600,10 @@ def sidebar_menu():
         elif perfil == "admin":
             menu_items = menu_admin()
             grouped_menu = grouped_menu_admin()
+        elif perfil == "inativo":
+            has_history = bool(st.session_state.get("inactive_has_history", False))
+            menu_items = menu_inativo(has_history)
+            grouped_menu = grouped_menu_inativo(has_history)
         else:
             menu_items = menu_participante()
             grouped_menu = grouped_menu_participante()

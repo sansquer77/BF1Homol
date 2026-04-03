@@ -337,22 +337,8 @@ def login_view():
                 registrar_tentativa_login(email, False, ip_address=client_ip, action="login")
                 return
             
-            # Verificar status
-            if usuario['status'] != 'Ativo':
-                st.error(f"❌ Usuário inativo. Status: {usuario['status']}")
-                logger.warning("Tentativa de login com usuario inativo: %s", redact_identifier(email))
-                registrar_evento_acesso(
-                    evento="login_usuario_inativo",
-                    sucesso=False,
-                    user_id=usuario.get('id'),
-                    email=usuario.get('email', email),
-                    nome=usuario.get('nome'),
-                    perfil=usuario.get('perfil'),
-                    ip_address=client_ip,
-                    detalhes=f"status={usuario.get('status')}",
-                )
-                registrar_tentativa_login(email, False, ip_address=client_ip, action="login")
-                return
+            # Usuários inativos podem autenticar; o controle fino de páginas/abas
+            # é aplicado no roteamento/menu.
             
             # Verificar senha com bcrypt
             # fix(crítico): coluna real é `senha_hash` — confirmado via dump de produção.
@@ -419,7 +405,9 @@ def login_view():
             st.session_state['user_id'] = usuario['id']
             st.session_state['user_email'] = usuario['email']
             st.session_state['user_nome'] = usuario['nome']
-            st.session_state['user_role'] = usuario['perfil']
+            perfil_usuario = str(usuario.get('perfil', 'participante')).strip().lower()
+            status_usuario = str(usuario.get('status', 'Ativo')).strip().lower()
+            st.session_state['user_role'] = 'inativo' if (status_usuario != 'ativo' or perfil_usuario == 'inativo') else perfil_usuario
             st.session_state['user_status'] = usuario.get('status', 'Ativo')
             st.session_state['pagina'] = "Painel do Participante"
             st.session_state['force_password_change'] = bool(usuario.get('must_change_password', 0))
@@ -442,9 +430,11 @@ def login_view():
                 ip_address=client_ip,
             )
 
-            logger.info("Login bem-sucedido: %s perfil=%s", redact_identifier(email), usuario['perfil'])
+            logger.info("Login bem-sucedido: %s perfil=%s status=%s", redact_identifier(email), usuario['perfil'], usuario.get('status', 'Ativo'))
 
             st.success(f"✅ Bem-vindo, {usuario['nome']}!")
+            if status_usuario != 'ativo' or perfil_usuario == 'inativo':
+                st.info("Seu acesso está em modo inativo e foi limitado para consulta.")
 
             # Rerun para carregar próxima página
             st.rerun()

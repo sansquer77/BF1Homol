@@ -163,7 +163,7 @@ def _render_gestao_usuarios_tab(perfil: str):
     # Campos de edição
     novo_nome = st.text_input("Nome", user_row["nome"])
     novo_email = st.text_input("Email", user_row["email"])
-    perfis = ["participante", "admin", "master"]
+    perfis = ["participante", "inativo", "admin", "master"]
     perfil_atual = str(user_row.get("perfil", "participante")).strip().lower()
     perfil_index = perfis.index(perfil_atual) if perfil_atual in perfis else 0
     novo_perfil = st.selectbox("Perfil", perfis, index=perfil_index)
@@ -266,7 +266,7 @@ def _render_gestao_usuarios_tab(perfil: str):
     nome_novo = st.text_input("Nome completo", key="novo_nome")
     email_novo = st.text_input("Email", key="novo_email")
     senha_novo = st.text_input("Senha", type="password", key="nova_senha")
-    perfil_novo = st.selectbox("Perfil", ["participante", "admin", "master"], key="novo_perfil")
+    perfil_novo = st.selectbox("Perfil", ["participante", "inativo", "admin", "master"], key="novo_perfil")
     status_novo = st.selectbox("Status", ["Ativo", "Inativo"], key="novo_status")
 
     if st.button("Adicionar usuário"):
