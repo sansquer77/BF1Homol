@@ -6,9 +6,15 @@ import logging
 from contextlib import contextmanager
 
 from db.connection_pool import get_pool
-from db.migrations import run_migrations
 
 logger = logging.getLogger(__name__)
+
+
+def run_migrations() -> None:
+    """Executa migrations com import tardio para evitar ciclo de imports."""
+    from db.migrations import run_migrations as _run_migrations
+
+    _run_migrations()
 
 
 @contextmanager
