@@ -18,6 +18,7 @@ from utils.request_utils import get_client_ip
 from utils.validators import validar_email
 from utils.input_models import LoginInput, ValidationError
 from utils.logging_utils import redact_identifier
+from utils.helpers import render_bf1_logo_html
 from services.data_access_core import (
     db_connect,
 )
@@ -237,7 +238,17 @@ def login_view():
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown("# 🏁 BF1 - Bolão de F1")
+        # Logo profissional BF1
+        logo_html = render_bf1_logo_html(width=150, alt="Logo BF1")
+        if logo_html:
+            col_logo, col_title = st.columns([1, 2])
+            with col_logo:
+                st.markdown(logo_html, unsafe_allow_html=True)
+            with col_title:
+                st.markdown("<div style='margin-top: 20px;'><h2>BF1 - Bolão de F1</h2></div>", unsafe_allow_html=True)
+        else:
+            st.markdown("# 🏁 BF1 - Bolão de F1")
+        
         st.markdown("### Sistema de Apostas e Ranking")
         st.markdown("---")
         
