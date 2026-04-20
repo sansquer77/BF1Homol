@@ -803,17 +803,136 @@ def salvar_aposta(
 
             conn.commit()
 
-            corpo_email = (
-                f"<p>Olá {html.escape(usuario['nome'])},</p>"
-                f"<p>Sua aposta para a prova <b>{html.escape(nome_prova_bd)}</b> foi registrada com sucesso.</p>"
-                "<p><b>Detalhes:</b></p>"
-                "<ul>"
-                f"<li>Pilotos: {html.escape(', '.join(pilotos))}</li>"
-                f"<li>Fichas: {html.escape(', '.join(map(str, fichas)))}</li>"
-                f"<li>Palpite para 11º colocado: {html.escape(piloto_11)}</li>"
-                "</ul>"
-                "<p>Boa sorte na prova!</p>"
-            )
+            corpo_email = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmação de Aposta BF1</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            background-color: #ffffff;
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        .logo {{
+            width: 100px;
+            height: auto;
+            margin: 0;
+        }}
+        .content {{
+            padding: 30px;
+            color: #333333;
+        }}
+        .greeting {{
+            font-size: 18px;
+            margin-bottom: 20px;
+        }}
+        .success-message {{
+            background-color: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .details-box {{
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }}
+        .details-box h3 {{
+            margin-top: 0;
+            color: #d32f2f;
+        }}
+        .detail-row {{
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }}
+        .detail-row:last-child {{
+            border-bottom: none;
+        }}
+        .detail-label {{
+            font-weight: bold;
+            color: #555;
+        }}
+        .detail-value {{
+            color: #333;
+            text-align: right;
+        }}
+        .message {{
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 15px 0;
+        }}
+        .footer {{
+            background-color: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666666;
+            border-top: 1px solid #e0e0e0;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+        </div>
+        <div class="content">
+            <p class="greeting">Olá {html.escape(usuario['nome'])},</p>
+            <div class="success-message">
+                <strong>✓ Aposta registrada com sucesso!</strong> Sua aposta para <strong>{html.escape(nome_prova_bd)}</strong> foi confirmada no sistema.
+            </div>
+            <div class="details-box">
+                <h3>Detalhes da Aposta</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Prova:</span>
+                    <span class="detail-value">{html.escape(nome_prova_bd)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Pilotos:</span>
+                    <span class="detail-value">{html.escape(', '.join(pilotos))}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Fichas:</span>
+                    <span class="detail-value">{html.escape(', '.join(map(str, fichas)))}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Palpite 11º:</span>
+                    <span class="detail-value">{html.escape(piloto_11)}</span>
+                </div>
+            </div>
+            <p class="message">Boa sorte na prova! Você pode revisar ou modificar sua aposta acessando sua conta no sistema até o horário limite.</p>
+        </div>
+        <div class="footer">
+            <p>Equipe de Organização BF1</p>
+            <p>Este é um alerta automático do sistema de gerenciamento do bolão.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
 
             try:
                 contexto_ergast_email = _get_contexto_temporada_atual_ergast(
@@ -891,20 +1010,174 @@ def salvar_aposta(
                 if probabilidade is not None:
                     previsao_html += f"<p><b>Probabilidade estimada de acerto:</b> {int(probabilidade)}%</p>"
 
-                corpo_email = (
-                    f"<p>Olá {html.escape(usuario['nome'])},</p>"
-                    f"<p>Sua aposta para a prova <b>{html.escape(nome_prova_bd)}</b> foi registrada com sucesso.</p>"
-                    f"<p>{html.escape(abertura_email)}</p>"
-                    "<p><b>Detalhes:</b></p>"
-                    "<ul>"
-                    f"<li>Pilotos: {html.escape(', '.join(pilotos))}</li>"
-                    f"<li>Fichas: {html.escape(', '.join(map(str, fichas)))}</li>"
-                    f"<li>Palpite para 11º colocado: {html.escape(piloto_11)}</li>"
-                    "</ul>"
-                    f"{previsao_html}"
-                    f"<p>{html.escape(fechamento_email)}</p>"
-                    "<p><small><b>Aviso de estimativa:</b> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</small></p>"
-                )
+                corpo_email = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmação de Aposta BF1</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            background-color: #ffffff;
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        .logo {{
+            width: 100px;
+            height: auto;
+            margin: 0;
+        }}
+        .content {{
+            padding: 30px;
+            color: #333333;
+        }}
+        .greeting {{
+            font-size: 18px;
+            margin-bottom: 20px;
+        }}
+        .success-message {{
+            background-color: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .details-box {{
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }}
+        .details-box h3 {{
+            margin-top: 0;
+            color: #d32f2f;
+        }}
+        .detail-row {{
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }}
+        .detail-row:last-child {{
+            border-bottom: none;
+        }}
+        .detail-label {{
+            font-weight: bold;
+            color: #555;
+        }}
+        .detail-value {{
+            color: #333;
+            text-align: right;
+        }}
+        .analysis-box {{
+            background-color: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .analysis-box h4 {{
+            margin-top: 0;
+            color: #f57c00;
+        }}
+        .probability-badges {{
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }}
+        .badge {{
+            background-color: #d32f2f;
+            color: #ffffff;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }}
+        .message {{
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 15px 0;
+        }}
+        .footer {{
+            background-color: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666666;
+            border-top: 1px solid #e0e0e0;
+        }}
+        .disclaimer {{
+            font-size: 12px;
+            color: #999;
+            margin-top: 15px;
+            font-style: italic;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+        </div>
+        <div class="content">
+            <p class="greeting">Olá {html.escape(usuario['nome'])},</p>
+            <div class="success-message">
+                <strong>✓ Aposta registrada com sucesso!</strong> Sua aposta para <strong>{html.escape(nome_prova_bd)}</strong> foi confirmada no sistema.
+            </div>
+            <div class="details-box">
+                <h3>Detalhes da Aposta</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Prova:</span>
+                    <span class="detail-value">{html.escape(nome_prova_bd)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Pilotos:</span>
+                    <span class="detail-value">{html.escape(', '.join(pilotos))}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Fichas:</span>
+                    <span class="detail-value">{html.escape(', '.join(map(str, fichas)))}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Palpite 11º:</span>
+                    <span class="detail-value">{html.escape(piloto_11)}</span>
+                </div>
+            </div>
+            {f'''<div class="analysis-box">
+                <h4>📊 Análise da Aposta</h4>
+                <p class="message">{html.escape(abertura_email)}</p>
+                {previsao_html}
+                <p class="message">{html.escape(fechamento_email)}</p>
+            </div>''' if abertura_email or previsao_html or fechamento_email else ''}
+            <p class="message">Você pode revisar ou modificar sua aposta acessando sua conta no sistema até o horário limite da prova.</p>
+            <p class="disclaimer"><strong>⚠️ Aviso de estimativa:</strong> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</p>
+        </div>
+        <div class="footer">
+            <p>Equipe de Organização BF1</p>
+            <p>Este é um alerta automático do sistema de gerenciamento do bolão.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
             except Exception as e:
                 logger.exception(
                     "Falha ao montar conteúdo avançado do email de aposta para %s: %s",

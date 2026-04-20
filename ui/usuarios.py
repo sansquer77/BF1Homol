@@ -423,14 +423,101 @@ def _render_gestao_financeira_tab():
             key="finance_email",
             disabled=not bool(pendentes_preview),
         ):
-            assunto = f"Lembrete cordial - taxa da temporada {temporada}"
-            corpo = (
-                "<p>Olá, participante!</p>"
-                f"<p>Este é um lembrete cordial sobre a taxa da temporada <b>{temporada}</b>.</p>"
-                "<p>Se o pagamento já foi realizado recentemente, por favor desconsidere esta mensagem.</p>"
-                "<p>Em caso de dúvida, entre em contato com a administração.</p>"
-                "<p>Obrigado!</p>"
-            )
+            assunto = f"💳 Lembrete de pagamento: Taxa da temporada {temporada}"
+            corpo = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lembrete de Pagamento BF1</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            background-color: #ffffff;
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        .logo {{
+            width: 100px;
+            height: auto;
+            margin: 0;
+        }}
+        .content {{
+            padding: 30px;
+            color: #333333;
+        }}
+        .greeting {{
+            font-size: 18px;
+            margin-bottom: 20px;
+        }}
+        .message {{
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 15px 0;
+        }}
+        .info-box {{
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .footer {{
+            background-color: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666666;
+            border-top: 1px solid #e0e0e0;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+        </div>
+        <div class="content">
+            <p class="greeting">Olá, participante!</p>
+            <div class="info-box">
+                <strong>Lembrete amigável:</strong> Notamos que sua taxa para a temporada <strong>{temporada}</strong> ainda não foi registrada em nossos arquivos.
+            </div>
+            <p class="message">
+                Para continuar participando do bolão e concorrendo pelos prêmios, não esqueça de efetuar o pagamento da taxa.
+            </p>
+            <p class="message">
+                Se o pagamento já foi realizado recentemente, por favor desconsidere esta mensagem. Pode levar um tempo para a confirmação ser processada.
+            </p>
+            <p class="message">
+                Em caso de dúvida sobre o valor da taxa ou forma de pagamento, entre em contato com a administração do bolão.
+            </p>
+            <p class="message">
+                Obrigado por fazer parte do BF1!
+            </p>
+        </div>
+        <div class="footer">
+            <p>Equipe de Organização BF1</p>
+            <p>Este é um alerta automático do sistema de gerenciamento do bolão.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
             ok = enviar_email(
                 destinatario="",
                 assunto=assunto,

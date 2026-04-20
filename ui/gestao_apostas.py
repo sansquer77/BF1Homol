@@ -1,3 +1,4 @@
+import datetime as dt
 import streamlit as st
 from services.data_access_apostas import (
     get_apostas_df,
@@ -150,14 +151,105 @@ def main():
                     if not emails_cco:
                         st.warning("Nenhum e-mail válido encontrado para os participantes sem aposta.")
                     else:
-                        assunto = f"Lembrete de aposta - {prova_sel} ({season})"
-                        corpo = (
-                            f"<p>Olá, participante!</p>"
-                            f"<p>Este é um lembrete para registrar sua aposta da prova <b>{prova_sel}</b> da temporada <b>{season}</b>.</p>"
-                            f"<p><b>Horário limite (Calendário):</b> {horario_limite_texto}</p>"
-                            "<p>Se você já apostou recentemente, desconsidere esta mensagem.</p>"
-                            "<p>Boa sorte!</p>"
-                        )
+                        assunto = f"⏰ ÚLTIMA CHAMADA: Suas apostas para o {prova_sel} fecham em breve!"
+                        corpo = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lembrete de Apostas BF1</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            background-color: #ffffff;
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        .logo {{
+            width: 100px;
+            height: auto;
+            margin: 0;
+        }}
+        .content {{
+            padding: 30px;
+            color: #333333;
+        }}
+        .greeting {{
+            font-size: 18px;
+            margin-bottom: 20px;
+        }}
+        .message {{
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }}
+        .highlight {{
+            font-weight: bold;
+            color: #d32f2f;
+        }}
+        .button {{
+            display: inline-block;
+            background-color: #d32f2f;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }}
+        .footer {{
+            background-color: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #666666;
+            border-top: 1px solid #e0e0e0;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+        </div>
+        <div class="content">
+            <p class="greeting">Olá, Piloto,</p>
+            <p class="message">
+                O sinal verde está próximo e notamos que o seu carro ainda está na garagem. O prazo para registrar seus palpites para a <span class="highlight">{prova_sel}</span> está se esgotando.
+            </p>
+            <p class="message">
+                Para garantir sua posição no ranking e não ficar para trás na disputa pelo título do nosso bolão, você precisa confirmar suas apostas até <span class="highlight">{horario_limite_texto}</span>.
+            </p>
+            <p class="message">
+                Clique no botão abaixo para acessar o sistema e salvar suas escolhas agora:
+            </p>
+            <a href="https://bf1-b68ej.ondigitalocean.app" class="button">EFETUAR MINHAS APOSTAS</a>
+        </div>
+        <div class="footer">
+            <p>Equipe de Organização BF1</p>
+            <p>Este é um alerta automático do sistema de gerenciamento do bolão.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
                         ok = enviar_email(
                             destinatario="",
                             assunto=assunto,

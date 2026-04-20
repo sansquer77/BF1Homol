@@ -180,20 +180,162 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
             if resumo:
                 bloco_analise += "<p><b>Base da estimativa:</b> " + html.escape(resumo) + "</p>"
 
-            corpo_email = (
-                f"<p>Olá {html.escape(user_nome)},</p>"
-                f"<p>Sua aposta do campeonato <b>{season_val}</b> foi registrada com sucesso.</p>"
-                "<p><b>Detalhes:</b></p>"
-                "<ul>"
-                f"<li>Campeão: {html.escape(champion)}</li>"
-                f"<li>Vice-campeão: {html.escape(vice)}</li>"
-                f"<li>Equipe campeã: {html.escape(team)}</li>"
-                f"<li>Data/Hora do registro (Brasília): {html.escape(now)}</li>"
-                "</ul>"
-                f"{bloco_analise}"
-                "<p><small><b>Aviso de estimativa:</b> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</small></p>"
-                "<p>Boa sorte!</p>"
-            )
+            corpo_email = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmação de Aposta de Campeonato BF1</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            background-color: #ffffff;
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        .logo {{
+            width: 100px;
+            height: auto;
+            margin: 0;
+        }}
+        .content {{
+            padding: 30px;
+            color: #333333;
+        }}
+        .greeting {{
+            font-size: 18px;
+            margin-bottom: 20px;
+        }}
+        .success-message {{
+            background-color: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .details-box {{
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }}
+        .details-box h3 {{
+            margin-top: 0;
+            color: #d32f2f;
+        }}
+        .detail-row {{
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }}
+        .detail-row:last-child {{
+            border-bottom: none;
+        }}
+        .detail-label {{
+            font-weight: bold;
+            color: #555;
+        }}
+        .detail-value {{
+            color: #333;
+            text-align: right;
+        }}
+        .analysis-box {{
+            background-color: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .analysis-box h4 {{
+            margin-top: 0;
+            color: #f57c00;
+        }}
+        .message {{
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 15px 0;
+        }}
+        .footer {{
+            background-color: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666666;
+            border-top: 1px solid #e0e0e0;
+        }}
+        .disclaimer {{
+            font-size: 12px;
+            color: #999;
+            margin-top: 15px;
+            font-style: italic;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+        </div>
+        <div class="content">
+            <p class="greeting">Olá {html.escape(user_nome)},</p>
+            <div class="success-message">
+                <strong>✓ Aposta de campeonato registrada com sucesso!</strong> Sua aposta para a temporada <strong>{season_val}</strong> foi confirmada no sistema.
+            </div>
+            <div class="details-box">
+                <h3>Detalhes da Aposta</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Temporada:</span>
+                    <span class="detail-value">{season_val}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Campeão:</span>
+                    <span class="detail-value">{html.escape(champion)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Vice-campeão:</span>
+                    <span class="detail-value">{html.escape(vice)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Equipe campeã:</span>
+                    <span class="detail-value">{html.escape(team)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Data/Hora do registro (Brasília):</span>
+                    <span class="detail-value">{html.escape(now)}</span>
+                </div>
+            </div>
+            {f'''<div class="analysis-box">
+                <h4>📊 Análise da Aposta</h4>
+                {bloco_analise}
+            </div>''' if bloco_analise else ''}
+            <p class="message">Boa sorte na temporada! Você pode revisar ou modificar sua aposta de campeonato a qualquer momento acessando sua conta no sistema.</p>
+            <p class="disclaimer"><strong>⚠️ Aviso de estimativa:</strong> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</p>
+        </div>
+        <div class="footer">
+            <p>Equipe de Organização BF1</p>
+            <p>Este é um alerta automático do sistema de gerenciamento do bolão.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
             email_ok = enviar_email(usuario.get('email', ''), f"Aposta de campeonato registrada - {season_val}", corpo_email)
             if not email_ok:
                 logger.warning(

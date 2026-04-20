@@ -343,11 +343,112 @@ def enviar_email_recuperacao_senha(
     nome_safe = html.escape(nome_usuario or "Participante")
     token_safe = html.escape(reset_token or "")
     corpo_html = f"""
-    <h3>Recuperação de Senha - BF1</h3>
-    <p>Olá, {nome_safe}!</p>
-    <p>Use o token abaixo para redefinir sua senha na tela de login:</p>
-    <p><b>{token_safe}</b></p>
-    <p>Esse token expira em {int(exp_minutes)} minutos e pode ser usado apenas uma vez.</p>
-    <p>Se você não solicitou esta redefinição, ignore este email.</p>
-    """
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recuperação de Senha BF1</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            background-color: #ffffff;
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        .logo {{
+            width: 100px;
+            height: auto;
+            margin: 0;
+        }}
+        .content {{
+            padding: 30px;
+            color: #333333;
+        }}
+        .greeting {{
+            font-size: 18px;
+            margin-bottom: 20px;
+        }}
+        .message {{
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 15px 0;
+        }}
+        .token-box {{
+            background-color: #f0f0f0;
+            border: 2px dashed #d32f2f;
+            border-radius: 4px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }}
+        .token-box .label {{
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+        }}
+        .token-box .token {{
+            font-size: 18px;
+            font-weight: bold;
+            color: #d32f2f;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }}
+        .warning {{
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-size: 14px;
+        }}
+        .footer {{
+            background-color: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666666;
+            border-top: 1px solid #e0e0e0;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+        </div>
+        <div class="content">
+            <p class="greeting">Olá, {nome_safe}!</p>
+            <p class="message">Recebemos uma solicitação para redefinir sua senha. Use o token abaixo para criar uma nova senha:</p>
+            <div class="token-box">
+                <div class="label">Seu token de redefinição:</div>
+                <div class="token">{token_safe}</div>
+            </div>
+            <p class="message">Este token expira em <strong>{int(exp_minutes)} minutos</strong> e pode ser usado apenas uma vez.</p>
+            <div class="warning">
+                <strong>⚠️ Por segurança:</strong> Se você não solicitou esta redefinição de senha, ignore este email. Sua conta permanecerá segura com a senha atual.
+            </div>
+        </div>
+        <div class="footer">
+            <p>Equipe de Organização BF1</p>
+            <p>Este é um alerta automático do sistema de gerenciamento do bolão.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
     enviar_email(email_usuario, "Recuperação de Senha - BF1", corpo_html)

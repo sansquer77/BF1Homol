@@ -49,13 +49,27 @@ def load_pwa_meta_tags():
         st.markdown(f"""
             <script>
             (function() {{
-                // Remover meta tags antigas se existirem
-                document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(el => el.remove());
-                
-                // Criar e adicionar novas meta tags no head
                 var head = document.getElementsByTagName('head')[0];
                 
-                // Apple Touch Icon
+                // Remover meta tags antigas se existirem
+                document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(el => el.remove());
+                document.querySelectorAll('link[rel="icon"]').forEach(el => el.remove());
+                document.querySelectorAll('link[rel="manifest"]').forEach(el => el.remove());
+                
+                // Favicon
+                var favicon = document.createElement('link');
+                favicon.rel = 'icon';
+                favicon.type = 'image/x-icon';
+                favicon.href = '/static/favicon.ico';
+                head.appendChild(favicon);
+                
+                // Manifest para PWA
+                var manifest = document.createElement('link');
+                manifest.rel = 'manifest';
+                manifest.href = '/static/manifest.json';
+                head.appendChild(manifest);
+                
+                // Apple Touch Icon (múltiplos tamanhos)
                 var link = document.createElement('link');
                 link.rel = 'apple-touch-icon';
                 link.href = '{icon_data_uri}';
@@ -94,7 +108,8 @@ def load_pwa_meta_tags():
     
     st.markdown("""
         <meta name="mobile-web-app-capable" content="yes">
-        <meta name="theme-color" content="#0a0a0f">
+        <meta name="theme-color" content="#d32f2f">
+        <meta name="description" content="BF1 - Bolão de Fórmula 1 - Sistema de gerenciamento de apostas de F1">
     """, unsafe_allow_html=True)
 
 load_css()

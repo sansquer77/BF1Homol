@@ -55,11 +55,15 @@ O BF1 é uma aplicação web **monolítica stateless** construída com **Streaml
 3.5/
 ├── main.py                    # Entry point: router, menu, auth guard
 ├── requirements.txt           # Dependências Python
-├── favicon.png
 ├── assets/
 │   └── styles.css             # Tema Liquid Glass (CSS customizado)
 ├── static/
-│   └── apple-touch-icon*.png  # Ícones PWA
+│   ├── favicon.ico            # Ícone favicon (32x32)
+│   ├── apple-touch-icon.png   # Ícone iOS (180x180)
+│   ├── apple-touch-icon-180.png # Ícone iOS alternativo (180x180)
+│   ├── icon-192.png           # Ícone PWA (192x192)
+│   ├── icon-512.png           # Ícone PWA (512x512)
+│   └── manifest.json          # Configuração PWA
 ├── ui/                        # Camada de interface (views Streamlit)
 │   ├── login.py
 │   ├── painel.py
