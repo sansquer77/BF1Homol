@@ -38,14 +38,24 @@ def load_pwa_meta_tags():
     if not icon_path.exists():
         icon_path = Path(__file__).parent / "static" / "apple-touch-icon.png"
     
+    # Carregar favicon como base64
+    favicon_path = Path(__file__).parent / "static" / "favicon.ico"
+    
     icon_base64 = ""
+    favicon_base64 = ""
+    
     if icon_path.exists():
         with open(icon_path, "rb") as f:
             icon_base64 = base64.b64encode(f.read()).decode()
     
+    if favicon_path.exists():
+        with open(favicon_path, "rb") as f:
+            favicon_base64 = base64.b64encode(f.read()).decode()
+    
     # Usar JavaScript para injetar as meta tags no <head> do documento
-    if icon_base64:
-        icon_data_uri = f"data:image/png;base64,{icon_base64}"
+    if icon_base64 or favicon_base64:
+        icon_data_uri = f"data:image/png;base64,{icon_base64}" if icon_base64 else ""
+        favicon_data_uri = f"data:image/x-icon;base64,{favicon_base64}" if favicon_base64 else ""
         st.markdown(f"""
             <script>
             (function() {{
@@ -56,11 +66,11 @@ def load_pwa_meta_tags():
                 document.querySelectorAll('link[rel="icon"]').forEach(el => el.remove());
                 document.querySelectorAll('link[rel="manifest"]').forEach(el => el.remove());
                 
-                // Favicon
+                // Favicon via data URI
                 var favicon = document.createElement('link');
                 favicon.rel = 'icon';
                 favicon.type = 'image/x-icon';
-                favicon.href = '/static/favicon.ico';
+                favicon.href = '{favicon_data_uri}';
                 head.appendChild(favicon);
                 
                 // Manifest para PWA
