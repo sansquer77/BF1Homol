@@ -238,18 +238,15 @@ def login_view():
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        # Logo profissional BF1
+        # Logo profissional BF1 centralizado
         logo_html = render_bf1_logo_html(width=150, alt="Logo BF1")
         if logo_html:
-            col_logo, col_title = st.columns([1, 2])
-            with col_logo:
-                st.markdown(logo_html, unsafe_allow_html=True)
-            with col_title:
-                st.markdown("<div style='margin-top: 20px;'><h2>BF1 - Bolão de F1</h2></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align: center;'>{logo_html}</div>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; margin-top: 10px;'>BF1 - Bolão de F1</h2>", unsafe_allow_html=True)
         else:
             st.markdown("# 🏁 BF1 - Bolão de F1")
         
-        st.markdown("### Sistema de Apostas e Ranking")
+        st.markdown("<h4 style='text-align: center; color: #666;'>Sistema de Apostas e Ranking</h4>", unsafe_allow_html=True)
         st.markdown("---")
         
         # ========== FORMULÁRIO ==========

@@ -32,6 +32,7 @@ from services.rules_service import get_regras_aplicaveis
 from utils.datetime_utils import now_sao_paulo
 from utils.input_models import BetSubmissionInput, ValidationError
 from utils.logging_utils import redact_identifier
+from utils.helpers import get_bf1_logo_data_uri
 from utils.request_utils import get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -803,6 +804,9 @@ def salvar_aposta(
 
             conn.commit()
 
+            # Obter logo BF1 como data URI para embutir no email
+            bf1_logo_uri = get_bf1_logo_data_uri()
+
             corpo_email = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -897,7 +901,7 @@ def salvar_aposta(
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+            <img src="{bf1_logo_uri}" alt="BF1 Logo" class="logo">
         </div>
         <div class="content">
             <p class="greeting">Olá {html.escape(usuario['nome'])},</p>
@@ -1135,7 +1139,7 @@ def salvar_aposta(
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+            <img src="{bf1_logo_uri}" alt="BF1 Logo" class="logo">
         </div>
         <div class="content">
             <p class="greeting">Olá {html.escape(usuario['nome'])},</p>

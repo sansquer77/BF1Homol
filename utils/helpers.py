@@ -118,6 +118,18 @@ def render_bf1_logo_html(width: int = 75, alt: str = "BF1") -> str:
     return f'<img src="{data_uri}" alt="{safe_alt}" width="{safe_width}" loading="eager" />'
 
 
+def get_bf1_logo_data_uri() -> str:
+    """Retorna o logo BF1 como data URI para uso em emails e outras aplicações.
+    
+    O data URI contém a imagem codificada em base64 e pode ser usada diretamente
+    em tags <img> sem depender de URLs externas.
+    
+    Returns:
+        str: Data URI da imagem BF1 (ex: data:image/png;base64,...)
+    """
+    return _bf1_logo_data_uri()
+
+
 def render_page_header(st_module: Any, title: str, logo_width: int = 75) -> None:
     """Renderiza cabeçalho padronizado com logo BF1 + título da página."""
     col_logo, col_title = st_module.columns([1, 16])

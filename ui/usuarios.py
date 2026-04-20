@@ -14,6 +14,7 @@ from services.data_access_auth import (
 )
 from services.auth_service import hash_password
 from services.email_service import enviar_email
+from utils.helpers import get_bf1_logo_data_uri
 from datetime import datetime
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
@@ -424,6 +425,10 @@ def _render_gestao_financeira_tab():
             disabled=not bool(pendentes_preview),
         ):
             assunto = f"💳 Lembrete de pagamento: Taxa da temporada {temporada}"
+            
+            # Obter logo BF1 como data URI para embutir no email
+            bf1_logo_uri = get_bf1_logo_data_uri()
+            
             corpo = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -490,7 +495,7 @@ def _render_gestao_financeira_tab():
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+            <img src="{bf1_logo_uri}" alt="BF1 Logo" class="logo">
         </div>
         <div class="content">
             <p class="greeting">Olá, participante!</p>

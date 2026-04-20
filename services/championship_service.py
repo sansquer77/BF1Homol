@@ -7,6 +7,7 @@ from db.db_schema import db_connect
 from db.repo_users import get_user_by_id
 from db.repo_races import get_provas_df
 from services.rules_service import get_regras_aplicaveis
+from utils.helpers import get_bf1_logo_data_uri
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
 from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, normalize_time_string, parse_datetime_sao_paulo
 from utils.input_models import ChampionshipBetInput, ChampionshipResultInput, ValidationError
@@ -180,6 +181,9 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
             if resumo:
                 bloco_analise += "<p><b>Base da estimativa:</b> " + html.escape(resumo) + "</p>"
 
+            # Obter logo BF1 como data URI para embutir no email
+            bf1_logo_uri = get_bf1_logo_data_uri()
+
             corpo_email = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -291,7 +295,7 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+            <img src="{bf1_logo_uri}" alt="BF1 Logo" class="logo">
         </div>
         <div class="content">
             <p class="greeting">Olá {html.escape(user_nome)},</p>

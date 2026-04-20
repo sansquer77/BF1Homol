@@ -10,6 +10,7 @@ from typing import Optional
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from utils.logging_utils import redact_identifier
+from utils.helpers import get_bf1_logo_data_uri
 
 logger = logging.getLogger(__name__)
 
@@ -342,6 +343,10 @@ def enviar_email_recuperacao_senha(
     """Envia e-mail com token único de redefinição de senha."""
     nome_safe = html.escape(nome_usuario or "Participante")
     token_safe = html.escape(reset_token or "")
+    
+    # Obter logo BF1 como data URI para embutir no email
+    bf1_logo_uri = get_bf1_logo_data_uri()
+    
     corpo_html = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -429,7 +434,7 @@ def enviar_email_recuperacao_senha(
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+            <img src="{bf1_logo_uri}" alt="BF1 Logo" class="logo">
         </div>
         <div class="content">
             <p class="greeting">Olá, {nome_safe}!</p>

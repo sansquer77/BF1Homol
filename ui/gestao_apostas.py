@@ -12,6 +12,7 @@ from services.data_access_auth import (
 )
 from services.bets_write import gerar_aposta_automatica
 from services.email_service import enviar_email
+from utils.helpers import get_bf1_logo_data_uri
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
@@ -152,6 +153,10 @@ def main():
                         st.warning("Nenhum e-mail válido encontrado para os participantes sem aposta.")
                     else:
                         assunto = f"⏰ ÚLTIMA CHAMADA: Suas apostas para o {prova_sel} fecham em breve!"
+                        
+                        # Obter logo BF1 como data URI para embutir no email
+                        bf1_logo_uri = get_bf1_logo_data_uri()
+                        
                         corpo = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -227,7 +232,7 @@ def main():
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://bf1-b68ej.ondigitalocean.app/static/apple-touch-icon.png" alt="BF1 Logo" class="logo">
+            <img src="{bf1_logo_uri}" alt="BF1 Logo" class="logo">
         </div>
         <div class="content">
             <p class="greeting">Olá, Piloto,</p>
