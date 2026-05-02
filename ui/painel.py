@@ -488,6 +488,14 @@ def participante_view():
                                 posicoes_dict = {}
                         else:
                             posicoes_dict = {}
+                        # Extrair dados de abandono antes de montar a tabela
+                        abandonos = set()
+                        if regras.get('penalidade_abandono') and not resultado_row.empty and 'abandono_pilotos' in resultado_row.columns:
+                            raw_aband = resultado_row.iloc[0].get('abandono_pilotos', '')
+                            if raw_aband is None:
+                                raw_aband = ''
+                            abandonos = {p.strip() for p in str(raw_aband).split(',') if p and p.strip()}
+                        
                         dados = []
                         total_pontos = 0
                         if tipo_prova == 'Sprint':
@@ -508,10 +516,12 @@ def participante_view():
                             if pos_real is not None and 1 <= pos_real <= n_pos:
                                 pontos = ficha * pontos_lista[pos_real - 1]
                                 total_pontos += pontos
+                            dnf_status = "DNF" if str(aposta_piloto).strip() in abandonos else "-"
                             dados.append({
                                 "Piloto Apostado": aposta_piloto,
                                 "Fichas": ficha,
                                 "Posição Real": str(pos_real) if pos_real is not None else "-",
+                                "DNF": dnf_status,
                                 "Pontos": f"{pontos:.2f}"
                             })
                         piloto_11_real = str(posicoes_dict.get(11, "")).strip()
@@ -519,16 +529,13 @@ def participante_view():
                         pontos_11_col = bonus_11 if str(piloto_11_apostado).strip() == piloto_11_real else 0
                         total_pontos += pontos_11_col
                         penalidade_abandono = 0
-                        if regras.get('penalidade_abandono') and not resultado_row.empty and 'abandono_pilotos' in resultado_row.columns:
-                            raw_aband = resultado_row.iloc[0].get('abandono_pilotos', '')
-                            if raw_aband is None:
-                                raw_aband = ''
-                            abandonos = {p.strip() for p in str(raw_aband).split(',') if p and p.strip()}
-                            if abandonos:
-                                num_aband = sum(1 for p in pilotos_apostados if p.strip() in abandonos)
-                                penalidade_abandono = int(regras.get('pontos_penalidade', 0)) * num_aband
-                                if penalidade_abandono:
-                                    total_pontos -= penalidade_abandono
+                        pilotos_abandonados = []
+                        if abandonos:
+                            pilotos_abandonados = [p for p in pilotos_apostados if p.strip() in abandonos]
+                            num_aband = len(pilotos_abandonados)
+                            penalidade_abandono = int(regras.get('pontos_penalidade', 0)) * num_aband
+                            if penalidade_abandono:
+                                total_pontos -= penalidade_abandono
                         if tipo_prova == 'Sprint' and regras.get('pontos_dobrada'):
                             total_pontos = total_pontos * 2
                         penalidade_auto = 0
@@ -547,7 +554,8 @@ def participante_view():
                         st.dataframe(pd.DataFrame(dados), hide_index=True, width="stretch")
                         st.write(f"**11º Apostado:** {piloto_11_apostado} | **11º Real:** {piloto_11_real} | **Pontos 11º:** {pontos_11_col}")
                         if penalidade_abandono:
-                            st.write(f"**Penalidade por abandono:** -{penalidade_abandono}")
+                            pilotos_str = ", ".join(pilotos_abandonados)
+                            st.write(f"**Penalidade por abandono (DNF):** {pilotos_str} → -{penalidade_abandono} pontos")
                         if penalidade_auto:
                             st.write(f"**Penalidade aposta automática:** -{penalidade_auto:.2f}")
                         st.write(f"**Total de Pontos na Prova:** {total_pontos:.2f}")
