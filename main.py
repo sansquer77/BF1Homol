@@ -6,11 +6,13 @@ Melhorias:
 - Master user manager
 - Rate limiting
 - Tema Liquid Glass (responsivo mobile/desktop)
+- Detecção automática de Timezone do cliente
 """
 import streamlit as st
 import logging
 import datetime
 from pathlib import Path
+import streamlit.components.v1 as components
 
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
 st.set_page_config(
@@ -122,8 +124,43 @@ def load_pwa_meta_tags():
         <meta name="description" content="BF1 - Bolão de Fórmula 1 - Sistema de gerenciamento de apostas de F1">
     """, unsafe_allow_html=True)
 
+def load_timezone_detector():
+    """Carrega o script de detecção de timezone do cliente e sincroniza com session_state."""
+    import streamlit.components.v1 as components
+    import streamlit as st
+    
+    # HTML/JS customizado para detectar e retornar o timezone
+    html_code = """
+    <script>
+    (function() {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        sessionStorage.setItem("client_timezone", tz);
+        window.CLIENT_TIMEZONE = tz;
+        console.log("🌍 Client Timezone:", tz);
+    })();
+    </script>
+    """
+    
+    components.html(html_code, height=0)
+    
+    # Sincroniza timezone para session_state
+    timezone_detected = st.query_params.get("tz", "").strip()
+    if not timezone_detected:
+        # Se não tiver no URL, tenta um padrão
+        timezone_detected = "UTC"
+    
+    if "client_timezone" not in st.session_state:
+        st.session_state["client_timezone"] = timezone_detected
+
 load_css()
 load_pwa_meta_tags()
+load_timezone_detector()
+
+# ============ SINCRONIZAÇÃO DE TIMEZONE PARA SESSION STATE ============
+def _sync_timezone_to_session():
+    """Sincroniza o timezone detectado do cliente para st.session_state."""
+    if "client_timezone" not in st.session_state:
+        st.session_state["client_timezone"] = "UTC"
 
 # ============ CONFIGURAÇÃO DE LOGGING ============
 logging.basicConfig(
@@ -676,9 +713,45 @@ def sidebar_menu():
         key="menu_lateral",
     )
     st.session_state["pagina"] = escolha
+    
+    # ============ SELETOR DE TIMEZONE ============
+    st.sidebar.divider()
+    st.sidebar.markdown("### 🌍 Timezone")
+    
+    # Lista comum de timezones (Brasil + alguns principais)
+    common_timezones = [
+        "UTC",
+        "America/Sao_Paulo",
+        "America/Recife",
+        "America/Manaus",
+        "America/Rio_Branco",
+        "Europe/London",
+        "Europe/Paris",
+        "Asia/Tokyo",
+        "Asia/Dubai",
+        "Australia/Sydney",
+    ]
+    
+    current_tz = st.session_state.get("client_timezone", "UTC")
+    tz_index = common_timezones.index(current_tz) if current_tz in common_timezones else 0
+    
+    selected_tz = st.sidebar.selectbox(
+        "Selecione seu Timezone",
+        common_timezones,
+        index=tz_index,
+        key="timezone_selector",
+        help="Timezone usado para exibir data/hora nos logs. O servidor continua gravando em UTC.",
+    )
+    
+    if selected_tz != st.session_state.get("client_timezone"):
+        st.session_state["client_timezone"] = selected_tz
+        st.rerun()
 
 # ============ APP PRINCIPAL ============
 def main():
+    # Sincroniza timezone do cliente para session_state
+    _sync_timezone_to_session()
+    
     sidebar_menu()
     previous_page = st.session_state.get("_current_page")
     pagina = st.session_state["pagina"]

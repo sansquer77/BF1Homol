@@ -4,6 +4,7 @@ import logging
 from services.data_access_core import db_connect, get_table_columns
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
+from utils.timezone_utils import convert_utc_to_client_tz
 
 logger = logging.getLogger(__name__)
 
@@ -251,6 +252,18 @@ def main():
 
     filtro_show["Tipo de Aposta"] = filtro["tipo_aposta"].map(tipos_map)
     filtro_show["Automática"] = filtro["automatica"].apply(lambda x: "Sim" if x > 0 else "Não")
+    
+    # Converte timestamps para timezone do cliente
+    client_tz = st.session_state.get("client_timezone", "UTC")
+    if "horario" in filtro_show.columns:
+        filtro_show["horario"] = filtro_show["horario"].apply(
+            lambda x: convert_utc_to_client_tz(x, client_tz, "%d/%m/%Y %H:%M:%S") if pd.notna(x) else ""
+        )
+    if "data" in filtro_show.columns:
+        filtro_show["data"] = filtro_show["data"].apply(
+            lambda x: convert_utc_to_client_tz(x, client_tz, "%d/%m/%Y %H:%M:%S") if pd.notna(x) else ""
+        )
+    
     if "pilotos" in filtro_show.columns:
         pilotos_str = filtro_show["pilotos"].fillna("").astype(str).str.strip()
         aposta_str = filtro_show["aposta"].fillna("").astype(str).str.strip()

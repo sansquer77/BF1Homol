@@ -4,6 +4,7 @@ import streamlit as st
 
 from services.data_access_core import db_connect
 from utils.helpers import render_page_header
+from utils.timezone_utils import convert_utc_to_client_tz
 
 
 def _table_height(total_rows: int, row_height: int = 36, max_height: int = 620) -> int:
@@ -176,6 +177,12 @@ def main() -> None:
 
     df_show = df.copy()
     df_show["sucesso"] = df_show["sucesso"].apply(lambda x: "Sucesso" if bool(x) else "Falha")
+    
+    # Converte timestamp para timezone do cliente
+    client_tz = st.session_state.get("client_timezone", "UTC")
+    df_show["created_at"] = df_show["created_at"].apply(
+        lambda x: convert_utc_to_client_tz(x, client_tz, "%d/%m/%Y %H:%M:%S")
+    )
 
     st.dataframe(
         df_show.rename(
