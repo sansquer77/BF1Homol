@@ -247,22 +247,37 @@ def main():
         return
 
     filtro_show = filtro.copy()
-    if "horario" in filtro_show.columns:
-        filtro_show["horario"] = filtro_show["horario"].apply(_formatar_horario_hhmmss)
-
-    filtro_show["Tipo de Aposta"] = filtro["tipo_aposta"].map(tipos_map)
-    filtro_show["Automática"] = filtro["automatica"].apply(lambda x: "Sim" if x > 0 else "Não")
     
-    # Converte timestamps para timezone do cliente
+    # Preparação de dados para exibição
     client_tz = st.session_state.get("client_timezone", "UTC")
+    
+    # 'horario' é TIMESTAMP - converte para timezone do cliente (formato completo)
     if "horario" in filtro_show.columns:
         filtro_show["horario"] = filtro_show["horario"].apply(
             lambda x: convert_utc_to_client_tz(x, client_tz, "%d/%m/%Y %H:%M:%S") if pd.notna(x) else ""
         )
+    
+    # 'data' é apenas a data em string (YYYY-MM-DD) - apenas normaliza para DD/MM/YYYY
     if "data" in filtro_show.columns:
-        filtro_show["data"] = filtro_show["data"].apply(
-            lambda x: convert_utc_to_client_tz(x, client_tz, "%d/%m/%Y %H:%M:%S") if pd.notna(x) else ""
-        )
+        def formatar_data(valor):
+            if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+                return ""
+            txt = str(valor).strip()
+            if not txt:
+                return ""
+            try:
+                # Se for YYYY-MM-DD, converte para DD/MM/YYYY
+                dt = pd.to_datetime(txt, format="%Y-%m-%d", errors="coerce")
+                if pd.notna(dt):
+                    return dt.strftime("%d/%m/%Y")
+            except Exception:
+                pass
+            return txt
+        
+        filtro_show["data"] = filtro_show["data"].apply(formatar_data)
+
+    filtro_show["Tipo de Aposta"] = filtro["tipo_aposta"].map(tipos_map)
+    filtro_show["Automática"] = filtro["automatica"].apply(lambda x: "Sim" if x > 0 else "Não")
     
     if "pilotos" in filtro_show.columns:
         pilotos_str = filtro_show["pilotos"].fillna("").astype(str).str.strip()
