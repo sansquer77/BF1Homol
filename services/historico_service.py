@@ -3,22 +3,39 @@
 Este módulo fornece funções puras de cálculo — sem acoplamento a Streamlit —
 para alimentar a aba 'Histórico Geral' do Painel do Participante.
 
+Fonte de dados para pontuação:
+    A tabela `posicoes_participantes` é a fonte oficial de pontuação.
+    Ela é calculada e persistida por `bets_scoring.salvar_classificacao_prova`,
+    que aplica TODAS as regras ativas da temporada (pontos por posição, bônus,
+    penalidades, descarte, aposta automática etc.).
+
+    Por isso, este serviço NÃO recalcula pontuação — apenas SOMA os pontos
+    já calculados e armazenados, garantindo consistência com o que o
+    participante viu na classificação durante a temporada.
+
+Fonte de dados para acertos do 11º:
+    A coluna `piloto_11` não está em `posicoes_participantes`, portanto
+    os acertos são derivados comparando apostas x resultados via
+    `bets_scoring.calcular_pontuacao_lote`, que também aplica as regras
+    corretas por temporada.
+
 Responsabilidades:
-- Buscar apostas de TODAS as temporadas do participante
-- Calcular métricas de resumo (melhor colocação, melhor pontuação, médias, acertos 11º)
-- Agregar fichas por piloto e por temporada para o gráfico de barras
+    - Buscar apostas de TODAS as temporadas do participante
+    - Calcular métricas de resumo (melhor colocação, melhor pontuação,
+      médias, acertos 11º)
+    - Agregar fichas por piloto e por temporada para o gráfico de barras
 """
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass, field
 from typing import Optional
 
 import pandas as pd
 
 from db.repo_bets import get_apostas_df, get_posicoes_participantes_df
-from services.bets_scoring import calcular_pontuacao_lote
-from services.data_access_provas import get_provas_df, get_resultados_df
+from services.data_access_provas import get_resultados_df
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +72,7 @@ class DadosGrafico:
 
 def _get_todas_temporadas_do_participante(usuario_id: int) -> list[str]:
     """Retorna lista ordenada de temporadas em que o participante tem apostas."""
-    apostas_todas = get_apostas_df()  # sem filtro de temporada
+    apostas_todas = get_apostas_df()
     if apostas_todas.empty or "usuario_id" not in apostas_todas.columns:
         return []
 
@@ -63,7 +80,7 @@ def _get_todas_temporadas_do_participante(usuario_id: int) -> list[str]:
     if apostas_usuario.empty or "temporada" not in apostas_usuario.columns:
         return []
 
-    temporadas = (
+    return (
         apostas_usuario["temporada"]
         .dropna()
         .astype(str)
@@ -71,86 +88,99 @@ def _get_todas_temporadas_do_participante(usuario_id: int) -> list[str]:
         .unique()
         .tolist()
     )
-    return sorted(temporadas)
 
 
-def _calcular_pontuacao_temporada(
-    usuario_id: int,
-    apostas_df: pd.DataFrame,
-    temporada: str,
-) -> Optional[float]:
-    """Calcula a pontuação total do participante em uma temporada.
-
-    Retorna None quando não há resultados cadastrados ainda.
-    """
-    provas_df = get_provas_df(temporada)
-    resultados_df = get_resultados_df(temporada)
-
-    apostas_part = apostas_df[
-        (apostas_df["usuario_id"] == usuario_id)
-        & (apostas_df["temporada"] == temporada)
-    ]
-
-    if apostas_part.empty or provas_df.empty or resultados_df.empty:
-        return None
-
-    pontos_lista = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df)
-    pontos_validos = [p for p in pontos_lista if p is not None]
-    return sum(pontos_validos) if pontos_validos else None
-
-
-def _get_posicao_final_temporada(
+def _get_posicao_final_de_temporada(
+    posicoes_df: pd.DataFrame,
     usuario_id: int,
     temporada: str,
 ) -> Optional[int]:
-    """Retorna a melhor posição registrada em posicoes_participantes para o participante na temporada.
+    """Retorna a posição final do participante na última prova registrada da temporada.
 
-    Usa a posição da última prova com resultado, que equivale à colocação final
-    quando os dados estão atualizados.
+    A colocação após a última prova com resultado equivale ao encerramento
+    do campeonato quando os dados estão atualizados.
+
+    Args:
+        posicoes_df: DataFrame completo de posicoes_participantes (já filtrado
+                     por temporada pelo chamador).
+        usuario_id: ID do participante.
+        temporada: Temporada de referência (usada apenas para log/depuração).
+
+    Returns:
+        Posição inteira ou None se não houver dados.
     """
-    posicoes_df = get_posicoes_participantes_df(temporada)
     if posicoes_df.empty:
         return None
 
-    posicoes_part = posicoes_df[posicoes_df["usuario_id"] == usuario_id]
-    if posicoes_part.empty or "posicao" not in posicoes_part.columns:
+    part = posicoes_df[posicoes_df["usuario_id"] == usuario_id]
+    if part.empty or "posicao" not in part.columns:
         return None
 
-    # A colocação final é a posição na última prova com resultado
-    posicoes_part = posicoes_part.sort_values("prova_id", ascending=False)
-    return int(posicoes_part.iloc[0]["posicao"])
+    ultima_prova = part["prova_id"].max()
+    linha = part[part["prova_id"] == ultima_prova]
+    return int(linha.iloc[0]["posicao"]) if not linha.empty else None
 
 
-def _contar_acertos_11_em_apostas(
+def _get_pontuacao_total_de_temporada(
+    posicoes_df: pd.DataFrame,
+    usuario_id: int,
+) -> Optional[float]:
+    """Soma os pontos já calculados em posicoes_participantes para o participante.
+
+    Esta é a fonte oficial de pontuação — não recalcula nada, apenas agrega
+    os valores que o serviço de classificação já persistiu aplicando todas
+    as regras vigentes da temporada.
+
+    Args:
+        posicoes_df: DataFrame de posicoes_participantes filtrado por temporada.
+        usuario_id: ID do participante.
+
+    Returns:
+        Total de pontos ou None se não houver registros.
+    """
+    if posicoes_df.empty or "pontos" not in posicoes_df.columns:
+        return None
+
+    part = posicoes_df[posicoes_df["usuario_id"] == usuario_id]
+    if part.empty:
+        return None
+
+    return round(float(part["pontos"].sum()), 2)
+
+
+def _contar_acertos_11_em_temporada(
     apostas_df: pd.DataFrame,
-    temporada: str,
+    resultados_df: pd.DataFrame,
     usuario_id: int,
 ) -> int:
-    """Conta acertos do 11º colocado em uma temporada para o participante."""
-    resultados_df = get_resultados_df(temporada)
-    if resultados_df.empty or apostas_df.empty:
+    """Conta quantas vezes o participante acertou o 11º colocado na temporada.
+
+    O acerto do 11º não está em posicoes_participantes, portanto é derivado
+    diretamente da comparação entre a aposta e o resultado.
+
+    Args:
+        apostas_df: Apostas do participante já filtradas por temporada e usuario_id.
+        resultados_df: Resultados da temporada.
+        usuario_id: ID do participante (usado apenas para validação defensiva).
+
+    Returns:
+        Número de acertos do 11º colocado.
+    """
+    if apostas_df.empty or resultados_df.empty:
         return 0
 
-    apostas_part = apostas_df[
-        (apostas_df["usuario_id"] == usuario_id)
-        & (apostas_df["temporada"] == temporada)
-    ]
-    if apostas_part.empty:
-        return 0
-
-    import ast
-
-    acertos = 0
-    for _, aposta in apostas_part.iterrows():
-        prova_id = aposta["prova_id"]
-        resultado_row = resultados_df[resultados_df["prova_id"] == prova_id]
-        if resultado_row.empty:
-            continue
+    # Monta índice prova_id -> piloto_11_real para evitar lookups repetidos
+    piloto_11_por_prova: dict[int, str] = {}
+    for _, resultado in resultados_df.iterrows():
         try:
-            posicoes_dict = ast.literal_eval(resultado_row.iloc[0]["posicoes"])
+            posicoes = ast.literal_eval(resultado["posicoes"])
+            piloto_11_por_prova[resultado["prova_id"]] = str(posicoes.get(11, "")).strip()
         except Exception:
             continue
-        piloto_11_real = str(posicoes_dict.get(11, "")).strip()
+
+    acertos = 0
+    for _, aposta in apostas_df.iterrows():
+        piloto_11_real = piloto_11_por_prova.get(aposta["prova_id"], "")
         piloto_11_apostado = str(aposta.get("piloto_11", "")).strip()
         if piloto_11_apostado and piloto_11_apostado == piloto_11_real:
             acertos += 1
@@ -165,6 +195,10 @@ def _contar_acertos_11_em_apostas(
 def calcular_resumo_historico(usuario_id: int) -> ResumoHistorico:
     """Consolida métricas históricas de todas as temporadas do participante.
 
+    Pontuação é lida diretamente de `posicoes_participantes`, garantindo que
+    as regras de cada temporada (descarte, penalidades, aposta automática
+    etc.) já estejam aplicadas.
+
     Args:
         usuario_id: ID do usuário autenticado.
 
@@ -175,26 +209,35 @@ def calcular_resumo_historico(usuario_id: int) -> ResumoHistorico:
     if not temporadas:
         return ResumoHistorico()
 
-    apostas_todas = get_apostas_df()
-
     posicoes_por_temporada: list[tuple[str, int]] = []
     pontuacoes_por_temporada: list[tuple[str, float]] = []
     total_acertos_11 = 0
 
-    for temporada in temporadas:
-        posicao = _get_posicao_final_temporada(usuario_id, temporada)
+    for temporada in sorted(temporadas):
+        # Fonte oficial: pontos já calculados e persistidos pelo serviço de classificação
+        posicoes_df = get_posicoes_participantes_df(temporada)
+
+        posicao = _get_posicao_final_de_temporada(posicoes_df, usuario_id, temporada)
         if posicao is not None:
             posicoes_por_temporada.append((temporada, posicao))
 
-        pontuacao = _calcular_pontuacao_temporada(usuario_id, apostas_todas, temporada)
+        pontuacao = _get_pontuacao_total_de_temporada(posicoes_df, usuario_id)
         if pontuacao is not None:
             pontuacoes_por_temporada.append((temporada, pontuacao))
 
-        total_acertos_11 += _contar_acertos_11_em_apostas(
-            apostas_todas, temporada, usuario_id
+        # Acertos do 11º: não está em posicoes_participantes — precisa das apostas
+        apostas_temp = get_apostas_df(temporada)
+        apostas_part = (
+            apostas_temp[apostas_temp["usuario_id"] == usuario_id]
+            if not apostas_temp.empty
+            else pd.DataFrame()
+        )
+        resultados_temp = get_resultados_df(temporada)
+        total_acertos_11 += _contar_acertos_11_em_temporada(
+            apostas_part, resultados_temp, usuario_id
         )
 
-    resumo = ResumoHistorico(temporadas_com_dados=temporadas)
+    resumo = ResumoHistorico(temporadas_com_dados=sorted(temporadas))
     resumo.total_acertos_11 = total_acertos_11
 
     if posicoes_por_temporada:
@@ -207,7 +250,7 @@ def calcular_resumo_historico(usuario_id: int) -> ResumoHistorico:
 
     if pontuacoes_por_temporada:
         melhor_pt = max(pontuacoes_por_temporada, key=lambda x: x[1])
-        resumo.melhor_pontuacao = round(melhor_pt[1], 2)
+        resumo.melhor_pontuacao = melhor_pt[1]
         resumo.melhor_pontuacao_ano = melhor_pt[0]
         resumo.media_pontuacoes = round(
             sum(p for _, p in pontuacoes_por_temporada) / len(pontuacoes_por_temporada), 2
@@ -217,51 +260,50 @@ def calcular_resumo_historico(usuario_id: int) -> ResumoHistorico:
 
 
 def calcular_dados_grafico(usuario_id: int) -> DadosGrafico:
-    """Agrega fichas apostadas por piloto e por temporada para exibição em gráfico.
+    """Agrega fichas apostadas por piloto e por temporada para o gráfico de barras.
 
-    Usa TODAS as apostas do participante, sem filtro de temporada.
+    Usa TODAS as apostas do participante. As fichas são o dado original da
+    aposta — não envolvem cálculo de pontuacão, portanto lidas diretamente
+    da tabela de apostas.
 
     Args:
         usuario_id: ID do usuário autenticado.
 
     Returns:
-        DadosGrafico com dicionário de fichas por temporada/piloto
-        e informações do piloto mais apostado no total.
+        DadosGrafico com fichas por temporada/piloto e o piloto mais apostado.
     """
     temporadas = _get_todas_temporadas_do_participante(usuario_id)
     if not temporadas:
         return DadosGrafico()
 
-    apostas_todas = get_apostas_df()
-    apostas_part = apostas_todas[apostas_todas["usuario_id"] == usuario_id]
-
-    if apostas_part.empty:
-        return DadosGrafico()
-
     fichas_por_temporada_piloto: dict[str, dict[str, int]] = {}
     fichas_totais_piloto: dict[str, int] = {}
 
-    for _, aposta in apostas_part.iterrows():
-        temporada = str(aposta.get("temporada", "")).strip()
-        if not temporada:
+    for temporada in sorted(temporadas):
+        apostas_temp = get_apostas_df(temporada)
+        if apostas_temp.empty:
             continue
 
-        try:
-            pilotos = [p.strip() for p in str(aposta["pilotos"]).split(",") if p.strip()]
-            fichas = [int(f) for f in str(aposta["fichas"]).split(",") if f.strip()]
-        except Exception:
+        apostas_part = apostas_temp[apostas_temp["usuario_id"] == usuario_id]
+        if apostas_part.empty:
             continue
 
-        if temporada not in fichas_por_temporada_piloto:
-            fichas_por_temporada_piloto[temporada] = {}
+        fichas_por_temporada_piloto.setdefault(temporada, {})
 
-        for piloto, ficha in zip(pilotos, fichas):
-            if ficha <= 0:
+        for _, aposta in apostas_part.iterrows():
+            try:
+                pilotos = [p.strip() for p in str(aposta["pilotos"]).split(",") if p.strip()]
+                fichas = [int(f) for f in str(aposta["fichas"]).split(",") if f.strip()]
+            except Exception:
                 continue
-            fichas_por_temporada_piloto[temporada][piloto] = (
-                fichas_por_temporada_piloto[temporada].get(piloto, 0) + ficha
-            )
-            fichas_totais_piloto[piloto] = fichas_totais_piloto.get(piloto, 0) + ficha
+
+            for piloto, ficha in zip(pilotos, fichas):
+                if ficha <= 0:
+                    continue
+                fichas_por_temporada_piloto[temporada][piloto] = (
+                    fichas_por_temporada_piloto[temporada].get(piloto, 0) + ficha
+                )
+                fichas_totais_piloto[piloto] = fichas_totais_piloto.get(piloto, 0) + ficha
 
     dados = DadosGrafico(fichas_por_temporada_piloto=fichas_por_temporada_piloto)
 
