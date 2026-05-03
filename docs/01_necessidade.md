@@ -1,4 +1,14 @@
+---
+tags: [bf1, sdd, visao-geral]
+status: produção
+versao: 3.6
+data_revisao: 2026-05-03
+---
+
 # Necessidade que o Sistema Atende
+
+> [!info] Documento de Visão
+> Este arquivo descreve **por que** o BF1 existe. Para o **que** ele faz, veja [[02_regras_de_negocio]]. Para **como** está estruturado, veja [[04_arquitetura]].
 
 ## Visão Geral
 
@@ -35,10 +45,11 @@ Grupos de fãs de F1 que realizam bolões informais entre amigos enfrentam os se
 8. **Apostas de campeonato** (quem será o campeão e vice).
 9. **Hall da Fama** com histórico de campeões de temporadas anteriores.
 10. **Dashboard F1** com estatísticas e análises das apostas.
-11. **Backup dos bancos de dados** (Excel e SQL) com validação de integridade.
-12. **Logs de apostas e acessos** para auditoria.
-13. **Regulamento** do bolão acessível a todos os participantes.
-14. **PWA (Progressive Web App)** para acesso mobile via ícone na tela inicial do dispositivo.
+11. **Histórico consolidado do participante**: painel individual com resumo de todas as temporadas, gráfico de apostas por piloto e piloto mais apostado. *(Adicionado em v3.6)*
+12. **Backup dos bancos de dados** (Excel e SQL) com validação de integridade.
+13. **Logs de apostas e acessos** para auditoria.
+14. **Regulamento** do bolão acessível a todos os participantes.
+15. **PWA (Progressive Web App)** para acesso mobile via ícone na tela inicial do dispositivo.
 
 ## Benefícios Entregues
 
@@ -46,4 +57,5 @@ Grupos de fãs de F1 que realizam bolões informais entre amigos enfrentam os se
 - **Automatização**: pontuação, classificação e apostas automáticas eliminam trabalho manual.
 - **Rastreabilidade**: logs de acesso e apostas garantem auditoria completa.
 - **Multi-temporada**: o sistema mantém o histórico de todas as temporadas sem perda de dados.
+- **Visão individual**: o participante pode acompanhar sua própria evolução histórica através da aba [[03_spec#2.1 Painel do Participante|Histórico no Painel]].
 - **Segurança**: autenticação JWT, bcrypt, rate limiting e guard de rotas por perfil.

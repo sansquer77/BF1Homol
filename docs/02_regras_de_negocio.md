@@ -1,4 +1,16 @@
+---
+tags: [bf1, sdd, regras-de-negocio]
+status: produção
+versao: 3.6
+data_revisao: 2026-05-03
+---
+
 # Regras de Negócio
+
+> [!info] Navegação
+> - Contexto: [[01_necessidade]]
+> - Implementação: [[03_spec]]
+> - Arquitetura: [[04_arquitetura]]
 
 ## RN-001 — Controle de Acesso por Perfil
 
@@ -86,8 +98,8 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 
 - Todo acesso autenticado ao sistema é registrado na tabela de logs de acesso.
 - Toda submissão de aposta (manual ou automática) é registrada no log de apostas.
-- Todos os logs são salvos no Banco de dados com o horário do servidor - isso garante que que o horário é igual para todos.
-- O valor do log visualizado no sistema é ajustado com base no fuso horário escolhido no menu lateral para ajustar ao horário do participante - Mas isso é apenas na visualização, o dado no Banco ainda é o valor do servidor.
+- Todos os logs são salvos no banco de dados com o horário do servidor — isso garante que o horário é igual para todos.
+- O valor do log visualizado no sistema é ajustado com base no fuso horário escolhido no menu lateral — mas isso é apenas na visualização; o dado no banco ainda é o valor do servidor.
 - Logs são visíveis apenas para perfis `master` e `admin`.
 
 ## RN-012 — Multi-Temporada
@@ -95,4 +107,16 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 - Todos os registros de provas, apostas e posições possuem campo `temporada`.
 - O sistema filtra dados por temporada em todas as telas relevantes.
 - Um usuário pode ter participado de temporadas anteriores como ativo e estar inativo na temporada atual.
-- Ao criar uma nova temporada o sistema mantem os dados das temporadas como histórico.
+- Ao criar uma nova temporada o sistema mantém os dados das temporadas anteriores como histórico.
+
+## RN-013 — Histórico Consolidado do Participante *(v3.6)*
+
+> [!note] Nova regra adicionada na versão 3.6
+
+- A aba **"Histórico"** no [[03_spec#2.1 Painel do Participante|Painel do Participante]] consolida dados de **todas as temporadas** em que o participante esteve presente.
+- O resumo exibe: melhor colocação (+ ano), melhor pontuação (+ ano), média das posições, média das pontuações e quantidade de acertos do 11º colocado.
+- O gráfico de barras empilhadas compara fichas apostadas por piloto em cada temporada.
+- O piloto mais apostado (total de fichas em todas as temporadas) é destacado abaixo do gráfico.
+- A aba é exibida para **todos os perfis** (ativos e inativos com histórico) quando há ao menos uma aposta cadastrada.
+- A lógica reside em `services/historico_service.py` — separada da UI, testável de forma independente.
+- **Regra de parse**: chaves do dicionário de posições são normalizadas para `int` em `_parse_posicoes()` para evitar mismatch de tipo ao detectar o 11º colocado.

@@ -1,8 +1,17 @@
+---
+tags: [bf1, sdd, especificacao-funcional]
+status: produção
+versao: 3.6
+data_revisao: 2026-05-03
+---
+
 # Especificação Funcional — BF1
 
-> **Versão**: 3.5  
-> **Status**: Produção  
-> **Plataforma**: Streamlit + PostgreSQL + DigitalOcean App Platform
+> [!info] Navegação SDD
+> - Regras de negócio: [[02_regras_de_negocio]]
+> - Arquitetura: [[04_arquitetura]]
+> - Módulos: [[MAPA_MENTAL_MODULOS]]
+> - Projeto: [[05_projeto]]
 
 ---
 
@@ -27,8 +36,26 @@
 ## 2. Módulos de Interface (UI)
 
 ### 2.1 Painel do Participante (`ui/painel.py`)
-- Exibe resumo da temporada atual: próxima prova, última aposta, posição na classificação.
-- Acesso: todos os perfis ativos.
+
+Exibe resumo da temporada atual: próxima prova, última aposta, posição na classificação.
+
+**Abas disponíveis:**
+
+| Aba | Conteúdo | Perfil |
+|-----|----------|--------|
+| Visão Geral | Resumo da temporada corrente | Todos |
+| Histórico por Temporada | Detalhes de cada temporada | Todos com histórico |
+| **Histórico** | Consolidado multi-temporada *(v3.6)* | Todos com histórico |
+| Minha Conta | Dados pessoais e senha | Todos |
+
+**Aba "Histórico" — detalhamento** *(v3.6)*:
+- **Resumo (5 métricas)**: Melhor colocação + Ano · Melhor pontuação + Ano · Média das posições · Média das pontuações · Acertos do 11º.
+- **Gráfico**: barras empilhadas — fichas apostadas por piloto, comparando temporadas.
+- **Destaque**: piloto mais apostado e total de fichas acumuladas.
+- Fonte de dados: `services/historico_service.py` → `calcular_resumo_historico()` e `calcular_dados_grafico()`.
+- Regra de exibição: aba visível apenas quando o participante possui ao menos uma aposta cadastrada.
+
+Acesso: todos os perfis ativos; inativos com histórico.
 
 ### 2.2 Calendário (`ui/calendario.py`)
 - Lista provas do calendário F1 do ano corrente com status (Pendente, Realizada, Cancelada).
@@ -131,7 +158,13 @@
 | `email_service.py` | Envio de notificações por e-mail |
 | `hall_da_fama_service.py` | Consolidação do histórico de campeões |
 | `painel_controller.py` | Dados do painel do participante |
+| `historico_service.py` | Consolidação do histórico multi-temporada do participante *(v3.6)* |
 | `data_access_*.py` | Camada de acesso a dados (queries SQL por domínio) |
+
+> [!tip] `historico_service.py` — contrato público
+> - `calcular_resumo_historico(usuario_id: int) -> ResumoHistorico`
+> - `calcular_dados_grafico(usuario_id: int) -> DadosGrafico`
+> Ambas retornam `@dataclass` tipados, sem dependência de Streamlit.
 
 ---
 
@@ -194,4 +227,15 @@ Horário limite da prova é atingido
   → Tenta reutilizar última aposta válida do participante
   → Ajusta para regras vigentes (ajustar_aposta_para_regras)
   → Persiste com flag automatica >= 1
+```
+
+### Fluxo: Histórico Consolidado *(v3.6)*
+```
+Participante acessa aba "Histórico" no Painel
+  → ui/painel.py chama historico_service.calcular_resumo_historico(usuario_id)
+  → historico_service consulta posicoes_participantes + apostas (todas as temporadas)
+  → _parse_posicoes() normaliza chaves para int
+  → Retorna ResumoHistorico (dataclass) → exibido como st.metric
+  → ui/painel.py chama historico_service.calcular_dados_grafico(usuario_id)
+  → Retorna DadosGrafico (dataclass) → gráfico Plotly + destaque do piloto
 ```

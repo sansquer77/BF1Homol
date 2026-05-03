@@ -1,8 +1,18 @@
+---
+tags: [bf1, sdd, projeto]
+status: produção
+versao: 3.6
+data_revisao: 2026-05-03
+---
+
 # Documento de Projeto — BF1
 
-> **Versão do Sistema**: 3.5  
-> **Repositório**: `sansquer77/BF1Dev` (branch `main`, pasta `3.5/`)  
-> **Plataforma de Deploy**: DigitalOcean App Platform  
+> [!info] Links Rápidos
+> - [[01_necessidade]] · [[02_regras_de_negocio]] · [[03_spec]] · [[04_arquitetura]] · [[MAPA_MENTAL_MODULOS]]
+
+> **Versão do Sistema**: 3.6
+> **Repositório**: `sansquer77/BF1Homol` (branch `main`)
+> **Plataforma de Deploy**: DigitalOcean App Platform
 > **Stack**: Python 3.11+ · Streamlit · PostgreSQL · psycopg2
 
 ---
@@ -23,6 +33,7 @@ O BF1 é uma plataforma digital de bolão de Fórmula 1, de uso privado por um g
 - Cálculo automático de pontuação e classificação por temporada
 - Apostas e resultado do campeonato de pilotos/construtores
 - Hall da Fama com histórico de campeões
+- **Histórico consolidado do participante** (aba "Histórico" no Painel) *(v3.6)*
 - Dashboard de estatísticas e análise de apostas
 - Logs de auditoria (apostas e acessos)
 - Backup dos dados (Excel e SQL)
@@ -70,6 +81,7 @@ O BF1 é uma plataforma digital de bolão de Fórmula 1, de uso privado por um g
 | 16 | Gestão de regras por temporada | Alta | ✅ Produção |
 | 17 | Regulamento | Baixa | ✅ Produção |
 | 18 | PWA / mobile | Baixa | ✅ Produção |
+| 19 | **Histórico consolidado** (aba Histórico) | Média | ✅ Produção *(v3.6)* |
 
 ---
 
@@ -82,6 +94,7 @@ O BF1 é uma plataforma digital de bolão de Fórmula 1, de uso privado por um g
 | Driver DB | psycopg2 + pool customizado | Controle de conexões no ambiente stateless |
 | Autenticação | JWT (PyJWT) + bcrypt | Stateless, seguro, compatível com múltiplas instâncias |
 | Fuso horário | zoneinfo (stdlib Python 3.9+) | Sem dependências externas para TZ |
+| Visualização | Plotly (gráficos interativos) | Gráfico de barras empilhadas no histórico |
 | Deploy | DigitalOcean App Platform | CI/CD automático via GitHub, escalabilidade gerenciada |
 | Estilo | CSS customizado (Liquid Glass) | Identidade visual própria sobre Streamlit |
 
@@ -96,9 +109,10 @@ bcrypt
 PyJWT
 pandas
 openpyxl
+plotly
 ```
 
-> Versões fixadas em `requirements.txt` na raiz de `3.5/`.
+> Versões fixadas em `requirements.txt` na raiz do repositório.
 
 ---
 
@@ -117,7 +131,7 @@ openpyxl
 ## 8. Fluxo de Deploy
 
 ```
-1. Push para branch main (pasta 3.5/)
+1. Push para branch main
    ↓
 2. DigitalOcean App Platform detecta mudança
    ↓
@@ -138,10 +152,12 @@ openpyxl
 - **Tipagem opcional**: `from __future__ import annotations` + type hints onde relevante.
 - **Funções puras em `utils/`**: sem efeitos colaterais, sem acesso a DB.
 - **Serviços sem estado**: `services/*.py` recebem dados como parâmetros, não leem `session_state`.
+- **Serviços sem UI**: `services/*.py` não importam Streamlit — retornam `@dataclass` ou primitivos.
 - **UI fina**: `ui/*.py` apenas constrói a interface e delega lógica para `services/`.
 - **Credenciais nunca no código**: sempre via `os.environ` ou variáveis do App Platform.
 - **Migrations idempotentes**: toda migration verifica existência antes de alterar.
 - **Logging**: usar `logging.getLogger(__name__)` em todos os módulos.
+- **Normalização de tipos ao ler JSON do banco**: chaves de dicionários oriundos de campos TEXT (como `posicoes`) devem ser normalizadas para o tipo esperado antes de uso.
 
 ---
 
@@ -162,9 +178,18 @@ openpyxl
 
 | Item | Prioridade | Descrição |
 |------|-----------|----------|
-| Testes automatizados | Alta | Cobertura de `services/bets_rules.py` e `bets_scoring.py` com pytest |
+| Testes automatizados | Alta | Cobertura de `services/bets_rules.py`, `bets_scoring.py` e `historico_service.py` com pytest |
 | Integração Ergast/OpenF1 API | Média | Importação automática de calendário e resultados |
 | Notificações push | Média | Lembrete de deadline de apostas via e-mail/WhatsApp |
 | API REST interna | Média | Desacoplar lógica de negócio da UI Streamlit via FastAPI |
-| Migração para tipos nativos PG | Baixa | Substituir campos `TEXT` por `JSONB`, `DATE`, `TIME` nativos |
+| Migração para tipos nativos PG | Baixa | Substituir campos `TEXT` por `JSONB`, `DATE`, `TIME` nativos (eliminaria necessidade de `_parse_posicoes`) |
 | Rate limiting global | Baixa | Middleware de rate limit para todas as rotas, não só autenticação |
+
+---
+
+## 12. Changelog
+
+| Versão | Data | Descrição |
+|--------|------|-----------|
+| 3.6 | 2026-05-03 | Aba "Histórico" no Painel · `historico_service.py` · renomeação de abas · fix normalização de chaves `posicoes` · fix `setdefault` fora de contexto |
+| 3.5 | — | Versão base (produção anterior) |

@@ -1,4 +1,17 @@
+---
+tags: [bf1, sdd, arquitetura]
+status: produção
+versao: 3.6
+data_revisao: 2026-05-03
+---
+
 # Arquitetura do Sistema — BF1
+
+> [!info] Navegação SDD
+> - Visão geral: [[01_necessidade]]
+> - Regras: [[02_regras_de_negocio]]
+> - Especificação: [[03_spec]]
+> - Módulos: [[MAPA_MENTAL_MODULOS]]
 
 ## Visão Geral
 
@@ -28,6 +41,7 @@ O BF1 é uma aplicação web **monolítica stateless** construída com **Streaml
 │  │  - Charts    │  - Bets AI (auto)                 │   │
 │  │  - Tables    │  - Championship                   │   │
 │  │              │  - Results                        │   │
+│  │              │  - historico_service (v3.6)       │   │
 │  │              │  - Email                          │   │
 │  ├──────────────┴───────────────────────────────────┤   │
 │  │              Data Access Layer                   │   │
@@ -52,21 +66,20 @@ O BF1 é uma aplicação web **monolítica stateless** construída com **Streaml
 ## Estrutura de Diretórios
 
 ```
-3.5/
+3.6/
 ├── main.py                    # Entry point: router, menu, auth guard
 ├── requirements.txt           # Dependências Python
 ├── assets/
 │   └── styles.css             # Tema Liquid Glass (CSS customizado)
 ├── static/
-│   ├── favicon.ico            # Ícone favicon (32x32)
-│   ├── apple-touch-icon.png   # Ícone iOS (180x180)
-│   ├── apple-touch-icon-180.png # Ícone iOS alternativo (180x180)
-│   ├── icon-192.png           # Ícone PWA (192x192)
-│   ├── icon-512.png           # Ícone PWA (512x512)
+│   ├── favicon.ico
+│   ├── apple-touch-icon.png
+│   ├── icon-192.png
+│   ├── icon-512.png
 │   └── manifest.json          # Configuração PWA
 ├── ui/                        # Camada de interface (views Streamlit)
 │   ├── login.py
-│   ├── painel.py
+│   ├── painel.py              # Inclui aba "Histórico" (v3.6)
 │   ├── gestao_apostas.py
 │   ├── classificacao.py
 │   └── ... (19 módulos)
@@ -75,8 +88,9 @@ O BF1 é uma aplicação web **monolítica stateless** construída com **Streaml
 │   ├── bets_rules.py
 │   ├── bets_scoring.py
 │   ├── bets_ai.py
+│   ├── historico_service.py   # Histórico consolidado (v3.6)
 │   ├── data_access_*.py
-│   └── ... (17 módulos)
+│   └── ... (18 módulos)
 ├── db/                        # Camada de banco de dados
 │   ├── connection_pool.py
 │   ├── db_config.py
@@ -89,6 +103,12 @@ O BF1 é uma aplicação web **monolítica stateless** construída com **Streaml
 │   ├── validators.py
 │   └── ...
 └── docs/                      # Documentação SDD (este diretório)
+    ├── 01_necessidade.md
+    ├── 02_regras_de_negocio.md
+    ├── 03_spec.md
+    ├── 04_arquitetura.md      # Este arquivo
+    ├── 05_projeto.md
+    └── MAPA_MENTAL_MODULOS.md
 ```
 
 ---
@@ -112,7 +132,9 @@ apostas
   piloto_11, nome_prova, automatica, temporada
 
 resultados
-  prova_id → provas, posicoes (json), abandono_pilotos
+  prova_id → provas,
+  posicoes (json — chaves SEMPRE normalizadas para int ao ler),
+  abandono_pilotos
 
 posicoes_participantes
   id, prova_id → provas, usuario_id → usuarios,
@@ -125,6 +147,10 @@ regras
   pontos_dobrada, pontos_posicoes (json), pontos_sprint_posicoes (json)
   UNIQUE(temporada, tipo_prova)
 ```
+
+> [!warning] Normalização de chaves em `posicoes`
+> O campo `posicoes` do resultado pode ter chaves `int` ou `str` dependendo da inserção.
+> **Sempre** usar `_parse_posicoes()` de `historico_service.py` (ou equivalente) para normalizar para `int` antes de qualquer lookup de posição (ex.: detecção do 11º colocado).
 
 ---
 
@@ -158,6 +184,10 @@ regras
 ### 6. Fuso Horário São Paulo como Padrão
 - Todas as comparações de data/hora usam `America/Sao_Paulo` via `zoneinfo`.
 - `now_sao_paulo()` é a função canônica para obter o tempo atual.
+
+### 7. Serviços sem Dependência de UI *(v3.6)*
+- **Decisão**: `historico_service.py` retorna `@dataclass` tipados, sem importar Streamlit.
+- **Justificativa**: garante testabilidade isolada da lógica de negócio do histórico, independente do ciclo de rerun do Streamlit.
 
 ---
 
