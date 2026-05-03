@@ -124,33 +124,79 @@ def load_pwa_meta_tags():
         <meta name="description" content="BF1 - Bolão de Fórmula 1 - Sistema de gerenciamento de apostas de F1">
     """, unsafe_allow_html=True)
 
+
+# Timezones válidos reconhecidos pelo seletor da sidebar.
+# Usado para validar o valor capturado via JS antes de gravar na session.
+_VALID_TIMEZONES: set[str] = {
+    "America/Sao_Paulo",
+    "America/Recife",
+    "America/Manaus",
+    "America/Rio_Branco",
+    "UTC",
+    "Europe/London",
+    "Europe/Paris",
+    "Asia/Tokyo",
+    "Asia/Dubai",
+    "Australia/Sydney",
+}
+
+_TZ_DEFAULT = "America/Sao_Paulo"
+
+
 def load_timezone_detector():
-    """Carrega o script de detecção de timezone do cliente e sincroniza com session_state."""
-    import streamlit.components.v1 as components
-    import streamlit as st
-    
-    # HTML/JS customizado para detectar e retornar o timezone
-    html_code = """
+    """Detecta o timezone do cliente via JS e sincroniza com session_state.
+
+    Estratégia de comunicação JS → Python:
+      1. O script JS lê `Intl.DateTimeFormat().resolvedOptions().timeZone`.
+      2. Compara com o parâmetro `tz` já presente na URL para evitar recargas
+         desnecessárias.
+      3. Se divergir, atualiza `window.location.search` com `?tz=<valor>`,
+         o que provoca um rerun natural do Streamlit.
+      4. No lado Python, `st.query_params.get("tz")` captura o valor e o
+         armazena em `st.session_state["client_timezone"]`.
+
+    Fallback: se o TZ detectado não estiver na lista _VALID_TIMEZONES, o
+    padrão `America/Sao_Paulo` é usado para garantir consistência com o banco.
+    """
+    # ── Lado Python: lê o TZ da query string (enviado pelo JS no rerun) ──────
+    tz_from_url = st.query_params.get("tz", "").strip()
+    if tz_from_url and tz_from_url in _VALID_TIMEZONES:
+        # Só grava se ainda não estiver definido ou se diferir do atual,
+        # evitando reruns em cascata.
+        if st.session_state.get("client_timezone") != tz_from_url:
+            st.session_state["client_timezone"] = tz_from_url
+    elif "client_timezone" not in st.session_state:
+        st.session_state["client_timezone"] = _TZ_DEFAULT
+
+    # ── Lado JS: detecta TZ do browser e injeta na URL se necessário ─────────
+    current_tz_py = st.session_state["client_timezone"]
+    html_code = f"""
     <script>
-    (function() {
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        sessionStorage.setItem("client_timezone", tz);
-        window.CLIENT_TIMEZONE = tz;
-        console.log("🌍 Client Timezone:", tz);
-    })();
+    (function() {{
+        var detected = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        if (!detected) return;
+
+        // Timezones aceitos pelo backend (deve espelhar _VALID_TIMEZONES)
+        var validSet = new Set({list(_VALID_TIMEZONES)});
+        var tz = validSet.has(detected) ? detected : '{_TZ_DEFAULT}';
+
+        // TZ já confirmado pelo Python neste ciclo — sem rerun necessário
+        var confirmedByPy = '{current_tz_py}';
+        if (tz === confirmedByPy) return;
+
+        // Verifica o parâmetro atual da URL para não recarregar à toa
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('tz') === tz) return;
+
+        // Atualiza a URL com o TZ detectado → Streamlit faz rerun e lê query_params
+        params.set('tz', tz);
+        var newUrl = window.location.pathname + '?' + params.toString() + window.location.hash;
+        window.location.replace(newUrl);
+    }})();
     </script>
     """
-    
     components.html(html_code, height=0)
-    
-    # Sincroniza timezone para session_state
-    timezone_detected = st.query_params.get("tz", "").strip()
-    if not timezone_detected:
-        # Se não tiver no URL, tenta um padrão
-        timezone_detected = "UTC"
-    
-    if "client_timezone" not in st.session_state:
-        st.session_state["client_timezone"] = timezone_detected
+
 
 load_css()
 load_pwa_meta_tags()
@@ -158,9 +204,9 @@ load_timezone_detector()
 
 # ============ SINCRONIZAÇÃO DE TIMEZONE PARA SESSION STATE ============
 def _sync_timezone_to_session():
-    """Sincroniza o timezone detectado do cliente para st.session_state."""
+    """Garante que client_timezone esteja sempre definido na sessão."""
     if "client_timezone" not in st.session_state:
-        st.session_state["client_timezone"] = "UTC"
+        st.session_state["client_timezone"] = _TZ_DEFAULT
 
 # ============ CONFIGURAÇÃO DE LOGGING ============
 logging.basicConfig(
@@ -713,51 +759,47 @@ def sidebar_menu():
         key="menu_lateral",
     )
     st.session_state["pagina"] = escolha
-    
+
     # ============ SELETOR DE TIMEZONE ============
     st.sidebar.divider()
     st.sidebar.markdown("### 🌍 Timezone")
-    
-    # Lista comum de timezones (Brasil + alguns principais)
-    common_timezones = [
-        "UTC",
-        "America/Sao_Paulo",
-        "America/Recife",
-        "America/Manaus",
-        "America/Rio_Branco",
-        "Europe/London",
-        "Europe/Paris",
-        "Asia/Tokyo",
-        "Asia/Dubai",
-        "Australia/Sydney",
-    ]
-    
-    current_tz = st.session_state.get("client_timezone", "UTC")
-    tz_index = common_timezones.index(current_tz) if current_tz in common_timezones else 0
-    
+
+    # Lista de timezones oferecidos — deve ser idêntica a _VALID_TIMEZONES (ordenada).
+    common_timezones = sorted(_VALID_TIMEZONES)
+
+    current_tz = st.session_state.get("client_timezone", _TZ_DEFAULT)
+    # Garante que o valor atual esteja na lista (pode ter vindo de versão antiga).
+    if current_tz not in common_timezones:
+        current_tz = _TZ_DEFAULT
+        st.session_state["client_timezone"] = current_tz
+    tz_index = common_timezones.index(current_tz)
+
     selected_tz = st.sidebar.selectbox(
         "Selecione seu Timezone",
         common_timezones,
         index=tz_index,
         key="timezone_selector",
-        help="Timezone usado para exibir data/hora nos logs. O servidor continua gravando em UTC.",
+        help=(
+            "Timezone usado para exibir horários no Calendário. "
+            "Os dados são armazenados em America/Sao_Paulo."
+        ),
     )
-    
+
     if selected_tz != st.session_state.get("client_timezone"):
         st.session_state["client_timezone"] = selected_tz
         st.rerun()
 
 # ============ APP PRINCIPAL ============
 def main():
-    # Sincroniza timezone do cliente para session_state
+    # Garante client_timezone definido antes de qualquer view consumir.
     _sync_timezone_to_session()
-    
+
     sidebar_menu()
     previous_page = st.session_state.get("_current_page")
     pagina = st.session_state["pagina"]
     st.session_state["_previous_page"] = previous_page
     st.session_state["_current_page"] = pagina
-    
+
     # LOGOUT
     if pagina == "Logout":
         clear_auth_cookies()
@@ -768,7 +810,7 @@ def main():
         return
 
     _enforce_route_guard(pagina)
-    
+
     # EXECUTA A VIEW
     if pagina in PAGES:
         PAGES[pagina]()
