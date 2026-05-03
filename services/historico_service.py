@@ -1,7 +1,7 @@
 """Serviço de consolidação histórica de apostas por participante.
 
 Este módulo fornece funções puras de cálculo — sem acoplamento a Streamlit —
-para alimentar a aba 'Histórico Geral' do Painel do Participante.
+para alimentar a aba 'Histórico' do Painel do Participante.
 
 Fonte de dados para pontuação:
     A tabela `posicoes_participantes` é a fonte oficial de pontuação.
@@ -15,9 +15,8 @@ Fonte de dados para pontuação:
 
 Fonte de dados para acertos do 11º:
     A coluna `piloto_11` não está em `posicoes_participantes`, portanto
-    os acertos são derivados comparando apostas x resultados via
-    `bets_scoring.calcular_pontuacao_lote`, que também aplica as regras
-    corretas por temporada.
+    os acertos são derivados comparando apostas x resultados diretamente
+    da tabela `resultados`.
 
 Responsabilidades:
     - Buscar apostas de TODAS as temporadas do participante
@@ -34,6 +33,9 @@ from typing import Optional
 
 import pandas as pd
 
+# Importações alinhadas com o padrão do restante da aplicação:
+# - get_apostas_df e get_posicoes_participantes_df vivem em db.repo_bets
+# - get_resultados_df é exposto via services.data_access_provas
 from db.repo_bets import get_apostas_df, get_posicoes_participantes_df
 from services.data_access_provas import get_resultados_df
 
@@ -148,6 +150,29 @@ def _get_pontuacao_total_de_temporada(
     return round(float(part["pontos"].sum()), 2)
 
 
+def _parse_posicoes(raw: str) -> dict[int, str]:
+    """Interpreta o campo `posicoes` da tabela resultados como dict {int -> str}.
+
+    O campo é armazenado como representação Python de dicionário
+    (ex.: ``{1: 'Hamilton', 2: 'Verstappen', ...}``). As chaves são normalizadas
+    para ``int`` para garantir que buscas por posição numérica funcionem
+    independentemente do formato original.
+
+    Args:
+        raw: String com a representação do dicionário de posições.
+
+    Returns:
+        Dicionário ``{posição: nome_do_piloto}`` com chaves inteiras.
+        Retorna ``{}`` em caso de erro de parsing.
+    """
+    try:
+        parsed = ast.literal_eval(raw)
+        # Normaliza chaves para int — evita falsos negativos em posicoes.get(11)
+        return {int(k): str(v).strip() for k, v in parsed.items()}
+    except Exception:
+        return {}
+
+
 def _contar_acertos_11_em_temporada(
     apostas_df: pd.DataFrame,
     resultados_df: pd.DataFrame,
@@ -161,7 +186,7 @@ def _contar_acertos_11_em_temporada(
     Args:
         apostas_df: Apostas do participante já filtradas por temporada e usuario_id.
         resultados_df: Resultados da temporada.
-        usuario_id: ID do participante (usado apenas para validação defensiva).
+        usuario_id: ID do participante (reservado para validações futuras).
 
     Returns:
         Número de acertos do 11º colocado.
@@ -169,18 +194,23 @@ def _contar_acertos_11_em_temporada(
     if apostas_df.empty or resultados_df.empty:
         return 0
 
-    # Monta índice prova_id -> piloto_11_real para evitar lookups repetidos
+    # Monta índice prova_id (int) -> piloto_11_real para evitar lookups repetidos
     piloto_11_por_prova: dict[int, str] = {}
     for _, resultado in resultados_df.iterrows():
         try:
-            posicoes = ast.literal_eval(resultado["posicoes"])
-            piloto_11_por_prova[resultado["prova_id"]] = str(posicoes.get(11, "")).strip()
+            prova_id = int(resultado["prova_id"])
+            posicoes = _parse_posicoes(resultado["posicoes"])
+            piloto_11_por_prova[prova_id] = posicoes.get(11, "")
         except Exception:
             continue
 
     acertos = 0
     for _, aposta in apostas_df.iterrows():
-        piloto_11_real = piloto_11_por_prova.get(aposta["prova_id"], "")
+        try:
+            prova_id = int(aposta["prova_id"])
+        except Exception:
+            continue
+        piloto_11_real = piloto_11_por_prova.get(prova_id, "")
         piloto_11_apostado = str(aposta.get("piloto_11", "")).strip()
         if piloto_11_apostado and piloto_11_apostado == piloto_11_real:
             acertos += 1
@@ -263,7 +293,7 @@ def calcular_dados_grafico(usuario_id: int) -> DadosGrafico:
     """Agrega fichas apostadas por piloto e por temporada para o gráfico de barras.
 
     Usa TODAS as apostas do participante. As fichas são o dado original da
-    aposta — não envolvem cálculo de pontuacão, portanto lidas diretamente
+    aposta — não envolvem cálculo de pontuação, portanto lidas diretamente
     da tabela de apostas.
 
     Args:
@@ -288,6 +318,7 @@ def calcular_dados_grafico(usuario_id: int) -> DadosGrafico:
         if apostas_part.empty:
             continue
 
+        # setdefault apenas quando há apostas — evita temporadas fantasma no gráfico
         fichas_por_temporada_piloto.setdefault(temporada, {})
 
         for _, aposta in apostas_part.iterrows():
