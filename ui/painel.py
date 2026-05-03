@@ -115,9 +115,8 @@ def participante_view():
     if show_apostas_tab:
         tab_labels.append("Apostas")
     if show_historico_tab:
-        # Renomeada de "Histórico" para "Histórico por Temporada" para diferenciar
-        # da aba consolidada multi-temporada ("Histórico"), adicionada abaixo.
-        tab_labels.append("Histórico por Temporada")
+        # Aba de histórico por temporada, com nome dinâmico mostrando o ano selecionado
+        tab_labels.append(f"Apostas - {season}")
     if show_historico_geral_tab:
         # Aba principal de histórico: consolida todas as temporadas do participante.
         tab_labels.append("Histórico")
@@ -799,41 +798,54 @@ def _render_historico_geral(usuario_id: int) -> None:
     if not fichas_dict:
         st.info("Ainda não há dados de apostas para exibir o gráfico.")
     else:
-        # Coleta todos os pilotos e temporadas para montar o gráfico
+        # Transforma a estrutura para: {piloto: {ano: fichas}}
+        fichas_por_piloto_ano: dict[str, dict[str, int]] = {}
+        for temporada, pilotos_dict in fichas_dict.items():
+            for piloto, fichas in pilotos_dict.items():
+                if piloto not in fichas_por_piloto_ano:
+                    fichas_por_piloto_ano[piloto] = {}
+                fichas_por_piloto_ano[piloto][temporada] = fichas
+
+        # Coleta os últimos 5 anos únicos
         todas_temporadas = sorted(fichas_dict.keys())
-        todos_pilotos = sorted(
-            {piloto for temp_data in fichas_dict.values() for piloto in temp_data.keys()}
+        anos_selecionados = sorted(todas_temporadas)[-5:] if len(todas_temporadas) > 5 else sorted(todas_temporadas)
+
+        # Ordena pilotos por total de fichas (descendente)
+        pilotos_ordenados = sorted(
+            fichas_por_piloto_ano.keys(),
+            key=lambda p: sum(fichas_por_piloto_ano[p].values()),
+            reverse=True
         )
 
         fig_barras = go.Figure()
 
-        for piloto in todos_pilotos:
-            fichas_por_temp = [
-                fichas_dict.get(temp, {}).get(piloto, 0)
-                for temp in todas_temporadas
+        # Adiciona uma série por ano
+        for ano in anos_selecionados:
+            fichas_por_piloto = [
+                fichas_por_piloto_ano[piloto].get(ano, 0)
+                for piloto in pilotos_ordenados
             ]
-            # Inclui apenas pilotos com ao menos uma ficha apostada
-            if any(f > 0 for f in fichas_por_temp):
-                fig_barras.add_trace(
-                    go.Bar(
-                        name=piloto,
-                        x=todas_temporadas,
-                        y=fichas_por_temp,
-                        text=[
-                            str(f) if f > 0 else ""
-                            for f in fichas_por_temp
-                        ],
-                        textposition="auto",
-                    )
+            fig_barras.add_trace(
+                go.Bar(
+                    name=str(ano),
+                    x=pilotos_ordenados,
+                    y=fichas_por_piloto,
+                    text=[
+                        str(f) if f > 0 else ""
+                        for f in fichas_por_piloto
+                    ],
+                    textposition="auto",
                 )
+            )
 
         fig_barras.update_layout(
-            barmode="stack",
-            xaxis_title="Temporada",
+            barmode="group",
+            xaxis_title="Piloto",
             yaxis_title="Total de Fichas",
-            legend_title="Piloto",
+            legend_title="Temporada",
             legend=dict(orientation="v", x=1.02, xanchor="left"),
-            margin=dict(r=160),
+            margin=dict(r=120),
+            height=500,
         )
 
         st.plotly_chart(fig_barras, use_container_width=True)

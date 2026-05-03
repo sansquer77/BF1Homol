@@ -20,12 +20,12 @@
 
 Para cada prova, a aposta deve obedecer às regras da temporada/tipo-prova (`regras` table):
 
-| Parâmetro | Descrição |
-|-----------|----------|
-| `qtd_minima_pilotos` | Número mínimo de pilotos selecionados |
-| `quantidade_fichas` | Total de fichas que deve ser distribuído (soma exata) |
-| `fichas_por_piloto` | Limite máximo de fichas em um único piloto |
-| `mesma_equipe` | Se `False`, nenhum par de pilotos apostados pode ser da mesma equipe |
+| Parâmetro            | Descrição                                                            |
+|----------------------|----------------------------------------------------------------------|
+| `qtd_minima_pilotos` | Número mínimo de pilotos selecionados                                |
+| `quantidade_fichas`  | Total de fichas que deve ser distribuído (soma exata)                |
+| `fichas_por_piloto`  | Limite máximo de fichas em um único piloto                           |
+| `mesma_equipe`       | Se `False`, nenhum par de pilotos apostados pode ser da mesma equipe |
 
 - O piloto do **11º lugar** (`piloto_11`) deve ser diferente dos demais pilotos apostados.
 - Não é permitido repetir o mesmo piloto na lista.
@@ -86,6 +86,8 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 
 - Todo acesso autenticado ao sistema é registrado na tabela de logs de acesso.
 - Toda submissão de aposta (manual ou automática) é registrada no log de apostas.
+- Todos os logs são salvos no Banco de dados com o horário do servidor - isso garante que que o horário é igual para todos.
+- O valor do log visualizado no sistema é ajustado com base no fuso horário escolhido no menu lateral para ajustar ao horário do participante - Mas isso é apenas na visualização, o dado no Banco ainda é o valor do servidor.
 - Logs são visíveis apenas para perfis `master` e `admin`.
 
 ## RN-012 — Multi-Temporada
@@ -93,3 +95,4 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 - Todos os registros de provas, apostas e posições possuem campo `temporada`.
 - O sistema filtra dados por temporada em todas as telas relevantes.
 - Um usuário pode ter participado de temporadas anteriores como ativo e estar inativo na temporada atual.
+- Ao criar uma nova temporada o sistema mantem os dados das temporadas como histórico.

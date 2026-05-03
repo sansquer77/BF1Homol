@@ -127,16 +127,29 @@ def load_pwa_meta_tags():
 # Timezones válidos reconhecidos pelo seletor da sidebar.
 # Usado para validar o valor capturado via JS antes de gravar na session.
 _VALID_TIMEZONES: set[str] = {
+    # Brasil
     "America/Sao_Paulo",
     "America/Recife",
     "America/Manaus",
     "America/Rio_Branco",
+    # EUA
+    "America/New_York",      # EST/EDT
+    "America/Chicago",       # CST/CDT
+    "America/Denver",        # MST/MDT
+    "America/Los_Angeles",   # PST/PDT
+    "America/Anchorage",     # AKST/AKDT
+    "Pacific/Honolulu",      # HST
+    # Outros
     "UTC",
     "Europe/London",
     "Europe/Paris",
+    "Europe/Berlin",
+    "Europe/Madrid",
+    "Europe/Rome",
     "Asia/Tokyo",
     "Asia/Dubai",
     "Australia/Sydney",
+    "Australia/Melbourne",
 }
 
 _TZ_DEFAULT = "America/Sao_Paulo"

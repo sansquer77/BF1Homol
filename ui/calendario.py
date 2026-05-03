@@ -259,9 +259,9 @@ def main():
     temporada = st.selectbox("Temporada", temporadas, key="calendario_temporada")
 
     # --- Carrega e prepara provas ---
-    provas_df = get_provas_df()
+    provas_df = get_provas_df(temporada=temporada)
     if provas_df.empty:
-        st.info("Nenhuma prova cadastrada.")
+        st.info("Nenhuma prova cadastrada para a temporada selecionada.")
         return
 
     df = provas_df.copy()
