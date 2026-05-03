@@ -103,7 +103,7 @@ def participante_view():
         ((not is_inactive_profile) and has_season_data)
         or (is_inactive_profile and inactive_has_history)
     )
-    # Aba "Histórico Geral" aparece sempre que o participante tem ao menos uma aposta
+    # Aba "Histórico" (consolidado) aparece sempre que o participante tem ao menos uma aposta
     show_historico_geral_tab = not force_change
 
     if force_change:
@@ -115,9 +115,12 @@ def participante_view():
     if show_apostas_tab:
         tab_labels.append("Apostas")
     if show_historico_tab:
-        tab_labels.append("Histórico")
+        # Renomeada de "Histórico" para "Histórico por Temporada" para diferenciar
+        # da aba consolidada multi-temporada ("Histórico"), adicionada abaixo.
+        tab_labels.append("Histórico por Temporada")
     if show_historico_geral_tab:
-        tab_labels.append("Histórico Geral")
+        # Aba principal de histórico: consolida todas as temporadas do participante.
+        tab_labels.append("Histórico")
     tab_labels.append("Minha Conta")
     tabs = st.tabs(tab_labels)
     tab_map = {label: tab for label, tab in zip(tab_labels, tabs)}
@@ -444,7 +447,7 @@ def participante_view():
                 st.warning("Administração deve cadastrar provas e pilotos antes das apostas.")
 
     if show_historico_tab:
-        with tab_map["Histórico"]:
+        with tab_map["Histórico por Temporada"]:
             if is_inactive_profile:
                 st.info("Usuário inativo: você só pode visualizar suas apostas anteriores.")
 
@@ -659,9 +662,9 @@ def participante_view():
             else:
                 st.info("Ainda não há histórico de posições registrado.")
 
-    # ------------------ Aba: Histórico Geral ----------------------
+    # ------------------ Aba: Histórico (consolidado multi-temporada) ----------------------
     if show_historico_geral_tab:
-        with tab_map["Histórico Geral"]:
+        with tab_map["Histórico"]:
             _render_historico_geral(user['id'])
 
     # ---------------- Aba: Minha Conta ----------------------
@@ -718,7 +721,7 @@ def participante_view():
 
 
 def _render_historico_geral(usuario_id: int) -> None:
-    """Renderiza a aba 'Histórico Geral' com dados consolidados de todas as temporadas.
+    """Renderiza a aba 'Histórico' com dados consolidados de todas as temporadas.
 
     Separada em função própria para facilitar leitura, testes e manutenção.
 
