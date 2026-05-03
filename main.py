@@ -12,7 +12,6 @@ import streamlit as st
 import logging
 import datetime
 from pathlib import Path
-import streamlit.components.v1 as components
 
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
 st.set_page_config(
@@ -143,6 +142,24 @@ _VALID_TIMEZONES: set[str] = {
 _TZ_DEFAULT = "America/Sao_Paulo"
 
 
+def _inject_html(html_code: str) -> None:
+    """Injeta HTML/JS no app usando a API não-depreciada disponível.
+
+    Hierarquia de preferência:
+      1. ``st.html()``        — disponível a partir do Streamlit 1.36+
+      2. ``st.markdown()``    — fallback universal; requer unsafe_allow_html=True
+
+    ``streamlit.components.v1.html`` foi depreciado e será removido após
+    2026-06-01 (aviso nos logs a partir de ~mai/2026).
+    """
+    if hasattr(st, "html"):
+        # st.html() é a API atual e recomendada (Streamlit >= 1.36)
+        st.html(html_code)
+    else:
+        # Fallback para versões anteriores ao 1.36
+        st.markdown(html_code, unsafe_allow_html=True)
+
+
 def load_timezone_detector():
     """Detecta o timezone do cliente via JS e sincroniza com session_state.
 
@@ -195,7 +212,7 @@ def load_timezone_detector():
     }})();
     </script>
     """
-    components.html(html_code, height=0)
+    _inject_html(html_code)
 
 
 load_css()
