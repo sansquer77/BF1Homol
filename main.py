@@ -817,6 +817,8 @@ def sidebar_menu():
 
     if selected_tz != st.session_state.get("client_timezone"):
         st.session_state["client_timezone"] = selected_tz
+        # Atualiza a URL também para sincronizar com o detector automático
+        st.query_params["tz"] = selected_tz
         st.rerun()
 
 # ============ APP PRINCIPAL ============

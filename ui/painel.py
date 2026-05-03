@@ -446,7 +446,7 @@ def participante_view():
                 st.warning("Administração deve cadastrar provas e pilotos antes das apostas.")
 
     if show_historico_tab:
-        with tab_map["Histórico por Temporada"]:
+        with tab_map[f"Apostas - {season}"]:
             if is_inactive_profile:
                 st.info("Usuário inativo: você só pode visualizar suas apostas anteriores.")
 

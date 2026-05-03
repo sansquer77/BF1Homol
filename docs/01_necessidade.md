@@ -26,12 +26,12 @@ Grupos de fãs de F1 que realizam bolões informais entre amigos enfrentam os se
 
 ## Público-Alvo
 
-| Perfil | Descrição |
-|--------|----------|
-| **Master** | Administrador total do sistema (cria temporadas, gerencia regras, faz backup) |
-| **Admin** | Operador do bolão (lança resultados, gerencia apostas e pilotos) |
-| **Participante** | Usuário ativo que realiza apostas e acompanha a classificação |
-| **Inativo** | Ex-participante com acesso somente leitura ao histórico |
+| Perfil            | Descrição                                                                    |
+|-------------------|------------------------------------------------------------------------------|
+| **Master**        | Administrador total do sistema (cria temporadas, gerencia regras, faz backup)|
+| **Admin**         | Operador do bolão (lança resultados, gerencia apostas e pilotos)             |
+| **Participante**  | Usuário ativo que realiza apostas e acompanha a classificação                |
+| **Inativo**       | Ex-participante com acesso somente leitura ao histórico                      |
 
 ## Necessidades Funcionais Atendidas
 

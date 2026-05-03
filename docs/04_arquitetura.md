@@ -193,12 +193,12 @@ regras
 
 ## Infraestrutura (DigitalOcean)
 
-| Componente | Serviço DO | Observações |
-|------------|-----------|-------------|
-| Aplicação | App Platform (Web Service) | Container gerenciado, deploy via GitHub |
-| Banco de Dados | Managed PostgreSQL | Backups automáticos, SSL obrigatório |
-| Variáveis de Ambiente | App Platform Env Vars | `DATABASE_URL`, `SECRET_KEY`, `MASTER_*` |
-| CI/CD | Auto-deploy no push para `main` | Sem pipeline adicional necessário |
+| Componente            | Serviço DO | Observações |
+|-----------------------|---------------------------------|------------------------------------------|
+| Aplicação             | App Platform (Web Service)      | Container gerenciado, deploy via GitHub  |
+| Banco de Dados        | Managed PostgreSQL              | Backups automáticos, SSL obrigatório     |
+| Variáveis de Ambiente | App Platform Env Vars           | `DATABASE_URL`, `SECRET_KEY`, `MASTER_*` |
+| CI/CD                 | Auto-deploy no push para `main` | Sem pipeline adicional necessário        |
 
 ### Variáveis de Ambiente Obrigatórias
 

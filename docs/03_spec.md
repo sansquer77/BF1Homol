@@ -41,12 +41,12 @@ Exibe resumo da temporada atual: próxima prova, última aposta, posição na cl
 
 **Abas disponíveis:**
 
-| Aba | Conteúdo | Perfil |
-|-----|----------|--------|
-| Visão Geral | Resumo da temporada corrente | Todos |
-| Histórico por Temporada | Detalhes de cada temporada | Todos com histórico |
-| **Histórico** | Consolidado multi-temporada *(v3.6)* | Todos com histórico |
-| Minha Conta | Dados pessoais e senha | Todos |
+| Aba                     | Conteúdo                             | Perfil              |
+|-------------------------|--------------------------------------|---------------------|
+| Visão Geral             | Resumo da temporada corrente         | Todos               | 
+| Histórico por Temporada | Detalhes de cada temporada           | Todos com histórico |
+| **Histórico**           | Consolidado multi-temporada *(v3.6)* | Todos com histórico |
+| Minha Conta             | Dados pessoais e senha               | Todos               |
 
 **Aba "Histórico" — detalhamento** *(v3.6)*:
 - **Resumo (5 métricas)**: Melhor colocação + Ano · Melhor pontuação + Ano · Média das posições · Média das pontuações · Acertos do 11º.
@@ -145,21 +145,21 @@ Acesso: todos os perfis ativos; inativos com histórico.
 
 ## 3. Serviços (Services)
 
-| Arquivo | Responsabilidade |
-|---------|------------------|
-| `auth_service.py` | Emissão, decodificação e validação de JWT; gerenciamento de cookies |
-| `bets_rules.py` | Validação da composição de apostas e ajuste automático para regras |
-| `bets_scoring.py` | Cálculo de pontuação e salvamento de classificação por prova |
-| `bets_write.py` | Persistência de apostas no banco |
-| `bets_ai.py` | Geração de apostas automáticas para participantes ausentes |
-| `championship_service.py` | Lógica de apostas e resultado de campeonato |
-| `rules_service.py` | Recuperação das regras aplicáveis por temporada/tipo |
-| `results_service.py` | Registro de resultados e disparo de recálculo |
-| `email_service.py` | Envio de notificações por e-mail |
-| `hall_da_fama_service.py` | Consolidação do histórico de campeões |
-| `painel_controller.py` | Dados do painel do participante |
-| `historico_service.py` | Consolidação do histórico multi-temporada do participante *(v3.6)* |
-| `data_access_*.py` | Camada de acesso a dados (queries SQL por domínio) |
+| Arquivo                   | Responsabilidade                                                    |
+|---------------------------|---------------------------------------------------------------------|
+| `auth_service.py`         | Emissão, decodificação e validação de JWT; gerenciamento de cookies |
+| `bets_rules.py`           | Validação da composição de apostas e ajuste automático para regras  |
+| `bets_scoring.py`         | Cálculo de pontuação e salvamento de classificação por prova        |
+| `bets_write.py`           | Persistência de apostas no banco                                    |
+| `bets_ai.py`              | Geração de apostas automáticas para participantes ausentes          |
+| `championship_service.py` | Lógica de apostas e resultado de campeonato                         |
+| `rules_service.py`        | Recuperação das regras aplicáveis por temporada/tipo                |
+| `results_service.py`      | Registro de resultados e disparo de recálculo                       |
+| `email_service.py`        | Envio de notificações por e-mail                                    |
+| `hall_da_fama_service.py` | Consolidação do histórico de campeões                               |
+| `painel_controller.py`    | Dados do painel do participante                                     |
+| `historico_service.py`    | Consolidação do histórico multi-temporada do participante *(v3.6)*  |
+| `data_access_*.py`        | Camada de acesso a dados (queries SQL por domínio)                  |
 
 > [!tip] `historico_service.py` — contrato público
 > - `calcular_resumo_historico(usuario_id: int) -> ResumoHistorico`
@@ -170,33 +170,33 @@ Acesso: todos os perfis ativos; inativos com histórico.
 
 ## 4. Banco de Dados (DB)
 
-| Arquivo | Responsabilidade |
-|---------|------------------|
-| `connection_pool.py` | Pool de conexões PostgreSQL |
-| `db_config.py` | Leitura de variáveis de ambiente de conexão |
-| `db_schema.py` | DDL inicial e helpers de schema |
-| `migrations.py` | Migrations incrementais idempotentes |
-| `repo_users.py` | Repositório de usuários |
-| `repo_bets.py` | Repositório de apostas |
-| `repo_races.py` | Repositório de provas e pilotos |
-| `repo_logs.py` | Repositório de logs |
-| `master_user_manager.py` | Criação/garantia do usuário master no bootstrap |
-| `backup_*.py` | Módulos de backup (Excel, SQL, validação, repair) |
+| Arquivo                  | Responsabilidade                                  |
+|--------------------------|---------------------------------------------------|
+| `connection_pool.py`     | Pool de conexões PostgreSQL                       |
+| `db_config.py`           | Leitura de variáveis de ambiente de conexão       |
+| `db_schema.py`           | DDL inicial e helpers de schema                   |
+| `migrations.py`          | Migrations incrementais idempotentes              |
+| `repo_users.py`          | Repositório de usuários                           |
+| `repo_bets.py`           | Repositório de apostas                            |
+| `repo_races.py`          | Repositório de provas e pilotos                   |
+| `repo_logs.py`           | Repositório de logs                               |
+| `master_user_manager.py` | Criação/garantia do usuário master no bootstrap   |
+| `backup_*.py`            | Módulos de backup (Excel, SQL, validação, repair) |
 
 ---
 
 ## 5. Utilitários (Utils)
 
-| Arquivo | Responsabilidade |
-|---------|------------------|
+| Arquivo             | Responsabilidade                                   |
+|---------------------|----------------------------------------------------|
 | `datetime_utils.py` | Fuso horário SP, parse de datas, `now_sao_paulo()` |
-| `validators.py` | Validações genéricas de entrada |
-| `input_models.py` | Modelos de dados de entrada |
-| `helpers.py` | Funções auxiliares diversas |
-| `logging_utils.py` | Configuração de logging |
-| `request_utils.py` | Utilitários de request/cookie |
-| `season_utils.py` | Funções de manipulação de temporada |
-| `data_utils.py` | Utilitários de manipulação de dados/DataFrames |
+| `validators.py`     | Validações genéricas de entrada                    |
+| `input_models.py`   | Modelos de dados de entrada                        |
+| `helpers.py`        | Funções auxiliares diversas                        |
+| `logging_utils.py`  | Configuração de logging                            |
+| `request_utils.py`  | Utilitários de request/cookie                      |
+| `season_utils.py`   | Funções de manipulação de temporada                |
+| `data_utils.py`     | Utilitários de manipulação de dados/DataFrames     |
 
 ---
 
