@@ -273,13 +273,10 @@ def main():
     if "tipo" not in df.columns:
         df["tipo"] = "Normal"
 
-    tab_calendario, tab_horario = st.tabs(["Calendário", "Horário limite"])
+    tab_calendario, tab_horario = st.tabs(["Agenda", "Horário limite"])
 
     # ----------------------------------------------------------------
     with tab_calendario:
-        # Debug: mostrar timezone sendo usado
-        st.write(f"🔍 **Debug** - Timezone em uso: `{tz_exibicao}` | Temporada: `{temporada}`")
-        
         eventos = _build_calendar_events(df, tz_exibicao)
         hoje_iso = now_aware.date().isoformat()
         calendar_options = {
