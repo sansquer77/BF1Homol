@@ -56,8 +56,8 @@ def main():
         st.markdown(
             (
                 "<div style='display:inline-block;padding:6px 12px;border-radius:999px;"
-                "background:#edf7ff;border:1px solid rgba(0,34,68,0.28);"
-                "color:#002244;font-weight:700;line-height:1.2;'>"
+                "background:rgba(225,52,39,0.18);border:1px solid rgba(225,52,39,0.45);"
+                "color:#ffffff;font-weight:700;line-height:1.2;'>"
                 f"{selected_season}"
                 "</div>"
             ),
@@ -69,14 +69,14 @@ def main():
         if selected_season == current_year:
             status_html = (
                 "<div style='display:inline-block;padding:6px 12px;border-radius:999px;"
-                "background:#f0fae8;border:1px solid rgba(105,190,40,0.45);"
-                "color:#002244;font-weight:700;line-height:1.2;'>🟢 Ao Vivo</div>"
+                "background:rgba(255,71,87,0.16);border:1px solid rgba(255,71,87,0.45);"
+                "color:#ff9aa5;font-weight:700;line-height:1.2;'>🔴 Ao Vivo</div>"
             )
         else:
             status_html = (
                 "<div style='display:inline-block;padding:6px 12px;border-radius:999px;"
-                "background:#edf7ff;border:1px solid rgba(0,34,68,0.28);"
-                "color:#002244;font-weight:700;line-height:1.2;'>✅ Histórico</div>"
+                "background:rgba(0,210,106,0.16);border:1px solid rgba(0,210,106,0.45);"
+                "color:#8ff2be;font-weight:700;line-height:1.2;'>✅ Histórico</div>"
             )
         st.markdown(status_html, unsafe_allow_html=True)
     

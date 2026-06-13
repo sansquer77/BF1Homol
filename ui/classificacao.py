@@ -92,15 +92,109 @@ def gerar_imagem_tabela_ajustada(df, colunas):
     buffer.seek(0)
     return buffer
 
-def gerar_imagem_prova(df_cruzada, prova_selecionada):
+def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultados_df=None, provas_df=None, df_class=None):
     if prova_selecionada not in df_cruzada.index:
         return None
 
+    def parse_num(x):
+        try:
+            if pd.isna(x):
+                return 0.0
+        except Exception:
+            pass
+        if isinstance(x, (int, float)):
+            return float(x)
+        s = str(x).strip()
+        if s == '' or s == '-' or s.lower() in ['none', 'nan']:
+            return 0.0
+        s2 = s.replace('.', '').replace(',', '.')
+        try:
+            return float(s2)
+        except Exception:
+            try:
+                return float(s)
+            except Exception:
+                return 0.0
+
     dados_prova = df_cruzada.loc[prova_selecionada]
-    dados_ordenados = dados_prova.sort_values(ascending=False)
-    df_prova = pd.DataFrame({prova_selecionada: dados_ordenados})
-    df_prova[prova_selecionada] = df_prova[prova_selecionada].apply(
-        lambda x: f'{x:,.2f}'.replace(',', 'v').replace('.', ',').replace('v', '.'))
+
+    # map participante -> usuario_id a partir de df_class se disponível
+    name_to_uid = {}
+    if df_class is not None and 'Participante' in df_class.columns and 'usuario_id' in df_class.columns:
+        try:
+            name_to_uid = pd.Series(df_class['usuario_id'].values, index=df_class['Participante'].values).to_dict()
+        except Exception:
+            name_to_uid = {}
+
+    # identificar prova_id para consultar apostas/resultados
+    prova_id = None
+    if provas_df is not None and 'nome' in provas_df.columns and 'id' in provas_df.columns:
+        tmp = provas_df[provas_df['nome'] == prova_selecionada]
+        if not tmp.empty:
+            try:
+                prova_id = int(tmp.iloc[0]['id'])
+            except Exception:
+                prova_id = None
+
+    piloto_11_real = None
+    if resultados_df is not None and prova_id is not None and 'prova_id' in resultados_df.columns:
+        rr = resultados_df[resultados_df['prova_id'] == prova_id]
+        if not rr.empty:
+            try:
+                pos = ast.literal_eval(rr.iloc[0]['posicoes'])
+                piloto_11_real = str(pos.get(11, '')).strip()
+            except Exception:
+                piloto_11_real = None
+
+    rows = []
+    for participante in dados_prova.index.tolist():
+        raw_val = dados_prova[participante]
+        pontos_val = parse_num(raw_val)
+
+        uid = name_to_uid.get(participante)
+        data_envio = None
+        acerto_11 = 0
+        if apostas_df is not None and uid is not None and prova_id is not None:
+            ap = apostas_df[(apostas_df['usuario_id'] == uid) & (apostas_df['prova_id'] == prova_id)]
+            if not ap.empty:
+                ap_sorted = ap.copy()
+                if 'data_envio' in ap_sorted.columns:
+                    ap_sorted['__dt'] = pd.to_datetime(ap_sorted['data_envio'], errors='coerce')
+                    ap_sorted = ap_sorted.sort_values('__dt')
+                ap_row = ap_sorted.iloc[0]
+                data_envio = ap_row.get('data_envio')
+                try:
+                    if piloto_11_real is not None:
+                        acerto_11 = 1 if str(ap_row.get('piloto_11', '')).strip() == piloto_11_real else 0
+                except Exception:
+                    acerto_11 = 0
+
+        overall_total = 0.0
+        if df_class is not None and 'Participante' in df_class.columns and 'Total Geral' in df_class.columns:
+            try:
+                match = df_class[df_class['Participante'] == participante]
+                if not match.empty:
+                    overall_total = float(match['Total Geral'].iloc[0])
+            except Exception:
+                overall_total = 0.0
+
+        rows.append({
+            'Participante': participante,
+            'pontos': pontos_val,
+            'data_envio': pd.to_datetime(data_envio, errors='coerce') if data_envio is not None else pd.NaT,
+            'acerto_11': int(acerto_11),
+            'overall_total': overall_total,
+        })
+
+    df_p = pd.DataFrame(rows)
+    if df_p.empty:
+        return None
+
+    df_p['data_envio_sort'] = df_p['data_envio'].fillna(pd.Timestamp.max)
+    df_p = df_p.sort_values(by=['pontos', 'data_envio_sort', 'acerto_11', 'overall_total'], ascending=[False, True, False, False]).reset_index(drop=True)
+    df_p['pontos_fmt'] = df_p['pontos'].apply(lambda x: formatar_brasileiro(float(x)))
+
+    df_prova = pd.DataFrame({prova_selecionada: df_p['pontos_fmt'].values}, index=df_p['Participante'].tolist())
 
     linhas = len(df_prova)
     max_nome = max(df_prova.index.astype(str).map(len).max(), len("Participante")) if linhas > 0 else len("Participante")
@@ -510,7 +604,14 @@ def main():
     )
     if perfil_usuario in ['admin', 'master']:
         if st.button("Gerar imagem da prova selecionada"):
-            imagem_buffer_prova = gerar_imagem_prova(df_cruzada, prova_selecionada)
+            imagem_buffer_prova = gerar_imagem_prova(
+                df_cruzada,
+                prova_selecionada,
+                apostas_df=apostas_df,
+                resultados_df=resultados_df,
+                provas_df=provas_df,
+                df_class=df_class,
+            )
             if imagem_buffer_prova:
                 st.download_button(
                     label=f"Baixar imagem da classificação da prova {prova_selecionada}",

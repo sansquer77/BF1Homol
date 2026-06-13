@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 from datetime import datetime
 from typing import Optional, cast
+from collections import defaultdict
 
 import pandas as pd
 
@@ -186,8 +187,10 @@ def salvar_classificacao_prova(p_id, df_c, temp=None):
 
 
 def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
-    with db_connect() as conn:
-        usrs = cast(
+    import traceback
+    try:
+        with db_connect() as conn:
+            usrs = cast(
             pd.DataFrame,
             _fetch_df(
                 conn,
@@ -208,6 +211,20 @@ def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
         if temporada and "temporada" in provs.columns:
             provs = provs[provs["temporada"] == temporada]
 
+        # normalizar colunas categóricas (podem vir do adaptador DB como Categorical)
+        for _df in (usrs, provs, apts, ress):
+            if _df is None or _df.empty:
+                continue
+            for _col in list(_df.columns):
+                try:
+                    if pd.api.types.is_categorical_dtype(_df[_col]):
+                        _df[_col] = _df[_col].astype(object)
+                except Exception:
+                    try:
+                        _df[_col] = _df[_col].astype(object)
+                    except Exception:
+                        pass
+
         primeira_prova_por_temp = {}
         if not provs.empty:
             if "temporada" in provs.columns and "data" in provs.columns:
@@ -227,7 +244,18 @@ def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
             elif not provs.empty:
                 primeira_prova_por_temp[str(datetime.now().year)] = int(provs.iloc[0]["id"])
 
-        for _, pr in provs.iterrows():
+        # process provas in chronological order so we can use prior cumulative totals as tertiary desempate
+        if "data" in provs.columns:
+            provs_proc = provs.copy()
+            provs_proc["__data_dt"] = pd.to_datetime(provs_proc["data"], errors="coerce")
+            provs_proc = provs_proc.sort_values(by=["__data_dt", "id"]).reset_index(drop=True)
+        else:
+            provs_proc = provs.sort_values(by=["id"]).reset_index(drop=True)
+
+        # cumulative totals per temporada (used as tertiary desempate)
+        cum_totals_per_temp: dict[str, dict[int, float]] = defaultdict(dict)
+
+        for _, pr in provs_proc.iterrows():
             pid = pr["id"]
             if pid not in ress["prova_id"].values:
                 continue
@@ -266,12 +294,20 @@ def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
                         except Exception:
                             pass
 
+                # cumulative total up to (but not including) this prova for the user's temporada
+                try:
+                    temporada_key = str(temporada_prova)
+                except Exception:
+                    temporada_key = str(datetime.now().year)
+                cum_total = float(cum_totals_per_temp.get(temporada_key, {}).get(int(u["id"]), 0) or 0)
+
                 tab.append(
                     {
                         "usuario_id": u["id"],
                         "pontos": pontos_val,
                         "data_envio": data_envio,
                         "acerto_11": acerto_11,
+                        "cum_total": cum_total,
                     }
                 )
 
@@ -291,9 +327,60 @@ def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
 
             df = pd.DataFrame(tab)
             df["data_envio"] = pd.to_datetime(df["data_envio"], errors="coerce")
-            df = df.sort_values(by=["pontos", "acerto_11", "data_envio"], ascending=[False, False, True]).reset_index(drop=True)
+
+            # ordenar de forma robusta usando chaves Python para evitar problemas com Categorical
+            def _safe_float(v):
+                try:
+                    return float(v)
+                except Exception:
+                    try:
+                        s = str(v).replace(',', '.')
+                        return float(s)
+                    except Exception:
+                        return 0.0
+
+            def _timestamp_ns(ts):
+                try:
+                    if pd.isna(ts):
+                        return 10 ** 30
+                    # pd.Timestamp.value retorna ns since epoch (UTC-aware)
+                    return int(pd.to_datetime(ts).value)
+                except Exception:
+                    return 10 ** 30
+
+            keys = []
+            for i, row in df.iterrows():
+                pontos_n = _safe_float(row.get('pontos', 0))
+                dt_ns = _timestamp_ns(row.get('data_envio'))
+                ac11 = int(_safe_float(row.get('acerto_11', 0)))
+                cum = _safe_float(row.get('cum_total', 0))
+                # chave para ordenação: menor é melhor
+                keys.append(( -pontos_n, dt_ns, -ac11, -cum, i ))
+
+            order = [t[-1] for t in sorted(keys)]
+            df = df.iloc[order].reset_index(drop=True)
             df["posicao"] = df.index + 1
             salvar_classificacao_prova(pid, df, temporada_prova)
+
+            # Atualiza os totais acumulados para a temporada (usados como desempate em provas futuras)
+            temporada_key = str(temporada_prova)
+            if temporada_key not in cum_totals_per_temp:
+                cum_totals_per_temp[temporada_key] = {}
+            for _, r in df.iterrows():
+                try:
+                    uid = int(r["usuario_id"])
+                    pontos_r = float(r["pontos"] or 0)
+                    prev = float(cum_totals_per_temp[temporada_key].get(uid, 0) or 0)
+                    cum_totals_per_temp[temporada_key][uid] = prev + pontos_r
+                except Exception:
+                    continue
+    except Exception:
+        try:
+            with open('/tmp/bets_scoring_trace.log', 'w') as _f:
+                _f.write(traceback.format_exc())
+        except Exception:
+            pass
+        raise
 
 
 __all__ = [
