@@ -11,7 +11,7 @@ data_revisao: 2026-05-03
 > - [[01_necessidade]] · [[02_regras_de_negocio]] · [[03_spec]] · [[04_arquitetura]] · [[MAPA_MENTAL_MODULOS]]
 
 > **Versão do Sistema**: 3.6
-> **Repositório**: `sansquer77/BF1Homol` (branch `main`)
+> **Repositório**: `sansquer77/BF1` (branch `main`)
 > **Plataforma de Deploy**: DigitalOcean App Platform
 > **Stack**: Python 3.11+ · Streamlit · PostgreSQL · psycopg2
 

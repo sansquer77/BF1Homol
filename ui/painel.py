@@ -203,7 +203,7 @@ def participante_view():
 
             if len(provas) > 0 and len(pilotos_df) > 2:
                     prova_ids_validos = set(provas['id'].tolist())
-                    proxima_prova_id = _get_proxima_prova_id(provas)
+                    proxima_prova_id = _get_proxima_prova_id(provas.to_frame() if isinstance(provas, pd.Series) else provas)
                     temporada_default_aposta = st.session_state.get("aposta_default_temporada")
                     prova_atual_sel = st.session_state.get("sel_prova_aposta")
 
@@ -227,7 +227,7 @@ def participante_view():
                         )
                     with col_btn:
                         st.write("")
-                        if st.button("Ver regras", width="content"):
+                        if st.button("Ver regras"):
                             prova_nome_sel = provas[provas['id'] == prova_id]['nome'].values[0]
                             tipo_raw = provas[provas['id'] == prova_id]['tipo'].values[0] if not provas[provas['id'] == prova_id].empty else 'Normal'
                             tipo_sel = 'Sprint' if str(tipo_raw).strip().lower() == 'sprint' or 'sprint' in str(prova_nome_sel).lower() else 'Normal'
@@ -235,7 +235,7 @@ def participante_view():
                             _mostrar_regras_dialog(regras_sel, temporada, tipo_sel)
                     with col_sem_ideias:
                         st.write("")
-                        if st.button("Sem ideias", width="content"):
+                        if st.button("Sem ideias"):
                             nome_prova_sem_ideias = provas[provas['id'] == prova_id]['nome'].values[0]
                             ok_auto, msg_auto = gerar_aposta_sem_ideias(
                                 usuario_id=user['id'],
@@ -469,7 +469,8 @@ def participante_view():
             # evita descartar todas as apostas quando force_change=True (provas_df = DataFrame()).
             if not provas_df.empty and 'id' in provas_df.columns:
                 apostas_part = apostas_part[apostas_part['prova_id'].isin(provas_df['id'])]
-            apostas_part = apostas_part.sort_values('prova_id')
+            if isinstance(apostas_part, pd.DataFrame):
+                apostas_part = apostas_part.sort_values(by='prova_id')
             pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
             pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]
 
@@ -558,7 +559,7 @@ def participante_view():
                                 st.write("**Sprint com pontuação dobrada:** Sim")
                             else:
                                 st.write("**Sprint com pontuação dobrada:** Não")
-                        st.dataframe(pd.DataFrame(dados), hide_index=True, width="stretch")
+                        st.dataframe(pd.DataFrame(dados), hide_index=True)
                         st.write(f"**11º Apostado:** {piloto_11_apostado} | **11º Real:** {piloto_11_real} | **Pontos 11º:** {pontos_11_col}")
                         if penalidade_abandono:
                             pilotos_str = ", ".join(pilotos_abandonados)

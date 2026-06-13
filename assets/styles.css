@@ -1,32 +1,56 @@
 /* 
- * BF1 - Tema Liquid Glass
- * Inspirado no design Apple com efeitos de vidro e blur
+ * BF1 - Tema claro operacional
+ * Inspirado no Sistema Financeiro: paineis limpos, bordas discretas e acao em verde
  * Responsivo para mobile e desktop
  */
 
 /* ============ VARIÁVEIS CSS ============ */
 :root {
-    --glass-bg: rgba(255, 255, 255, 0.05);
-    --glass-bg-hover: rgba(255, 255, 255, 0.1);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    --blur-amount: 20px;
-    --accent-color: #E13427;
-    --accent-gradient: linear-gradient(135deg, #E13427, #ff6b5b);
-    --text-primary: #ffffff;
-    --text-secondary: rgba(255, 255, 255, 0.7);
-    --success-color: #00d26a;
-    --warning-color: #ffc107;
-    --error-color: #ff4757;
-    --border-radius: 16px;
-    --border-radius-sm: 10px;
-    --transition-speed: 0.3s;
+    color-scheme: light;
+    --app-bg: #f6f7f9;
+    --panel-bg: #ffffff;
+    --panel-muted: #fbfcfd;
+    --soft-bg: #edf7ff;
+    --action-soft-bg: #f0fae8;
+    --glass-bg: #ffffff;
+    --glass-bg-hover: #f3f7f7;
+    --glass-border: #dce2e8;
+    --glass-shadow: 0 18px 48px rgba(31, 41, 51, 0.08);
+    --blur-amount: 0;
+    --seahawks-blue: #002244;
+    --seahawks-blue-hover: #003a70;
+    --seahawks-green: #69be28;
+    --seahawks-green-hover: #4f9f18;
+    --seahawks-gray: #a5acaf;
+    --accent-color: var(--seahawks-blue);
+    --accent-color-dark: var(--seahawks-blue-hover);
+    --action-color: var(--seahawks-green);
+    --action-color-dark: var(--seahawks-green-hover);
+    --accent-gradient: linear-gradient(135deg, #002244, #003a70);
+    --action-gradient: linear-gradient(135deg, #69be28, #4f9f18);
+    --text-primary: #1f2933;
+    --text-secondary: #657282;
+    --success-color: #4f9f18;
+    --warning-color: #b7791f;
+    --error-color: #b42318;
+    --info-color: #2563eb;
+    --border-radius: 8px;
+    --border-radius-sm: 6px;
+    --transition-speed: 0.16s;
 }
 
-/* ============ FUNDO GRADIENTE ANIMADO ============ */
+/* ============ FUNDO CLARO ============ */
 .stApp {
-    background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%) !important;
-    background-attachment: fixed !important;
+    background: var(--app-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+.stApp,
+.stApp p,
+.stApp div,
+.stApp span,
+.stApp label {
+    letter-spacing: 0 !important;
 }
 
 /* Ritmo geral de conteúdo */
@@ -36,40 +60,27 @@
     padding-bottom: 1.5rem !important;
 }
 
-/* Efeito de partículas/brilho sutil no fundo */
 .stApp::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: 
-        radial-gradient(ellipse at 20% 80%, rgba(225, 52, 39, 0.1) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 50%, rgba(16, 185, 129, 0.05) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
+    content: none !important;
 }
 
-/* ============ SIDEBAR GLASS ============ */
+/* ============ SIDEBAR ============ */
 [data-testid="stSidebar"] {
-    background: rgba(26, 26, 46, 0.8) !important;
-    backdrop-filter: blur(var(--blur-amount)) !important;
-    -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
+    background: var(--panel-bg) !important;
     border-right: 1px solid var(--glass-border) !important;
+    box-shadow: 8px 0 28px rgba(31, 41, 51, 0.04) !important;
 }
 
 [data-testid="stSidebar"] > div:first-child {
-    background: transparent !important;
+    background: var(--panel-bg) !important;
 }
 
 /* Radio buttons no sidebar */
 [data-testid="stSidebar"] .stRadio > label {
-    background: var(--glass-bg) !important;
+    background: transparent !important;
     border-radius: var(--border-radius-sm) !important;
-    padding: 12px 16px !important;
-    margin: 4px 0 !important;
+    padding: 10px 12px !important;
+    margin: 3px 0 !important;
     border: 1px solid transparent !important;
     transition: all var(--transition-speed) ease !important;
 }
@@ -79,7 +90,15 @@
     border-color: var(--glass-border) !important;
 }
 
-/* ============ CARDS E CONTAINERS GLASS ============ */
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked),
+[data-testid="stSidebar"] [aria-checked="true"] {
+    background: var(--soft-bg) !important;
+    border-color: rgba(0, 34, 68, 0.28) !important;
+    color: var(--accent-color-dark) !important;
+    font-weight: 800 !important;
+}
+
+/* ============ CARDS E CONTAINERS ============ */
 .stTabs [data-baseweb="tab-panel"] {
     background: transparent !important;
     border: none !important;
@@ -92,56 +111,52 @@
 .stForm,
 [data-testid="stMetric"] {
     background: var(--glass-bg) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
     border-radius: var(--border-radius) !important;
     border: 1px solid var(--glass-border) !important;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22) !important;
+    box-shadow: var(--glass-shadow) !important;
     padding: 16px !important;
     margin: 10px 0 !important;
 }
 
-/* ============ ABAS GLASS ============ */
+/* ============ ABAS ============ */
 .stTabs [data-baseweb="tab-list"] {
-    background: var(--glass-bg) !important;
-    border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
-    padding: 8px !important;
-    gap: 8px !important;
+    background: #eef2f4 !important;
+    border-radius: var(--border-radius) !important;
+    padding: 4px !important;
+    gap: 6px !important;
     border: 1px solid var(--glass-border) !important;
-    border-bottom: none !important;
+    border-bottom: 1px solid var(--glass-border) !important;
 }
 
 .stTabs [data-baseweb="tab"] {
     background: transparent !important;
     border-radius: var(--border-radius-sm) !important;
-    padding: 12px 24px !important;
+    padding: 10px 18px !important;
     color: var(--text-secondary) !important;
-    font-weight: 500 !important;
+    font-weight: 700 !important;
     transition: all var(--transition-speed) ease !important;
     border: none !important;
 }
 
 .stTabs [data-baseweb="tab"]:hover {
-    background: var(--glass-bg-hover) !important;
+    background: rgba(255, 255, 255, 0.72) !important;
     color: var(--text-primary) !important;
 }
 
 .stTabs [aria-selected="true"] {
-    background: var(--accent-gradient) !important;
-    color: white !important;
-    box-shadow: 0 4px 15px rgba(225, 52, 39, 0.4) !important;
+    background: var(--panel-bg) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 1px 4px rgba(31, 41, 51, 0.12) !important;
 }
 
-/* ============ BOTÕES GLASS ============ */
+/* ============ BOTÕES ============ */
 .stButton > button {
-    background: var(--glass-bg) !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
+    background: var(--panel-bg) !important;
     border: 1px solid var(--glass-border) !important;
     border-radius: var(--border-radius-sm) !important;
     color: var(--text-primary) !important;
-    font-weight: 500 !important;
-    padding: 12px 24px !important;
+    font-weight: 800 !important;
+    padding: 10px 16px !important;
     transition: all var(--transition-speed) ease !important;
     text-transform: none !important;
 }
@@ -149,34 +164,34 @@
 .stButton > button:hover {
     background: var(--glass-bg-hover) !important;
     border-color: var(--accent-color) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 8px 25px rgba(225, 52, 39, 0.3) !important;
+    transform: none !important;
+    box-shadow: 0 8px 22px rgba(31, 41, 51, 0.08) !important;
 }
 
 /* Botão primário */
 .stButton > button[kind="primary"],
 .stButton > button[data-testid="baseButton-primary"] {
-    background: var(--accent-gradient) !important;
+    background: var(--action-gradient) !important;
     border: none !important;
-    box-shadow: 0 4px 15px rgba(225, 52, 39, 0.4) !important;
+    box-shadow: none !important;
+    color: var(--seahawks-blue) !important;
 }
 
 .stButton > button[kind="primary"]:hover,
 .stButton > button[data-testid="baseButton-primary"]:hover {
-    box-shadow: 0 8px 25px rgba(225, 52, 39, 0.5) !important;
-    transform: translateY(-2px) scale(1.02) !important;
+    background: var(--action-color-dark) !important;
+    box-shadow: 0 8px 22px rgba(105, 190, 40, 0.22) !important;
+    transform: none !important;
 }
 
-/* ============ INPUTS GLASS ============ */
+/* ============ INPUTS ============ */
 .stTextInput > div > div,
 .stSelectbox > div > div,
 .stMultiSelect > div > div,
 .stDateInput > div > div,
 .stTimeInput > div > div,
 .stNumberInput > div > div {
-    background: var(--glass-bg) !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
+    background: var(--panel-bg) !important;
     border: 1px solid var(--glass-border) !important;
     border-radius: var(--border-radius-sm) !important;
     transition: all var(--transition-speed) ease !important;
@@ -189,7 +204,7 @@
 .stTimeInput > div > div:focus-within,
 .stNumberInput > div > div:focus-within {
     border-color: var(--accent-color) !important;
-    box-shadow: 0 0 20px rgba(225, 52, 39, 0.2) !important;
+    box-shadow: 0 0 0 3px rgba(0, 34, 68, 0.14) !important;
 }
 
 /* ============ PASSWORD INPUT (LOGIN) ============ */
@@ -205,19 +220,26 @@
     padding-right: 2.6rem !important; /* Espaço para botão mostrar/ocultar senha */
 }
 
+input,
+textarea,
+[data-baseweb="input"] input,
+[data-baseweb="textarea"] textarea,
+[data-baseweb="select"] {
+    color: var(--text-primary) !important;
+}
+
 [data-testid="stTextInput"] [data-baseweb="input"] {
     align-items: center !important;
 }
 
-/* ============ DATAFRAMES GLASS ============ */
+/* ============ DATAFRAMES ============ */
 [data-testid="stDataFrame"],
 .stDataFrame {
     background: var(--glass-bg) !important;
-    backdrop-filter: blur(var(--blur-amount)) !important;
-    -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
     border-radius: var(--border-radius) !important;
     border: 1px solid var(--glass-border) !important;
     overflow: hidden !important;
+    box-shadow: var(--glass-shadow) !important;
 }
 
 [data-testid="stDataFrame"] > div {
@@ -226,7 +248,7 @@
 
 /* Cabeçalho da tabela */
 [data-testid="stDataFrame"] th {
-    background: rgba(225, 52, 39, 0.2) !important;
+    background: #f0f5f5 !important;
     color: var(--text-primary) !important;
     font-weight: 600 !important;
     padding: 12px 16px !important;
@@ -234,7 +256,7 @@
 
 /* Linhas da tabela */
 [data-testid="stDataFrame"] td {
-    background: transparent !important;
+    background: var(--panel-bg) !important;
     color: var(--text-secondary) !important;
     padding: 10px 16px !important;
     border-bottom: 1px solid var(--glass-border) !important;
@@ -245,11 +267,9 @@
     color: var(--text-primary) !important;
 }
 
-/* ============ ALERTAS GLASS ============ */
+/* ============ ALERTAS ============ */
 .stAlert {
-    background: var(--glass-bg) !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
+    background: var(--panel-bg) !important;
     border-radius: var(--border-radius-sm) !important;
     border: 1px solid var(--glass-border) !important;
 }
@@ -258,24 +278,24 @@
 [data-testid="stAlert"][data-baseweb="notification"]:has(.st-success),
 .element-container:has(.stSuccess) .stAlert {
     border-left: 4px solid var(--success-color) !important;
-    background: rgba(0, 210, 106, 0.1) !important;
+    background: var(--action-soft-bg) !important;
 }
 
 /* Warning */
 [data-testid="stAlert"]:has(.st-warning),
 .element-container:has(.stWarning) .stAlert {
     border-left: 4px solid var(--warning-color) !important;
-    background: rgba(255, 193, 7, 0.1) !important;
+    background: #fff8e6 !important;
 }
 
 /* Error */
 [data-testid="stAlert"]:has(.st-error),
 .element-container:has(.stError) .stAlert {
     border-left: 4px solid var(--error-color) !important;
-    background: rgba(255, 71, 87, 0.1) !important;
+    background: #fff1f0 !important;
 }
 
-/* ============ MÉTRICAS GLASS ============ */
+/* ============ MÉTRICAS ============ */
 [data-testid="stMetric"] {
     text-align: center !important;
 }
@@ -283,17 +303,14 @@
 [data-testid="stMetricValue"] {
     font-size: 2rem !important;
     font-weight: 700 !important;
-    background: var(--accent-gradient) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    background-clip: text !important;
+    color: var(--accent-color) !important;
 }
 
 [data-testid="stMetricLabel"] {
     color: var(--text-secondary) !important;
     font-size: 0.9rem !important;
     text-transform: uppercase !important;
-    letter-spacing: 1px !important;
+    letter-spacing: 0 !important;
 }
 
 /* ============ TÍTULOS ============ */
@@ -308,13 +325,13 @@ h1 {
     margin-bottom: 1rem !important;
 }
 
-/* ============ EXPANDER GLASS ============ */
+/* ============ EXPANDER ============ */
 [data-testid="stExpander"] {
     border: 1px solid var(--glass-border) !important;
 }
 
 [data-testid="stExpander"] summary {
-    background: var(--glass-bg) !important;
+    background: var(--panel-muted) !important;
     border-radius: var(--border-radius-sm) !important;
     padding: 16px !important;
     color: var(--text-primary) !important;
@@ -457,29 +474,31 @@ h2, h3 {
 }
 
 ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+    background: #eef2f4;
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(225, 52, 39, 0.5);
+    background: #b8c4ce;
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(225, 52, 39, 0.7);
+    background: var(--accent-color);
 }
 
 /* ============ DOWNLOAD BUTTON ============ */
 .stDownloadButton > button {
-    background: linear-gradient(135deg, #10b981, #059669) !important;
+    background: var(--action-gradient) !important;
     border: none !important;
-    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4) !important;
+    box-shadow: none !important;
+    color: var(--seahawks-blue) !important;
 }
 
 .stDownloadButton > button:hover {
-    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5) !important;
-    transform: translateY(-2px) !important;
+    background: var(--action-color-dark) !important;
+    box-shadow: 0 8px 22px rgba(105, 190, 40, 0.22) !important;
+    transform: none !important;
 }
 
 /* ============ CHECKBOX E RADIO ============ */
@@ -497,7 +516,7 @@ h2, h3 {
 }
 
 .stProgress > div > div > div {
-    background: var(--accent-gradient) !important;
+    background: var(--action-gradient) !important;
     border-radius: 10px !important;
 }
 
@@ -522,9 +541,7 @@ h2, h3 {
 
 /* ============ SELECTBOX DROPDOWN ============ */
 [data-baseweb="popover"] {
-    background: rgba(26, 26, 46, 0.95) !important;
-    backdrop-filter: blur(var(--blur-amount)) !important;
-    -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
+    background: var(--panel-bg) !important;
     border: 1px solid var(--glass-border) !important;
     border-radius: var(--border-radius-sm) !important;
     box-shadow: var(--glass-shadow) !important;
@@ -545,11 +562,14 @@ h2, h3 {
     color: var(--text-primary) !important;
 }
 
+[data-baseweb="menu"] li[aria-selected="true"] {
+    background: var(--soft-bg) !important;
+    color: var(--accent-color-dark) !important;
+}
+
 /* ============ TOAST NOTIFICATIONS ============ */
 [data-testid="stToast"] {
-    background: rgba(26, 26, 46, 0.95) !important;
-    backdrop-filter: blur(var(--blur-amount)) !important;
-    -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
+    background: var(--panel-bg) !important;
     border: 1px solid var(--glass-border) !important;
     border-radius: var(--border-radius-sm) !important;
 }
@@ -568,14 +588,12 @@ h2, h3 {
     width: 60px;
     height: 60px;
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(225, 52, 39, 0.3);
+    box-shadow: 0 10px 28px rgba(31, 41, 51, 0.12);
 }
 
 /* ============ LOGIN CARD ESPECIAL ============ */
 .login-container {
     background: var(--glass-bg) !important;
-    backdrop-filter: blur(var(--blur-amount)) !important;
-    -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
     border-radius: var(--border-radius) !important;
     border: 1px solid var(--glass-border) !important;
     padding: 40px !important;
@@ -587,8 +605,6 @@ h2, h3 {
 /* ============ FORMS ESPECIAIS ============ */
 [data-testid="stForm"] {
     background: var(--glass-bg) !important;
-    backdrop-filter: blur(var(--blur-amount)) !important;
-    -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
     border-radius: var(--border-radius) !important;
     border: 1px solid var(--glass-border) !important;
     padding: 16px !important;
@@ -613,7 +629,7 @@ a {
 }
 
 a:hover {
-    color: #ff6b5b !important;
+    color: var(--accent-color-dark) !important;
     text-decoration: underline !important;
 }
 
@@ -629,19 +645,19 @@ a:hover {
 }
 
 .badge-success {
-    background: rgba(0, 210, 106, 0.2);
+    background: var(--action-soft-bg);
     color: var(--success-color);
     border: 1px solid var(--success-color);
 }
 
 .badge-warning {
-    background: rgba(255, 193, 7, 0.2);
+    background: #fff8e6;
     color: var(--warning-color);
     border: 1px solid var(--warning-color);
 }
 
 .badge-error {
-    background: rgba(255, 71, 87, 0.2);
+    background: #fff1f0;
     color: var(--error-color);
     border: 1px solid var(--error-color);
 }
@@ -649,8 +665,6 @@ a:hover {
 /* ============ CARDS INFO ============ */
 .info-card {
     background: var(--glass-bg);
-    backdrop-filter: blur(var(--blur-amount));
-    -webkit-backdrop-filter: blur(var(--blur-amount));
     border-radius: var(--border-radius);
     border: 1px solid var(--glass-border);
     padding: 20px;
@@ -659,7 +673,7 @@ a:hover {
 }
 
 .info-card:hover {
-    transform: translateY(-2px);
+    transform: none;
     box-shadow: var(--glass-shadow);
     border-color: var(--accent-color);
 }
@@ -681,9 +695,8 @@ footer {visibility: visible;}
 
 /* Estilizar o header (contém botão hamburguer no mobile) */
 header[data-testid="stHeader"] {
-    background: transparent !important;
-    backdrop-filter: blur(var(--blur-amount)) !important;
-    -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
+    background: rgba(246, 247, 249, 0.94) !important;
+    border-bottom: 1px solid rgba(220, 226, 232, 0.72) !important;
 }
 
 /* Botão hamburguer do menu mobile */
@@ -731,12 +744,12 @@ button[data-testid="baseButton-headerNoPadding"]:hover {
     }
 }
 
-/* ============ DARK MODE IMAGES ============ */
+/* ============ IMAGENS ============ */
 img {
     border-radius: var(--border-radius-sm);
 }
 
-/* ============ PLOTLY CHARTS GLASS ============ */
+/* ============ PLOTLY CHARTS ============ */
 .js-plotly-plot {
     background: var(--glass-bg) !important;
     border-radius: var(--border-radius) !important;
@@ -776,7 +789,7 @@ h1 {
 }
 
 .stInfo svg {
-    color: #5aa9ff !important;
+    color: var(--info-color) !important;
 }
 
 /* Ícones de botões e inputs */
@@ -814,7 +827,7 @@ h1 {
 }
 
 .stSlider > div > div > div > div {
-    background: var(--accent-gradient) !important;
+    background: var(--action-gradient) !important;
 }
 
 /* ============ TOGGLE/SWITCH ============ */

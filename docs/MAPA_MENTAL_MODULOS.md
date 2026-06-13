@@ -151,8 +151,8 @@ graph LR
 
 ## Observações de Arquitetura
 
-> [!warning] Acesso direto da UI ao DB
-> A camada `ui` ainda acessa `db` diretamente em vários pontos, além de depender de `services`. Isso é uma dívida técnica conhecida — o ideal é que toda lógica passe por `services`.
+> [!success] Acesso centralizado em services
+> ✅ A camada `ui` **não acessa `db` diretamente**. Toda lógica passa por `services.data_access_*` ou `services.*_service`, respeitando a arquitetura em camadas.
 
 > [!note] Normalização de tipos JSON
 > O campo `posicoes` em `resultados` é armazenado como `TEXT`. Ao ler, as chaves podem ser `int` ou `str`. Sempre usar `_parse_posicoes()` (ou equivalente) para normalizar para `int` antes de qualquer lookup de posição. Ver [[02_regras_de_negocio#RN-013 — Histórico Consolidado do Participante v3.6|RN-013]].
