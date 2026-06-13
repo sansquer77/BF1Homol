@@ -149,8 +149,16 @@
     box-shadow: 0 1px 4px rgba(31, 41, 51, 0.12) !important;
 }
 
+.stTabs [data-baseweb="tab-highlight"],
+.stTabs [data-baseweb="tab-border"] {
+    background: var(--action-color) !important;
+    border-color: var(--action-color) !important;
+}
+
 /* ============ BOTÕES ============ */
-.stButton > button {
+.stButton > button,
+.stFormSubmitButton > button,
+.stDownloadButton > button {
     background: var(--panel-bg) !important;
     border: 1px solid var(--glass-border) !important;
     border-radius: var(--border-radius-sm) !important;
@@ -161,7 +169,9 @@
     text-transform: none !important;
 }
 
-.stButton > button:hover {
+.stButton > button:hover,
+.stFormSubmitButton > button:hover,
+.stDownloadButton > button:hover {
     background: var(--glass-bg-hover) !important;
     border-color: var(--accent-color) !important;
     transform: none !important;
@@ -170,7 +180,11 @@
 
 /* Botão primário */
 .stButton > button[kind="primary"],
-.stButton > button[data-testid="baseButton-primary"] {
+.stButton > button[data-testid="baseButton-primary"],
+.stFormSubmitButton > button[kind="primary"],
+.stFormSubmitButton > button[data-testid="baseButton-primary"],
+button[kind="primary"],
+button[data-testid="baseButton-primary"] {
     background: var(--action-gradient) !important;
     border: none !important;
     box-shadow: none !important;
@@ -178,7 +192,11 @@
 }
 
 .stButton > button[kind="primary"]:hover,
-.stButton > button[data-testid="baseButton-primary"]:hover {
+.stButton > button[data-testid="baseButton-primary"]:hover,
+.stFormSubmitButton > button[kind="primary"]:hover,
+.stFormSubmitButton > button[data-testid="baseButton-primary"]:hover,
+button[kind="primary"]:hover,
+button[data-testid="baseButton-primary"]:hover {
     background: var(--action-color-dark) !important;
     box-shadow: 0 8px 22px rgba(105, 190, 40, 0.22) !important;
     transform: none !important;
@@ -224,7 +242,9 @@ input,
 textarea,
 [data-baseweb="input"] input,
 [data-baseweb="textarea"] textarea,
-[data-baseweb="select"] {
+[data-baseweb="select"],
+[data-baseweb="select"] *,
+[data-baseweb="select"] input {
     color: var(--text-primary) !important;
 }
 
@@ -547,22 +567,33 @@ h2, h3 {
     box-shadow: var(--glass-shadow) !important;
 }
 
-[data-baseweb="menu"] {
-    background: transparent !important;
+[data-baseweb="popover"] > div,
+[data-baseweb="popover"] ul,
+[role="listbox"] {
+    background: var(--panel-bg) !important;
+    color: var(--text-primary) !important;
 }
 
-[data-baseweb="menu"] li {
-    background: transparent !important;
-    color: var(--text-secondary) !important;
+[data-baseweb="menu"] {
+    background: var(--panel-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+[data-baseweb="menu"] li,
+[role="option"] {
+    background: var(--panel-bg) !important;
+    color: var(--text-primary) !important;
     transition: all var(--transition-speed) ease !important;
 }
 
-[data-baseweb="menu"] li:hover {
+[data-baseweb="menu"] li:hover,
+[role="option"]:hover {
     background: var(--glass-bg-hover) !important;
     color: var(--text-primary) !important;
 }
 
-[data-baseweb="menu"] li[aria-selected="true"] {
+[data-baseweb="menu"] li[aria-selected="true"],
+[role="option"][aria-selected="true"] {
     background: var(--soft-bg) !important;
     color: var(--accent-color-dark) !important;
 }

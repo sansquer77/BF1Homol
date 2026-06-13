@@ -134,7 +134,7 @@ def _build_calendar_events(df: pd.DataFrame, tz_destino: str) -> list[dict]:
 
         prova_nome = str(row.get("nome", "Prova"))
         tipo = str(row.get("tipo", "Normal") or "Normal").strip().lower()
-        cor = "#E10600" if tipo == "sprint" else "#1B3A57"
+        cor = "#69BE28" if tipo == "sprint" else "#002244"
         horario = _parse_horario(row.get("horario_prova"))
 
         event: dict = {
