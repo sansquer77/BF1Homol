@@ -27,12 +27,12 @@ Responsabilidades:
 
 from __future__ import annotations
 
-import ast
 from dataclasses import dataclass, field
 from typing import Optional
 
 import pandas as pd
 
+from db.migrations_native_types import parse_posicoes_safe
 # Importações alinhadas com o padrão do restante da aplicação:
 # - get_apostas_df e get_posicoes_participantes_df vivem em db.repo_bets
 # - get_resultados_df é exposto via services.data_access_provas
@@ -72,9 +72,8 @@ class DadosGrafico:
 # Funções auxiliares privadas
 # ---------------------------------------------------------------------------
 
-def _get_todas_temporadas_do_participante(usuario_id: int) -> list[str]:
-    """Retorna lista ordenada de temporadas em que o participante tem apostas."""
-    apostas_todas = get_apostas_df()
+def _get_temporadas_do_participante_df(usuario_id: int, apostas_todas: pd.DataFrame) -> list[str]:
+    """Retorna temporadas do participante a partir de um DataFrame já carregado."""
     if apostas_todas.empty or "usuario_id" not in apostas_todas.columns:
         return []
 
@@ -150,7 +149,7 @@ def _get_pontuacao_total_de_temporada(
     return round(float(part["pontos"].sum()), 2)
 
 
-def _parse_posicoes(raw: str) -> dict[int, str]:
+def _parse_posicoes_resultado(row) -> dict[int, str]:
     """Interpreta o campo `posicoes` da tabela resultados como dict {int -> str}.
 
     O campo é armazenado como representação Python de dicionário
@@ -165,12 +164,13 @@ def _parse_posicoes(raw: str) -> dict[int, str]:
         Dicionário ``{posição: nome_do_piloto}`` com chaves inteiras.
         Retorna ``{}`` em caso de erro de parsing.
     """
-    try:
-        parsed = ast.literal_eval(raw)
-        # Normaliza chaves para int — evita falsos negativos em posicoes.get(11)
-        return {int(k): str(v).strip() for k, v in parsed.items()}
-    except Exception:
-        return {}
+    jsonb_val = row.get("posicoes_jsonb", None)
+    if isinstance(jsonb_val, dict) and jsonb_val:
+        try:
+            return {int(k): str(v).strip() for k, v in jsonb_val.items()}
+        except Exception:
+            pass
+    return {int(k): str(v).strip() for k, v in parse_posicoes_safe(row.get("posicoes", "")).items()}
 
 
 def _contar_acertos_11_em_temporada(
@@ -199,7 +199,7 @@ def _contar_acertos_11_em_temporada(
     for _, resultado in resultados_df.iterrows():
         try:
             prova_id = int(resultado["prova_id"])
-            posicoes = _parse_posicoes(resultado["posicoes"])
+            posicoes = _parse_posicoes_resultado(resultado)
             piloto_11_por_prova[prova_id] = posicoes.get(11, "")
         except Exception:
             continue
@@ -235,9 +235,12 @@ def calcular_resumo_historico(usuario_id: int) -> ResumoHistorico:
     Returns:
         ResumoHistorico com as métricas calculadas.
     """
-    temporadas = _get_todas_temporadas_do_participante(usuario_id)
+    apostas_todas = get_apostas_df()
+    temporadas = _get_temporadas_do_participante_df(usuario_id, apostas_todas)
     if not temporadas:
         return ResumoHistorico()
+    posicoes_todas = get_posicoes_participantes_df()
+    resultados_todos = get_resultados_df()
 
     posicoes_por_temporada: list[tuple[str, int]] = []
     pontuacoes_por_temporada: list[tuple[str, float]] = []
@@ -245,7 +248,11 @@ def calcular_resumo_historico(usuario_id: int) -> ResumoHistorico:
 
     for temporada in sorted(temporadas):
         # Fonte oficial: pontos já calculados e persistidos pelo serviço de classificação
-        posicoes_df = get_posicoes_participantes_df(temporada)
+        posicoes_df = (
+            posicoes_todas[posicoes_todas["temporada"].astype(str) == str(temporada)]
+            if not posicoes_todas.empty and "temporada" in posicoes_todas.columns
+            else pd.DataFrame()
+        )
 
         posicao = _get_posicao_final_de_temporada(posicoes_df, usuario_id, temporada)
         if posicao is not None:
@@ -256,13 +263,19 @@ def calcular_resumo_historico(usuario_id: int) -> ResumoHistorico:
             pontuacoes_por_temporada.append((temporada, pontuacao))
 
         # Acertos do 11º: não está em posicoes_participantes — precisa das apostas
-        apostas_temp = get_apostas_df(temporada)
+        apostas_temp = (
+            apostas_todas[apostas_todas["temporada"].astype(str) == str(temporada)]
+            if not apostas_todas.empty and "temporada" in apostas_todas.columns
+            else pd.DataFrame()
+        )
         apostas_part = (
             apostas_temp[apostas_temp["usuario_id"] == usuario_id]
             if not apostas_temp.empty
             else pd.DataFrame()
         )
-        resultados_temp = get_resultados_df(temporada)
+        resultados_temp = resultados_todos
+        if not resultados_todos.empty and "temporada" in resultados_todos.columns:
+            resultados_temp = resultados_todos[resultados_todos["temporada"].astype(str) == str(temporada)]
         total_acertos_11 += _contar_acertos_11_em_temporada(
             apostas_part, resultados_temp, usuario_id
         )
@@ -302,7 +315,8 @@ def calcular_dados_grafico(usuario_id: int) -> DadosGrafico:
     Returns:
         DadosGrafico com fichas por temporada/piloto e o piloto mais apostado.
     """
-    temporadas = _get_todas_temporadas_do_participante(usuario_id)
+    apostas_todas = get_apostas_df()
+    temporadas = _get_temporadas_do_participante_df(usuario_id, apostas_todas)
     if not temporadas:
         return DadosGrafico()
 
@@ -310,11 +324,10 @@ def calcular_dados_grafico(usuario_id: int) -> DadosGrafico:
     fichas_totais_piloto: dict[str, int] = {}
 
     for temporada in sorted(temporadas):
-        apostas_temp = get_apostas_df(temporada)
-        if apostas_temp.empty:
-            continue
-
-        apostas_part = apostas_temp[apostas_temp["usuario_id"] == usuario_id]
+        apostas_part = apostas_todas[
+            (apostas_todas["usuario_id"] == usuario_id)
+            & (apostas_todas["temporada"].astype(str) == str(temporada))
+        ] if not apostas_todas.empty and "temporada" in apostas_todas.columns else pd.DataFrame()
         if apostas_part.empty:
             continue
 

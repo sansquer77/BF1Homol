@@ -187,11 +187,15 @@ def update_usuario(user_id: int, **campos) -> bool:
     if campos_invalidos:
         logger.error("update_usuario: colunas não permitidas rejeitadas: %s", campos_invalidos)
         raise ValueError(f"Colunas não permitidas em update_usuario: {campos_invalidos}")
-    set_clause = ", ".join(f"{k} = %s" for k in campos)
-    values = list(campos.values()) + [user_id]
     try:
         with db_connect() as conn:
             cur = conn.cursor()
+            cols = set(get_table_columns(conn, "usuarios"))
+            campos = {k: v for k, v in campos.items() if k in cols}
+            if not campos:
+                return False
+            set_clause = ", ".join(f"{k} = %s" for k in campos)
+            values = list(campos.values()) + [user_id]
             cur.execute(f"UPDATE usuarios SET {set_clause} WHERE id = %s", values)
             cur.close()
             conn.commit()

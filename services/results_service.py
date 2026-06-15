@@ -1,7 +1,4 @@
 import pandas as pd
-import json
-import ast
-from datetime import datetime
 import logging
 from db.db_schema import db_connect
 from db.repo_races import get_provas_df, get_resultados_df

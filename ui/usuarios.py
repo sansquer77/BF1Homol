@@ -7,8 +7,10 @@ from services.data_access_apostas import (
     get_participantes_temporada_df,
 )
 from services.data_access_auth import (
+    delete_usuario,
     get_usuarios_df,
     registrar_historico_status_usuario,
+    update_usuario,
     update_user_password,
     usuarios_status_historico_disponivel,
 )
@@ -201,20 +203,17 @@ def _render_gestao_usuarios_tab(perfil: str):
     with col1:
         if st.button("Atualizar usuário"):
             status_anterior = str(user_row["status"]).strip()
-            with db_connect() as conn:
-                c = conn.cursor()
-                if novas_faltas is not None:
-                    # Inclui faltas no UPDATE quando a coluna está disponível
-                    c.execute(
-                        "UPDATE usuarios SET nome=%s, email=%s, perfil=%s, status=%s, faltas=%s WHERE id=%s",
-                        (novo_nome, novo_email, novo_perfil, novo_status, int(novas_faltas), int(user_row["id"]))
-                    )
-                else:
-                    c.execute(
-                        "UPDATE usuarios SET nome=%s, email=%s, perfil=%s, status=%s WHERE id=%s",
-                        (novo_nome, novo_email, novo_perfil, novo_status, int(user_row["id"]))
-                    )
-                conn.commit()
+            campos_usuario = {
+                "nome": novo_nome,
+                "email": novo_email,
+                "perfil": novo_perfil,
+                "status": novo_status,
+            }
+            if novas_faltas is not None:
+                campos_usuario["faltas"] = int(novas_faltas)
+            if not update_usuario(int(user_row["id"]), **campos_usuario):
+                st.error("Não foi possível atualizar o usuário.")
+                return
             if status_anterior != novo_status:
                 alterado_por = st.session_state.get("user_id")
                 data_referencia_status = None
@@ -262,13 +261,12 @@ def _render_gestao_usuarios_tab(perfil: str):
             if user_row["perfil"] == "master":
                 st.error("Não é possível excluir um usuário master.")
             else:
-                with db_connect() as conn:
-                    c = conn.cursor()
-                    c.execute("DELETE FROM usuarios WHERE id=%s", (int(user_row["id"]),))
-                    conn.commit()
-                st.success("Usuário excluído com sucesso!")
-                st.cache_data.clear()
-                st.rerun()
+                if delete_usuario(int(user_row["id"])):
+                    st.success("Usuário excluído com sucesso!")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error("Não foi possível excluir o usuário.")
 
     st.markdown("---")
     st.markdown("### Adicionar Novo Usuário")

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 from datetime import datetime
 from typing import Any, Optional, TypedDict, cast
 from collections import defaultdict
@@ -10,6 +9,7 @@ from collections import defaultdict
 import pandas as pd
 
 from db.db_schema import db_connect, get_table_columns
+from db.migrations_native_types import parse_posicoes_safe
 from services.rules_service import get_regras_aplicaveis
 from utils.datetime_utils import parse_datetime_sao_paulo
 
@@ -55,7 +55,7 @@ def _parse_posicoes(raw: Any, none_on_error: bool = False) -> dict | None:
         parsed = raw
     else:
         try:
-            parsed = ast.literal_eval(str(raw or "{}"))
+            parsed = parse_posicoes_safe(str(raw or "{}"))
         except Exception:
             if none_on_error:
                 return None
@@ -71,6 +71,17 @@ def _parse_posicoes(raw: Any, none_on_error: bool = False) -> dict | None:
         except Exception:
             normalizado[chave] = valor
     return normalizado
+
+
+def _posicoes_do_resultado(resultado: pd.Series | dict, none_on_error: bool = False) -> dict | None:
+    posicoes_jsonb = resultado.get("posicoes_jsonb", None)
+    if isinstance(posicoes_jsonb, dict) and posicoes_jsonb:
+        try:
+            return {int(k): v for k, v in posicoes_jsonb.items()}
+        except Exception:
+            if none_on_error:
+                return None
+    return _parse_posicoes(resultado.get("posicoes"), none_on_error=none_on_error)
 
 
 def _tipo_prova(prova_nome: Any, tipo_raw: Any) -> str:
@@ -105,14 +116,22 @@ def detalhar_pontuacao_aposta(
     prova: pd.Series | dict,
     resultado: pd.Series | dict,
     temporada: Optional[str] = None,
+    regras_cache: dict[tuple[str, str], dict] | None = None,
 ) -> PontuacaoDetalhada:
     """Calcula a pontuacao de uma aposta e retorna seus componentes."""
     prova_nome = str(aposta.get("nome_prova") or prova.get("nome") or "Prova")
     tipo_prova = _tipo_prova(prova_nome, prova.get("tipo", "Normal"))
     temporada_resolvida = _resolve_temporada_aposta(aposta, prova, temporada)
-    regras = get_regras_aplicaveis(temporada_resolvida, tipo_prova)
+    cache_key = (temporada_resolvida, tipo_prova)
+    if regras_cache is not None:
+        regras = regras_cache.get(cache_key)
+        if regras is None:
+            regras = get_regras_aplicaveis(temporada_resolvida, tipo_prova)
+            regras_cache[cache_key] = regras
+    else:
+        regras = get_regras_aplicaveis(temporada_resolvida, tipo_prova)
     pontos_por_posicao = _pontos_lista(tipo_prova, regras)
-    posicoes_dict = _parse_posicoes(resultado.get("posicoes"))
+    posicoes_dict = _posicoes_do_resultado(resultado) or {}
     piloto_para_pos = {str(v).strip(): int(k) for k, v in posicoes_dict.items() if str(v).strip()}
 
     pilotos_apostados = [p.strip() for p in str(aposta.get("pilotos", "")).split(",")]
@@ -196,7 +215,7 @@ def calcular_pontuacao_detalhada_lote(ap_df, res_df, prov_df, temporada: Optiona
     """Calcula pontuacao em lote preservando o detalhe de cada aposta."""
     resultados_map = {}
     for _, resultado in res_df.iterrows():
-        posicoes = _parse_posicoes(resultado.get("posicoes"), none_on_error=True)
+        posicoes = _posicoes_do_resultado(resultado, none_on_error=True)
         if posicoes is None:
             continue
         dados_resultado = dict(resultado)
@@ -211,6 +230,7 @@ def calcular_pontuacao_detalhada_lote(ap_df, res_df, prov_df, temporada: Optiona
         provas_map[prova["id"]] = prova_dict
 
     detalhes = []
+    regras_cache: dict[tuple[str, str], dict] = {}
     for _, aposta in ap_df.iterrows():
         prova_id = aposta["prova_id"]
         resultado = resultados_map.get(prova_id)
@@ -218,7 +238,7 @@ def calcular_pontuacao_detalhada_lote(ap_df, res_df, prov_df, temporada: Optiona
         if resultado is None or prova is None:
             detalhes.append(None)
             continue
-        detalhes.append(detalhar_pontuacao_aposta(aposta, prova, resultado, temporada))
+        detalhes.append(detalhar_pontuacao_aposta(aposta, prova, resultado, temporada, regras_cache=regras_cache))
     return detalhes
 
 
@@ -285,7 +305,9 @@ def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
             pd.DataFrame,
             _fetch_df(conn, "SELECT usuario_id, prova_id, data_envio, pilotos, fichas, piloto_11, automatica, temporada FROM apostas"),
         )
-        ress = cast(pd.DataFrame, _fetch_df(conn, "SELECT prova_id, posicoes, abandono_pilotos FROM resultados"))
+        resultado_cols = get_table_columns(conn, "resultados")
+        resultado_extra = ", posicoes_jsonb" if "posicoes_jsonb" in resultado_cols else ""
+        ress = cast(pd.DataFrame, _fetch_df(conn, f"SELECT prova_id, posicoes, abandono_pilotos{resultado_extra} FROM resultados"))
 
         if temporada and "temporada" in provs.columns:
             provs = provs[provs["temporada"] == temporada]
@@ -347,7 +369,7 @@ def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
                 continue
 
             res_row = ress[ress["prova_id"] == pid].iloc[0]
-            res_p = ast.literal_eval(res_row["posicoes"])
+            res_p = _posicoes_do_resultado(res_row) or {}
             piloto_11_real = res_p.get(11, "")
 
             tab = []

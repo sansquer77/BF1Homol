@@ -138,10 +138,20 @@ Envio de e-mails transacionais (recuperação de senha, notificações).
 ### `historico_service.py` *(v3.6)*
 Consolida histórico multi-temporada do participante.
 
-- `get_historico_participante(usuario_id)` → `HistoricoParticipante` (dataclass)
-- Retorna: resumo estatístico, apostas por temporada, pilotos mais apostados
+- `calcular_resumo_historico(usuario_id)` → `ResumoHistorico` (dataclass)
+- `calcular_dados_grafico(usuario_id)` → `DadosGrafico` (dataclass)
+- Retorna: resumo estatístico, pontuação histórica e pilotos mais apostados
 - **Sem dependência de Streamlit** — testável de forma isolada
-- Normaliza chaves do dict `posicoes` para `int` via `_parse_posicoes()`
+- Carrega apostas/posições/resultados em lote e agrupa por temporada em memória
+- Prefere `posicoes_jsonb` e normaliza chaves via `parse_posicoes_safe()`
+
+### `bets_scoring.py`
+Cálculo canônico de pontuação por prova.
+
+- `detalhar_pontuacao_aposta(...)` → detalhe por piloto, bônus, penalidades e total
+- `calcular_pontuacao_detalhada_lote(...)` → lote detalhado com cache local de regras por `(temporada, tipo)`
+- `calcular_pontuacao_lote(...)` → wrapper legado que retorna somente totais
+- Prefere `posicoes_jsonb` quando disponível e usa parser seguro para a coluna legada
 
 ### `hall_da_fama_service.py` / `hall_da_fama_controller.py`
 Calculam e recuperam o ranking histórico de campeões do bolão.

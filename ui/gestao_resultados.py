@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-import ast
 
+from db.migrations_native_types import parse_posicoes_safe
 from services.data_access_core import db_connect, get_table_columns
 from services.data_access_provas import get_pilotos_df, get_provas_df, get_resultados_df
 from services.bets_scoring import atualizar_classificacoes_todas_as_provas
@@ -55,7 +55,11 @@ def resultados_view():
     abandonos_existentes = []
     if not resultado_atual.empty:
         try:
-            posicoes_existentes = ast.literal_eval(resultado_atual.iloc[0]['posicoes']) or {}
+            jsonb_val = resultado_atual.iloc[0].get("posicoes_jsonb", None)
+            if isinstance(jsonb_val, dict) and jsonb_val:
+                posicoes_existentes = {int(k): v for k, v in jsonb_val.items()}
+            else:
+                posicoes_existentes = parse_posicoes_safe(resultado_atual.iloc[0].get('posicoes', ''))
         except Exception:
             posicoes_existentes = {}
         if 'abandono_pilotos' in resultados_df.columns:
@@ -216,7 +220,11 @@ def resultados_view():
     for _, prova in provas.iterrows():
         res = resultados_df[resultados_df['prova_id'] == prova['id']]
         if not res.empty:
-            posicoes_dict = ast.literal_eval(res.iloc[0]['posicoes'])
+            jsonb_val = res.iloc[0].get("posicoes_jsonb", None)
+            if isinstance(jsonb_val, dict) and jsonb_val:
+                posicoes_dict = {int(k): v for k, v in jsonb_val.items()}
+            else:
+                posicoes_dict = parse_posicoes_safe(res.iloc[0].get('posicoes', ''))
             linha = {
                 "Prova": prova['nome'],
                 "Data": pd.to_datetime(prova['data']).strftime("%d/%m/%Y"),

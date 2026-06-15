@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import matplotlib.image as mpimg
 import datetime as dt
-import ast
 from zoneinfo import ZoneInfo
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from db.migrations_native_types import parse_posicoes_safe
 from services.data_access_core import (
     db_connect,
 )
@@ -39,6 +39,17 @@ def formatar_brasileiro(valor):
         return f"{valor:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
     except:
         return valor
+
+
+def _parse_posicoes_resultado(row) -> dict:
+    jsonb_val = row.get("posicoes_jsonb", None)
+    if isinstance(jsonb_val, dict) and jsonb_val:
+        try:
+            return {int(k): v for k, v in jsonb_val.items()}
+        except Exception:
+            pass
+    return parse_posicoes_safe(row.get("posicoes", ""))
+
 
 def gerar_imagem_tabela_ajustada(df, colunas):
     df_exibicao = df[colunas].astype(str).copy()
@@ -141,7 +152,7 @@ def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultado
         rr = resultados_df[resultados_df['prova_id'] == prova_id]
         if not rr.empty:
             try:
-                pos = ast.literal_eval(rr.iloc[0]['posicoes'])
+                pos = _parse_posicoes_resultado(rr.iloc[0])
                 piloto_11_real = str(pos.get(11, '')).strip()
             except Exception:
                 piloto_11_real = None
@@ -294,10 +305,13 @@ def main():
     except (TypeError, ValueError):
         season_int = current_year
 
-    try:
-        atualizar_classificacoes_todas_as_provas(temporada=season)
-    except Exception as e:
-        st.warning(f"⚠️ Erro ao atualizar classificações: {e}")
+    if st.button("Recalcular classificação desta temporada", key="btn_recalcular_classificacao_temp"):
+        try:
+            atualizar_classificacoes_todas_as_provas(temporada=season)
+            st.success("Classificação recalculada com sucesso.")
+            st.rerun()
+        except Exception as e:
+            st.warning(f"⚠️ Erro ao atualizar classificações: {e}")
 
     usuarios_df = get_participantes_temporada_df(season)
     provas_df = get_provas_df(season)
@@ -359,7 +373,7 @@ def main():
         res_11 = []
         for _, r in resultados_df.iterrows():
             try:
-                posicoes = ast.literal_eval(r['posicoes'])
+                posicoes = _parse_posicoes_resultado(r)
                 piloto_11_real = str(posicoes.get(11, '')).strip()
             except Exception:
                 piloto_11_real = ''

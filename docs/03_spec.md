@@ -82,6 +82,7 @@ Acesso: todos os perfis ativos; inativos com histórico.
 ### 2.6 Classificação (`ui/classificacao.py`)
 - Tabela com posição geral, pontos totais, pontos com descarte e variação de posição.
 - Filtro por temporada.
+- Não recalcula pontuação automaticamente a cada render da tela; usa dados persistidos e oferece ação manual "Recalcular classificação desta temporada".
 - Acesso: todos.
 
 ### 2.7 Hall da Fama (`ui/hall_da_fama.py`)
@@ -149,7 +150,7 @@ Acesso: todos os perfis ativos; inativos com histórico.
 |---------------------------|---------------------------------------------------------------------|
 | `auth_service.py`         | Emissão, decodificação e validação de JWT; gerenciamento de cookies |
 | `bets_rules.py`           | Validação da composição de apostas e ajuste automático para regras  |
-| `bets_scoring.py`         | Cálculo de pontuação e salvamento de classificação por prova        |
+| `bets_scoring.py`         | Cálculo de pontuação detalhada/em lote e salvamento de classificação por prova |
 | `bets_write.py`           | Persistência de apostas no banco                                    |
 | `bets_ai.py`              | Geração de apostas automáticas para participantes ausentes          |
 | `championship_service.py` | Lógica de apostas e resultado de campeonato                         |
@@ -220,6 +221,14 @@ Admin registra posições dos pilotos
   → Classificação é atualizada automaticamente
 ```
 
+### Fluxo: Classificação
+```
+Usuário acessa ui/classificacao.py
+  → Tela lê apostas/resultados/classificações persistidas da temporada
+  → Pontos por prova são calculados em lote apenas para exibição
+  → Reprocessamento persistido só ocorre por evento de resultado/regra ou pelo botão manual
+```
+
 ### Fluxo: Aposta Automática
 ```
 Horário limite da prova é atingido
@@ -233,8 +242,8 @@ Horário limite da prova é atingido
 ```
 Participante acessa aba "Histórico" no Painel
   → ui/painel.py chama historico_service.calcular_resumo_historico(usuario_id)
-  → historico_service consulta posicoes_participantes + apostas (todas as temporadas)
-  → _parse_posicoes() normaliza chaves para int
+  → historico_service carrega posicoes_participantes + apostas + resultados uma vez e agrupa por temporada
+  → parse_posicoes_safe()/JSONB normaliza chaves para int
   → Retorna ResumoHistorico (dataclass) → exibido como st.metric
   → ui/painel.py chama historico_service.calcular_dados_grafico(usuario_id)
   → Retorna DadosGrafico (dataclass) → gráfico Plotly + destaque do piloto

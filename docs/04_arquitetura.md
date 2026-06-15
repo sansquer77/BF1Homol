@@ -149,8 +149,8 @@ regras
 ```
 
 > [!warning] Normalização de chaves em `posicoes`
-> O campo `posicoes` do resultado pode ter chaves `int` ou `str` dependendo da inserção.
-> **Sempre** usar `_parse_posicoes()` de `historico_service.py` (ou equivalente) para normalizar para `int` antes de qualquer lookup de posição (ex.: detecção do 11º colocado).
+> O resultado pode estar em `posicoes_jsonb` (preferencial) ou na coluna legada `posicoes`.
+> **Sempre** preferir `posicoes_jsonb` quando disponível e usar `parse_posicoes_safe()` (ou helper equivalente) para normalizar chaves para `int` antes de qualquer lookup de posição (ex.: detecção do 11º colocado).
 
 ---
 
@@ -188,6 +188,15 @@ regras
 ### 7. Serviços sem Dependência de UI *(v3.6)*
 - **Decisão**: `historico_service.py` retorna `@dataclass` tipados, sem importar Streamlit.
 - **Justificativa**: garante testabilidade isolada da lógica de negócio do histórico, independente do ciclo de rerun do Streamlit.
+
+### 8. Escritas via Services/Repositórios
+- **Decisão**: telas Streamlit não devem conter SQL de escrita de domínio quando já existir função em `services/` ou `db/repo_*`.
+- **Justificativa**: centraliza validação, tratamento de schema evolutivo e invalidação de cache, reduzindo regressões em formulários.
+- **Exemplos**: gestão de provas/pilotos usa `db.repo_races`; gestão de usuários usa `db.repo_users` via fachada `services.data_access_auth`.
+
+### 9. Reprocessamento Sob Demanda
+- **Decisão**: telas de leitura não devem chamar rotinas persistentes caras a cada rerun do Streamlit.
+- **Justificativa**: ações como `bets_scoring.atualizar_classificacoes_todas_as_provas()` fazem leitura ampla e escrita em `posicoes_participantes`; devem ser disparadas por eventos de alteração ou botão explícito.
 
 ---
 

@@ -12,7 +12,7 @@ from db.db_schema import db_connect, get_table_columns
 logger = logging.getLogger(__name__)
 
 _COLUNAS_PILOTOS_VALIDAS: frozenset[str] = frozenset({"nome", "equipe", "status", "numero"})
-_COLUNAS_PROVAS_VALIDAS: frozenset[str] = frozenset({"nome", "data", "horario_prova", "tipo", "status", "temporada"})
+_COLUNAS_PROVAS_VALIDAS: frozenset[str] = frozenset({"nome", "data", "horario_prova", "tipo", "status", "temporada", "circuit_id"})
 
 
 def _query_to_df(query: str, params: tuple | None = None) -> pd.DataFrame:
@@ -132,14 +132,26 @@ def add_prova(
     tipo: str = "Normal",
     status: str = "Pendente",
     temporada: Optional[str] = None,
+    circuit_id: Optional[int] = None,
 ) -> bool:
     try:
         with db_connect() as conn:
             cur = conn.cursor()
+            cols = get_table_columns(conn, "provas")
+            campos = {
+                "nome": nome,
+                "data": data,
+                "horario_prova": horario_prova,
+                "tipo": tipo,
+                "status": status,
+                "temporada": temporada,
+                "circuit_id": circuit_id,
+            }
+            campos = {k: v for k, v in campos.items() if k in cols}
+            placeholders = ", ".join(["%s"] * len(campos))
             cur.execute(
-                "INSERT INTO provas (nome, data, horario_prova, tipo, status, temporada) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (nome, data, horario_prova, tipo, status, temporada),
+                f"INSERT INTO provas ({', '.join(campos)}) VALUES ({placeholders})",
+                tuple(campos.values()),
             )
             cur.close()
             conn.commit()
@@ -156,11 +168,15 @@ def update_prova(prova_id: int, **campos) -> bool:
     if campos_invalidos:
         logger.error("update_prova: colunas não permitidas rejeitadas: %s", campos_invalidos)
         raise ValueError(f"Colunas não permitidas em update_prova: {campos_invalidos}")
-    set_clause = ", ".join(f"{k} = %s" for k in campos)
-    values = list(campos.values()) + [prova_id]
     try:
         with db_connect() as conn:
             cur = conn.cursor()
+            cols = set(get_table_columns(conn, "provas"))
+            campos = {k: v for k, v in campos.items() if k in cols}
+            if not campos:
+                return False
+            set_clause = ", ".join(f"{k} = %s" for k in campos)
+            values = list(campos.values()) + [prova_id]
             cur.execute(f"UPDATE provas SET {set_clause} WHERE id = %s", values)
             cur.close()
             conn.commit()
