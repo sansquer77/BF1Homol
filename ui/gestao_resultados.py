@@ -5,6 +5,7 @@ import ast
 from services.data_access_core import db_connect, get_table_columns
 from services.data_access_provas import get_pilotos_df, get_provas_df, get_resultados_df
 from services.bets_scoring import atualizar_classificacoes_todas_as_provas
+from services.result_notification_service import enviar_emails_resultado_prova
 from utils.helpers import render_page_header
 from utils.season_utils import get_current_year_str, get_default_season_index, get_season_options
 
@@ -197,7 +198,15 @@ def resultados_view():
             st.success("Resultado salvo!")
             st.cache_data.clear()
             # Atualiza todas as classificações após editar resultados
-            atualizar_classificacoes_todas_as_provas()
+            atualizar_classificacoes_todas_as_provas(temporada_selecionada)
+            try:
+                stats_email = enviar_emails_resultado_prova(int(prova_id), str(temporada_selecionada))
+                if stats_email.enviados:
+                    st.success(f"E-mails de resultado enviados: {stats_email.enviados}.")
+                if stats_email.falhas:
+                    st.warning(f"Resultado salvo, mas houve falha em {stats_email.falhas} envio(s) de e-mail.")
+            except Exception as email_error:
+                st.warning(f"Resultado salvo, mas não foi possível enviar os e-mails: {email_error}")
             st.rerun()
 
     st.markdown("---")

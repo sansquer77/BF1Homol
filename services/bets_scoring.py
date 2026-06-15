@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 from datetime import datetime
-from typing import Optional, cast
+from typing import Any, Optional, TypedDict, cast
 from collections import defaultdict
 
 import pandas as pd
@@ -27,6 +27,201 @@ def _parse_datetime_sp(date_str: str, time_str: str):
     return parse_datetime_sao_paulo(date_str, time_str)
 
 
+class PontuacaoLinha(TypedDict):
+    piloto: str
+    fichas: int
+    posicao_real: str
+    dnf: str
+    pontos: float
+
+
+class PontuacaoDetalhada(TypedDict):
+    prova_nome: str
+    tipo_prova: str
+    temporada: str
+    linhas: list[PontuacaoLinha]
+    piloto_11_apostado: str
+    piloto_11_real: str
+    pontos_11: float
+    penalidade_abandono: float
+    pilotos_abandonados: list[str]
+    multiplicador_sprint: int
+    penalidade_auto: float
+    total_pontos: float
+
+
+def _parse_posicoes(raw: Any, none_on_error: bool = False) -> dict | None:
+    if isinstance(raw, dict):
+        parsed = raw
+    else:
+        try:
+            parsed = ast.literal_eval(str(raw or "{}"))
+        except Exception:
+            if none_on_error:
+                return None
+            return {}
+    if not isinstance(parsed, dict):
+        if none_on_error:
+            return None
+        return {}
+    normalizado = {}
+    for chave, valor in parsed.items():
+        try:
+            normalizado[int(chave)] = valor
+        except Exception:
+            normalizado[chave] = valor
+    return normalizado
+
+
+def _tipo_prova(prova_nome: Any, tipo_raw: Any) -> str:
+    tipo = str(tipo_raw or "").strip()
+    if tipo.lower() == "sprint" or "sprint" in str(prova_nome or "").lower():
+        return "Sprint"
+    return "Normal"
+
+
+def _pontos_lista(tipo_prova: str, regras: dict) -> list:
+    pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+    pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]
+    if tipo_prova == "Sprint":
+        return list(regras.get("pontos_sprint_posicoes") or regras.get("pontos_posicoes") or pontos_sprint)
+    return list(regras.get("pontos_posicoes") or pontos_f1)
+
+
+def _resolve_temporada_aposta(aposta: pd.Series, prova: pd.Series | dict, temporada: Optional[str] = None) -> str:
+    if temporada is not None and str(temporada).strip() != "":
+        return str(temporada)
+    temporada_aposta = aposta.get("temporada", None)
+    if temporada_aposta is not None and str(temporada_aposta).strip() != "" and not pd.isna(temporada_aposta):
+        return str(temporada_aposta)
+    temporada_prova = prova.get("temporada", str(datetime.now().year))
+    if temporada_prova is not None and str(temporada_prova).strip() != "":
+        return str(temporada_prova)
+    return str(datetime.now().year)
+
+
+def detalhar_pontuacao_aposta(
+    aposta: pd.Series,
+    prova: pd.Series | dict,
+    resultado: pd.Series | dict,
+    temporada: Optional[str] = None,
+) -> PontuacaoDetalhada:
+    """Calcula a pontuacao de uma aposta e retorna seus componentes."""
+    prova_nome = str(aposta.get("nome_prova") or prova.get("nome") or "Prova")
+    tipo_prova = _tipo_prova(prova_nome, prova.get("tipo", "Normal"))
+    temporada_resolvida = _resolve_temporada_aposta(aposta, prova, temporada)
+    regras = get_regras_aplicaveis(temporada_resolvida, tipo_prova)
+    pontos_por_posicao = _pontos_lista(tipo_prova, regras)
+    posicoes_dict = _parse_posicoes(resultado.get("posicoes"))
+    piloto_para_pos = {str(v).strip(): int(k) for k, v in posicoes_dict.items() if str(v).strip()}
+
+    pilotos_apostados = [p.strip() for p in str(aposta.get("pilotos", "")).split(",")]
+    fichas = []
+    for raw in str(aposta.get("fichas", "")).split(","):
+        try:
+            fichas.append(int(raw))
+        except Exception:
+            fichas.append(0)
+
+    abandonos: set[str] = set()
+    if regras.get("penalidade_abandono"):
+        raw_aband = resultado.get("abandono_pilotos", "") or ""
+        abandonos = {p.strip() for p in str(raw_aband).split(",") if p and p.strip()}
+
+    linhas = []
+    total_pontos = 0.0
+    for idx, piloto in enumerate(pilotos_apostados):
+        ficha = fichas[idx] if idx < len(fichas) else 0
+        pos_real = piloto_para_pos.get(str(piloto).strip())
+        pontos = 0.0
+        if pos_real is not None and 1 <= pos_real <= len(pontos_por_posicao):
+            pontos = float(ficha) * float(pontos_por_posicao[pos_real - 1])
+            total_pontos += pontos
+        linhas.append(
+            {
+                "piloto": piloto,
+                "fichas": ficha,
+                "posicao_real": str(pos_real) if pos_real is not None else "-",
+                "dnf": "DNF" if str(piloto).strip() in abandonos else "-",
+                "pontos": pontos,
+            }
+        )
+
+    piloto_11_apostado = str(aposta.get("piloto_11", "") or "").strip()
+    piloto_11_real = str(posicoes_dict.get(11, "") or "").strip()
+    bonus_11 = float(regras.get("pontos_11_colocado", 25) or 0)
+    pontos_11 = bonus_11 if piloto_11_apostado == piloto_11_real else 0.0
+    total_pontos += pontos_11
+
+    penalidade_abandono = 0.0
+    pilotos_abandonados = []
+    if abandonos:
+        pilotos_abandonados = [p for p in pilotos_apostados if p.strip() in abandonos]
+        penalidade_abandono = float(regras.get("pontos_penalidade", 0) or 0) * len(pilotos_abandonados)
+        total_pontos -= penalidade_abandono
+
+    multiplicador_sprint = 1
+    if tipo_prova == "Sprint" and regras.get("pontos_dobrada"):
+        multiplicador_sprint = 2
+        total_pontos *= multiplicador_sprint
+
+    penalidade_auto = 0.0
+    try:
+        automatica = int(aposta.get("automatica", 0) or 0)
+    except Exception:
+        automatica = 0
+    if automatica >= 2:
+        fator = max(0, 1 - (float(regras.get("penalidade_auto_percent", 20) or 20) / 100))
+        total_com_desconto = round(total_pontos * fator, 2)
+        penalidade_auto = round(total_pontos - total_com_desconto, 2)
+        total_pontos = total_com_desconto
+
+    return {
+        "prova_nome": prova_nome,
+        "tipo_prova": tipo_prova,
+        "temporada": temporada_resolvida,
+        "linhas": linhas,
+        "piloto_11_apostado": piloto_11_apostado,
+        "piloto_11_real": piloto_11_real,
+        "pontos_11": pontos_11,
+        "penalidade_abandono": penalidade_abandono,
+        "pilotos_abandonados": pilotos_abandonados,
+        "multiplicador_sprint": multiplicador_sprint,
+        "penalidade_auto": penalidade_auto,
+        "total_pontos": round(float(total_pontos), 2),
+    }
+
+
+def calcular_pontuacao_detalhada_lote(ap_df, res_df, prov_df, temporada: Optional[str] = None) -> list[PontuacaoDetalhada | None]:
+    """Calcula pontuacao em lote preservando o detalhe de cada aposta."""
+    resultados_map = {}
+    for _, resultado in res_df.iterrows():
+        posicoes = _parse_posicoes(resultado.get("posicoes"), none_on_error=True)
+        if posicoes is None:
+            continue
+        dados_resultado = dict(resultado)
+        dados_resultado["posicoes"] = posicoes
+        resultados_map[resultado["prova_id"]] = dados_resultado
+
+    provas_map = {}
+    for _, prova in prov_df.iterrows():
+        prova_dict = dict(prova)
+        prova_nome = prova_dict.get("nome", "")
+        prova_dict["tipo"] = _tipo_prova(prova_nome, prova_dict.get("tipo", "Normal"))
+        provas_map[prova["id"]] = prova_dict
+
+    detalhes = []
+    for _, aposta in ap_df.iterrows():
+        prova_id = aposta["prova_id"]
+        resultado = resultados_map.get(prova_id)
+        prova = provas_map.get(prova_id)
+        if resultado is None or prova is None:
+            detalhes.append(None)
+            continue
+        detalhes.append(detalhar_pontuacao_aposta(aposta, prova, resultado, temporada))
+    return detalhes
+
+
 def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
     """
     Calcula pontuação usando:
@@ -37,125 +232,9 @@ def calcular_pontuacao_lote(ap_df, res_df, prov_df, temporada_descarte=None):
 
     Formula: Pontos = (Pontos_Regra x Fichas) + Bonus_11o - Penalidades
     """
-    PONTOS_F1_NORMAL = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
-    PONTOS_SPRINT = [8, 7, 6, 5, 4, 3, 2, 1]
-
-    ress_map = {}
-    abandonos_map = {}
-    for _, r in res_df.iterrows():
-        try:
-            ress_map[r["prova_id"]] = ast.literal_eval(r["posicoes"])
-        except Exception:
-            continue
-        try:
-            if "abandono_pilotos" in res_df.columns:
-                raw = r.get("abandono_pilotos", "")
-                if raw is None:
-                    raw = ""
-                aband_list = [p.strip() for p in str(raw).split(",") if p and p.strip()]
-                abandonos_map[r["prova_id"]] = set(aband_list)
-            else:
-                abandonos_map[r["prova_id"]] = set()
-        except Exception:
-            abandonos_map[r["prova_id"]] = set()
-
-    if "tipo" in prov_df.columns:
-        tipos = prov_df["tipo"].fillna("").astype(str).tolist()
-    else:
-        tipos = [""] * len(prov_df)
-    nomes = prov_df["nome"].fillna("").astype(str).tolist() if "nome" in prov_df.columns else [""] * len(prov_df)
-    tipos_resolvidos = []
-    for i in range(len(prov_df)):
-        t = tipos[i].strip().lower()
-        n = nomes[i].strip().lower()
-        if t == "sprint" or ("sprint" in n):
-            tipos_resolvidos.append("Sprint")
-        else:
-            tipos_resolvidos.append("Normal")
-    tipos_prova = dict(zip(prov_df["id"], tipos_resolvidos))
-    temporadas_prova = dict(
-        zip(
-            prov_df["id"],
-            prov_df["temporada"] if "temporada" in prov_df.columns else [str(datetime.now().year)] * len(prov_df),
-        )
-    )
-    has_temp_aposta = "temporada" in ap_df.columns
-
-    pontos = []
-    for _, aposta in ap_df.iterrows():
-        prova_id = aposta["prova_id"]
-
-        if prova_id not in ress_map:
-            pontos.append(None)
-            continue
-
-        res = ress_map[prova_id]
-        tipo = tipos_prova.get(prova_id, "Normal")
-        temporada_aposta = None
-        if has_temp_aposta:
-            try:
-                temporada_aposta = aposta.get("temporada", None)
-            except Exception:
-                temporada_aposta = None
-        if temporada_aposta is not None and str(temporada_aposta).strip() != "" and not pd.isna(temporada_aposta):
-            temporada_prova = str(temporada_aposta)
-        else:
-            temporada_prova = temporadas_prova.get(prova_id, str(datetime.now().year))
-
-        regras = get_regras_aplicaveis(temporada_prova, tipo)
-
-        if tipo == "Sprint":
-            pontos_tabela = regras.get("pontos_sprint_posicoes") or regras.get("pontos_posicoes") or ([])
-            if not pontos_tabela:
-                pontos_tabela = PONTOS_SPRINT
-        else:
-            pontos_tabela = regras.get("pontos_posicoes") or ([])
-            if not pontos_tabela:
-                pontos_tabela = PONTOS_F1_NORMAL
-        n_posicoes = len(pontos_tabela)
-
-        bonus_11 = regras.get("pontos_11_colocado", 25)
-
-        pilotos = [p.strip() for p in aposta["pilotos"].split(",")]
-        fichas = list(map(int, aposta["fichas"].split(",")))
-        piloto_11 = aposta["piloto_11"]
-        automatica = int(aposta.get("automatica", 0))
-
-        piloto_para_pos = {str(v).strip(): int(k) for k, v in res.items()}
-
-        pt = 0
-        for i in range(len(pilotos)):
-            piloto = pilotos[i]
-            ficha = fichas[i] if i < len(fichas) else 0
-            pos_real = piloto_para_pos.get(piloto, None)
-
-            if pos_real is not None and 1 <= pos_real <= n_posicoes:
-                base = pontos_tabela[pos_real - 1]
-                pt += ficha * base
-
-        piloto_11_real = res.get(11, "")
-        if piloto_11 == piloto_11_real:
-            pt += bonus_11
-
-        if regras.get("penalidade_abandono"):
-            aband_prova = abandonos_map.get(prova_id, set())
-            if aband_prova:
-                num_aband_apostados = sum(1 for p in pilotos if p in aband_prova)
-                deduz = regras.get("pontos_penalidade", 0) * num_aband_apostados
-                if deduz:
-                    pt -= deduz
-
-        if tipo == "Sprint" and regras.get("pontos_dobrada"):
-            pt = pt * 2
-
-        if automatica >= 2:
-            penalidade_auto_percent = regras.get("penalidade_auto_percent", 20)
-            fator = max(0, 1 - (float(penalidade_auto_percent) / 100))
-            pt = round(pt * fator, 2)
-
-        pontos.append(pt)
-
-    return pontos
+    # Parametro legado mantido porque painel/classificacao ja chamam esta API com ele.
+    detalhes = calcular_pontuacao_detalhada_lote(ap_df, res_df, prov_df)
+    return [None if detalhe is None else detalhe["total_pontos"] for detalhe in detalhes]
 
 
 def salvar_classificacao_prova(p_id, df_c, temp=None):
@@ -385,6 +464,10 @@ def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
 
 __all__ = [
     "_parse_datetime_sp",
+    "PontuacaoDetalhada",
+    "PontuacaoLinha",
+    "detalhar_pontuacao_aposta",
+    "calcular_pontuacao_detalhada_lote",
     "calcular_pontuacao_lote",
     "salvar_classificacao_prova",
     "atualizar_classificacoes_todas_as_provas",

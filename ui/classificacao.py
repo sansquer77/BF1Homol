@@ -333,6 +333,18 @@ def main():
     pontos_campeao = regras_temporada.get('pontos_campeao', 150)
     pontos_vice = regras_temporada.get('pontos_vice', 100)
     pontos_equipe = regras_temporada.get('pontos_equipe', 80)
+    pontos_por_usuario = {}
+    pontos_apostas_por_usuario = {}
+    pontos_por_usuario_prova = {}
+    if not apostas_df.empty:
+        pontos_todas_apostas = calcular_pontuacao_lote(apostas_df, resultados_df, provas_df)
+        for idx, (_, aposta) in enumerate(apostas_df.iterrows()):
+            ponto = pontos_todas_apostas[idx] if idx < len(pontos_todas_apostas) else None
+            uid = int(aposta['usuario_id'])
+            prova_id = aposta['prova_id']
+            pontos_por_usuario.setdefault(uid, []).append(ponto)
+            pontos_apostas_por_usuario.setdefault(uid, []).append((prova_id, ponto))
+            pontos_por_usuario_prova.setdefault(uid, {})[prova_id] = ponto
 
     acertos_11_por_usuario = {}
     apostas_no_prazo_por_usuario = {}
@@ -390,13 +402,7 @@ def main():
                 continue
 
     for idx, part in participantes.iterrows():
-        apostas_part_raw = apostas_df[apostas_df['usuario_id'] == part['id']]
-        if isinstance(apostas_part_raw, pd.Series):
-            apostas_part = pd.DataFrame([apostas_part_raw])
-        else:
-            apostas_part = apostas_part_raw
-        apostas_part = apostas_part.sort_values(by='prova_id')
-        pontos_part = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=season)
+        pontos_part = pontos_por_usuario.get(int(part['id']), [])
         total_provas = sum([p for p in pontos_part if p is not None])
 
         bonus_campeao = 0
@@ -458,16 +464,12 @@ def main():
         provas_ate_penultima = provas_realizadas[provas_realizadas['id'] <= penultima_prova_id]['id'].tolist()
         tabela_anterior = []
         for idx, part in participantes.iterrows():
-            apostas_anteriores_raw = apostas_df[
-                (apostas_df['usuario_id'] == part['id']) &
-                (apostas_df['prova_id'].isin(provas_ate_penultima))
+            uid = int(part['id'])
+            pontos_anteriores = [
+                ponto
+                for prova_id, ponto in pontos_apostas_por_usuario.get(uid, [])
+                if prova_id in provas_ate_penultima
             ]
-            if isinstance(apostas_anteriores_raw, pd.Series):
-                apostas_anteriores = pd.DataFrame([apostas_anteriores_raw])
-            else:
-                apostas_anteriores = apostas_anteriores_raw
-            apostas_anteriores = apostas_anteriores.sort_values(by='prova_id')
-            pontos_anteriores = calcular_pontuacao_lote(apostas_anteriores, resultados_df, provas_df)
             total_anteriores = sum([p for p in pontos_anteriores if p is not None])
 
             tabela_anterior.append({
@@ -569,13 +571,8 @@ def main():
     dados_cruzados = {prova_nome: {} for prova_nome in provas_nomes}
     for part in tabela_detalhada:
         participante = part['Participante']
-        pontos_por_prova = {}
         usr_id = df_class[df_class['Participante'] == participante]['usuario_id'].iloc[0]
-        apostas_part = apostas_df[apostas_df['usuario_id'] == usr_id]
-        for _, aposta in apostas_part.iterrows():
-            p_list = calcular_pontuacao_lote(pd.DataFrame([aposta]), resultados_df, provas_df)
-            if p_list:
-                pontos_por_prova[aposta['prova_id']] = p_list[0]
+        pontos_por_prova = pontos_por_usuario_prova.get(int(usr_id), {})
         for prova_id, prova_nome in zip(provas_ids_ordenados, provas_nomes):
             pt = pontos_por_prova.get(prova_id, 0)
             dados_cruzados[prova_nome][participante] = pt if pt is not None else 0
