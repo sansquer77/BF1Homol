@@ -278,3 +278,4 @@ Participante acessa aba "Histórico" no Painel
 - [[04_arquitetura]]
 - [[MAPA_MENTAL_MODULOS]]
 - [[05_projeto]]
+> Toda fachada tabular deve aplicar o contrato central correspondente (`APOSTAS_COLUMNS`, `PILOTOS_COLUMNS`, `PROVAS_COLUMNS`, `RESULTADOS_COLUMNS`, `USUARIOS_COLUMNS`, `POSICOES_COLUMNS`, `CHAMPIONSHIP_BETS_COLUMNS` ou `CHAMPIONSHIP_RESULTS_COLUMNS`). Ausência de linhas ou cache legado não altera o schema tabular.

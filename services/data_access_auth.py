@@ -1,6 +1,7 @@
 """Fachada de dados de autenticacao/usuarios para a camada de UI."""
 
 import streamlit as st
+from utils.dataframe_contracts import USUARIOS_COLUMNS, with_required_columns
 
 from db.db_config import (
     LOCKOUT_DURATION,
@@ -48,7 +49,7 @@ def registrar_historico_status_usuario(*args, **kwargs):
 
 @st.cache_data(ttl=60, show_spinner=False)
 def get_usuarios_df():
-    return _repo_get_usuarios_df()
+    return with_required_columns(_repo_get_usuarios_df(), USUARIOS_COLUMNS)
 
 
 __all__ = [

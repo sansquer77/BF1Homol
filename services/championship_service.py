@@ -13,6 +13,11 @@ from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, normalize_time_str
 from utils.input_models import ChampionshipBetInput, ChampionshipResultInput, ValidationError
 from services.access_control import authorize_context, require_operation, resolve_authenticated_context
 from services.deadlines import evaluate_championship_deadline
+from utils.dataframe_contracts import (
+    CHAMPIONSHIP_BETS_COLUMNS,
+    CHAMPIONSHIP_RESULTS_COLUMNS,
+    with_required_columns,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -467,7 +472,7 @@ def get_championship_bets_df(season: Optional[int] = None):
             df = _fetch_df(conn, 'SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets')
         else:
             df = _fetch_df(conn, 'SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets WHERE season = %s', (season,))
-    return df
+    return with_required_columns(df, CHAMPIONSHIP_BETS_COLUMNS)
 
 def get_championship_bets_log_df(season: Optional[int] = None):
     """Retorna log de apostas; se season informado, filtra."""
@@ -476,7 +481,7 @@ def get_championship_bets_log_df(season: Optional[int] = None):
             df = _fetch_df(conn, 'SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log')
         else:
             df = _fetch_df(conn, 'SELECT user_id, user_nome, champion, vice, team, season, bet_time FROM championship_bets_log WHERE season = %s', (season,))
-    return df
+    return with_required_columns(df, CHAMPIONSHIP_BETS_COLUMNS)
 
 def get_championship_results_df(season: Optional[int] = None):
     """Retorna resultados oficiais; se season informado, filtra."""
@@ -485,4 +490,4 @@ def get_championship_results_df(season: Optional[int] = None):
             df = _fetch_df(conn, 'SELECT season, champion, vice, team FROM championship_results')
         else:
             df = _fetch_df(conn, 'SELECT season, champion, vice, team FROM championship_results WHERE season = %s', (season,))
-    return df
+    return with_required_columns(df, CHAMPIONSHIP_RESULTS_COLUMNS)

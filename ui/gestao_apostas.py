@@ -15,6 +15,12 @@ from services.email_service import enviar_email
 from utils.helpers import get_bf1_logo_data_uri
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
+from utils.dataframe_contracts import APOSTAS_COLUMNS, with_required_columns
+
+
+def _normalizar_apostas_df(apostas_df):
+    """Preserva o schema de apostas mesmo para retorno vazio ou cache legado."""
+    return with_required_columns(apostas_df, APOSTAS_COLUMNS)
 
 
 def main():
@@ -40,7 +46,7 @@ def main():
     # Dados filtrados por temporada
     usuarios_df = get_participantes_temporada_df(season)
     provas_df = get_provas_df(season)
-    apostas_df = get_apostas_df(season)
+    apostas_df = _normalizar_apostas_df(get_apostas_df(season))
     participantes = usuarios_df.copy()
     provas_df = provas_df.sort_values("data") if not provas_df.empty else provas_df
 
@@ -101,7 +107,7 @@ def main():
         if prova_sel:
             prova_row = provas_df[provas_df["nome"] == prova_sel].iloc[0]
             prova_id = prova_row["id"]
-            apostas_df_atual = get_apostas_df(season)
+            apostas_df_atual = _normalizar_apostas_df(get_apostas_df(season))
             apostas_prova = apostas_df_atual[apostas_df_atual["prova_id"] == prova_id]
 
             participantes_lembrete = participantes.copy()
