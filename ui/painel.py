@@ -33,6 +33,7 @@ from services.painel_controller import (
 from services.rules_service import get_regras_aplicaveis
 from services.historico_service import calcular_resumo_historico, calcular_dados_grafico
 from utils.datetime_utils import now_sao_paulo
+from utils.dataframe_contracts import APOSTAS_COLUMNS, with_required_columns
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
@@ -154,8 +155,8 @@ def participante_view():
     # condicional para evitar NameError nas seções 'Regra de Descarte' e
     # 'Gráfico de Evolução' quando force_change=True.
     temporada = st.session_state.get('temporada', str(now_sao_paulo().year))
-    apostas_part = pd.DataFrame()
-    apostas_df = pd.DataFrame()
+    apostas_part = with_required_columns(None, APOSTAS_COLUMNS)
+    apostas_df = with_required_columns(None, APOSTAS_COLUMNS)
     provas_df = pd.DataFrame()
     resultados_df = pd.DataFrame()
 
@@ -468,14 +469,14 @@ def participante_view():
             if {"usuario_id", "prova_id"}.issubset(apostas_df.columns):
                 apostas_part = apostas_df[apostas_df['usuario_id'] == user['id']].copy()
             else:
-                apostas_part = pd.DataFrame()
+                apostas_part = with_required_columns(apostas_df, APOSTAS_COLUMNS)
             if 'temporada' in apostas_part.columns:
                 apostas_part = apostas_part[apostas_part['temporada'] == temporada]
             # fix: só aplica filtro por provas_df quando ele não está vazio;
             # evita descartar todas as apostas quando force_change=True (provas_df = DataFrame()).
-            if not provas_df.empty and 'id' in provas_df.columns:
+            if not provas_df.empty and 'id' in provas_df.columns and 'prova_id' in apostas_part.columns:
                 apostas_part = apostas_part[apostas_part['prova_id'].isin(provas_df['id'])]
-            if isinstance(apostas_part, pd.DataFrame):
+            if isinstance(apostas_part, pd.DataFrame) and 'prova_id' in apostas_part.columns:
                 apostas_part = apostas_part.sort_values(by='prova_id')
             pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
             pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]

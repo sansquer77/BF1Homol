@@ -33,6 +33,12 @@ class ApostasDataFrameContractTests(unittest.TestCase):
         self.assertIn("def _normalizar_apostas_df", source)
         self.assertEqual(2, source.count("_normalizar_apostas_df(get_apostas_df(season))"))
 
+    def test_painel_fallback_keeps_prova_id_after_sem_ideias_rerun(self):
+        source = (Path(__file__).resolve().parents[1] / "ui" / "painel.py").read_text(encoding="utf-8")
+        self.assertNotIn("apostas_part = pd.DataFrame()", source)
+        self.assertIn("apostas_part = with_required_columns(apostas_df, APOSTAS_COLUMNS)", source)
+        self.assertIn("'prova_id' in apostas_part.columns", source)
+
     def test_all_public_dataframe_contracts_preserve_empty_schema(self):
         contracts = (
             PILOTOS_COLUMNS,
