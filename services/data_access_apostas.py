@@ -1,6 +1,7 @@
 """Fachada de dados de apostas/classificacao para a camada de UI."""
 
 from utils.performance import instrumented_cache_data
+from utils.dataframe_contracts import APOSTAS_COLUMNS, with_required_columns
 
 from db.repo_bets import (
     get_apostas_df as _repo_get_apostas_df,
@@ -10,15 +11,14 @@ from db.repo_bets import (
     get_posicoes_usuario_df as _repo_get_posicoes_usuario_df,
 )
 
-
 @instrumented_cache_data(ttl=60)
 def get_apostas_df(temporada=None):
-    return _repo_get_apostas_df(temporada)
+    return with_required_columns(_repo_get_apostas_df(temporada), APOSTAS_COLUMNS)
 
 
 @instrumented_cache_data(ttl=60)
 def get_apostas_usuario_df(usuario_id: int, limit: int = 5000):
-    return _repo_get_apostas_usuario_df(usuario_id, limit)
+    return with_required_columns(_repo_get_apostas_usuario_df(usuario_id, limit), APOSTAS_COLUMNS)
 
 
 @instrumented_cache_data(ttl=60)

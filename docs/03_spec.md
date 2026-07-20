@@ -2,7 +2,7 @@
 tipo: spec
 area: bf1
 status: implementado
-versao: 4.1
+versao: 4.2
 atualizado: 2026-07-20
 relacionados:
   - "[[02_regras_de_negocio]]"
@@ -24,7 +24,9 @@ aliases: ["Especificação Funcional"]
 
 ### 1.1 Login
 - **Entrada**: e-mail e senha.
-- **Processamento**: valida credenciais contra hash bcrypt; emite JWT HS256 com `user_id`, `perfil`, `nome`, `status` e expiração de 120 minutos; mantém o token na sessão Streamlit e usa o gerenciador de cookies como suporte.
+- **Processamento**: normaliza e limita o e-mail antes do rate limiting; valida bcrypt; emite JWT HS256 com `user_id`, perfil, status, `jti`, versão de sessão e expiração de 120 minutos.
+- **Cookie obrigatório**: `Secure`, `HttpOnly`, `SameSite=Strict`, caminho `/` e expiração igual à sessão. Falha de persistência cancela e revoga o login.
+- **Rotação e revogação**: novo login revoga JTIs anteriores; logout revoga o atual; troca/redefinição de senha incrementa a versão e revoga todas as sessões.
 - **Saída**: redireciona para "Painel do Participante".
 - **Contexto autenticado**: operações sensíveis revalidam o token e carregam do banco usuário, perfil, status e temporadas autorizadas.
 - **Autoridade**: `user_id`, perfil ou temporada originados da UI nunca concedem permissão.
@@ -263,6 +265,7 @@ Participante acessa aba "Histórico" no Painel
 
 ### Changelog
 
+- `4.2` — 2026-07-20 — Sessão revogável, recuperação resistente a timing e retenção automática.
 - `4.1` — 2026-07-20 — Contexto autenticado, matrizes de acesso e deadline fail-closed.
 - `4.0` — 2026-07-19 — Contratos de autenticação, abas e regras atualizados conforme a implementação.
 - `3.6` — 2026-05-03 — Adicionado fluxo do Histórico Consolidado e `historico_service.py`.

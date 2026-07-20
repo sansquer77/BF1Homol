@@ -5,6 +5,8 @@ import logging
 import importlib
 import hashlib
 import secrets
+import hmac
+import uuid
 
 try:
     stx = importlib.import_module("extra_streamlit_components")
@@ -15,6 +17,7 @@ except ImportError:
 from db.db_schema import db_connect, get_table_columns
 from db.repo_users import hash_password, check_password, get_user_by_id
 from utils.cache_utils import clear_data_cache
+from utils.security_utils import normalize_email_identifier
 
 # Exportar explicitamente para manter compatibilidade
 __all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_token',
@@ -58,36 +61,21 @@ def _get_session_store() -> dict:
         return _FALLBACK_COOKIE_STORE
 
 
-class _FallbackCookieManager:
-    """Fallback simples quando extra_streamlit_components não está instalado."""
-
-    def set(self, key, value, expires_at=None, options=None):
-        store = _get_session_store()
-        store[f"cookie_{key}"] = value
-
-    def delete(self, key):
-        store = _get_session_store()
-        store.pop(f"cookie_{key}", None)
-
-    def get_all(self):
-        # Keep API compatible with CookieManager.get_all().
-        store = _get_session_store()
-        return {
-            k.replace("cookie_", "", 1): v
-            for k, v in store.items()
-            if isinstance(k, str) and k.startswith("cookie_")
-        }
-
-
 def _get_cookie_manager():
     global _COOKIE_MANAGER_INSTANCE
     if _COOKIE_MANAGER_INSTANCE is not None:
         return _COOKIE_MANAGER_INSTANCE
 
-    if stx is not None:
-        _COOKIE_MANAGER_INSTANCE = stx.CookieManager(key=_COOKIE_MANAGER_KEY)
-    else:
-        _COOKIE_MANAGER_INSTANCE = _FallbackCookieManager()
+    if os.environ.get("COOKIE_BACKEND_SUPPORTS_HTTPONLY", "").strip().lower() not in {"1", "true", "yes"}:
+        raise RuntimeError(
+            "COOKIE_BACKEND_SUPPORTS_HTTPONLY=true deve confirmar explicitamente um backend capaz de emitir HttpOnly."
+        )
+
+    if stx is None:
+        raise RuntimeError(
+            "Contrato de sessao indisponivel: extra-streamlit-components e obrigatorio para o cookie seguro."
+        )
+    _COOKIE_MANAGER_INSTANCE = stx.CookieManager(key=_COOKIE_MANAGER_KEY)
     return _COOKIE_MANAGER_INSTANCE
 
 # ============ CONFIGURAÇÃO JWT ============
@@ -158,6 +146,7 @@ JWT_EXP_MINUTES = 120
 # --- AUTENTICAÇÃO ---
 def autenticar_usuario(email: str, senha: str):
     """Retorna o usuário autenticado (tupla de dados) ou None."""
+    email = normalize_email_identifier(email)
     with db_connect() as conn:
         pwd_col = _get_usuarios_password_column(conn)
         c = conn.cursor()
@@ -174,12 +163,35 @@ def autenticar_usuario(email: str, senha: str):
 def generate_token(user_id: int, nome: str, perfil: str, status: str) -> str:
     """Gera um JWT para o usuário autenticado, incluindo o nome."""
     jwt_secret = _get_jwt_secret()
+    issued_at = datetime.now(timezone.utc)
+    expires_at = issued_at + timedelta(minutes=JWT_EXP_MINUTES)
+    jti = uuid.uuid4().hex
+    with db_connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COALESCE(session_version, 0) AS session_version FROM usuarios WHERE id=%s", (int(user_id),))
+        row = cursor.fetchone()
+        if not row:
+            raise RuntimeError("Usuario inexistente ao emitir sessao.")
+        session_version = int(row["session_version"] or 0)
+        # Rotacao: uma nova autenticacao encerra JTIs ativos anteriores.
+        cursor.execute(
+            "UPDATE auth_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=%s AND revoked_at IS NULL",
+            (int(user_id),),
+        )
+        cursor.execute(
+            "INSERT INTO auth_sessions (jti,user_id,session_version,issued_at,expires_at) VALUES (%s,%s,%s,%s,%s)",
+            (jti, int(user_id), session_version, issued_at, expires_at),
+        )
+        conn.commit()
     payload = {
         "user_id": user_id,
         "nome": nome,
         "perfil": perfil,
         "status": status,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=JWT_EXP_MINUTES)
+        "jti": jti,
+        "sv": session_version,
+        "iat": issued_at,
+        "exp": expires_at,
     }
     token = jwt.encode(payload, jwt_secret, algorithm="HS256")
     if isinstance(token, bytes):
@@ -190,7 +202,18 @@ def decode_token(token: str):
     """Decodifica e valida um JWT; retorna o payload, ou None se inválido/expirado."""
     try:
         jwt_secret = _get_jwt_secret()
-        payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+        payload = jwt.decode(token, jwt_secret, algorithms=["HS256"], options={"require": ["exp", "iat", "jti", "user_id", "sv"]})
+        with db_connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT 1 FROM auth_sessions s JOIN usuarios u ON u.id=s.user_id
+                   WHERE s.jti=%s AND s.user_id=%s AND s.revoked_at IS NULL
+                     AND s.expires_at>CURRENT_TIMESTAMP
+                     AND s.session_version=u.session_version AND s.session_version=%s LIMIT 1""",
+                (str(payload["jti"]), int(payload["user_id"]), int(payload["sv"])),
+            )
+            if cursor.fetchone() is None:
+                return None
         return payload
     except jwt.ExpiredSignatureError:
         return None
@@ -260,35 +283,35 @@ def get_user_by_email(email: str):
 def set_auth_cookies(token, expires_minutes=JWT_EXP_MINUTES):
     """Salva o token JWT em cookie para restaurar a sessão."""
     cookie_manager = _get_cookie_manager()
-    expires_at = datetime.now() + timedelta(minutes=expires_minutes)
-    try:
-        cookie_manager.set(
-            "session_token",
-            token,
-            expires_at=expires_at,
-            options={
-                "path": "/",
-                "secure": True,
-                "httponly": True,
-                "samesite": "Lax"
-            }
-        )
-    except TypeError:
-        cookie_manager.set(
-            "session_token",
-            token,
-            expires_at=expires_at
-        )
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+    cookie_manager.set(
+        "session_token", token, expires_at=expires_at,
+        options={"path": "/", "secure": True, "httponly": True, "samesite": "Strict"},
+    )
 
-def clear_auth_cookies():
-    cookie_manager = _get_cookie_manager()
+
+def revoke_token(token: str | None) -> None:
+    if not token:
+        return
     try:
-        cookie_manager.delete("session_token")
-    except KeyError:
-        # extra_streamlit_components can raise KeyError when cookie is absent.
-        pass
+        payload = jwt.decode(token, _get_jwt_secret(), algorithms=["HS256"], options={"verify_exp": False})
+        jti = payload.get("jti")
+        if jti:
+            with db_connect() as conn:
+                conn.cursor().execute("UPDATE auth_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE jti=%s AND revoked_at IS NULL", (str(jti),))
+                conn.commit()
     except Exception as exc:
-        logger.warning("Falha ao limpar cookie de sessao: %s", exc)
+        logger.warning("Falha ao revogar token de sessao: %s", exc)
+
+def clear_auth_cookies(token: str | None = None):
+    if token is None:
+        token = _get_session_store().get("token")
+    revoke_token(token)
+    cookie_manager = _get_cookie_manager()
+    cookie_manager.set(
+        "session_token", "", expires_at=datetime.now(timezone.utc) - timedelta(days=1),
+        options={"path": "/", "secure": True, "httponly": True, "samesite": "Strict"},
+    )
 
 
 def get_auth_cookie_token():
@@ -300,8 +323,8 @@ def get_auth_cookie_token():
             token = cookies.get("session_token")
             if token:
                 return str(token)
-    except Exception:
-        return None
+    except Exception as exc:
+        raise RuntimeError("Falha ao ler o cookie de sessao seguro.") from exc
     return None
 
 # --- RECUPERAÇÃO DE SENHA SEGURA ---
@@ -333,6 +356,7 @@ def _ensure_password_reset_table(conn) -> None:
     )
 
 def redefinir_senha_usuario(email: str):
+    email = normalize_email_identifier(email)
     usuario = get_user_by_email(email)
     if not usuario:
         return False, "Usuário não encontrado."
@@ -359,6 +383,7 @@ def redefinir_senha_usuario(email: str):
 
 
 def redefinir_senha_com_token(email: str, token: str, nova_senha: str):
+    email = normalize_email_identifier(email)
     token_hash = _hash_reset_token(token)
     now_utc = datetime.now(timezone.utc)
 
@@ -367,19 +392,30 @@ def redefinir_senha_com_token(email: str, token: str, nova_senha: str):
         c = conn.cursor()
         c.execute(
             """
-            SELECT id
+            SELECT id, token_hash
             FROM password_reset_tokens
             WHERE email = %s
-              AND token_hash = %s
               AND used_at IS NULL
               AND expires_at > %s
             ORDER BY id DESC
-            LIMIT 1
+            LIMIT 10
+            FOR UPDATE
             """,
-            (email, token_hash, now_utc),
+            (email, now_utc),
         )
-        token_row = c.fetchone()
+        token_row = None
+        for candidate in (c.fetchall() or []):
+            matches = hmac.compare_digest(str(candidate["token_hash"]), token_hash)
+            if matches:
+                token_row = candidate
         if not token_row:
+            return False, "Token inválido ou expirado."
+
+        c.execute(
+            "UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=%s AND used_at IS NULL RETURNING id",
+            (token_row["id"],),
+        )
+        if c.fetchone() is None:
             return False, "Token inválido ou expirado."
 
         senha_hashed = hash_password(nova_senha)
@@ -399,16 +435,14 @@ def redefinir_senha_com_token(email: str, token: str, nova_senha: str):
             data_type = str(type_row.get('data_type', '')).strip().lower()
             must_change_value = False if data_type == 'boolean' else 0
             c.execute(
-                f"UPDATE usuarios SET {pwd_col}=%s, must_change_password=%s WHERE email=%s",
+                f"UPDATE usuarios SET {pwd_col}=%s, must_change_password=%s, session_version=COALESCE(session_version,0)+1 WHERE email=%s",
                 (senha_hashed, must_change_value, email),
             )
         else:
-            c.execute(f"UPDATE usuarios SET {pwd_col}=%s WHERE email=%s", (senha_hashed, email))
+            c.execute(f"UPDATE usuarios SET {pwd_col}=%s, session_version=COALESCE(session_version,0)+1 WHERE email=%s", (senha_hashed, email))
 
-        c.execute(
-            "UPDATE password_reset_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=%s",
-            (token_row['id'],),
-        )
+        c.execute("UPDATE auth_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=(SELECT id FROM usuarios WHERE email=%s) AND revoked_at IS NULL", (email,))
+
         conn.commit()
     clear_data_cache()
 

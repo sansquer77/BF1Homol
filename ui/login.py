@@ -31,6 +31,8 @@ from services.data_access_auth import (
     RESET_LOCKOUT_DURATION
 )
 from services.auth_service import create_token
+from services.auth_service import revoke_token
+from utils.security_utils import normalize_email_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,7 @@ def registrar_tentativa_login(email: str, sucesso: bool, ip_address: str = "LOCA
         sucesso: True se login foi bem-sucedido
         ip_address: IP da requisição (para análise de segurança)
     """
+    email = normalize_email_identifier(email)
     with db_connect() as conn:
         cursor = conn.cursor()
         cursor.execute('''
@@ -105,6 +108,7 @@ def obter_tentativas_recentes(
     Returns:
         (falhas_email, falhas_ip, usuario_bloqueado)
     """
+    email = normalize_email_identifier(email)
     with db_connect() as conn:
         cursor = conn.cursor()
         
@@ -283,6 +287,7 @@ def login_view():
                 logger.warning("Tentativa de login com campos vazios")
                 return
             try:
+                email = normalize_email_identifier(email)
                 login_input = LoginInput(email=email, senha=senha)
                 email = login_input.email
                 senha = login_input.senha
@@ -405,8 +410,13 @@ def login_view():
             # Garante troca limpa de conta (evita herdar perfil/token anterior).
             try:
                 clear_auth_cookies()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.error("Nao foi possivel encerrar a sessao anterior com cookie seguro: %s", exc)
+                revoke_token(token)
+                for key in ("token", "user_id", "user_email", "user_nome", "user_role", "user_status"):
+                    st.session_state.pop(key, None)
+                st.error("❌ Não foi possível estabelecer o contrato seguro de sessão.")
+                return
             for key in ("token", "user_id", "user_email", "user_nome", "user_role", "user_status"):
                 st.session_state.pop(key, None)
 
@@ -425,8 +435,12 @@ def login_view():
             try:
                 set_auth_cookies(token)
             except Exception as cookie_error:
-                # Não bloquear login por falha de persistência do cookie.
-                logger.warning("Falha ao persistir cookie de sessao no login: %s", cookie_error)
+                revoke_token(token)
+                for key in ("token", "user_id", "user_email", "user_nome", "user_role", "user_status"):
+                    st.session_state.pop(key, None)
+                logger.error("Falha ao persistir cookie seguro; login cancelado: %s", cookie_error)
+                st.error("❌ Não foi possível estabelecer o cookie seguro de sessão.")
+                return
 
             # Registrar sucesso
             registrar_tentativa_login(email, True, ip_address=client_ip, action="login")
@@ -461,6 +475,11 @@ def login_view():
                 if not email_reset:
                     st.error("❌ Informe o email.")
                 else:
+                    try:
+                        email_reset = normalize_email_identifier(email_reset)
+                    except ValueError:
+                        st.error("❌ Email inválido.")
+                        return
                     valido, _ = validar_email(email_reset)
                     if not valido:
                         st.error("❌ Email inválido.")
@@ -523,6 +542,11 @@ def login_view():
                 elif len(nova_senha) < 8:
                     st.error("❌ A nova senha deve ter no mínimo 8 caracteres.")
                 else:
+                    try:
+                        email_token = normalize_email_identifier(email_token)
+                    except ValueError:
+                        st.error("❌ Email inválido.")
+                        return
                     valido, _ = validar_email(email_token)
                     if not valido:
                         st.error("❌ Email inválido.")

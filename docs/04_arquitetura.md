@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.1
+versao: 4.2
 atualizado: 2026-07-20
 relacionados:
   - "[[01_necessidade]]"
@@ -223,6 +223,10 @@ MASTER_NOME         # Nome do usuário master inicial
 
 - **Senhas**: bcrypt com salt automático (nunca texto claro).
 - **Tokens**: JWT HS256 com expiração fixa de 120 minutos no código atual.
+- **Sessões**: `auth_sessions` registra `jti`, usuário, versão, emissão, expiração e revogação.
+- **Cookie**: contrato obrigatório `Secure`/`HttpOnly`/`SameSite=Strict`; não há fallback com atributos reduzidos.
+- **Proxy**: headers de IP só são confiados com `TRUSTED_PROXY_MODE` e topologia explícita; o padrão `direct` ignora headers.
+- **Retenção**: o bootstrap remove tentativas, logs, tokens expirados e sessões antigas conforme configuração.
 - **Autorização em profundidade**: `access_control.py` revalida o usuário e centraliza matrizes de páginas/operações.
 - **Guard de rotas**: restringe navegação, mas não substitui autorização no serviço.
 - **Mutações administrativas**: a UI coleta dados; `admin_operations.py` autoriza e escreve.
@@ -233,6 +237,7 @@ MASTER_NOME         # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.2` — 2026-07-20 — Sessões revogáveis, cookie fail-closed, proxy explícito e retenção automática.
 - `4.1` — 2026-07-20 — Autorização em profundidade, serviços administrativos e deadline fail-closed.
 - `4.0` — 2026-07-19 — Modelo de regras, autenticação, diretórios e variáveis atualizados.
 - `3.6` — 2026-05-03 — Integração do `historico_service.py` na arquitetura e documentação de normalização.

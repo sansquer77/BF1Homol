@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import os
 
 from db.circuitos_utils import ensure_circuitos_f1_table, ensure_provas_circuit_id_column
 from db.connection_pool import get_pool
@@ -80,6 +81,31 @@ def add_password_reset_flag_if_missing() -> None:
         except Exception as exc:
             logger.debug("Erro ao adicionar must_change_password: %s", exc)
             conn.rollback()
+
+
+def create_auth_sessions_and_retention() -> None:
+    """Cria controle de sessao e aplica retencao configurada no bootstrap."""
+    login_days = max(1, int(os.environ.get("LOGIN_ATTEMPTS_RETENTION_DAYS", "30")))
+    access_days = max(1, int(os.environ.get("ACCESS_LOGS_RETENTION_DAYS", "90")))
+    reset_days = max(1, int(os.environ.get("RESET_TOKENS_RETENTION_DAYS", "7")))
+    session_days = max(1, int(os.environ.get("AUTH_SESSIONS_RETENTION_DAYS", "30")))
+    with get_pool().get_connection() as conn:
+        cursor = conn.cursor()
+        if table_exists(conn, "usuarios"):
+            _add_column_if_missing(cursor, conn, "usuarios", "session_version", "session_version INTEGER NOT NULL DEFAULT 0")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS auth_sessions (
+            jti TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+            session_version INTEGER NOT NULL, issued_at TIMESTAMPTZ NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL, revoked_at TIMESTAMPTZ)""")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_active ON auth_sessions(user_id, revoked_at, expires_at)")
+        if table_exists(conn, "login_attempts"):
+            cursor.execute("DELETE FROM login_attempts WHERE tentativa_em < CURRENT_TIMESTAMP - (%s * INTERVAL '1 day')", (login_days,))
+        if table_exists(conn, "access_logs"):
+            cursor.execute("DELETE FROM access_logs WHERE created_at < CURRENT_TIMESTAMP - (%s * INTERVAL '1 day')", (access_days,))
+        if table_exists(conn, "password_reset_tokens"):
+            cursor.execute("DELETE FROM password_reset_tokens WHERE expires_at < CURRENT_TIMESTAMP - (%s * INTERVAL '1 day')", (reset_days,))
+        cursor.execute("DELETE FROM auth_sessions WHERE expires_at < CURRENT_TIMESTAMP - (%s * INTERVAL '1 day') OR revoked_at < CURRENT_TIMESTAMP - (%s * INTERVAL '1 day')", (session_days, session_days))
+        conn.commit()
 
 
 def add_login_attempts_action_if_missing() -> None:
@@ -431,6 +457,7 @@ def run_migrations() -> None:
             create_access_logs_table_if_missing()
             create_usuarios_status_historico_if_missing()
             create_hall_da_fama_table()
+            create_auth_sessions_and_retention()
 
             if table_exists(conn, "posicoes_participantes"):
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_posicoes_participantes_usuario_temporada ON posicoes_participantes(usuario_id, temporada)")

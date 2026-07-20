@@ -166,14 +166,15 @@ def update_user_password(user_id: int, nova_senha: str, must_change_password: bo
             if "must_change_password" in cols:
                 must_change_value = _must_change_password_db_value(conn, must_change_password)
                 cur.execute(
-                    "UPDATE usuarios SET senha_hash = %s, must_change_password = %s WHERE id = %s",
+                    "UPDATE usuarios SET senha_hash = %s, must_change_password = %s, session_version=COALESCE(session_version,0)+1 WHERE id = %s",
                     (senha_hash, must_change_value, user_id),
                 )
             else:
                 cur.execute(
-                    "UPDATE usuarios SET senha_hash = %s WHERE id = %s",
+                    "UPDATE usuarios SET senha_hash = %s, session_version=COALESCE(session_version,0)+1 WHERE id = %s",
                     (senha_hash, user_id),
                 )
+            cur.execute("UPDATE auth_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=%s AND revoked_at IS NULL", (user_id,))
             cur.close()
             conn.commit()
         clear_data_cache()

@@ -257,9 +257,12 @@ def participante_view():
                     min_pilotos_regra = int(regras.get('qtd_minima_pilotos', regras.get('min_pilotos', 3)))
                     fichas_max_por_piloto = int(regras.get('fichas_por_piloto', quantidade_fichas))
                     permite_mesma_equipe = bool(regras.get('mesma_equipe', False))
-                    aposta_existente = apostas_df[
-                        (apostas_df['usuario_id'] == user['id']) & (apostas_df['prova_id'] == prova_id)
-                    ]
+                    if {"usuario_id", "prova_id"}.issubset(apostas_df.columns):
+                        aposta_existente = apostas_df[
+                            (apostas_df['usuario_id'] == user['id']) & (apostas_df['prova_id'] == prova_id)
+                        ]
+                    else:
+                        aposta_existente = pd.DataFrame()
                     max_linhas = max(10, int(min_pilotos_regra))
                     pilotos_apostados_ant, fichas_ant, piloto_11_ant = [], [], ""
                     if not aposta_existente.empty:
@@ -462,7 +465,10 @@ def participante_view():
             st.subheader("Minhas apostas detalhadas")
             # apostas_df, provas_df e resultados_df já foram buscados no topo da aba —
             # apenas reutilizamos as variáveis existentes aqui.
-            apostas_part = apostas_df[apostas_df['usuario_id'] == user['id']]
+            if {"usuario_id", "prova_id"}.issubset(apostas_df.columns):
+                apostas_part = apostas_df[apostas_df['usuario_id'] == user['id']].copy()
+            else:
+                apostas_part = pd.DataFrame()
             if 'temporada' in apostas_part.columns:
                 apostas_part = apostas_part[apostas_part['temporada'] == temporada]
             # fix: só aplica filtro por provas_df quando ele não está vazio;

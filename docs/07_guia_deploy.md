@@ -2,7 +2,7 @@
 tipo: metodologia
 area: bf1
 status: implementado
-versao: 4.1
+versao: 4.2
 atualizado: 2026-07-20
 relacionados:
   - "[[04_arquitetura]]"
@@ -44,6 +44,13 @@ Configure as variáveis abaixo no painel da App Platform → **Settings → Envi
 | `MASTER_EMAIL` | ✅ | Email do usuário master criado no primeiro boot |
 | `MASTER_PASSWORD` | ✅ | Senha inicial do usuário master (será hashada com bcrypt) |
 | `MASTER_NOME` | ✅ | Nome de exibição do usuário master |
+| `COOKIE_BACKEND_SUPPORTS_HTTPONLY` | ✅ | `true` somente após confirmar que o backend emite `HttpOnly` |
+| `TRUSTED_PROXY_MODE` | ✅ | `direct`, `xff` ou `x-real-ip`; padrão seguro `direct` |
+| `TRUSTED_PROXY_HOPS` | se `xff` | Saltos confiáveis contados da direita do XFF |
+| `LOGIN_ATTEMPTS_RETENTION_DAYS` | Não | Retenção das tentativas; padrão 30 dias |
+| `ACCESS_LOGS_RETENTION_DAYS` | Não | Retenção da auditoria; padrão 90 dias |
+| `RESET_TOKENS_RETENTION_DAYS` | Não | Retenção após expiração; padrão 7 dias |
+| `AUTH_SESSIONS_RETENTION_DAYS` | Não | Retenção de sessões expiradas/revogadas; padrão 30 dias |
 | `EMAIL_REMETENTE` | ⚠️ | Conta Gmail remetente; necessária para envio de e-mails |
 | `SENHA_EMAIL` | ⚠️ | Senha de app da conta remetente (`SENHA_REMETENTE` é aceita como alternativa) |
 | `EMAIL_ADMIN` | ⚠️ | Endereço administrativo usado pelos fluxos de e-mail |
@@ -159,6 +166,7 @@ O sistema armazena todos os horários em **`America/Sao_Paulo`** no banco de dad
 
 ### Changelog
 
+- `4.2` — 2026-07-20 — Configuração obrigatória de cookie/proxy e janelas de retenção.
 - `4.1` — 2026-07-20 — Operação documentada com matrizes centralizadas e autorização no serviço.
 - `4.0` — 2026-07-19 — Pré-requisitos, variáveis reais e descrição de sessão atualizados.
 - `3.6` — 2026-05-12 — Ajustada a seção de troubleshoot e variáveis de ambiente da v3.6.

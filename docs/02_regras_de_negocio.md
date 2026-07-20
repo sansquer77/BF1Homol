@@ -2,7 +2,7 @@
 tipo: produto
 area: bf1
 status: implementado
-versao: 4.1
+versao: 4.2
 atualizado: 2026-07-20
 relacionados:
   - "[[01_necessidade]]"
@@ -23,6 +23,9 @@ aliases: ["Regras de Negócio"]
 - Existem 4 perfis: `master`, `admin`, `participante`, `inativo`.
 - Cada rota/página e cada operação sensível possui uma matriz central de perfis autorizados.
 - Escritas administrativas revalidam token, usuário, status, perfil e temporada na camada de serviço; valores enviados pela UI não constituem autoridade.
+- A sessão usa cookie obrigatório com `Secure`, `HttpOnly`, `SameSite=Strict` e expiração; incapacidade do backend de preservar esses atributos bloqueia o login.
+- JWTs possuem `jti` e versão persistida. Novo login rotaciona/revoga JTIs anteriores; logout revoga o atual; troca ou redefinição de senha revoga todas as sessões.
+- E-mails usados no rate limiting são normalizados e limitados a 254 caracteres antes de consultas ou gravações.
 - Usuário com `status != 'ativo'` ou `perfil == 'inativo'` é tratado como **inativo**, independente do perfil cadastrado.
 - Usuário inativo **com** histórico de temporadas tem acesso a: Painel, Calendário, Hall da Fama, Dashboard F1, Análise, Log de Apostas, Classificação, Regulamento, Sobre.
 - Usuário inativo **sem** histórico tem acesso apenas a: Hall da Fama, Calendário, Dashboard F1 e Minha Conta.
@@ -148,6 +151,7 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 
 ### Changelog
 
+- `4.2` — 2026-07-20 — Cookie seguro, revogação de sessões, proxy explícito e retenção de dados de segurança.
 - `4.1` — 2026-07-20 — Deadline de campeonato fail-closed e autorização obrigatória nas operações sensíveis.
 - `4.0` — 2026-07-19 — Regras alinhadas ao modelo atual e ao regulamento BF1-2026.
 - `3.6` — 2026-05-03 — RN-013 (Histórico Consolidado do Participante) adicionado.

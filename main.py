@@ -283,7 +283,7 @@ from ui.backup import main as backup_view
 from ui.dashboard import main as dashboard_view
 from ui.sobre import main as sobre_view
 from ui.hall_da_fama import hall_da_fama
-from services.auth_service import decode_token, clear_auth_cookies
+from services.auth_service import decode_token, clear_auth_cookies, get_auth_cookie_token
 from services.access_control import page_is_allowed
 
 # ============ ESTADO INICIAL DA SESSÃO ============
@@ -538,10 +538,7 @@ def get_payload():
         st.stop()
     payload = decode_token(token)
     if not payload:
-        clear_auth_cookies()
-        st.session_state['pagina'] = "Login"
-        st.session_state['token'] = None
-        st.stop()
+        _clear_session_and_redirect_login("Sessão expirada ou revogada. Faça login novamente.")
     return payload
 
 
@@ -566,7 +563,10 @@ INATIVO_ALLOWED_PAGES_NO_HISTORY = {
 
 
 def _clear_session_and_redirect_login(msg: str):
-    clear_auth_cookies()
+    try:
+        clear_auth_cookies(st.session_state.get("token"))
+    except Exception as exc:
+        logger.error("Falha ao expirar cookie seguro durante encerramento: %s", exc)
     for k in list(st.session_state.keys()):
         del st.session_state[k]
     st.session_state["pagina"] = "Login"
@@ -575,9 +575,17 @@ def _clear_session_and_redirect_login(msg: str):
 
 
 def _ensure_token_from_cookie() -> bool:
-    """Valida existência de token na sessão atual (sem restauração por cookie)."""
+    """Restaura e valida a sessão exclusivamente pelo cookie contratado."""
     token = st.session_state.get("token")
-    return bool(token)
+    if not token:
+        try:
+            token = get_auth_cookie_token()
+        except Exception as exc:
+            logger.error("Falha ao ler cookie seguro: %s", exc)
+            return False
+        if token and decode_token(token):
+            st.session_state["token"] = token
+    return bool(token and decode_token(token))
 
 
 def _sync_session_from_token() -> bool:
@@ -823,7 +831,10 @@ def main():
 
     # LOGOUT
     if pagina == "Logout":
-        clear_auth_cookies()
+        try:
+            clear_auth_cookies(st.session_state.get("token"))
+        except Exception as exc:
+            logger.error("Falha ao expirar cookie seguro no logout: %s", exc)
         for k in list(st.session_state.keys()):
             del st.session_state[k]
         st.sidebar.success("Logout realizado com sucesso.")

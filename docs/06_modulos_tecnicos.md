@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.1
+versao: 4.2
 atualizado: 2026-07-20
 relacionados:
   - "[[01_necessidade]]"
@@ -28,6 +28,8 @@ aliases: ["Referência Técnica de Módulos"]
 | `services/access_control.py` | Contexto revalidado e matrizes de páginas/operações |
 | `services/admin_operations.py` | Casos de uso administrativos autorizados |
 | `services/deadlines.py` | Regra pura e fail-closed do prazo de campeonato |
+| `utils/security_utils.py` | Normalização limitada de identificadores de segurança |
+| `utils/dataframe_contracts.py` | Schema mínimo estável para DataFrames vazios de apostas |
 
 ### `main.py`
 
@@ -323,6 +325,7 @@ Arquivos estáticos servidos diretamente:
 
 ### Changelog
 
+- `4.2` — 2026-07-20 — `jti`, revogação de sessão, cookie obrigatório, normalização de e-mail e contrato estável para DataFrames vazios.
 - `4.1` — 2026-07-20 — Contexto autenticado, operações administrativas e deadline puro.
 - `4.0` — 2026-07-19 — Variáveis, contratos do histórico e limites reais entre camadas corrigidos.
 - `3.6` — 2026-05-12 — Adicionados os módulos `result_notification_service.py` e `cache_utils.py` na documentação.
