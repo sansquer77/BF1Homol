@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+import ast
 import html
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 import pandas as pd
 
-from services.bets_scoring import (
-    calcular_pontuacao_detalhada_lote,
-    detalhar_pontuacao_aposta,
-)
+from services.bets_scoring import calcular_pontuacao_lote
 from services.data_access_apostas import get_apostas_df, get_participantes_temporada_df
 from services.data_access_provas import get_provas_df, get_resultados_df
 from services.email_service import enviar_email
@@ -29,41 +28,157 @@ class ResultadoEmailStats:
     sem_aposta: int = 0
 
 
-def _mapear_descartes_por_usuario(
+def _parse_dict(raw: Any) -> dict:
+    if isinstance(raw, dict):
+        parsed = raw
+    else:
+        try:
+            parsed = ast.literal_eval(str(raw or "{}"))
+        except Exception:
+            return {}
+    if not isinstance(parsed, dict):
+        return {}
+    normalizado = {}
+    for chave, valor in parsed.items():
+        try:
+            normalizado[int(chave)] = valor
+        except Exception:
+            normalizado[chave] = valor
+    return normalizado
+
+
+def _tipo_prova(prova_nome: str, tipo_raw: Any) -> str:
+    tipo = str(tipo_raw or "").strip()
+    if tipo.lower() == "sprint" or "sprint" in str(prova_nome or "").lower():
+        return "Sprint"
+    return "Normal"
+
+
+def _pontos_lista(temporada: str, tipo_prova: str, regras: dict) -> list[float]:
+    pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+    pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]
+    if tipo_prova == "Sprint":
+        return list(regras.get("pontos_sprint_posicoes") or regras.get("pontos_posicoes") or pontos_sprint)
+    return list(regras.get("pontos_posicoes") or pontos_f1)
+
+
+def _detalhar_aposta_resultado(
+    aposta: pd.Series,
+    prova: pd.Series,
+    resultado: pd.Series,
+    temporada: str,
+) -> dict:
+    prova_nome = str(aposta.get("nome_prova") or prova.get("nome") or "Prova")
+    tipo_prova = _tipo_prova(prova_nome, prova.get("tipo", "Normal"))
+    regras = get_regras_aplicaveis(temporada, tipo_prova)
+    pontos_por_posicao = _pontos_lista(temporada, tipo_prova, regras)
+    posicoes_dict = _parse_dict(resultado.get("posicoes"))
+    piloto_para_pos = {str(v).strip(): int(k) for k, v in posicoes_dict.items() if str(v).strip()}
+
+    pilotos_apostados = [p.strip() for p in str(aposta.get("pilotos", "")).split(",") if p.strip()]
+    fichas = []
+    for raw in str(aposta.get("fichas", "")).split(","):
+        try:
+            fichas.append(int(raw))
+        except Exception:
+            fichas.append(0)
+
+    abandonos: set[str] = set()
+    if regras.get("penalidade_abandono") and "abandono_pilotos" in resultado.index:
+        raw_aband = resultado.get("abandono_pilotos", "") or ""
+        abandonos = {p.strip() for p in str(raw_aband).split(",") if p and p.strip()}
+
+    linhas = []
+    total_pontos = 0.0
+    for idx, piloto in enumerate(pilotos_apostados):
+        ficha = fichas[idx] if idx < len(fichas) else 0
+        pos_real = piloto_para_pos.get(str(piloto).strip())
+        pontos = 0.0
+        if pos_real is not None and 1 <= pos_real <= len(pontos_por_posicao):
+            pontos = float(ficha) * float(pontos_por_posicao[pos_real - 1])
+            total_pontos += pontos
+        linhas.append(
+            {
+                "piloto": piloto,
+                "fichas": ficha,
+                "posicao_real": str(pos_real) if pos_real is not None else "-",
+                "dnf": "DNF" if str(piloto).strip() in abandonos else "-",
+                "pontos": pontos,
+            }
+        )
+
+    piloto_11_apostado = str(aposta.get("piloto_11", "") or "").strip()
+    piloto_11_real = str(posicoes_dict.get(11, "") or "").strip()
+    bonus_11 = float(regras.get("pontos_11_colocado", 25) or 0)
+    pontos_11 = bonus_11 if piloto_11_apostado == piloto_11_real else 0.0
+    total_pontos += pontos_11
+
+    penalidade_abandono = 0.0
+    pilotos_abandonados = []
+    if abandonos:
+        pilotos_abandonados = [p for p in pilotos_apostados if p.strip() in abandonos]
+        penalidade_abandono = float(regras.get("pontos_penalidade", 0) or 0) * len(pilotos_abandonados)
+        total_pontos -= penalidade_abandono
+
+    if tipo_prova == "Sprint" and regras.get("pontos_dobrada"):
+        total_pontos *= 2
+
+    penalidade_auto = 0.0
+    try:
+        automatica = int(aposta.get("automatica", 0) or 0)
+    except Exception:
+        automatica = 0
+    if automatica >= 2:
+        fator = max(0, 1 - (float(regras.get("penalidade_auto_percent", 20) or 20) / 100))
+        total_com_desconto = round(total_pontos * fator, 2)
+        penalidade_auto = round(total_pontos - total_com_desconto, 2)
+        total_pontos = total_com_desconto
+
+    return {
+        "prova_nome": prova_nome,
+        "tipo_prova": tipo_prova,
+        "linhas": linhas,
+        "piloto_11_apostado": piloto_11_apostado,
+        "piloto_11_real": piloto_11_real,
+        "pontos_11": pontos_11,
+        "penalidade_abandono": penalidade_abandono,
+        "pilotos_abandonados": pilotos_abandonados,
+        "penalidade_auto": penalidade_auto,
+        "total_pontos": round(float(total_pontos), 2),
+    }
+
+
+def _menor_pontuacao_descarte(
+    usuario_id: int,
     temporada: str,
     apostas_df: pd.DataFrame,
     provas_df: pd.DataFrame,
     resultados_df: pd.DataFrame,
-) -> dict[int, dict]:
+) -> dict | None:
     regras_temporada = get_regras_aplicaveis(temporada, "Normal")
-    if not regras_temporada.get("descarte", False) or apostas_df.empty:
-        return {}
+    if not regras_temporada.get("descarte", False):
+        return None
 
-    apostas_temp = apostas_df
-    if "temporada" in apostas_temp.columns:
-        apostas_temp = apostas_temp[apostas_temp["temporada"] == temporada]
-    if apostas_temp.empty:
-        return {}
+    apostas_part = apostas_df[apostas_df["usuario_id"] == usuario_id]
+    if "temporada" in apostas_part.columns:
+        apostas_part = apostas_part[apostas_part["temporada"] == temporada]
+    if apostas_part.empty:
+        return None
 
-    detalhes_por_prova = calcular_pontuacao_detalhada_lote(
-        apostas_temp,
-        resultados_df,
-        provas_df,
-        temporada=temporada,
-    )
-    descartes: dict[int, dict] = {}
-    for idx, (_, aposta) in enumerate(apostas_temp.iterrows()):
-        if idx >= len(detalhes_por_prova) or detalhes_por_prova[idx] is None:
+    pontos_por_prova = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=temporada)
+    provas_pontos = []
+    for idx, (_, aposta) in enumerate(apostas_part.iterrows()):
+        if idx >= len(pontos_por_prova) or pontos_por_prova[idx] is None:
             continue
-        usuario_id = int(aposta.get("usuario_id"))
-        candidato = {
-            "nome_prova": str(aposta.get("nome_prova") or "Prova"),
-            "pontos": float(detalhes_por_prova[idx]["total_pontos"] or 0),
-        }
-        atual = descartes.get(usuario_id)
-        if atual is None or candidato["pontos"] < atual["pontos"]:
-            descartes[usuario_id] = candidato
-    return descartes
+        provas_pontos.append(
+            {
+                "nome_prova": str(aposta.get("nome_prova") or "Prova"),
+                "pontos": float(pontos_por_prova[idx] or 0),
+            }
+        )
+    if not provas_pontos:
+        return None
+    return min(provas_pontos, key=lambda item: item["pontos"])
 
 
 def _montar_corpo_email(nome_usuario: str, detalhes: dict, descarte: dict | None) -> str:
@@ -175,7 +290,6 @@ def enviar_emails_resultado_prova(prova_id: int, temporada: str) -> ResultadoEma
     apostas_prova = apostas_df[apostas_df["prova_id"] == prova_id]
     if "temporada" in apostas_prova.columns:
         apostas_prova = apostas_prova[apostas_prova["temporada"] == temporada]
-    descartes_por_usuario = _mapear_descartes_por_usuario(temporada, apostas_df, provas_df, resultados_df)
 
     for _, participante in participantes_df.iterrows():
         usuario_id = int(participante.get("id"))
@@ -189,13 +303,13 @@ def enviar_emails_resultado_prova(prova_id: int, temporada: str) -> ResultadoEma
             logger.warning("Participante sem email para resultado. usuario_id=%s prova_id=%s", usuario_id, prova_id)
             continue
 
-        detalhes = detalhar_pontuacao_aposta(
+        detalhes = _detalhar_aposta_resultado(
             aposta_usuario.iloc[0],
             prova_row.iloc[0],
             resultado_row.iloc[0],
             temporada,
         )
-        descarte = descartes_por_usuario.get(usuario_id)
+        descarte = _menor_pontuacao_descarte(usuario_id, temporada, apostas_df, provas_df, resultados_df)
         corpo = _montar_corpo_email(str(participante.get("nome", "Participante")), detalhes, descarte)
         assunto = f"Resultado da prova - {detalhes['prova_nome']}"
         if enviar_email(email_destino, assunto, corpo):

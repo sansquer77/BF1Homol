@@ -34,6 +34,7 @@ from utils.input_models import BetSubmissionInput, ValidationError
 from utils.logging_utils import redact_identifier
 from utils.helpers import get_bf1_logo_data_uri
 from utils.request_utils import get_client_ip
+from utils.cache_utils import clear_data_cache
 
 logger = logging.getLogger(__name__)
 
@@ -803,6 +804,7 @@ def salvar_aposta(
                 return False
 
             conn.commit()
+            clear_data_cache()
 
             # Obter logo BF1 como data URI para embutir no email
             bf1_logo_uri = get_bf1_logo_data_uri()

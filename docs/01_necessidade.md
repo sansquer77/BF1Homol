@@ -1,14 +1,20 @@
 ---
-tags: [bf1, sdd, visao-geral]
-status: produção
-versao: 3.6
-data_revisao: 2026-05-03
+tipo: produto
+area: bf1
+status: implementado
+versao: 4.0
+atualizado: 2026-07-19
+relacionados:
+  - "[[02_regras_de_negocio]]"
+  - "[[04_arquitetura]]"
+tags: [produto, "area/bf1", "status/implementado"]
+aliases: ["Necessidade que o Sistema Atende"]
 ---
 
 # Necessidade que o Sistema Atende
 
-> [!info] Documento de Visão
-> Este arquivo descreve **por que** o BF1 existe. Para o **que** ele faz, veja [[02_regras_de_negocio]]. Para **como** está estruturado, veja [[04_arquitetura]].
+> [!info] Status
+> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[02_regras_de_negocio]], [[04_arquitetura]]
 
 ## Visão Geral
 
@@ -35,7 +41,7 @@ Grupos de fãs de F1 que realizam bolões informais entre amigos enfrentam os se
 
 ## Necessidades Funcionais Atendidas
 
-1. **Cadastro e autenticação segura** de usuários com senhas criptografadas (bcrypt) e tokens JWT.
+1. **Cadastro e autenticação segura** de usuários com senhas protegidas por hash bcrypt e tokens JWT.
 2. **Gestão de temporadas** com regras específicas por tipo de prova (Normal, Sprint).
 3. **Cadastro de pilotos e provas** do calendário oficial da F1.
 4. **Apostas com deadline automático**: o sistema bloqueia apostas após o horário de início da corrida (fuso de São Paulo).
@@ -59,3 +65,14 @@ Grupos de fãs de F1 que realizam bolões informais entre amigos enfrentam os se
 - **Multi-temporada**: o sistema mantém o histórico de todas as temporadas sem perda de dados.
 - **Visão individual**: o participante pode acompanhar sua própria evolução histórica através da aba [[03_spec#2.1 Painel do Participante|Histórico no Painel]].
 - **Segurança**: autenticação JWT, bcrypt, rate limiting e guard de rotas por perfil.
+
+### Changelog
+
+- `4.0` — 2026-07-19 — Revisão contra o código atual e o regulamento BF1-2026.
+- `3.6` — 2026-05-03 — Histórico consolidado do participante adicionado.
+- `3.5` — — Versão base.
+
+### Relacionados
+
+- [[02_regras_de_negocio]]
+- [[04_arquitetura]]

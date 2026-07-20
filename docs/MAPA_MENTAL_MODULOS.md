@@ -1,14 +1,23 @@
 ---
-tags: [bf1, sdd, arquitetura, mapa-mental]
-status: produção
-versao: 3.6
-data_revisao: 2026-05-03
+tipo: arquitetura
+area: bf1
+status: implementado
+versao: 4.0
+atualizado: 2026-07-19
+relacionados:
+  - "[[01_necessidade]]"
+  - "[[02_regras_de_negocio]]"
+  - "[[03_spec]]"
+  - "[[04_arquitetura]]"
+  - "[[05_projeto]]"
+tags: [arquitetura, "area/bf1", "status/implementado"]
+aliases: ["Mapa Mental de Módulos"]
 ---
 
 # Mapa Mental de Módulos — BF1
 
-> [!info] Navegação SDD
-> [[01_necessidade]] · [[02_regras_de_negocio]] · [[03_spec]] · [[04_arquitetura]] · [[05_projeto]]
+> [!info] Status
+> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[04_arquitetura]], [[05_projeto]]
 
 Este documento apresenta uma visão técnica das relações entre os módulos da aplicação.
 
@@ -18,7 +27,7 @@ Este documento apresenta uma visão técnica das relações entre os módulos da
 
 ```mermaid
 mindmap
-  root((BF1Homol))
+  root((BF1))
     main.py
       Orquestra a aplicação Streamlit
       Carrega CSS e PWA meta-tags
@@ -69,6 +78,7 @@ mindmap
       rules_service
       hall_da_fama_service
       email_service
+      result_notification_service
       painel_controller
       hall_da_fama_controller
       historico_service ← v3.6
@@ -105,6 +115,7 @@ mindmap
       request_utils
       season_utils
       validators
+      cache_utils
       Suporta todas as camadas
 ```
 
@@ -151,8 +162,8 @@ graph LR
 
 ## Observações de Arquitetura
 
-> [!success] Acesso centralizado em services
-> ✅ A camada `ui` **não acessa `db` diretamente**. Toda lógica passa por `services.data_access_*` ou `services.*_service`, respeitando a arquitetura em camadas.
+> [!warning] Separação de camadas em evolução
+> A UI usa preferencialmente `services` e `data_access_*`, mas ainda existem acessos diretos a `db` em alguns fluxos. O mapa representa dependências reais, não uma separação estrita.
 
 > [!note] Normalização de tipos JSON
 > O campo `posicoes` em `resultados` é armazenado como `TEXT`. Ao ler, as chaves podem ser `int` ou `str`. Sempre usar `_parse_posicoes()` (ou equivalente) para normalizar para `int` antes de qualquer lookup de posição. Ver [[02_regras_de_negocio#RN-013 — Histórico Consolidado do Participante v3.6|RN-013]].
@@ -161,3 +172,17 @@ graph LR
 - A camada `db` possui tanto schemas e repositórios quanto utilitários de backup e migrations.
 - `utils` contém funções transversais e helpers compartilhados por todas as camadas.
 - `assets/styles.css` e `static/*` cuidam de aparência e suporte a PWA/ícones, fora das camadas principais.
+
+### Changelog
+
+- `4.0` — 2026-07-19 — Nome do sistema e observações de dependência alinhados ao código.
+- `3.6` — 2026-05-03 — Adicionados `result_notification_service` e `cache_utils` no mapa mental.
+- `3.5` — — Versão base.
+
+### Relacionados
+
+- [[01_necessidade]]
+- [[02_regras_de_negocio]]
+- [[03_spec]]
+- [[04_arquitetura]]
+- [[05_projeto]]

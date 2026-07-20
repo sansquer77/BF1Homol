@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import importlib
 import json
 import logging
@@ -10,7 +11,6 @@ from typing import Optional
 
 import pandas as pd
 
-from db.migrations_native_types import parse_posicoes_safe
 from utils.data_utils import (
     get_circuit_id_por_nome_prova,
     get_constructor_standings,
@@ -95,11 +95,9 @@ def _get_resumo_cenario_campeonato(resultados_df: pd.DataFrame, provas_df: pd.Da
     for _, row in res.iterrows():
         posicoes = {}
         try:
-            jsonb_val = row.get("posicoes_jsonb", None)
-            if isinstance(jsonb_val, dict) and jsonb_val:
-                posicoes = {int(k): v for k, v in jsonb_val.items()}
-            else:
-                posicoes = parse_posicoes_safe(row.get("posicoes", ""))
+            posicoes = ast.literal_eval(str(row.get("posicoes", "{}")))
+            if not isinstance(posicoes, dict):
+                posicoes = {}
         except Exception:
             posicoes = {}
         top3 = [str(posicoes.get(i, "")).strip() for i in [1, 2, 3]]

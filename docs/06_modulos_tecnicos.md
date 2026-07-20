@@ -1,18 +1,23 @@
 ---
-tags: [bf1, sdd, modulos, referencia-tecnica]
-status: produção
-versao: 3.6
-data_revisao: 2026-05-12
+tipo: arquitetura
+area: bf1
+status: implementado
+versao: 4.0
+atualizado: 2026-07-19
+relacionados:
+  - "[[01_necessidade]]"
+  - "[[02_regras_de_negocio]]"
+  - "[[03_spec]]"
+  - "[[04_arquitetura]]"
+  - "[[MAPA_MENTAL_MODULOS]]"
+tags: [arquitetura, "area/bf1", "status/implementado"]
+aliases: ["Referência Técnica de Módulos"]
 ---
 
 # Referência Técnica de Módulos — BF1
 
-> Navegação SDD:
-> - Visão geral: `01_necessidade.md`
-> - Regras: `02_regras_de_negocio.md`
-> - Especificação: `03_spec.md`
-> - Arquitetura: `04_arquitetura.md`
-> - Mapa de módulos: `MAPA_MENTAL_MODULOS.md`
+> [!info] Status
+> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]]
 
 ---
 
@@ -45,7 +50,7 @@ Arquivo principal da aplicação. Responsável por:
 
 ```
 DATABASE_URL       # Connection string PostgreSQL
-SECRET_KEY         # Chave de assinatura JWT
+JWT_SECRET         # Chave HS256 com no mínimo 32 bytes
 MASTER_EMAIL       # Email do usuário master inicial
 MASTER_PASSWORD    # Senha do usuário master inicial
 MASTER_NOME        # Nome do usuário master inicial
@@ -84,7 +89,7 @@ Cada arquivo expõe uma função principal (geralmente `main()` ou nome da view)
 
 ## Camada de Serviços (`services/`)
 
-Contém toda a lógica de negócio. Os serviços não importam Streamlit e podem ser testados de forma isolada.
+Concentra a maior parte da lógica de negócio. A separação ainda é parcial: `rules_service.py` usa `st.cache_data`, enquanto serviços como `historico_service.py` permanecem independentes da UI.
 
 ### `auth_service.py`
 Autenticação e autorização baseadas em JWT.
@@ -93,7 +98,7 @@ Autenticação e autorização baseadas em JWT.
 - `decode_token(token)` → `dict | None` — decodifica e valida JWT; retorna `None` se inválido/expirado
 - `hash_password(senha)` → `str` — bcrypt hash
 - `verify_password(senha, hash)` → `bool` — validação bcrypt
-- `set_auth_cookie(token)` / `clear_auth_cookies()` — gerencia cookie HttpOnly via `extra-streamlit-components`
+- `set_auth_cookies(token)` / `clear_auth_cookies()` — suporte de cookie via `extra-streamlit-components`; a autorização do roteador usa o token da sessão Streamlit
 - Rate limiting embutido para mitigar ataques de força bruta no login
 
 ### `bets_rules.py`
@@ -135,23 +140,18 @@ Envio de e-mails transacionais (recuperação de senha, notificações).
 - Usa SMTP configurado via variáveis de ambiente
 - Templates HTML embutidos para e-mails de redefinição de senha
 
+### `result_notification_service.py`
+Envio de e-mails de notificação com o resumo do resultado da corrida para todos os participantes que registraram aposta.
+
+- `enviar_emails_resultado_prova(prova_id, temporada)` → `ResultadoEmailStats` — envia e-mails detalhados de resultado para os participantes
+
 ### `historico_service.py` *(v3.6)*
 Consolida histórico multi-temporada do participante.
 
-- `calcular_resumo_historico(usuario_id)` → `ResumoHistorico` (dataclass)
-- `calcular_dados_grafico(usuario_id)` → `DadosGrafico` (dataclass)
-- Retorna: resumo estatístico, pontuação histórica e pilotos mais apostados
+- `calcular_resumo_historico(usuario_id)` → `ResumoHistorico`
+- `calcular_dados_grafico(usuario_id)` → `DadosGrafico`
 - **Sem dependência de Streamlit** — testável de forma isolada
-- Carrega apostas/posições/resultados em lote e agrupa por temporada em memória
-- Prefere `posicoes_jsonb` e normaliza chaves via `parse_posicoes_safe()`
-
-### `bets_scoring.py`
-Cálculo canônico de pontuação por prova.
-
-- `detalhar_pontuacao_aposta(...)` → detalhe por piloto, bônus, penalidades e total
-- `calcular_pontuacao_detalhada_lote(...)` → lote detalhado com cache local de regras por `(temporada, tipo)`
-- `calcular_pontuacao_lote(...)` → wrapper legado que retorna somente totais
-- Prefere `posicoes_jsonb` quando disponível e usa parser seguro para a coluna legada
+- Normaliza chaves do dict `posicoes` para `int` via `_parse_posicoes()`
 
 ### `hall_da_fama_service.py` / `hall_da_fama_controller.py`
 Calculam e recuperam o ranking histórico de campeões do bolão.
@@ -275,6 +275,7 @@ Funções puras, sem dependência de banco ou UI.
 | `logging_utils.py` | Configuração do logger padrão do projeto |
 | `request_utils.py` | Funções para leitura de headers e IP do cliente |
 | `season_utils.py` | Helpers para determinar a temporada ativa e listas de temporadas |
+| `cache_utils.py` | `clear_data_cache()` — Limpa caches de leitura do Streamlit após escritas |
 
 ---
 
@@ -313,3 +314,17 @@ Arquivos estáticos servidos diretamente:
 | `plotly` | 5.18.0 | Gráficos interativos |
 | `matplotlib` | 3.8.0 | Gráficos estáticos |
 | `httpx` | 0.25.0 | Requisições HTTP assíncronas |
+
+### Changelog
+
+- `4.0` — 2026-07-19 — Variáveis, contratos do histórico e limites reais entre camadas corrigidos.
+- `3.6` — 2026-05-12 — Adicionados os módulos `result_notification_service.py` e `cache_utils.py` na documentação.
+- `3.5` — — Versão base.
+
+### Relacionados
+
+- [[01_necessidade]]
+- [[02_regras_de_negocio]]
+- [[03_spec]]
+- [[04_arquitetura]]
+- [[MAPA_MENTAL_MODULOS]]

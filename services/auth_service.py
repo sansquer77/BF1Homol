@@ -14,6 +14,7 @@ except ImportError:
 # Funções de auth/usuário importadas dos módulos focados de dados.
 from db.db_schema import db_connect, get_table_columns
 from db.repo_users import hash_password, check_password, get_user_by_id
+from utils.cache_utils import clear_data_cache
 
 # Exportar explicitamente para manter compatibilidade
 __all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_token',
@@ -221,6 +222,7 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
             row = c.fetchone()
             user_id = row['id'] if row else None
             conn.commit()
+        clear_data_cache()
         try:
             if isinstance(user_id, int):
                 from db.repo_users import registrar_historico_status_usuario
@@ -406,6 +408,7 @@ def redefinir_senha_com_token(email: str, token: str, nova_senha: str):
             (token_row['id'],),
         )
         conn.commit()
+    clear_data_cache()
 
     return True, "Senha redefinida com sucesso."
 
@@ -445,6 +448,7 @@ def criar_master_se_nao_existir():
                     (nome, email, senha_hashed, 'master', 'Ativo')
                 )
             conn.commit()
+            clear_data_cache()
 
 # Alias para compatibilidade
 def create_token(user_id: int, nome: str, perfil: str, status: str) -> str:

@@ -1,16 +1,25 @@
 ---
-tags: [bf1, sdd, projeto]
-status: produção
-versao: 3.6
-data_revisao: 2026-05-03
+tipo: produto
+area: bf1
+status: implementado
+versao: 4.0
+atualizado: 2026-07-19
+relacionados:
+  - "[[01_necessidade]]"
+  - "[[02_regras_de_negocio]]"
+  - "[[03_spec]]"
+  - "[[04_arquitetura]]"
+  - "[[MAPA_MENTAL_MODULOS]]"
+tags: [produto, "area/bf1", "status/implementado"]
+aliases: ["Documento de Projeto"]
 ---
 
 # Documento de Projeto — BF1
 
-> [!info] Links Rápidos
-> - [[01_necessidade]] · [[02_regras_de_negocio]] · [[03_spec]] · [[04_arquitetura]] · [[MAPA_MENTAL_MODULOS]]
+> [!info] Status
+> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]]
 
-> **Versão do Sistema**: 3.6
+> **Versão documental**: 4.0 (o código ainda contém rótulos legados 3.0/3.5/3.6)
 > **Repositório**: `sansquer77/BF1` (branch `main`)
 > **Plataforma de Deploy**: DigitalOcean App Platform
 > **Stack**: Python 3.11+ · Streamlit · PostgreSQL · psycopg2
@@ -121,7 +130,7 @@ plotly
 | Variável | Obrigatória | Descrição |
 |----------|------------|----------|
 | `DATABASE_URL` | Sim | Connection string PostgreSQL completa |
-| `SECRET_KEY` | Sim | Chave de assinatura JWT (mínimo 32 chars) |
+| `JWT_SECRET` | Sim | Chave de assinatura JWT (mínimo 32 bytes) |
 | `MASTER_EMAIL` | Sim | E-mail do usuário master criado no bootstrap |
 | `MASTER_PASSWORD` | Sim | Senha inicial do usuário master |
 | `MASTER_NOME` | Sim | Nome de exibição do usuário master |
@@ -152,7 +161,7 @@ plotly
 - **Tipagem opcional**: `from __future__ import annotations` + type hints onde relevante.
 - **Funções puras em `utils/`**: sem efeitos colaterais, sem acesso a DB.
 - **Serviços sem estado**: `services/*.py` recebem dados como parâmetros, não leem `session_state`.
-- **Serviços sem UI**: `services/*.py` não importam Streamlit — retornam `@dataclass` ou primitivos.
+- **Serviços preferencialmente sem UI**: manter lógica testável fora do Streamlit; exceções legadas, como o cache em `rules_service.py`, devem ser tratadas como dívida técnica.
 - **UI fina**: `ui/*.py` apenas constrói a interface e delega lógica para `services/`.
 - **Credenciais nunca no código**: sempre via `os.environ` ou variáveis do App Platform.
 - **Migrations idempotentes**: toda migration verifica existência antes de alterar.
@@ -185,11 +194,18 @@ plotly
 | Migração para tipos nativos PG | Baixa | Substituir campos `TEXT` por `JSONB`, `DATE`, `TIME` nativos (eliminaria necessidade de `_parse_posicoes`) |
 | Rate limiting global | Baixa | Middleware de rate limit para todas as rotas, não só autenticação |
 
----
-
-## 12. Changelog
+### Changelog
 
 | Versão | Data | Descrição |
 |--------|------|-----------|
+| 4.0 | 2026-07-19 | Estado atual do código, regulamento 2026 e configuração corrigida (`JWT_SECRET`) |
 | 3.6 | 2026-05-03 | Aba "Histórico" no Painel · `historico_service.py` · renomeação de abas · fix normalização de chaves `posicoes` · fix `setdefault` fora de contexto |
 | 3.5 | — | Versão base (produção anterior) |
+
+### Relacionados
+
+- [[01_necessidade]]
+- [[02_regras_de_negocio]]
+- [[03_spec]]
+- [[04_arquitetura]]
+- [[MAPA_MENTAL_MODULOS]]

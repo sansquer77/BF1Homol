@@ -2,6 +2,7 @@
 Serviço de Gestão de Regras
 """
 import logging
+import streamlit as st
 from db.rules_utils import (
     get_regra_temporada,
     get_regra_by_nome
@@ -9,6 +10,7 @@ from db.rules_utils import (
 
 logger = logging.getLogger(__name__)
 
+@st.cache_data(ttl=60, show_spinner=False)
 def get_regras_aplicaveis(temporada: str, tipo_prova: str = "Normal") -> dict:
     """
     Retorna as regras aplicáveis para uma temporada e tipo de prova.
@@ -140,4 +142,3 @@ def validar_aposta(aposta: dict, regras: dict) -> tuple:
         return False, "❌ Piloto para 11º lugar é obrigatório"
     
     return True, "✓ Aposta válida"
-

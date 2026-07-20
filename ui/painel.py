@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import ast
 
 from services.data_access_core import (
     db_connect,
@@ -20,7 +21,7 @@ from services.data_access_auth import (
     update_user_email,
     update_user_password,
 )
-from services.bets_scoring import calcular_pontuacao_detalhada_lote
+from services.bets_scoring import calcular_pontuacao_lote
 from services.bets_write import gerar_aposta_sem_ideias, salvar_aposta
 from services.auth_service import check_password, hash_password
 from services.painel_controller import (
@@ -470,55 +471,102 @@ def participante_view():
                 apostas_part = apostas_part[apostas_part['prova_id'].isin(provas_df['id'])]
             if isinstance(apostas_part, pd.DataFrame):
                 apostas_part = apostas_part.sort_values(by='prova_id')
-            detalhes_por_prova = calcular_pontuacao_detalhada_lote(
-                apostas_part,
-                resultados_df,
-                provas_df,
-                temporada=temporada,
-            ) if not apostas_part.empty else []
+            pontos_f1 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+            pontos_sprint = [8, 7, 6, 5, 4, 3, 2, 1]
 
             if not apostas_part.empty:
                 nomes_abas = [f"{ap['nome_prova']} ({ap['prova_id']})" for _, ap in apostas_part.iterrows()]
                 abas = st.tabs(nomes_abas)
-                for idx, (aba, (_, aposta)) in enumerate(zip(abas, apostas_part.iterrows())):
+                for aba, (_, aposta) in zip(abas, apostas_part.iterrows()):
                     with aba:
+                        prova_id = aposta['prova_id']
                         prova_nome = aposta['nome_prova']
-                        detalhe = detalhes_por_prova[idx] if idx < len(detalhes_por_prova) else None
-                        if detalhe is None:
-                            st.markdown(f"#### {prova_nome}")
-                            st.info("Resultado ainda não cadastrado para esta prova.")
-                            st.markdown("---")
-                            continue
-
-                        dados = [
-                            {
-                                "Piloto Apostado": linha["piloto"],
-                                "Fichas": linha["fichas"],
-                                "Posição Real": linha["posicao_real"],
-                                "DNF": linha["dnf"],
-                                "Pontos": f"{float(linha['pontos']):.2f}",
-                            }
-                            for linha in detalhe["linhas"]
-                        ]
-
-                        st.markdown(f"#### {detalhe['prova_nome']} ({detalhe['tipo_prova']})")
-                        if detalhe["tipo_prova"] == 'Sprint':
-                            if detalhe["multiplicador_sprint"] == 2:
+                        fichas = list(map(int, aposta['fichas'].split(',')))
+                        pilotos_apostados = aposta['pilotos'].split(',')
+                        piloto_11_apostado = aposta['piloto_11']
+                        automatica = aposta.get('automatica', 0)
+                        tipo_raw = provas_df[provas_df['id'] == prova_id]['tipo'].values[0] if not provas_df[provas_df['id'] == prova_id].empty else 'Normal'
+                        tipo_prova = 'Sprint' if str(tipo_raw).strip().lower() == 'sprint' or 'sprint' in str(prova_nome).lower() else 'Normal'
+                        regras = get_regras_aplicaveis(temporada, tipo_prova)
+                        resultado_row = resultados_df[resultados_df['prova_id'] == prova_id]
+                        if not resultado_row.empty:
+                            try:
+                                posicoes_dict = ast.literal_eval(resultado_row.iloc[0]['posicoes'])
+                            except Exception:
+                                posicoes_dict = {}
+                        else:
+                            posicoes_dict = {}
+                        # Extrair dados de abandono antes de montar a tabela
+                        abandonos = set()
+                        if regras.get('penalidade_abandono') and not resultado_row.empty and 'abandono_pilotos' in resultado_row.columns:
+                            raw_aband = resultado_row.iloc[0].get('abandono_pilotos', '')
+                            if raw_aband is None:
+                                raw_aband = ''
+                            abandonos = {p.strip() for p in str(raw_aband).split(',') if p and p.strip()}
+                        
+                        dados = []
+                        total_pontos = 0
+                        if tipo_prova == 'Sprint':
+                            pontos_lista = regras.get('pontos_sprint_posicoes') or regras.get('pontos_posicoes') or []
+                            if not pontos_lista:
+                                pontos_lista = pontos_sprint
+                        else:
+                            pontos_lista = regras.get('pontos_posicoes') or []
+                            if not pontos_lista:
+                                pontos_lista = pontos_f1
+                        n_pos = len(pontos_lista)
+                        piloto_para_pos = {str(v).strip(): int(k) for k, v in posicoes_dict.items()}
+                        for i in range(n_pos):
+                            aposta_piloto = pilotos_apostados[i] if i < len(pilotos_apostados) else ""
+                            ficha = fichas[i] if i < len(fichas) else 0
+                            pos_real = piloto_para_pos.get(str(aposta_piloto).strip(), None)
+                            pontos = 0
+                            if pos_real is not None and 1 <= pos_real <= n_pos:
+                                pontos = ficha * pontos_lista[pos_real - 1]
+                                total_pontos += pontos
+                            dnf_status = "DNF" if str(aposta_piloto).strip() in abandonos else "-"
+                            dados.append({
+                                "Piloto Apostado": aposta_piloto,
+                                "Fichas": ficha,
+                                "Posição Real": str(pos_real) if pos_real is not None else "-",
+                                "DNF": dnf_status,
+                                "Pontos": f"{pontos:.2f}"
+                            })
+                        piloto_11_real = str(posicoes_dict.get(11, "")).strip()
+                        bonus_11 = regras.get('pontos_11_colocado', 25)
+                        pontos_11_col = bonus_11 if str(piloto_11_apostado).strip() == piloto_11_real else 0
+                        total_pontos += pontos_11_col
+                        penalidade_abandono = 0
+                        pilotos_abandonados = []
+                        if abandonos:
+                            pilotos_abandonados = [p for p in pilotos_apostados if p.strip() in abandonos]
+                            num_aband = len(pilotos_abandonados)
+                            penalidade_abandono = int(regras.get('pontos_penalidade', 0)) * num_aband
+                            if penalidade_abandono:
+                                total_pontos -= penalidade_abandono
+                        if tipo_prova == 'Sprint' and regras.get('pontos_dobrada'):
+                            total_pontos = total_pontos * 2
+                        penalidade_auto = 0
+                        if automatica and int(automatica) >= 2:
+                            penalidade_auto_percent = regras.get('penalidade_auto_percent', 20)
+                            fator = max(0, 1 - (float(penalidade_auto_percent) / 100))
+                            desconto = round(total_pontos * fator, 2)
+                            penalidade_auto = round(total_pontos - desconto, 2)
+                            total_pontos = desconto
+                        st.markdown(f"#### {prova_nome} ({tipo_prova})")
+                        if tipo_prova == 'Sprint':
+                            if regras.get('pontos_dobrada'):
                                 st.write("**Sprint com pontuação dobrada:** Sim")
                             else:
                                 st.write("**Sprint com pontuação dobrada:** Não")
                         st.dataframe(pd.DataFrame(dados), hide_index=True)
-                        st.write(
-                            f"**11º Apostado:** {detalhe['piloto_11_apostado']} | "
-                            f"**11º Real:** {detalhe['piloto_11_real']} | "
-                            f"**Pontos 11º:** {float(detalhe['pontos_11']):.0f}"
-                        )
-                        if detalhe["penalidade_abandono"]:
-                            pilotos_str = ", ".join(detalhe["pilotos_abandonados"])
-                            st.write(f"**Penalidade por abandono (DNF):** {pilotos_str} → -{float(detalhe['penalidade_abandono']):.2f} pontos")
-                        if detalhe["penalidade_auto"]:
-                            st.write(f"**Penalidade aposta automática:** -{float(detalhe['penalidade_auto']):.2f}")
-                        st.write(f"**Total de Pontos na Prova:** {float(detalhe['total_pontos']):.2f}")
+                        st.write(f"**11º Apostado:** {piloto_11_apostado} | **11º Real:** {piloto_11_real} | **Pontos 11º:** {pontos_11_col}")
+                        if penalidade_abandono:
+                            pilotos_str = ", ".join(pilotos_abandonados)
+                            st.write(f"**Penalidade por abandono (DNF):** {pilotos_str} → -{penalidade_abandono} pontos")
+                        if penalidade_auto:
+                            st.write(f"**Penalidade aposta automática:** -{penalidade_auto:.2f}")
+                        st.write(f"**Total de Pontos na Prova:** {total_pontos:.2f}")
                         st.markdown("---")
             else:
                 st.info("Nenhuma aposta registrada.")
@@ -530,13 +578,14 @@ def participante_view():
 
             if descarte_ativo:
                 if not apostas_part.empty:
+                    pontos_por_prova = calcular_pontuacao_lote(apostas_part, resultados_df, provas_df, temporada_descarte=temporada)
+
                     provas_pontos = []
                     for idx, (_, aposta) in enumerate(apostas_part.iterrows()):
-                        detalhe = detalhes_por_prova[idx] if idx < len(detalhes_por_prova) else None
-                        if detalhe is not None:
+                        if pontos_por_prova[idx] is not None:
                             prova_nome = aposta['nome_prova']
                             prova_id_val = aposta['prova_id']
-                            pontos_val = detalhe["total_pontos"]
+                            pontos_val = pontos_por_prova[idx]
                             provas_pontos.append({
                                 'prova_id': prova_id_val,
                                 'nome_prova': prova_nome,

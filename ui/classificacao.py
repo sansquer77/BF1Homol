@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import matplotlib.image as mpimg
 import datetime as dt
+import ast
 from zoneinfo import ZoneInfo
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from db.migrations_native_types import parse_posicoes_safe
 from services.data_access_core import (
     db_connect,
 )
@@ -26,7 +26,7 @@ from services.data_access_auth import (
 )
 from services.championship_service import get_championship_bets_df, get_final_results
 from services.rules_service import get_regras_aplicaveis
-from services.bets_scoring import _parse_datetime_sp, calcular_pontuacao_lote, atualizar_classificacoes_todas_as_provas
+from services.bets_scoring import _parse_datetime_sp, calcular_pontuacao_lote
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
@@ -39,17 +39,6 @@ def formatar_brasileiro(valor):
         return f"{valor:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
     except:
         return valor
-
-
-def _parse_posicoes_resultado(row) -> dict:
-    jsonb_val = row.get("posicoes_jsonb", None)
-    if isinstance(jsonb_val, dict) and jsonb_val:
-        try:
-            return {int(k): v for k, v in jsonb_val.items()}
-        except Exception:
-            pass
-    return parse_posicoes_safe(row.get("posicoes", ""))
-
 
 def gerar_imagem_tabela_ajustada(df, colunas):
     df_exibicao = df[colunas].astype(str).copy()
@@ -152,7 +141,7 @@ def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultado
         rr = resultados_df[resultados_df['prova_id'] == prova_id]
         if not rr.empty:
             try:
-                pos = _parse_posicoes_resultado(rr.iloc[0])
+                pos = ast.literal_eval(rr.iloc[0]['posicoes'])
                 piloto_11_real = str(pos.get(11, '')).strip()
             except Exception:
                 piloto_11_real = None
@@ -305,14 +294,6 @@ def main():
     except (TypeError, ValueError):
         season_int = current_year
 
-    if st.button("Recalcular classificação desta temporada", key="btn_recalcular_classificacao_temp"):
-        try:
-            atualizar_classificacoes_todas_as_provas(temporada=season)
-            st.success("Classificação recalculada com sucesso.")
-            st.rerun()
-        except Exception as e:
-            st.warning(f"⚠️ Erro ao atualizar classificações: {e}")
-
     usuarios_df = get_participantes_temporada_df(season)
     provas_df = get_provas_df(season)
     apostas_df = get_apostas_df(season)
@@ -325,6 +306,29 @@ def main():
     participantes = usuarios_df[usuarios_df['nome'] != 'Master']
     provas_df = provas_df.sort_values('data')
     perfil_usuario = st.session_state.get("user_role", "usuario").strip().lower()
+
+    apostas_pontos_df = apostas_df.copy()
+    if not apostas_pontos_df.empty:
+        pontos_calculados = calcular_pontuacao_lote(
+            apostas_pontos_df,
+            resultados_df,
+            provas_df,
+            temporada_descarte=season,
+        )
+        apostas_pontos_df["__pontos_calculados"] = [
+            0 if p is None else float(p) for p in pontos_calculados
+        ]
+    else:
+        apostas_pontos_df["__pontos_calculados"] = []
+
+    pontos_por_usuario = {}
+    pontos_por_usuario_prova = {}
+    if not apostas_pontos_df.empty:
+        pontos_por_usuario = apostas_pontos_df.groupby("usuario_id")["__pontos_calculados"].sum().to_dict()
+        pontos_por_usuario_prova = {
+            (int(row["usuario_id"]), int(row["prova_id"])): float(row["__pontos_calculados"] or 0)
+            for _, row in apostas_pontos_df.iterrows()
+        }
 
     resultado_campeonato = get_final_results(season_int)
     championship_bets_map = {}
@@ -347,18 +351,6 @@ def main():
     pontos_campeao = regras_temporada.get('pontos_campeao', 150)
     pontos_vice = regras_temporada.get('pontos_vice', 100)
     pontos_equipe = regras_temporada.get('pontos_equipe', 80)
-    pontos_por_usuario = {}
-    pontos_apostas_por_usuario = {}
-    pontos_por_usuario_prova = {}
-    if not apostas_df.empty:
-        pontos_todas_apostas = calcular_pontuacao_lote(apostas_df, resultados_df, provas_df)
-        for idx, (_, aposta) in enumerate(apostas_df.iterrows()):
-            ponto = pontos_todas_apostas[idx] if idx < len(pontos_todas_apostas) else None
-            uid = int(aposta['usuario_id'])
-            prova_id = aposta['prova_id']
-            pontos_por_usuario.setdefault(uid, []).append(ponto)
-            pontos_apostas_por_usuario.setdefault(uid, []).append((prova_id, ponto))
-            pontos_por_usuario_prova.setdefault(uid, {})[prova_id] = ponto
 
     acertos_11_por_usuario = {}
     apostas_no_prazo_por_usuario = {}
@@ -373,7 +365,7 @@ def main():
         res_11 = []
         for _, r in resultados_df.iterrows():
             try:
-                posicoes = _parse_posicoes_resultado(r)
+                posicoes = ast.literal_eval(r['posicoes'])
                 piloto_11_real = str(posicoes.get(11, '')).strip()
             except Exception:
                 piloto_11_real = ''
@@ -416,8 +408,11 @@ def main():
                 continue
 
     for idx, part in participantes.iterrows():
-        pontos_part = pontos_por_usuario.get(int(part['id']), [])
-        total_provas = sum([p for p in pontos_part if p is not None])
+        uid_part = int(part['id'])
+        apostas_part = apostas_pontos_df[apostas_pontos_df['usuario_id'] == part['id']]
+        apostas_part = apostas_part.sort_values(by='prova_id') if not apostas_part.empty else apostas_part
+        pontos_part = apostas_part["__pontos_calculados"].tolist() if not apostas_part.empty else []
+        total_provas = float(pontos_por_usuario.get(uid_part, 0) or 0)
 
         bonus_campeao = 0
         bonus_vice = 0
@@ -426,7 +421,7 @@ def main():
         acertou_vice = 0
         acertou_equipe = 0
         if resultado_campeonato:
-            aposta_camp = championship_bets_map.get(int(part['id']))
+            aposta_camp = championship_bets_map.get(uid_part)
             if aposta_camp:
                 if resultado_campeonato.get("champion") == aposta_camp.get("champion"):
                     bonus_campeao = pontos_campeao
@@ -438,12 +433,12 @@ def main():
                     bonus_equipe = pontos_equipe
                     acertou_equipe = 1
         pontos_campeonato = bonus_campeao + bonus_vice + bonus_equipe
-        acertos_11 = int(acertos_11_por_usuario.get(part['id'], 0))
-        apostas_no_prazo = int(apostas_no_prazo_por_usuario.get(part['id'], 0))
+        acertos_11 = int(acertos_11_por_usuario.get(uid_part, 0))
+        apostas_no_prazo = int(apostas_no_prazo_por_usuario.get(uid_part, 0))
 
         tabela_classificacao.append({
             "Participante": part['nome'],
-            "usuario_id": part['id'],
+            "usuario_id": uid_part,
             "Pontos Provas": total_provas,
             "Bônus Campeão": bonus_campeao,
             "Bônus Vice": bonus_vice,
@@ -478,17 +473,19 @@ def main():
         provas_ate_penultima = provas_realizadas[provas_realizadas['id'] <= penultima_prova_id]['id'].tolist()
         tabela_anterior = []
         for idx, part in participantes.iterrows():
-            uid = int(part['id'])
-            pontos_anteriores = [
-                ponto
-                for prova_id, ponto in pontos_apostas_por_usuario.get(uid, [])
-                if prova_id in provas_ate_penultima
+            uid_part = int(part['id'])
+            apostas_anteriores = apostas_pontos_df[
+                (apostas_pontos_df['usuario_id'] == part['id']) &
+                (apostas_pontos_df['prova_id'].isin(provas_ate_penultima))
             ]
-            total_anteriores = sum([p for p in pontos_anteriores if p is not None])
+            total_anteriores = (
+                float(apostas_anteriores["__pontos_calculados"].sum())
+                if not apostas_anteriores.empty else 0.0
+            )
 
             tabela_anterior.append({
                 "Participante": part['nome'],
-                "usuario_id": part['id'],
+                "usuario_id": uid_part,
                 "Total Geral": total_anteriores
             })
         df_class_anterior = pd.DataFrame(tabela_anterior)
@@ -585,8 +582,14 @@ def main():
     dados_cruzados = {prova_nome: {} for prova_nome in provas_nomes}
     for part in tabela_detalhada:
         participante = part['Participante']
+        pontos_por_prova = {}
         usr_id = df_class[df_class['Participante'] == participante]['usuario_id'].iloc[0]
-        pontos_por_prova = pontos_por_usuario_prova.get(int(usr_id), {})
+        apostas_part = apostas_df[apostas_df['usuario_id'] == usr_id]
+        for _, aposta in apostas_part.iterrows():
+            pontos_por_prova[aposta['prova_id']] = pontos_por_usuario_prova.get(
+                (int(usr_id), int(aposta['prova_id'])),
+                0,
+            )
         for prova_id, prova_nome in zip(provas_ids_ordenados, provas_nomes):
             pt = pontos_por_prova.get(prova_id, 0)
             dados_cruzados[prova_nome][participante] = pt if pt is not None else 0

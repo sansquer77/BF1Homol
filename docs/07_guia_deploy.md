@@ -1,15 +1,20 @@
 ---
-tags: [bf1, sdd, deploy, operacoes]
-status: produção
-versao: 3.6
-data_revisao: 2026-05-12
+tipo: metodologia
+area: bf1
+status: implementado
+versao: 4.0
+atualizado: 2026-07-19
+relacionados:
+  - "[[04_arquitetura]]"
+  - "[[06_modulos_tecnicos]]"
+tags: [metodologia, "area/bf1", "status/implementado"]
+aliases: ["Guia de Deploy e Operações"]
 ---
 
 # Guia de Deploy e Operações — BF1
 
-> Navegação SDD:
-> - Arquitetura: `04_arquitetura.md`
-> - Módulos: `06_modulos_tecnicos.md`
+> [!info] Status
+> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]]
 
 ---
 
@@ -24,7 +29,7 @@ O BF1 é hospedado na **DigitalOcean App Platform** com deploy automático via p
 - Conta na DigitalOcean com App Platform ativada
 - Repositório GitHub conectado à App Platform
 - Banco PostgreSQL Gerenciado criado na DigitalOcean
-- Python 3.12+ (definido em `.python-version`)
+- Python compatível com as dependências de `requirements.txt` (o repositório não fixa atualmente uma versão em `.python-version`)
 
 ---
 
@@ -35,15 +40,15 @@ Configure as variáveis abaixo no painel da App Platform → **Settings → Envi
 | Variável | Obrigatória | Descrição |
 |---|---|---|
 | `DATABASE_URL` | ✅ | Connection string completa do PostgreSQL (`postgresql://user:pass@host:port/dbname?sslmode=require`) |
-| `SECRET_KEY` | ✅ | String aleatória longa (min 32 chars) para assinar tokens JWT |
+| `JWT_SECRET` | ✅ | Segredo aleatório com no mínimo 32 bytes para assinar tokens JWT |
 | `MASTER_EMAIL` | ✅ | Email do usuário master criado no primeiro boot |
 | `MASTER_PASSWORD` | ✅ | Senha inicial do usuário master (será hashada com bcrypt) |
 | `MASTER_NOME` | ✅ | Nome de exibição do usuário master |
-| `SMTP_HOST` | ⚠️ | Host SMTP para envio de emails (opcional, mas necessário para reset de senha) |
-| `SMTP_PORT` | ⚠️ | Porta SMTP (ex: 587) |
-| `SMTP_USER` | ⚠️ | Usuário SMTP |
-| `SMTP_PASSWORD` | ⚠️ | Senha SMTP |
-| `SMTP_FROM` | ⚠️ | Endereço remetente dos e-mails |
+| `EMAIL_REMETENTE` | ⚠️ | Conta Gmail remetente; necessária para envio de e-mails |
+| `SENHA_EMAIL` | ⚠️ | Senha de app da conta remetente (`SENHA_REMETENTE` é aceita como alternativa) |
+| `EMAIL_ADMIN` | ⚠️ | Endereço administrativo usado pelos fluxos de e-mail |
+| `PERPLEXITY_API_KEY` | ⚠️ | Habilita as análises de aposta por IA; sem ela o sistema usa fallback local |
+| `PERPLEXITY_MODEL` | Não | Modelo da Perplexity; padrão `sonar` |
 
 > ⚠️ **Nunca** commitar valores de variáveis de ambiente no repositório. O `.gitignore` já exclui arquivos `.env`.
 
@@ -134,10 +139,10 @@ O sistema armazena todos os horários em **`America/Sao_Paulo`** no banco de dad
 
 - **HTTPS**: garantido pela App Platform da DigitalOcean (TLS automático)
 - **Senhas**: bcrypt com salt automático — nunca armazenadas em texto claro
-- **JWT**: HS256 com expiração configurável via `SECRET_KEY`
+- **JWT**: HS256 com expiração de 120 minutos e assinatura via `JWT_SECRET`
 - **Rate Limiting**: aplicado na autenticação para mitigar força bruta
 - **Guard de Rotas**: verificação de perfil em todas as rotas protegidas via `ROLE_GUARDS`
-- **Cookies**: HttpOnly via `extra-streamlit-components`
+- **Sessão**: o roteador valida o JWT mantido no `session_state`; há suporte auxiliar a cookies via `extra-streamlit-components`.
 
 ---
 
@@ -147,7 +152,18 @@ O sistema armazena todos os horários em **`America/Sao_Paulo`** no banco de dad
 |---|---|---|
 | App não inicia | `DATABASE_URL` inválida ou banco inacessível | Verificar string de conexão e regras de firewall do banco |
 | Usuário master não criado | `MASTER_*` env vars não configuradas | Configurar variáveis e reiniciar o app |
-| Reset de senha não funciona | SMTP não configurado | Configurar variáveis `SMTP_*` |
+| Reset de senha não funciona | E-mail não configurado | Configurar `EMAIL_REMETENTE` e `SENHA_EMAIL`/`SENHA_REMETENTE` |
 | Erro de migration | Schema incompatível após rollback manual | Verificar logs; migrations são idempotentes mas não fazem rollback automático |
 | PWA não instala | `manifest.json` não acessível | Verificar se a pasta `static/` está corretamente incluída no deploy |
 | Timezone incorreto no calendário | JS bloqueado pelo browser | Usar o seletor manual de timezone no menu lateral |
+
+### Changelog
+
+- `4.0` — 2026-07-19 — Pré-requisitos, variáveis reais e descrição de sessão atualizados.
+- `3.6` — 2026-05-12 — Ajustada a seção de troubleshoot e variáveis de ambiente da v3.6.
+- `3.5` — — Versão base.
+
+### Relacionados
+
+- [[04_arquitetura]]
+- [[06_modulos_tecnicos]]

@@ -10,6 +10,7 @@ import bcrypt
 import pandas as pd
 
 from db.db_schema import db_connect, get_table_columns, table_exists
+from utils.cache_utils import clear_data_cache
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,7 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil: str = "particip
                 )
             cur.close()
             conn.commit()
+        clear_data_cache()
         return True
     except Exception as exc:
         logger.warning("cadastrar_usuario falhou: %s", exc)
@@ -144,6 +146,7 @@ def update_user_email(user_id: int, novo_email: str) -> bool:
             )
             cur.close()
             conn.commit()
+        clear_data_cache()
         logger.info("Email do usuário %s atualizado", user_id)
         return True
     except Exception as exc:
@@ -173,6 +176,7 @@ def update_user_password(user_id: int, nova_senha: str, must_change_password: bo
                 )
             cur.close()
             conn.commit()
+        clear_data_cache()
         logger.info("Senha do usuário %s atualizada", user_id)
         return True
     except Exception as exc:
@@ -187,18 +191,15 @@ def update_usuario(user_id: int, **campos) -> bool:
     if campos_invalidos:
         logger.error("update_usuario: colunas não permitidas rejeitadas: %s", campos_invalidos)
         raise ValueError(f"Colunas não permitidas em update_usuario: {campos_invalidos}")
+    set_clause = ", ".join(f"{k} = %s" for k in campos)
+    values = list(campos.values()) + [user_id]
     try:
         with db_connect() as conn:
             cur = conn.cursor()
-            cols = set(get_table_columns(conn, "usuarios"))
-            campos = {k: v for k, v in campos.items() if k in cols}
-            if not campos:
-                return False
-            set_clause = ", ".join(f"{k} = %s" for k in campos)
-            values = list(campos.values()) + [user_id]
             cur.execute(f"UPDATE usuarios SET {set_clause} WHERE id = %s", values)
             cur.close()
             conn.commit()
+        clear_data_cache()
         return True
     except Exception as exc:
         logger.error("update_usuario falhou: %s", exc)
@@ -212,6 +213,7 @@ def delete_usuario(user_id: int) -> bool:
             cur.execute("DELETE FROM usuarios WHERE id = %s", (user_id,))
             cur.close()
             conn.commit()
+        clear_data_cache()
         return True
     except Exception as exc:
         logger.error("delete_usuario falhou: %s", exc)
@@ -281,6 +283,7 @@ def registrar_historico_status_usuario(
         )
         cursor.close()
         conn.commit()
+    clear_data_cache()
 
 
 def get_usuario_temporadas_ativas(user_id: int) -> list[str]:

@@ -1,17 +1,22 @@
 ---
-tags: [bf1, sdd, especificacao-funcional]
-status: produção
-versao: 3.6
-data_revisao: 2026-05-03
+tipo: spec
+area: bf1
+status: implementado
+versao: 4.0
+atualizado: 2026-07-19
+relacionados:
+  - "[[02_regras_de_negocio]]"
+  - "[[04_arquitetura]]"
+  - "[[MAPA_MENTAL_MODULOS]]"
+  - "[[05_projeto]]"
+tags: [spec, "area/bf1", "status/implementado"]
+aliases: ["Especificação Funcional"]
 ---
 
 # Especificação Funcional — BF1
 
-> [!info] Navegação SDD
-> - Regras de negócio: [[02_regras_de_negocio]]
-> - Arquitetura: [[04_arquitetura]]
-> - Módulos: [[MAPA_MENTAL_MODULOS]]
-> - Projeto: [[05_projeto]]
+> [!info] Status
+> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[02_regras_de_negocio]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]], [[05_projeto]]
 
 ---
 
@@ -19,7 +24,7 @@ data_revisao: 2026-05-03
 
 ### 1.1 Login
 - **Entrada**: e-mail e senha.
-- **Processamento**: valida credenciais contra hash bcrypt; emite JWT com claims `user_id`, `perfil`, `nome`; persiste token em cookie seguro.
+- **Processamento**: valida credenciais contra hash bcrypt; emite JWT HS256 com `user_id`, `perfil`, `nome`, `status` e expiração de 120 minutos; mantém o token na sessão Streamlit e usa o gerenciador de cookies como suporte.
 - **Saída**: redireciona para "Painel do Participante".
 - **Erro**: mensagem de credenciais inválidas; rate limiting aplicado.
 
@@ -43,8 +48,8 @@ Exibe resumo da temporada atual: próxima prova, última aposta, posição na cl
 
 | Aba                     | Conteúdo                             | Perfil              |
 |-------------------------|--------------------------------------|---------------------|
-| Visão Geral             | Resumo da temporada corrente         | Todos               | 
-| Histórico por Temporada | Detalhes de cada temporada           | Todos com histórico |
+| Apostas                  | Aposta da temporada selecionada       | Ativos               |
+| Apostas - AAAA           | Histórico da temporada selecionada| Todos com histórico |
 | **Histórico**           | Consolidado multi-temporada *(v3.6)* | Todos com histórico |
 | Minha Conta             | Dados pessoais e senha               | Todos               |
 
@@ -82,7 +87,6 @@ Acesso: todos os perfis ativos; inativos com histórico.
 ### 2.6 Classificação (`ui/classificacao.py`)
 - Tabela com posição geral, pontos totais, pontos com descarte e variação de posição.
 - Filtro por temporada.
-- Não recalcula pontuação automaticamente a cada render da tela; usa dados persistidos e oferece ação manual "Recalcular classificação desta temporada".
 - Acesso: todos.
 
 ### 2.7 Hall da Fama (`ui/hall_da_fama.py`)
@@ -116,8 +120,8 @@ Acesso: todos os perfis ativos; inativos com histórico.
 - Acesso: `admin`, `master`.
 
 ### 2.14 Gestão de Regras (`ui/gestao_regras.py`)
-- CRUD de regras por `(temporada, tipo_prova)`.
-- Campos: tabela de pontos, bônus 11º, penalidades, fichas, restrição de equipe.
+- CRUD de regras nomeadas e associação de cada temporada a uma regra.
+- Campos: tabelas normal/sprint, bônus 11º e campeonato, penalidades, descarte, fichas e restrição de equipe.
 - Acesso: `master`.
 
 ### 2.15 Log de Apostas (`ui/log_apostas.py`)
@@ -146,21 +150,23 @@ Acesso: todos os perfis ativos; inativos com histórico.
 
 ## 3. Serviços (Services)
 
-| Arquivo                   | Responsabilidade                                                    |
-|---------------------------|---------------------------------------------------------------------|
-| `auth_service.py`         | Emissão, decodificação e validação de JWT; gerenciamento de cookies |
-| `bets_rules.py`           | Validação da composição de apostas e ajuste automático para regras  |
-| `bets_scoring.py`         | Cálculo de pontuação detalhada/em lote e salvamento de classificação por prova |
-| `bets_write.py`           | Persistência de apostas no banco                                    |
-| `bets_ai.py`              | Geração de apostas automáticas para participantes ausentes          |
-| `championship_service.py` | Lógica de apostas e resultado de campeonato                         |
-| `rules_service.py`        | Recuperação das regras aplicáveis por temporada/tipo                |
-| `results_service.py`      | Registro de resultados e disparo de recálculo                       |
-| `email_service.py`        | Envio de notificações por e-mail                                    |
-| `hall_da_fama_service.py` | Consolidação do histórico de campeões                               |
-| `painel_controller.py`    | Dados do painel do participante                                     |
-| `historico_service.py`    | Consolidação do histórico multi-temporada do participante *(v3.6)*  |
-| `data_access_*.py`        | Camada de acesso a dados (queries SQL por domínio)                  |
+| Arquivo                           | Responsabilidade                                                    |
+|-----------------------------------|---------------------------------------------------------------------|
+| `auth_service.py`                 | Emissão, decodificação e validação de JWT; gerenciamento de cookies |
+| `bets_rules.py`                   | Validação da composição de apostas e ajuste automático para regras  |
+| `bets_scoring.py`                 | Cálculo de pontuação e salvamento de classificação por prova        |
+| `bets_write.py`                   | Persistência de apostas no banco                                    |
+| `bets_ai.py`                      | Geração de apostas automáticas para participantes ausentes          |
+| `championship_service.py`         | Lógica de apostas e resultado de campeonato                         |
+| `rules_service.py`                | Recuperação das regras aplicáveis por temporada/tipo                |
+| `results_service.py`              | Registro de resultados e disparo de recálculo                       |
+| `email_service.py`                | Envio de notificações por e-mail                                    |
+| `result_notification_service.py`  | Envio de notificações de resultado da prova por e-mail              |
+| `hall_da_fama_service.py`         | Consolidação do histórico de campeões                               |
+| `hall_da_fama_controller.py`      | Lógica de apresentação do ranking do Hall da Fama                   |
+| `painel_controller.py`            | Dados do painel do participante                                     |
+| `historico_service.py`            | Consolidação do histórico multi-temporada do participante *(v3.6)*  |
+| `data_access_*.py`                | Camada de acesso a dados (queries SQL por domínio)                  |
 
 > [!tip] `historico_service.py` — contrato público
 > - `calcular_resumo_historico(usuario_id: int) -> ResumoHistorico`
@@ -221,14 +227,6 @@ Admin registra posições dos pilotos
   → Classificação é atualizada automaticamente
 ```
 
-### Fluxo: Classificação
-```
-Usuário acessa ui/classificacao.py
-  → Tela lê apostas/resultados/classificações persistidas da temporada
-  → Pontos por prova são calculados em lote apenas para exibição
-  → Reprocessamento persistido só ocorre por evento de resultado/regra ou pelo botão manual
-```
-
 ### Fluxo: Aposta Automática
 ```
 Horário limite da prova é atingido
@@ -242,9 +240,22 @@ Horário limite da prova é atingido
 ```
 Participante acessa aba "Histórico" no Painel
   → ui/painel.py chama historico_service.calcular_resumo_historico(usuario_id)
-  → historico_service carrega posicoes_participantes + apostas + resultados uma vez e agrupa por temporada
-  → parse_posicoes_safe()/JSONB normaliza chaves para int
+  → historico_service consulta posicoes_participantes + apostas (todas as temporadas)
+  → _parse_posicoes() normaliza chaves para int
   → Retorna ResumoHistorico (dataclass) → exibido como st.metric
   → ui/painel.py chama historico_service.calcular_dados_grafico(usuario_id)
   → Retorna DadosGrafico (dataclass) → gráfico Plotly + destaque do piloto
 ```
+
+### Changelog
+
+- `4.0` — 2026-07-19 — Contratos de autenticação, abas e regras atualizados conforme a implementação.
+- `3.6` — 2026-05-03 — Adicionado fluxo do Histórico Consolidado e `historico_service.py`.
+- `3.5` — — Versão base.
+
+### Relacionados
+
+- [[02_regras_de_negocio]]
+- [[04_arquitetura]]
+- [[MAPA_MENTAL_MODULOS]]
+- [[05_projeto]]

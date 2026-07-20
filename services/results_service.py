@@ -1,4 +1,7 @@
 import pandas as pd
+import json
+import ast
+from datetime import datetime
 import logging
 from db.db_schema import db_connect
 from db.repo_races import get_provas_df, get_resultados_df
@@ -7,6 +10,7 @@ from db.migrations_native_types import (
     posicoes_to_json,
     sync_resultado_native,
 )
+from utils.cache_utils import clear_data_cache
 
 
 logger = logging.getLogger(__name__)
@@ -55,6 +59,7 @@ def salvar_resultado_prova(prova_id: int, posicoes: dict) -> bool:
             # Sincroniza coluna JSONB nativa (sem rollback se coluna não existir)
             sync_resultado_native(conn, prova_id)
             conn.commit()
+            clear_data_cache()
             return True
     except Exception as e:
         logger.exception("Erro ao salvar resultado da prova %s: %s", prova_id, e)

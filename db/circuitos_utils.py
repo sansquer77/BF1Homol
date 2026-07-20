@@ -9,6 +9,7 @@ from typing import Iterable
 import requests
 
 from db.db_schema import db_connect, get_table_columns
+from utils.cache_utils import clear_data_cache
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,7 @@ def atualizar_base_circuitos(seasons: Iterable[str]) -> dict[str, int]:
             )
         conn.commit()
 
+    clear_data_cache()
     logger.info("✓ Base de circuitos atualizada: %s temporadas, %s circuitos", processed, len(merged))
     return {"temporadas": processed, "circuitos": len(merged)}
 

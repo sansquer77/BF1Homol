@@ -1,17 +1,22 @@
 ---
-tags: [bf1, sdd, arquitetura]
-status: produção
-versao: 3.6
-data_revisao: 2026-05-03
+tipo: arquitetura
+area: bf1
+status: implementado
+versao: 4.0
+atualizado: 2026-07-19
+relacionados:
+  - "[[01_necessidade]]"
+  - "[[02_regras_de_negocio]]"
+  - "[[03_spec]]"
+  - "[[MAPA_MENTAL_MODULOS]]"
+tags: [arquitetura, "area/bf1", "status/implementado"]
+aliases: ["Arquitetura do Sistema"]
 ---
 
 # Arquitetura do Sistema — BF1
 
-> [!info] Navegação SDD
-> - Visão geral: [[01_necessidade]]
-> - Regras: [[02_regras_de_negocio]]
-> - Especificação: [[03_spec]]
-> - Módulos: [[MAPA_MENTAL_MODULOS]]
+> [!info] Status
+> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
 
 ## Visão Geral
 
@@ -66,7 +71,7 @@ O BF1 é uma aplicação web **monolítica stateless** construída com **Streaml
 ## Estrutura de Diretórios
 
 ```
-3.6/
+BF1/
 ├── main.py                    # Entry point: router, menu, auth guard
 ├── requirements.txt           # Dependências Python
 ├── assets/
@@ -141,16 +146,19 @@ posicoes_participantes
   posicao, pontos, temporada
 
 regras
-  id, temporada, tipo_prova, qtd_minima_pilotos,
+  id, nome_regra, qtd_minima_pilotos,
   quantidade_fichas, fichas_por_piloto, mesma_equipe,
   pontos_11_colocado, penalidade_abandono, pontos_penalidade,
-  pontos_dobrada, pontos_posicoes (json), pontos_sprint_posicoes (json)
-  UNIQUE(temporada, tipo_prova)
+  pontos_dobrada, pontos_posicoes (json), pontos_sprint_posicoes (json),
+  pontos_campeao, pontos_vice, pontos_equipe
+
+temporadas_regras
+  temporada (PK), regra_id → regras
 ```
 
 > [!warning] Normalização de chaves em `posicoes`
-> O resultado pode estar em `posicoes_jsonb` (preferencial) ou na coluna legada `posicoes`.
-> **Sempre** preferir `posicoes_jsonb` quando disponível e usar `parse_posicoes_safe()` (ou helper equivalente) para normalizar chaves para `int` antes de qualquer lookup de posição (ex.: detecção do 11º colocado).
+> O campo `posicoes` do resultado pode ter chaves `int` ou `str` dependendo da inserção.
+> **Sempre** usar `_parse_posicoes()` de `historico_service.py` (ou equivalente) para normalizar para `int` antes de qualquer lookup de posição (ex.: detecção do 11º colocado).
 
 ---
 
@@ -161,10 +169,9 @@ regras
 - **Justificativa**: equipe pequena, ciclo de desenvolvimento rápido, interface adequada para dashboards e formulários.
 - **Trade-off**: limitações de UX avançado são contornadas com CSS customizado (Liquid Glass) e injeção de JavaScript via `st.markdown(unsafe_allow_html=True)`.
 
-### 2. Stateless com JWT + Cookies
-- **Decisão**: autenticação via JWT persistido em cookie HttpOnly.
-- **Justificativa**: a App Platform da DigitalOcean pode escalar horizontalmente (múltiplas instâncias); sessão não pode depender de estado em memória.
-- **Implementação**: `session_state` do Streamlit é rehidratado a partir do cookie a cada rerun.
+### 2. JWT e sessão Streamlit
+- **Decisão**: autenticação por JWT HS256 assinado com `JWT_SECRET`, com expiração de 120 minutos.
+- **Implementação atual**: o roteador valida o token em `st.session_state`; `extra-streamlit-components` oferece suporte a cookies, mas o fluxo principal não reidrata automaticamente uma sessão ausente a partir deles.
 
 ### 3. Pool de Conexões PostgreSQL
 - **Decisão**: `connection_pool.py` gerencia um pool de conexões com `psycopg2`.
@@ -189,15 +196,6 @@ regras
 - **Decisão**: `historico_service.py` retorna `@dataclass` tipados, sem importar Streamlit.
 - **Justificativa**: garante testabilidade isolada da lógica de negócio do histórico, independente do ciclo de rerun do Streamlit.
 
-### 8. Escritas via Services/Repositórios
-- **Decisão**: telas Streamlit não devem conter SQL de escrita de domínio quando já existir função em `services/` ou `db/repo_*`.
-- **Justificativa**: centraliza validação, tratamento de schema evolutivo e invalidação de cache, reduzindo regressões em formulários.
-- **Exemplos**: gestão de provas/pilotos usa `db.repo_races`; gestão de usuários usa `db.repo_users` via fachada `services.data_access_auth`.
-
-### 9. Reprocessamento Sob Demanda
-- **Decisão**: telas de leitura não devem chamar rotinas persistentes caras a cada rerun do Streamlit.
-- **Justificativa**: ações como `bets_scoring.atualizar_classificacoes_todas_as_provas()` fazem leitura ampla e escrita em `posicoes_participantes`; devem ser disparadas por eventos de alteração ou botão explícito.
-
 ---
 
 ## Infraestrutura (DigitalOcean)
@@ -206,14 +204,14 @@ regras
 |-----------------------|---------------------------------|------------------------------------------|
 | Aplicação             | App Platform (Web Service)      | Container gerenciado, deploy via GitHub  |
 | Banco de Dados        | Managed PostgreSQL              | Backups automáticos, SSL obrigatório     |
-| Variáveis de Ambiente | App Platform Env Vars           | `DATABASE_URL`, `SECRET_KEY`, `MASTER_*` |
+| Variáveis de Ambiente | App Platform Env Vars           | `DATABASE_URL`, `JWT_SECRET`, `MASTER_*` |
 | CI/CD                 | Auto-deploy no push para `main` | Sem pipeline adicional necessário        |
 
 ### Variáveis de Ambiente Obrigatórias
 
 ```
 DATABASE_URL        # Connection string PostgreSQL
-SECRET_KEY          # Chave de assinatura JWT
+JWT_SECRET          # Chave HS256 (mínimo 32 bytes)
 MASTER_EMAIL        # Email do usuário master inicial
 MASTER_PASSWORD     # Senha do usuário master inicial
 MASTER_NOME         # Nome do usuário master inicial
@@ -224,8 +222,21 @@ MASTER_NOME         # Nome do usuário master inicial
 ## Segurança
 
 - **Senhas**: bcrypt com salt automático (nunca texto claro).
-- **Tokens**: JWT HS256 com expiração configurável.
+- **Tokens**: JWT HS256 com expiração fixa de 120 minutos no código atual.
 - **Guard de rotas**: verificação de perfil em todas as rotas protegidas.
 - **Rate limiting**: aplicado na autenticação para mitigar força bruta.
 - **Credenciais**: nunca no código — sempre via variáveis de ambiente.
 - **HTTPS**: garantido pela App Platform da DigitalOcean.
+
+### Changelog
+
+- `4.0` — 2026-07-19 — Modelo de regras, autenticação, diretórios e variáveis atualizados.
+- `3.6` — 2026-05-03 — Integração do `historico_service.py` na arquitetura e documentação de normalização.
+- `3.5` — — Versão base.
+
+### Relacionados
+
+- [[01_necessidade]]
+- [[02_regras_de_negocio]]
+- [[03_spec]]
+- [[MAPA_MENTAL_MODULOS]]
