@@ -44,7 +44,7 @@ Configure as variáveis abaixo no painel da App Platform → **Settings → Envi
 | `MASTER_EMAIL` | ✅ | Email do usuário master criado no primeiro boot |
 | `MASTER_PASSWORD` | ✅ | Senha inicial do usuário master (será hashada com bcrypt) |
 | `MASTER_NOME` | ✅ | Nome de exibição do usuário master |
-| `COOKIE_BACKEND_SUPPORTS_HTTPONLY` | ✅ | `true` somente após confirmar que o backend emite `HttpOnly` |
+| `COOKIE_BACKEND_SUPPORTS_HTTPONLY` | Não | Mantenha `false` com o componente atual; `true` exige backend HTTP server-side comprovado |
 | `TRUSTED_PROXY_MODE` | ✅ | `direct`, `xff` ou `x-real-ip`; padrão seguro `direct` |
 | `TRUSTED_PROXY_HOPS` | se `xff` | Saltos confiáveis contados da direita do XFF |
 | `LOGIN_ATTEMPTS_RETENTION_DAYS` | Não | Retenção das tentativas; padrão 30 dias |
@@ -149,7 +149,9 @@ O sistema armazena todos os horários em **`America/Sao_Paulo`** no banco de dad
 - **JWT**: HS256 com expiração de 120 minutos e assinatura via `JWT_SECRET`
 - **Rate Limiting**: aplicado na autenticação para mitigar força bruta
 - **Autorização em profundidade**: páginas usam `PAGE_ACCESS`; escritas sensíveis revalidam contexto e usam `OPERATION_ACCESS` na camada de serviço.
-- **Sessão**: o roteador valida o JWT mantido no `session_state`; há suporte auxiliar a cookies via `extra-streamlit-components`.
+- **Sessão**: o roteador valida o JWT revogável no `session_state`. O componente client-side de cookies não oferece `HttpOnly`, portanto não é usado para persistência autenticada; uma recarga completa exige novo login.
+- **CSRF/CORS**: `server.enableXsrfProtection` e `server.enableCORS` permanecem habilitados. Não desative CORS para eliminar avisos, pois o Streamlit o reativa quando XSRF está ativo.
+- **Domínio público**: em deploy com domínio personalizado, configure `browser.serverAddress` e, quando necessário, `server.corsAllowedOrigins` com as origens HTTPS públicas exatas.
 
 ---
 
@@ -166,7 +168,7 @@ O sistema armazena todos os horários em **`America/Sao_Paulo`** no banco de dad
 
 ### Changelog
 
-- `4.2` — 2026-07-20 — Configuração obrigatória de cookie/proxy e janelas de retenção.
+- `4.2` — 2026-07-20 — Configuração de cookie/proxy, retenção e alinhamento explícito de CORS com XSRF.
 - `4.1` — 2026-07-20 — Operação documentada com matrizes centralizadas e autorização no serviço.
 - `4.0` — 2026-07-19 — Pré-requisitos, variáveis reais e descrição de sessão atualizados.
 - `3.6` — 2026-05-12 — Ajustada a seção de troubleshoot e variáveis de ambiente da v3.6.

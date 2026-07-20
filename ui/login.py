@@ -31,7 +31,6 @@ from services.data_access_auth import (
     RESET_LOCKOUT_DURATION
 )
 from services.auth_service import create_token
-from services.auth_service import revoke_token
 from utils.security_utils import normalize_email_identifier
 
 logger = logging.getLogger(__name__)
@@ -411,12 +410,10 @@ def login_view():
             try:
                 clear_auth_cookies()
             except Exception as exc:
-                logger.error("Nao foi possivel encerrar a sessao anterior com cookie seguro: %s", exc)
-                revoke_token(token)
-                for key in ("token", "user_id", "user_email", "user_nome", "user_role", "user_status"):
-                    st.session_state.pop(key, None)
-                st.error("❌ Não foi possível estabelecer o contrato seguro de sessão.")
-                return
+                # O componente client-side nao consegue emitir HttpOnly. A
+                # revogacao server-side ja ocorreu; seguimos com a sessao do
+                # WebSocket sem criar um cookie com garantias reduzidas.
+                logger.warning("Cookie persistente seguro indisponivel; sessao anterior revogada apenas no servidor: %s", exc)
             for key in ("token", "user_id", "user_email", "user_nome", "user_role", "user_status"):
                 st.session_state.pop(key, None)
 
@@ -435,12 +432,10 @@ def login_view():
             try:
                 set_auth_cookies(token)
             except Exception as cookie_error:
-                revoke_token(token)
-                for key in ("token", "user_id", "user_email", "user_nome", "user_role", "user_status"):
-                    st.session_state.pop(key, None)
-                logger.error("Falha ao persistir cookie seguro; login cancelado: %s", cookie_error)
-                st.error("❌ Não foi possível estabelecer o cookie seguro de sessão.")
-                return
+                logger.warning(
+                    "Cookie HttpOnly nao emitido; autenticacao mantida somente na sessao Streamlit revogavel: %s",
+                    cookie_error,
+                )
 
             # Registrar sucesso
             registrar_tentativa_login(email, True, ip_address=client_ip, action="login")

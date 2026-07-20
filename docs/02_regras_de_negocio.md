@@ -23,7 +23,7 @@ aliases: ["Regras de Negócio"]
 - Existem 4 perfis: `master`, `admin`, `participante`, `inativo`.
 - Cada rota/página e cada operação sensível possui uma matriz central de perfis autorizados.
 - Escritas administrativas revalidam token, usuário, status, perfil e temporada na camada de serviço; valores enviados pela UI não constituem autoridade.
-- A sessão usa cookie obrigatório com `Secure`, `HttpOnly`, `SameSite=Strict` e expiração; incapacidade do backend de preservar esses atributos bloqueia o login.
+- A sessão autenticada usa JWT revogável no `session_state` associado ao WebSocket. Persistência em cookie só pode ser habilitada com backend HTTP capaz de emitir `Secure`, `HttpOnly`, `SameSite=Strict` e expiração; o componente JavaScript atual não é tratado como autoridade nem cria cookie degradado.
 - JWTs possuem `jti` e versão persistida. Novo login rotaciona/revoga JTIs anteriores; logout revoga o atual; troca ou redefinição de senha revoga todas as sessões.
 - E-mails usados no rate limiting são normalizados e limitados a 254 caracteres antes de consultas ou gravações.
 - Usuário com `status != 'ativo'` ou `perfil == 'inativo'` é tratado como **inativo**, independente do perfil cadastrado.

@@ -25,7 +25,7 @@ aliases: ["Especificação Funcional"]
 ### 1.1 Login
 - **Entrada**: e-mail e senha.
 - **Processamento**: normaliza e limita o e-mail antes do rate limiting; valida bcrypt; emite JWT HS256 com `user_id`, perfil, status, `jti`, versão de sessão e expiração de 120 minutos.
-- **Cookie obrigatório**: `Secure`, `HttpOnly`, `SameSite=Strict`, caminho `/` e expiração igual à sessão. Falha de persistência cancela e revoga o login.
+- **Transporte atual**: JWT revogável no `session_state`/WebSocket. Ausência de backend server-side para cookie `HttpOnly` não invalida credenciais corretas e não produz cookie com atributos reduzidos; apenas desabilita persistência após recarga completa.
 - **Rotação e revogação**: novo login revoga JTIs anteriores; logout revoga o atual; troca/redefinição de senha incrementa a versão e revoga todas as sessões.
 - **Saída**: redireciona para "Painel do Participante".
 - **Contexto autenticado**: operações sensíveis revalidam o token e carregam do banco usuário, perfil, status e temporadas autorizadas.

@@ -224,7 +224,7 @@ MASTER_NOME         # Nome do usuário master inicial
 - **Senhas**: bcrypt com salt automático (nunca texto claro).
 - **Tokens**: JWT HS256 com expiração fixa de 120 minutos no código atual.
 - **Sessões**: `auth_sessions` registra `jti`, usuário, versão, emissão, expiração e revogação.
-- **Cookie**: contrato obrigatório `Secure`/`HttpOnly`/`SameSite=Strict`; não há fallback com atributos reduzidos.
+- **Cookie**: `extra-streamlit-components` é client-side e não consegue emitir `HttpOnly`; por isso não é usado como autoridade nem recebe fallback reduzido. Persistência depende de futuro endpoint server-side.
 - **Proxy**: headers de IP só são confiados com `TRUSTED_PROXY_MODE` e topologia explícita; o padrão `direct` ignora headers.
 - **Retenção**: o bootstrap remove tentativas, logs, tokens expirados e sessões antigas conforme configuração.
 - **Autorização em profundidade**: `access_control.py` revalida o usuário e centraliza matrizes de páginas/operações.
