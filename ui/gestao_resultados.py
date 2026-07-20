@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import ast
 
-from services.data_access_core import db_connect, get_table_columns
+from services.admin_operations import admin_save_resultado
 from services.data_access_provas import get_pilotos_df, get_provas_df, get_resultados_df
 from services.bets_scoring import atualizar_classificacoes_todas_as_provas
 from services.result_notification_service import enviar_emails_resultado_prova
@@ -138,63 +138,7 @@ def resultados_view():
         if erro:
             st.error(erro)
         else:
-            with db_connect() as conn:
-                c = conn.cursor()
-                # Detecta colunas existentes para inserir corretamente
-                cols = get_table_columns(conn, 'resultados')
-                abandono_str = ','.join(abandono_pilotos) if abandono_pilotos else ''
-
-                if 'temporada' in cols:
-                    c.execute('SELECT 1 FROM resultados WHERE prova_id=%s AND (temporada=%s OR temporada IS NULL)', (prova_id, temporada_selecionada))
-                    existe = c.fetchone() is not None
-                    if 'abandono_pilotos' in cols:
-                        if existe:
-                            c.execute(
-                                'UPDATE resultados SET posicoes=%s, abandono_pilotos=%s, temporada=%s WHERE prova_id=%s',
-                                (str(posicoes), abandono_str, temporada_selecionada, prova_id)
-                            )
-                        else:
-                            c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes, abandono_pilotos, temporada) VALUES (%s, %s, %s, %s)',
-                                (prova_id, str(posicoes), abandono_str, temporada_selecionada)
-                            )
-                    else:
-                        if existe:
-                            c.execute(
-                                'UPDATE resultados SET posicoes=%s, temporada=%s WHERE prova_id=%s',
-                                (str(posicoes), temporada_selecionada, prova_id)
-                            )
-                        else:
-                            c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes, temporada) VALUES (%s, %s, %s)',
-                                (prova_id, str(posicoes), temporada_selecionada)
-                            )
-                else:
-                    c.execute('SELECT 1 FROM resultados WHERE prova_id=%s', (prova_id,))
-                    existe = c.fetchone() is not None
-                    if 'abandono_pilotos' in cols:
-                        if existe:
-                            c.execute(
-                                'UPDATE resultados SET posicoes=%s, abandono_pilotos=%s WHERE prova_id=%s',
-                                (str(posicoes), abandono_str, prova_id)
-                            )
-                        else:
-                            c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes, abandono_pilotos) VALUES (%s, %s, %s)',
-                                (prova_id, str(posicoes), abandono_str)
-                            )
-                    else:
-                        if existe:
-                            c.execute(
-                                'UPDATE resultados SET posicoes=%s WHERE prova_id=%s',
-                                (str(posicoes), prova_id)
-                            )
-                        else:
-                            c.execute(
-                                'INSERT INTO resultados (prova_id, posicoes) VALUES (%s, %s)',
-                                (prova_id, str(posicoes))
-                            )
-                conn.commit()
+            admin_save_resultado(int(prova_id), str(temporada_selecionada), posicoes, abandono_pilotos)
             st.success("Resultado salvo!")
             st.cache_data.clear()
             # Atualiza todas as classificações após editar resultados

@@ -4,6 +4,7 @@ import ast
 from datetime import datetime
 import logging
 from db.db_schema import db_connect
+from services.access_control import require_operation
 from db.repo_races import get_provas_df, get_resultados_df
 from db.migrations_native_types import (
     parse_posicoes_safe,
@@ -31,6 +32,7 @@ def _parse_posicoes(posicoes_str: str) -> dict:
 
 
 def salvar_resultado_prova(prova_id: int, posicoes: dict) -> bool:
+    require_operation("resultado.write")
     """
     Salva ou atualiza o resultado de uma prova no banco.
     posicoes: dicionário {posição (int): nome_piloto (str)}, sendo 1 ao 11.

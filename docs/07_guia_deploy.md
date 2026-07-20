@@ -2,8 +2,8 @@
 tipo: metodologia
 area: bf1
 status: implementado
-versao: 4.0
-atualizado: 2026-07-19
+versao: 4.1
+atualizado: 2026-07-20
 relacionados:
   - "[[04_arquitetura]]"
   - "[[06_modulos_tecnicos]]"
@@ -14,7 +14,7 @@ aliases: ["Guia de Deploy e Operações"]
 # Guia de Deploy e Operações — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]]
+> **implementado** · área: `bf1` · atualizado em 2026-07-20 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]]
 
 ---
 
@@ -141,7 +141,7 @@ O sistema armazena todos os horários em **`America/Sao_Paulo`** no banco de dad
 - **Senhas**: bcrypt com salt automático — nunca armazenadas em texto claro
 - **JWT**: HS256 com expiração de 120 minutos e assinatura via `JWT_SECRET`
 - **Rate Limiting**: aplicado na autenticação para mitigar força bruta
-- **Guard de Rotas**: verificação de perfil em todas as rotas protegidas via `ROLE_GUARDS`
+- **Autorização em profundidade**: páginas usam `PAGE_ACCESS`; escritas sensíveis revalidam contexto e usam `OPERATION_ACCESS` na camada de serviço.
 - **Sessão**: o roteador valida o JWT mantido no `session_state`; há suporte auxiliar a cookies via `extra-streamlit-components`.
 
 ---
@@ -159,6 +159,7 @@ O sistema armazena todos os horários em **`America/Sao_Paulo`** no banco de dad
 
 ### Changelog
 
+- `4.1` — 2026-07-20 — Operação documentada com matrizes centralizadas e autorização no serviço.
 - `4.0` — 2026-07-19 — Pré-requisitos, variáveis reais e descrição de sessão atualizados.
 - `3.6` — 2026-05-12 — Ajustada a seção de troubleshoot e variáveis de ambiente da v3.6.
 - `3.5` — — Versão base.

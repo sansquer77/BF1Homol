@@ -200,6 +200,8 @@ def decode_token(token: str):
 # --- REGISTRO DE USUÁRIO ---
 def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", status="Ativo") -> bool:
     """Cria novo usuário, garantindo unicidade de email."""
+    from services.access_control import require_operation
+    require_operation("usuario.write")
     try:
         senha_hashed = hash_password(senha)
         with db_connect() as conn:

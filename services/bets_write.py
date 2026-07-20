@@ -29,6 +29,7 @@ from services.bets_rules import ajustar_aposta_para_regras
 from services.bets_rules import _aposta_valida_regras, pode_fazer_aposta
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
 from utils.performance import measured
+from services.access_control import authorize_context, require_operation, resolve_authenticated_context
 from services.rules_service import get_regras_aplicaveis
 from utils.datetime_utils import now_sao_paulo
 from utils.input_models import BetSubmissionInput, ValidationError
@@ -682,6 +683,12 @@ def salvar_aposta(
         if show_errors and error_reporter is not None:
             error_reporter(message)
 
+    context = resolve_authenticated_context()
+    if int(usuario_id) != context.user_id:
+        require_operation("aposta_admin.write", season=str(temporada))
+    else:
+        usuario_id = context.user_id
+        authorize_context(context, frozenset({"participante", "admin", "master"}), season=str(temporada))
     try:
         payload = BetSubmissionInput(
             usuario_id=usuario_id,

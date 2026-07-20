@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.0
-atualizado: 2026-07-19
+versao: 4.1
+atualizado: 2026-07-20
 relacionados:
   - "[[01_necessidade]]"
   - "[[02_regras_de_negocio]]"
@@ -17,11 +17,17 @@ aliases: ["Referência Técnica de Módulos"]
 # Referência Técnica de Módulos — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]]
+> **implementado** · área: `bf1` · atualizado em 2026-07-20 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]]
 
 ---
 
 ## Ponto de Entrada
+
+| Módulo | Responsabilidade |
+|---|---|
+| `services/access_control.py` | Contexto revalidado e matrizes de páginas/operações |
+| `services/admin_operations.py` | Casos de uso administrativos autorizados |
+| `services/deadlines.py` | Regra pura e fail-closed do prazo de campeonato |
 
 ### `main.py`
 
@@ -317,6 +323,7 @@ Arquivos estáticos servidos diretamente:
 
 ### Changelog
 
+- `4.1` — 2026-07-20 — Contexto autenticado, operações administrativas e deadline puro.
 - `4.0` — 2026-07-19 — Variáveis, contratos do histórico e limites reais entre camadas corrigidos.
 - `3.6` — 2026-05-12 — Adicionados os módulos `result_notification_service.py` e `cache_utils.py` na documentação.
 - `3.5` — — Versão base.

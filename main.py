@@ -284,6 +284,7 @@ from ui.dashboard import main as dashboard_view
 from ui.sobre import main as sobre_view
 from ui.hall_da_fama import hall_da_fama
 from services.auth_service import decode_token, clear_auth_cookies
+from services.access_control import page_is_allowed
 
 # ============ ESTADO INICIAL DA SESSÃO ============
 if 'pagina' not in st.session_state:
@@ -544,18 +545,6 @@ def get_payload():
     return payload
 
 
-ROLE_GUARDS = {
-    "Gestão de Usuários": ("master",),
-    "Gestão de Regras": ("master",),
-    "Backup dos Bancos de Dados": ("master",),
-    "Log de Acessos": ("master",),
-    "Gestão de Pilotos": ("admin", "master"),
-    "Gestão de Provas": ("admin", "master"),
-    "Gestão de Apostas": ("admin", "master"),
-    "Atualização de resultados": ("admin", "master"),
-    "Resultado Campeonato": ("admin", "master"),
-}
-
 INATIVO_ALLOWED_PAGES_WITH_HISTORY = {
     "Painel do Participante",
     "Calendário (" + str(datetime.datetime.now().year) + ")",
@@ -690,9 +679,8 @@ def _enforce_route_guard(pagina: str):
         st.session_state["allowed_seasons"] = []
         st.session_state["inactive_has_history"] = False
 
-    allowed_roles = ROLE_GUARDS.get(pagina)
     perfil_efetivo = st.session_state.get("user_role", perfil_usuario)
-    if allowed_roles and perfil_efetivo not in allowed_roles:
+    if not page_is_allowed(pagina, str(perfil_efetivo)):
         st.error("Acesso negado: você não possui permissão para esta página.")
         st.session_state["pagina"] = "Painel do Participante"
         st.stop()

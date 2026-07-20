@@ -8,10 +8,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from services.data_access_core import (
-    db_connect,
-    get_table_columns,
-)
+from services.admin_operations import admin_add_prova, admin_delete_prova, admin_update_prova
 from services.data_access_provas import (
     get_provas_df,
     atualizar_base_circuitos,
@@ -217,30 +214,9 @@ def _render_aba_editar(df: pd.DataFrame):
     with col1:
         if st.button("🔄 Atualizar prova", key="btn_update_prova", type="primary"):
             horario_str = novo_horario.strftime("%H:%M:%S")
-            with db_connect() as conn:
-                c = conn.cursor()
-                cols = get_table_columns(conn, 'provas')
-                if "temporada" in cols and "circuit_id" in cols:
-                    c.execute(
-                        "UPDATE provas SET nome=%s, data=%s, horario_prova=%s, status=%s, tipo=%s, temporada=%s, circuit_id=%s WHERE id=%s",
-                        (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, nova_temporada, novo_circuito_id, prova_id)
-                    )
-                elif "temporada" in cols:
-                    c.execute(
-                        "UPDATE provas SET nome=%s, data=%s, horario_prova=%s, status=%s, tipo=%s, temporada=%s WHERE id=%s",
-                        (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, nova_temporada, prova_id)
-                    )
-                elif "circuit_id" in cols:
-                    c.execute(
-                        "UPDATE provas SET nome=%s, data=%s, horario_prova=%s, status=%s, tipo=%s, circuit_id=%s WHERE id=%s",
-                        (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, novo_circuito_id, prova_id)
-                    )
-                else:
-                    c.execute(
-                        "UPDATE provas SET nome=%s, data=%s, horario_prova=%s, status=%s, tipo=%s WHERE id=%s",
-                        (novo_nome, nova_data.strftime('%Y-%m-%d'), horario_str, novo_status, novo_tipo, prova_id)
-                    )
-                conn.commit()
+            if not admin_update_prova(prova_id, temporada=nova_temporada, nome=novo_nome, data=nova_data.strftime('%Y-%m-%d'), horario_prova=horario_str, status=novo_status, tipo=novo_tipo, circuit_id=novo_circuito_id):
+                st.error("❌ Não foi possível atualizar a prova.")
+                return
             
             st.success("✅ Prova atualizada com sucesso!")
             st.cache_data.clear()
@@ -249,10 +225,9 @@ def _render_aba_editar(df: pd.DataFrame):
     # Botão: Excluir
     with col2:
         if st.button("🗑️ Excluir prova", key="btn_delete_prova"):
-            with db_connect() as conn:
-                c = conn.cursor()
-                c.execute("DELETE FROM provas WHERE id=%s", (prova_id,))
-                conn.commit()
+            if not admin_delete_prova(prova_id, str(prova_row.get("temporada", ""))):
+                st.error("❌ Não foi possível excluir a prova.")
+                return
             
             st.success("✅ Prova exluída com sucesso!")
             st.cache_data.clear()
@@ -310,54 +285,12 @@ def _render_aba_adicionar():
         else:
             data_nova_str = data_nova.strftime('%Y-%m-%d')
             horario_str_novo = horario_novo.strftime("%H:%M:%S")
-            with db_connect() as conn:
-                c = conn.cursor()
-                cols = get_table_columns(conn, 'provas')
-                
-                # Verificar duplicidade (nome + data + temporada)
-                if "temporada" in cols:
-                    c.execute(
-                        "SELECT COUNT(*) AS cnt FROM provas WHERE nome = %s AND data = %s AND temporada = %s",
-                        (nome_novo, data_nova_str, temporada_nova)
-                    )
-                else:
-                    c.execute(
-                        "SELECT COUNT(*) AS cnt FROM provas WHERE nome = %s AND data = %s",
-                        (nome_novo, data_nova_str)
-                    )
-                
-                if c.fetchone()['cnt'] > 0:
-                    st.error(f"❌ Já existe uma prova cadastrada com este nome e data para a temporada {temporada_nova}.")
-                else:
-                    # Inserir nova prova
-                    if "temporada" in cols and "circuit_id" in cols:
-                        c.execute(
-                            '''INSERT INTO provas (nome, data, horario_prova, status, tipo, temporada, circuit_id)
-                               VALUES (%s, %s, %s, %s, %s, %s, %s)''',
-                            (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo, temporada_nova, circuito_sel_id)
-                        )
-                    elif "temporada" in cols:
-                        c.execute(
-                            '''INSERT INTO provas (nome, data, horario_prova, status, tipo, temporada)
-                               VALUES (%s, %s, %s, %s, %s, %s)''',
-                            (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo, temporada_nova)
-                        )
-                    elif "circuit_id" in cols:
-                        c.execute(
-                            '''INSERT INTO provas (nome, data, horario_prova, status, tipo, circuit_id)
-                               VALUES (%s, %s, %s, %s, %s, %s)''',
-                            (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo, circuito_sel_id)
-                        )
-                    else:
-                        c.execute(
-                            '''INSERT INTO provas (nome, data, horario_prova, status, tipo)
-                               VALUES (%s, %s, %s, %s, %s)''',
-                            (nome_novo, data_nova_str, horario_str_novo, status_novo, tipo_novo)
-                        )
-                    conn.commit()
-                    st.success("✅ Prova adicionada com sucesso!")
-                    st.cache_data.clear()
-                    st.rerun()
+            if admin_add_prova(nome=nome_novo, data=data_nova_str, horario_prova=horario_str_novo, status=status_novo, tipo=tipo_novo, temporada=temporada_nova, circuit_id=circuito_sel_id):
+                st.success("✅ Prova adicionada com sucesso!")
+                st.cache_data.clear()
+                st.rerun()
+            else:
+                st.error(f"❌ Não foi possível cadastrar a prova; verifique duplicidade na temporada {temporada_nova}.")
 
 
 def main():

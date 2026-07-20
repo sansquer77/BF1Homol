@@ -11,6 +11,7 @@ import pandas as pd
 
 from db.db_schema import db_connect, get_table_columns
 from services.rules_service import get_regras_aplicaveis
+from services.access_control import require_operation
 from utils.datetime_utils import parse_datetime_sao_paulo
 from utils.cache_utils import clear_data_cache
 
@@ -208,10 +209,12 @@ def _salvar_classificacoes_provas_lote(classificacoes: list[tuple[int, pd.DataFr
 def salvar_classificacao_prova(p_id, df_c, temp=None):
     if temp is None:
         temp = str(datetime.now().year)
+    require_operation("resultado.write", season=str(temp))
     _salvar_classificacoes_provas_lote([(int(p_id), df_c, str(temp))])
 
 
 def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
+    require_operation("resultado.write", season=str(temporada) if temporada is not None else None)
     import traceback
     try:
         with db_connect() as conn:

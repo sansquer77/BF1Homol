@@ -4,6 +4,7 @@ Funções para adicionar, editar e deletar registros de classificações
 """
 
 import logging
+from services.access_control import require_operation
 from datetime import datetime
 from typing import Optional
 from db.db_schema import db_connect
@@ -12,6 +13,7 @@ logger = logging.getLogger("services.hall_da_fama")
 
 
 def adicionar_resultado_historico(usuario_id: int, posicao: int, temporada: str) -> dict:
+    require_operation("hall_da_fama.write", season=str(temporada))
     """
     Adiciona um novo resultado histórico (posição em uma temporada).
     
@@ -81,6 +83,7 @@ def adicionar_resultado_historico(usuario_id: int, posicao: int, temporada: str)
 
 
 def editar_resultado_historico(registro_id: int, posicao: Optional[int] = None, temporada: Optional[str] = None) -> dict:
+    require_operation("hall_da_fama.write", season=str(temporada) if temporada else None)
     """
     Edita um resultado histórico existente.
     
@@ -152,6 +155,7 @@ def editar_resultado_historico(registro_id: int, posicao: Optional[int] = None, 
 
 
 def deletar_resultado_historico(registro_id: int) -> dict:
+    require_operation("hall_da_fama.write")
     """
     Deleta um resultado histórico.
     
@@ -193,6 +197,7 @@ def deletar_resultado_historico(registro_id: int) -> dict:
 
 
 def importar_resultados_em_lote(dados: list) -> dict:
+    require_operation("hall_da_fama.write")
     """
     Importa múltiplos resultados históricos em uma única transação.
     

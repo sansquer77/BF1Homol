@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.0
-atualizado: 2026-07-19
+versao: 4.1
+atualizado: 2026-07-20
 relacionados:
   - "[[01_necessidade]]"
   - "[[02_regras_de_negocio]]"
@@ -16,7 +16,7 @@ aliases: ["Arquitetura do Sistema"]
 # Arquitetura do Sistema — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
+> **implementado** · área: `bf1` · atualizado em 2026-07-20 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
 
 ## Visão Geral
 
@@ -223,13 +223,17 @@ MASTER_NOME         # Nome do usuário master inicial
 
 - **Senhas**: bcrypt com salt automático (nunca texto claro).
 - **Tokens**: JWT HS256 com expiração fixa de 120 minutos no código atual.
-- **Guard de rotas**: verificação de perfil em todas as rotas protegidas.
+- **Autorização em profundidade**: `access_control.py` revalida o usuário e centraliza matrizes de páginas/operações.
+- **Guard de rotas**: restringe navegação, mas não substitui autorização no serviço.
+- **Mutações administrativas**: a UI coleta dados; `admin_operations.py` autoriza e escreve.
+- **Fail-closed**: deadline incompleto ou erro de cálculo bloqueia apostas de campeonato.
 - **Rate limiting**: aplicado na autenticação para mitigar força bruta.
 - **Credenciais**: nunca no código — sempre via variáveis de ambiente.
 - **HTTPS**: garantido pela App Platform da DigitalOcean.
 
 ### Changelog
 
+- `4.1` — 2026-07-20 — Autorização em profundidade, serviços administrativos e deadline fail-closed.
 - `4.0` — 2026-07-19 — Modelo de regras, autenticação, diretórios e variáveis atualizados.
 - `3.6` — 2026-05-03 — Integração do `historico_service.py` na arquitetura e documentação de normalização.
 - `3.5` — — Versão base.

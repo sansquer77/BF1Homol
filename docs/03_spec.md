@@ -2,8 +2,8 @@
 tipo: spec
 area: bf1
 status: implementado
-versao: 4.0
-atualizado: 2026-07-19
+versao: 4.1
+atualizado: 2026-07-20
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[04_arquitetura]]"
@@ -16,7 +16,7 @@ aliases: ["Especificação Funcional"]
 # Especificação Funcional — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[02_regras_de_negocio]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]], [[05_projeto]]
+> **implementado** · área: `bf1` · atualizado em 2026-07-20 · relacionados: [[02_regras_de_negocio]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]], [[05_projeto]]
 
 ---
 
@@ -26,6 +26,20 @@ aliases: ["Especificação Funcional"]
 - **Entrada**: e-mail e senha.
 - **Processamento**: valida credenciais contra hash bcrypt; emite JWT HS256 com `user_id`, `perfil`, `nome`, `status` e expiração de 120 minutos; mantém o token na sessão Streamlit e usa o gerenciador de cookies como suporte.
 - **Saída**: redireciona para "Painel do Participante".
+- **Contexto autenticado**: operações sensíveis revalidam o token e carregam do banco usuário, perfil, status e temporadas autorizadas.
+- **Autoridade**: `user_id`, perfil ou temporada originados da UI nunca concedem permissão.
+
+### 1.2 Matriz de acesso
+
+- Páginas usam `PAGE_ACCESS`; operações sensíveis usam `OPERATION_ACCESS`.
+- O roteador protege a navegação; toda escrita administrativa exige autorização adicional no serviço.
+- Usuários inativos são bloqueados em operações sensíveis mesmo com claims antigos no token.
+
+### 1.3 Deadline do campeonato
+
+- A primeira largada válida é o deadline, sem tolerância adicional.
+- Antes: permitido. Exatamente no deadline e depois: bloqueado.
+- Prova/data/horário ausente ou erro de cálculo: bloqueado e alerta ao administrador.
 - **Erro**: mensagem de credenciais inválidas; rate limiting aplicado.
 
 ### 1.2 Logout
@@ -33,7 +47,7 @@ aliases: ["Especificação Funcional"]
 - Redireciona para tela de login.
 
 ### 1.3 Guard de Rotas
-- Em cada navegação, o sistema decodifica o JWT, revalida o usuário no banco e verifica o perfil contra `ROLE_GUARDS`.
+- Em cada navegação, o sistema decodifica o JWT, revalida o usuário no banco e verifica o perfil contra `PAGE_ACCESS`.
 - Sessão expirada ou usuário não encontrado: redireciona para login com mensagem.
 
 ---
@@ -249,6 +263,7 @@ Participante acessa aba "Histórico" no Painel
 
 ### Changelog
 
+- `4.1` — 2026-07-20 — Contexto autenticado, matrizes de acesso e deadline fail-closed.
 - `4.0` — 2026-07-19 — Contratos de autenticação, abas e regras atualizados conforme a implementação.
 - `3.6` — 2026-05-03 — Adicionado fluxo do Histórico Consolidado e `historico_service.py`.
 - `3.5` — — Versão base.

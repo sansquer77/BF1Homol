@@ -2,8 +2,8 @@
 tipo: produto
 area: bf1
 status: implementado
-versao: 4.0
-atualizado: 2026-07-19
+versao: 4.1
+atualizado: 2026-07-20
 relacionados:
   - "[[01_necessidade]]"
   - "[[03_spec]]"
@@ -15,13 +15,14 @@ aliases: ["Regras de Negócio"]
 # Regras de Negócio
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
+> **implementado** · área: `bf1` · atualizado em 2026-07-20 · relacionados: [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
 
 ## RN-001 — Controle de Acesso por Perfil
 
 - Todo acesso ao sistema requer autenticação via JWT.
 - Existem 4 perfis: `master`, `admin`, `participante`, `inativo`.
-- Cada rota/página possui uma lista de perfis autorizados (`ROLE_GUARDS`).
+- Cada rota/página e cada operação sensível possui uma matriz central de perfis autorizados.
+- Escritas administrativas revalidam token, usuário, status, perfil e temporada na camada de serviço; valores enviados pela UI não constituem autoridade.
 - Usuário com `status != 'ativo'` ou `perfil == 'inativo'` é tratado como **inativo**, independente do perfil cadastrado.
 - Usuário inativo **com** histórico de temporadas tem acesso a: Painel, Calendário, Hall da Fama, Dashboard F1, Análise, Log de Apostas, Classificação, Regulamento, Sobre.
 - Usuário inativo **sem** histórico tem acesso apenas a: Hall da Fama, Calendário, Dashboard F1 e Minha Conta.
@@ -81,7 +82,9 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 ## RN-008 — Apostas de Campeonato
 
 - Participantes indicam campeão e vice de pilotos e equipe campeã de construtores.
-- O prazo termina um minuto depois do horário cadastrado para a primeira prova da temporada; sem prova/horário utilizável, o serviço mantém a aposta liberada.
+- O prazo termina no instante exato da largada da primeira prova: somente `agora < largada` permite salvar.
+- Em `agora == largada` ou depois, a aposta é bloqueada.
+- Prova, data ou horário ausente/inválido e falhas de cálculo bloqueiam a aposta e orientam o usuário a avisar o administrador (*fail-closed*).
 - A pontuação é calculada separadamente pelos valores `pontos_campeao`, `pontos_vice` e `pontos_equipe` da regra associada.
 
 ## RN-009 — Gestão de Usuários
@@ -141,10 +144,11 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 > Os fallbacks do motor não representam o regulamento oficial. A regra associada a 2026 deve registrar 15 fichas, mínimo 5, máximo 5 por piloto, equipes distintas, bônus 11º de 50, penalidade de abandono de 10, desconto automático de 20%, descarte ativo, sprint dobrada e bônus 125/100/85. `regra_sprint` deve permanecer desativada para não substituir a composição oficial da sprint por 10 fichas/mínimo 2.
 
 > [!danger] Lacunas conhecidas entre regulamento e código
-> O regulamento exige o palpite de campeonato **antes** da primeira prova, mas `can_place_championship_bet()` aceita até um minuto depois e libera a aposta quando não consegue calcular o prazo. A atribuição de 85% para participante inscrito durante a temporada e a distribuição financeira dos prêmios também não aparecem como automações no código atual; dependem de operação administrativa. Esta documentação registra a divergência, mas não altera o regulamento oficial.
+> A atribuição de 85% para participante inscrito durante a temporada e a distribuição financeira dos prêmios ainda dependem de operação administrativa.
 
 ### Changelog
 
+- `4.1` — 2026-07-20 — Deadline de campeonato fail-closed e autorização obrigatória nas operações sensíveis.
 - `4.0` — 2026-07-19 — Regras alinhadas ao modelo atual e ao regulamento BF1-2026.
 - `3.6` — 2026-05-03 — RN-013 (Histórico Consolidado do Participante) adicionado.
 - `3.5` — — Versão base.

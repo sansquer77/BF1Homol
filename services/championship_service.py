@@ -1,6 +1,6 @@
 import pandas as pd
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 import html
 from typing import Optional
 from db.db_schema import db_connect
@@ -11,6 +11,8 @@ from utils.helpers import get_bf1_logo_data_uri
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
 from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, normalize_time_string, parse_datetime_sao_paulo
 from utils.input_models import ChampionshipBetInput, ChampionshipResultInput, ValidationError
+from services.access_control import authorize_context, require_operation, resolve_authenticated_context
+from services.deadlines import evaluate_championship_deadline
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,7 @@ def _parse_datetime_sp(date_str: str, time_str: str) -> datetime:
 def can_place_championship_bet(season: Optional[int] = None, now: Optional[datetime] = None) -> tuple[bool, str, Optional[datetime]]:
     """Valida se apostas do campeonato estao abertas para a temporada.
 
-    Regra: bloqueia a partir de 1 minuto apos o horario da primeira prova.
+    Regra fail-closed: bloqueia a partir do horario exato da primeira prova.
     Retorna (pode, mensagem, deadline_sp).
     """
     season_val = _season_or_current(season)
@@ -46,52 +48,44 @@ def can_place_championship_bet(season: Optional[int] = None, now: Optional[datet
     try:
         provas_df = get_provas_df(str(season_val))
         if provas_df.empty:
-            return True, "Sem provas cadastradas; apostas liberadas.", None
+            return evaluate_championship_deadline(None, now or now_sao_paulo())
+
+        if "temporada" not in provas_df.columns:
+            return evaluate_championship_deadline(None, now or now_sao_paulo())
+        provas_df = provas_df[
+            provas_df["temporada"].fillna("").astype(str).str.strip() == str(season_val)
+        ]
+        if provas_df.empty:
+            return evaluate_championship_deadline(None, now or now_sao_paulo())
 
         if "status" in provas_df.columns:
             provas_df = provas_df[provas_df["status"].fillna("").str.lower() != "inativa"]
             if provas_df.empty:
-                return True, "Sem provas ativas; apostas liberadas.", None
+                return evaluate_championship_deadline(None, now or now_sao_paulo())
 
         dt_list = []
-        dt_list_fallback = []
         for _, row in provas_df.iterrows():
             data_str = str(row.get("data", "")).strip()
             horario_raw = row.get("horario_prova")
             horario_str = str(horario_raw or "").strip()
-            if not data_str:
-                continue
+            if not data_str or not horario_str:
+                return evaluate_championship_deadline(None, now or now_sao_paulo())
             normalized_time = normalize_time_string(horario_str)
             try:
-                if normalized_time in ("00:00", "00:00:00", None):
-                    dt_list_fallback.append(_parse_datetime_sp(data_str, "00:00:00"))
-                else:
-                    dt_list.append(_parse_datetime_sp(data_str, horario_str))
+                if normalized_time is None:
+                    return evaluate_championship_deadline(None, now or now_sao_paulo())
+                dt_list.append(_parse_datetime_sp(data_str, horario_str))
             except ValueError:
-                continue
-
-        if not dt_list and dt_list_fallback:
-            dt_list = dt_list_fallback
+                return evaluate_championship_deadline(None, now or now_sao_paulo())
 
         if not dt_list:
-            return True, "Nao foi possivel calcular o prazo; apostas liberadas.", None
+            return evaluate_championship_deadline(None, now or now_sao_paulo())
 
         primeira_prova = min(dt_list)
-        deadline = primeira_prova + timedelta(minutes=1)
-
-        now_sp = now or now_sao_paulo()
-        if now_sp.tzinfo is None:
-            now_sp = now_sp.replace(tzinfo=SAO_PAULO_TZ)
-
-        if now_sp > deadline:
-            msg = f"Apostas bloqueadas. Prazo encerrou em {deadline.strftime('%d/%m/%Y %H:%M:%S')} (SP)."
-            return False, msg, deadline
-
-        msg = f"Apostas liberadas ate {deadline.strftime('%d/%m/%Y %H:%M:%S')} (SP)."
-        return True, msg, deadline
+        return evaluate_championship_deadline(primeira_prova, now or now_sao_paulo())
     except Exception as e:
         logger.exception(f"Erro ao validar prazo de aposta do campeonato (season={season_val}): {e}")
-        return True, "Erro ao validar prazo; apostas liberadas.", None
+        return False, "Erro ao validar prazo; apostas bloqueadas. Avise o administrador.", None
 
 def get_user_name(user_id: int) -> str:
     """Obtém o nome do usuário pelo ID."""
@@ -107,6 +101,10 @@ def get_user_name(user_id: int) -> str:
 
 def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str, team: str, season: Optional[int] = None) -> bool:
     """Salva ou atualiza a aposta do usuário para o campeonato e registra no log, por temporada."""
+    context = resolve_authenticated_context()
+    user_id = context.user_id
+    user_nome = context.nome
+    authorize_context(context, frozenset({"participante", "admin", "master"}), season=str(_season_or_current(season)))
     try:
         payload = ChampionshipBetInput(
             user_id=user_id,
@@ -406,6 +404,7 @@ def save_final_results(champion: str, vice: str, team: str, season: Optional[int
 
     season_val = _season_or_current(season)
     try:
+        require_operation("resultado_campeonato.write", season=str(season_val))
         with db_connect() as conn:
             cursor = conn.cursor()
             cursor.execute(

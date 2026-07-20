@@ -24,6 +24,8 @@ from services.hall_da_fama_controller import (
     table_height as _controller_table_height,
 )
 from utils.helpers import render_page_header
+from services.admin_operations import master_delete_hall, master_save_hall
+from services.access_control import require_operation
 
 
 def _table_height(total_rows: int, row_height: int = 36, max_height: int = 620) -> int:
@@ -390,19 +392,7 @@ def render_admin_panel(conn, seasons):
                             errors.append(f"❌ **{entry['user']}**: {str(e)}")
 
                     if batch_values:
-                        c.executemany(
-                            """
-                            INSERT INTO hall_da_fama (usuario_id, posicao_final, pontos, temporada)
-                            VALUES (%s, %s, %s, %s)
-                            ON CONFLICT (usuario_id, temporada) DO UPDATE SET
-                                posicao_final = EXCLUDED.posicao_final,
-                                pontos = EXCLUDED.pontos
-                            """,
-                            batch_values,
-                        )
-                        success_count = len(batch_values)
-                    
-                    conn.commit()
+                        success_count = master_save_hall(batch_values)
                     
                     if success_count > 0:
                         st.success(f"✅ {success_count} resultado(s) adicionado(s) com sucesso!")
@@ -486,8 +476,7 @@ def render_admin_panel(conn, seasons):
                     with col5:
                         if st.button("🗑️ Deletar", key=f"delete_{record_id}", type="secondary"):
                             try:
-                                c.execute("DELETE FROM hall_da_fama WHERE id = %s", (record_id,))
-                                conn.commit()
+                                master_delete_hall(int(record_id))
                                 st.success(f"✅ Registro de **{name}** ({season}) deletado!")
                                 st.cache_data.clear()
                                 st.rerun()
@@ -501,6 +490,7 @@ def render_admin_panel(conn, seasons):
 
 def import_historical_data(conn):
     """Importa dados históricos de 20 anos (2005-2024)."""
+    require_operation("hall_da_fama.write")
     c = conn.cursor()
     
     # Dados de exemplo: 20 temporadas (2005-2024) com rankings
@@ -618,18 +608,7 @@ def import_historical_data(conn):
         progress_bar.progress((idx + 1) / len(historical_data))
 
     if batch_values:
-        c.executemany(
-            """
-            INSERT INTO hall_da_fama (usuario_id, posicao_final, pontos, temporada)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (usuario_id, temporada) DO UPDATE SET
-                posicao_final = EXCLUDED.posicao_final,
-                pontos = EXCLUDED.pontos
-            """,
-            batch_values,
-        )
-    
-    conn.commit()
+        master_save_hall(batch_values)
     progress_bar.empty()
     status_text.empty()
     

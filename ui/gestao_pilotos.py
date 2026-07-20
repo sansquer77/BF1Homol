@@ -6,8 +6,8 @@ Reorganizado em abas: Editar Pilotos / Adicionar Novo Piloto
 
 import streamlit as st
 import pandas as pd
-from services.data_access_core import db_connect
 from services.data_access_provas import get_pilotos_df
+from services.admin_operations import admin_add_piloto, admin_delete_piloto, admin_update_piloto
 from utils.helpers import render_page_header
 
 
@@ -133,30 +133,9 @@ def _render_aba_editar(df: pd.DataFrame):
     # Botão: Atualizar
     with col1:
         if st.button("🔄 Atualizar piloto", key="btn_update_piloto", type="primary"):
-            with db_connect() as conn:
-                c = conn.cursor()
-                if novo_status == "Ativo":
-                    c.execute(
-                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(%s) AND status = 'Ativo' AND id != %s",
-                        (novo_nome, piloto_id)
-                    )
-                    if c.fetchone():
-                        st.error("❌ Já existe outro piloto ativo com este nome.")
-                        return
-                else:
-                    c.execute(
-                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(%s) AND numero = %s AND LOWER(equipe) = LOWER(%s) AND status = 'Inativo' AND id != %s",
-                        (novo_nome, int(novo_numero), nova_equipe, piloto_id)
-                    )
-                    if c.fetchone():
-                        st.error("❌ Já existe outro piloto inativo com este nome, número e equipe.")
-                        return
-                
-                c.execute(
-                    "UPDATE pilotos SET nome=%s, numero=%s, equipe=%s, status=%s WHERE id=%s",
-                    (novo_nome, int(novo_numero), nova_equipe, novo_status, piloto_id)
-                )
-                conn.commit()
+            if not admin_update_piloto(piloto_id, nome=novo_nome, numero=int(novo_numero), equipe=nova_equipe, status=novo_status):
+                st.error("❌ Não foi possível atualizar o piloto.")
+                return
             
             st.success("✅ Piloto atualizado com sucesso!")
             st.cache_data.clear()
@@ -165,10 +144,9 @@ def _render_aba_editar(df: pd.DataFrame):
     # Botão: Excluir
     with col2:
         if st.button("🗑️ Excluir piloto", key="btn_delete_piloto"):
-            with db_connect() as conn:
-                c = conn.cursor()
-                c.execute("DELETE FROM pilotos WHERE id=%s", (piloto_id,))
-                conn.commit()
+            if not admin_delete_piloto(piloto_id):
+                st.error("❌ Não foi possível excluir o piloto.")
+                return
             
             st.success("✅ Piloto excluído com sucesso!")
             st.cache_data.clear()
@@ -188,32 +166,9 @@ def _render_aba_adicionar():
         if not nome_novo or not equipe_nova:
             st.error("❌ Preencha todos os campos obrigatórios.")
         else:
-            with db_connect() as conn:
-                c = conn.cursor()
-                
-                if status_novo == "Ativo":
-                    c.execute(
-                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(%s) AND status = 'Ativo'",
-                        (nome_novo,)
-                    )
-                    if c.fetchone():
-                        st.error("❌ Já existe outro piloto ativo com este nome.")
-                        return
-                else:
-                    c.execute(
-                        "SELECT id FROM pilotos WHERE LOWER(nome) = LOWER(%s) AND numero = %s AND LOWER(equipe) = LOWER(%s) AND status = 'Inativo'",
-                        (nome_novo, int(numero_novo), equipe_nova)
-                    )
-                    if c.fetchone():
-                        st.error("❌ Já existe outro piloto inativo com este nome, número e equipe.")
-                        return
-                
-                c.execute(
-                    '''INSERT INTO pilotos (nome, numero, equipe, status)
-                       VALUES (%s, %s, %s, %s)''',
-                    (nome_novo, int(numero_novo), equipe_nova, status_novo)
-                )
-                conn.commit()
+            if not admin_add_piloto(nome_novo, int(numero_novo), equipe_nova, status_novo):
+                st.error("❌ Não foi possível adicionar o piloto (verifique duplicidade).")
+                return
             
             st.success("✅ Piloto adicionado com sucesso!")
             st.cache_data.clear()

@@ -13,7 +13,7 @@ from utils.cache_utils import clear_data_cache
 logger = logging.getLogger(__name__)
 
 _COLUNAS_PILOTOS_VALIDAS: frozenset[str] = frozenset({"nome", "equipe", "status", "numero"})
-_COLUNAS_PROVAS_VALIDAS: frozenset[str] = frozenset({"nome", "data", "horario_prova", "tipo", "status", "temporada"})
+_COLUNAS_PROVAS_VALIDAS: frozenset[str] = frozenset({"nome", "data", "horario_prova", "tipo", "status", "temporada", "circuit_id"})
 
 
 def _query_to_df(query: str, params: tuple | None = None) -> pd.DataFrame:
@@ -151,15 +151,16 @@ def add_prova(
     tipo: str = "Normal",
     status: str = "Pendente",
     temporada: Optional[str] = None,
+    circuit_id: Optional[str] = None,
 ) -> bool:
     try:
         with db_connect() as conn:
             cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO provas (nome, data, horario_prova, tipo, status, temporada) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (nome, data, horario_prova, tipo, status, temporada),
-            )
+            cols = get_table_columns(conn, "provas")
+            if "circuit_id" in cols:
+                cur.execute("INSERT INTO provas (nome,data,horario_prova,tipo,status,temporada,circuit_id) VALUES (%s,%s,%s,%s,%s,%s,%s)", (nome,data,horario_prova,tipo,status,temporada,circuit_id))
+            else:
+                cur.execute("INSERT INTO provas (nome,data,horario_prova,tipo,status,temporada) VALUES (%s,%s,%s,%s,%s,%s)", (nome,data,horario_prova,tipo,status,temporada))
             cur.close()
             conn.commit()
         clear_data_cache()
