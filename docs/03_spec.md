@@ -280,3 +280,4 @@ Participante acessa aba "Histórico" no Painel
 - [[05_projeto]]
 > Toda fachada tabular deve aplicar o contrato central correspondente (`APOSTAS_COLUMNS`, `PILOTOS_COLUMNS`, `PROVAS_COLUMNS`, `RESULTADOS_COLUMNS`, `USUARIOS_COLUMNS`, `POSICOES_COLUMNS`, `CHAMPIONSHIP_BETS_COLUMNS` ou `CHAMPIONSHIP_RESULTS_COLUMNS`). Ausência de linhas ou cache legado não altera o schema tabular.
 > DataFrames intermediários criados pelas telas, inclusive após `st.rerun()`, também devem preservar o contrato do domínio; fallbacks não podem retornar `pd.DataFrame()` sem colunas.
+> Após escrita de aposta, a função cacheada de leitura de apostas deve ser invalidada explicitamente antes do `st.rerun()`; mensagens de confirmação devem sobreviver ao rerun via `session_state`.

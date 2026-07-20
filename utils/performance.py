@@ -95,6 +95,7 @@ class journey:
         if not self.owner or self.metrics is None:
             return
         elapsed = time.perf_counter() - self.metrics.started
+        control_flow = exc_type is not None and exc_type.__name__ in {"RerunException", "StopException"}
         payload = {
             "event": "journey_performance",
             "journey": self.metrics.name,
@@ -104,7 +105,7 @@ class journey:
             "rows_processed": self.metrics.rows,
             "cache_hits": self.metrics.cache_hits,
             "cache_misses": self.metrics.cache_misses,
-            "success": exc_type is None,
+            "success": exc_type is None or control_flow,
             "query_fingerprints": self.metrics.query_fingerprints,
             **self.dimensions,
         }

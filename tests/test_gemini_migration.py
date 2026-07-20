@@ -52,6 +52,9 @@ class _FakeTypes:
 
 
 class GeminiMigrationTests(unittest.TestCase):
+    def test_default_model_is_current_stable_flash(self):
+        self.assertEqual("gemini-3.5-flash", gemini_service.DEFAULT_GEMINI_MODEL)
+
     def test_repository_has_no_perplexity_runtime_contract(self):
         searchable = [ROOT / "services", ROOT / "ui", ROOT / "docs", ROOT / "requirements.txt"]
         matches = []

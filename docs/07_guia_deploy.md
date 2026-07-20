@@ -55,7 +55,7 @@ Configure as variáveis abaixo no painel da App Platform → **Settings → Envi
 | `SENHA_EMAIL` | ⚠️ | Senha de app da conta remetente (`SENHA_REMETENTE` é aceita como alternativa) |
 | `EMAIL_ADMIN` | ⚠️ | Endereço administrativo usado pelos fluxos de e-mail |
 | `GEMINI_API_KEY` | ⚠️ | Habilita geração e análises de aposta pelo SDK oficial Google Gen AI; sem ela o sistema usa fallback local |
-| `GEMINI_MODEL` | Não | Modelo Gemini; padrão `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Não | Modelo Gemini; padrão estável `gemini-3.5-flash` |
 
 > ⚠️ **Nunca** commitar valores de variáveis de ambiente no repositório. O `.gitignore` já exclui arquivos `.env`.
 

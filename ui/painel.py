@@ -236,6 +236,9 @@ def participante_view():
                             _mostrar_regras_dialog(regras_sel, temporada, tipo_sel)
                     with col_sem_ideias:
                         st.write("")
+                        feedback_sem_ideias = st.session_state.pop("sem_ideias_feedback", None)
+                        if feedback_sem_ideias:
+                            st.success(feedback_sem_ideias)
                         if st.button("Sem ideias"):
                             nome_prova_sem_ideias = provas[provas['id'] == prova_id]['nome'].values[0]
                             ok_auto, msg_auto = gerar_aposta_sem_ideias(
@@ -245,7 +248,11 @@ def participante_view():
                                 temporada=temporada,
                             )
                             if ok_auto:
-                                st.success(msg_auto)
+                                # A limpeza global pode não invalidar a função cacheada
+                                # já consultada neste mesmo render. Limpa este cache
+                                # explicitamente antes do rerun que recarrega o formulário.
+                                get_apostas_df.clear()
+                                st.session_state["sem_ideias_feedback"] = msg_auto
                                 st.session_state["aposta_form_force_reload"] = True
                                 st.rerun()
                             else:
@@ -856,7 +863,7 @@ def _render_historico_geral(usuario_id: int) -> None:
             height=500,
         )
 
-        st.plotly_chart(fig_barras, use_container_width=True)
+        st.plotly_chart(fig_barras, width="stretch")
 
         # ------------------------------------------------------------------
         # Seção 3: Piloto mais apostado

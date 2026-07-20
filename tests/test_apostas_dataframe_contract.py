@@ -39,6 +39,12 @@ class ApostasDataFrameContractTests(unittest.TestCase):
         self.assertIn("apostas_part = with_required_columns(apostas_df, APOSTAS_COLUMNS)", source)
         self.assertIn("'prova_id' in apostas_part.columns", source)
 
+    def test_sem_ideias_clears_specific_cache_and_preserves_feedback(self):
+        source = (Path(__file__).resolve().parents[1] / "ui" / "painel.py").read_text(encoding="utf-8")
+        self.assertIn("get_apostas_df.clear()", source)
+        self.assertIn('st.session_state["sem_ideias_feedback"] = msg_auto', source)
+        self.assertIn('st.session_state.pop("sem_ideias_feedback", None)', source)
+
     def test_all_public_dataframe_contracts_preserve_empty_schema(self):
         contracts = (
             PILOTOS_COLUMNS,

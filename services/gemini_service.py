@@ -15,7 +15,7 @@ except ImportError:  # Permite fallback local enquanto a dependência não está
 
 
 logger = logging.getLogger(__name__)
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
 
 
 def gemini_disponivel() -> bool:
