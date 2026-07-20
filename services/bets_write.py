@@ -15,7 +15,7 @@ from typing import Callable, Optional, Union, cast
 import pandas as pd
 
 from db.db_schema import db_connect, get_table_columns
-from db.repo_bets import get_apostas_df
+from db.repo_bets import get_aposta, get_apostas_df
 from db.repo_races import get_horario_prova, get_pilotos_df, get_provas_df, get_resultados_df
 from db.repo_users import get_user_by_id
 from db.repo_logs import registrar_log_aposta
@@ -1367,18 +1367,18 @@ def gerar_aposta_sem_ideias(usuario_id, prova_id, nome_prova, temporada=None):
         usuario_id = int(usuario_id)
         prova_id = int(prova_id)
     except Exception as e:
-        return False, f"IDs inválidos: {e}"
+        return False, f"IDs inválidos: {e}", None
 
     provas_df = get_provas_df(temporada)
     prova_atual = provas_df[provas_df["id"] == prova_id]
     if prova_atual.empty:
-        return False, "Prova não encontrada."
+        return False, "Prova não encontrada.", None
 
     data_prova = str(prova_atual["data"].iloc[0])
     horario_prova = str(prova_atual["horario_prova"].iloc[0])
     pode, msg, _ = pode_fazer_aposta(data_prova, horario_prova)
     if not pode:
-        return False, f"Aposta fora do prazo. {msg}"
+        return False, f"Aposta fora do prazo. {msg}", None
 
     tipo_prova = _determinar_tipo_prova(prova_atual.iloc[0], nome_prova)
     regras = get_regras_aplicaveis(str(temporada or datetime.now().year), tipo_prova)
@@ -1387,7 +1387,7 @@ def gerar_aposta_sem_ideias(usuario_id, prova_id, nome_prova, temporada=None):
     if not pilotos_df.empty and "status" in pilotos_df.columns:
         pilotos_df = cast(pd.DataFrame, pilotos_df[pilotos_df["status"] == "Ativo"])
     if pilotos_df.empty:
-        return False, "Não há pilotos ativos para gerar aposta."
+        return False, "Não há pilotos ativos para gerar aposta.", None
 
     apostas_df = get_apostas_df(temporada)
     resultados_df = get_resultados_df(temporada)
@@ -1415,7 +1415,7 @@ def gerar_aposta_sem_ideias(usuario_id, prova_id, nome_prova, temporada=None):
     if not sugestao:
         pilotos_sel, fichas_sel, piloto_11_sel = gerar_aposta_aleatoria_com_regras(pilotos_df, regras)
         if not pilotos_sel:
-            return False, "Não foi possível gerar aposta viável com as regras atuais."
+            return False, "Não foi possível gerar aposta viável com as regras atuais.", None
 
     ok = salvar_aposta(
         usuario_id=usuario_id,
@@ -1431,11 +1431,29 @@ def gerar_aposta_sem_ideias(usuario_id, prova_id, nome_prova, temporada=None):
     )
 
     if not ok:
-        return False, "Falha ao salvar aposta gerada."
+        return False, "Falha ao salvar aposta gerada.", None
+
+    aposta_confirmada = get_aposta(usuario_id, prova_id, temporada)
+    if not aposta_confirmada:
+        logger.error(
+            "Aposta Sem ideias não encontrada após commit: usuario_id=%s prova_id=%s temporada=%s",
+            usuario_id,
+            prova_id,
+            temporada,
+        )
+        return False, "A escrita não pôde ser confirmada no banco. Tente novamente ou avise o administrador.", None
+
+    detalhes = {
+        "prova_id": prova_id,
+        "pilotos": list(pilotos_sel),
+        "fichas": [int(ficha) for ficha in fichas_sel],
+        "piloto_11": piloto_11_sel,
+        "origem": origem,
+    }
 
     if origem == "estratégica":
-        return True, "Aposta 'Sem ideias' gerada com estratégia assistida e registrada!"
-    return True, "Aposta 'Sem ideias' aleatória (fallback) registrada com sucesso!"
+        return True, "Aposta 'Sem ideias' gerada com estratégia assistida e registrada!", detalhes
+    return True, "Aposta 'Sem ideias' aleatória (fallback) registrada com sucesso!", detalhes
 
 __all__ = [
     "salvar_aposta",

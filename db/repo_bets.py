@@ -29,6 +29,26 @@ def get_apostas_df(temporada: Optional[str] = None) -> pd.DataFrame:
     return _query_to_df("SELECT * FROM apostas")
 
 
+def get_aposta(usuario_id: int, prova_id: int, temporada: Optional[str] = None) -> dict | None:
+    """Relê uma aposta diretamente do banco, sem cache, para confirmar escrita."""
+    with db_connect() as conn:
+        cols = get_table_columns(conn, "apostas")
+        cur = conn.cursor()
+        if temporada is not None and "temporada" in cols:
+            cur.execute(
+                "SELECT * FROM apostas WHERE usuario_id=%s AND prova_id=%s AND temporada=%s ORDER BY id DESC LIMIT 1",
+                (int(usuario_id), int(prova_id), str(temporada)),
+            )
+        else:
+            cur.execute(
+                "SELECT * FROM apostas WHERE usuario_id=%s AND prova_id=%s ORDER BY id DESC LIMIT 1",
+                (int(usuario_id), int(prova_id)),
+            )
+        row = cur.fetchone()
+        cur.close()
+    return dict(row) if row else None
+
+
 def get_apostas_usuario_df(usuario_id: int, limit: int = 5000) -> pd.DataFrame:
     return _query_to_df(
         "SELECT * FROM apostas WHERE usuario_id = %s ORDER BY temporada, prova_id LIMIT %s",

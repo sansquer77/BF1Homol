@@ -241,7 +241,7 @@ def participante_view():
                             st.success(feedback_sem_ideias)
                         if st.button("Sem ideias"):
                             nome_prova_sem_ideias = provas[provas['id'] == prova_id]['nome'].values[0]
-                            ok_auto, msg_auto = gerar_aposta_sem_ideias(
+                            ok_auto, msg_auto, detalhes_auto = gerar_aposta_sem_ideias(
                                 usuario_id=user['id'],
                                 prova_id=prova_id,
                                 nome_prova=nome_prova_sem_ideias,
@@ -253,6 +253,7 @@ def participante_view():
                                 # explicitamente antes do rerun que recarrega o formulário.
                                 get_apostas_df.clear()
                                 st.session_state["sem_ideias_feedback"] = msg_auto
+                                st.session_state["sem_ideias_detalhes"] = detalhes_auto
                                 st.session_state["aposta_form_force_reload"] = True
                                 st.rerun()
                             else:
@@ -281,6 +282,12 @@ def participante_view():
                     else:
                         fichas_ant = []
                         piloto_11_ant = ""
+
+                    detalhes_auto = st.session_state.pop("sem_ideias_detalhes", None)
+                    if detalhes_auto and int(detalhes_auto.get("prova_id", 0)) == int(prova_id):
+                        pilotos_apostados_ant = [str(p) for p in detalhes_auto.get("pilotos", [])]
+                        fichas_ant = [int(f) for f in detalhes_auto.get("fichas", [])]
+                        piloto_11_ant = str(detalhes_auto.get("piloto_11", ""))
 
                     prova_id_form = st.session_state.get("aposta_form_prova_id")
                     force_reload_form = bool(st.session_state.get("aposta_form_force_reload", False))

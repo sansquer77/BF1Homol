@@ -44,6 +44,8 @@ class ApostasDataFrameContractTests(unittest.TestCase):
         self.assertIn("get_apostas_df.clear()", source)
         self.assertIn('st.session_state["sem_ideias_feedback"] = msg_auto', source)
         self.assertIn('st.session_state.pop("sem_ideias_feedback", None)', source)
+        self.assertIn('st.session_state["sem_ideias_detalhes"] = detalhes_auto', source)
+        self.assertIn('st.session_state.pop("sem_ideias_detalhes", None)', source)
 
     def test_all_public_dataframe_contracts_preserve_empty_schema(self):
         contracts = (
