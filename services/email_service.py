@@ -2,7 +2,6 @@ import smtplib
 import os
 import logging
 import html
-import httpx
 import hashlib
 import random
 import json
@@ -11,6 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from utils.logging_utils import redact_identifier
 from utils.helpers import get_bf1_logo_data_uri
+from services.gemini_service import gemini_disponivel, gerar_conteudo_gemini
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,6 @@ SENHA_REMETENTE: str = (
     or os.environ.get("SENHA_REMETENTE", "")
 )
 EMAIL_ADMIN: str = os.environ.get("EMAIL_ADMIN", "")
-PERPLEXITY_API_KEY: str = os.environ.get("PERPLEXITY_API_KEY", "")
-PERPLEXITY_MODEL: str = os.environ.get("PERPLEXITY_MODEL", "sonar")
 
 
 def _gerar_previsao_fallback(nome_usuario: str, nome_prova: str, pilotos: list[str], fichas: list[int], piloto_11: str) -> str:
@@ -104,12 +102,12 @@ def enviar_email(destinatario: str, assunto: str, corpo_html: str, cco: Optional
         return False
 
 def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[str], fichas: list[int], piloto_11: str) -> str:
-    """Gera um texto divertido e sarcástico usando a API da Perplexity.
+    """Gera um texto divertido e sarcástico usando a API do Gemini.
 
     Faz fallback local quando a API não estiver configurada ou em caso de erro.
     """
-    if not PERPLEXITY_API_KEY:
-        logger.warning("PERPLEXITY_API_KEY não configurada. Usando fallback local para previsão sarcástica.")
+    if not gemini_disponivel():
+        logger.warning("Gemini não configurado. Usando fallback local para previsão sarcástica.")
         return _gerar_previsao_fallback(nome_usuario, nome_prova, pilotos, fichas, piloto_11)
 
     try:
@@ -117,14 +115,7 @@ def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[
         fichas_fmt = ", ".join([str(f) for f in fichas])
         seed_texto = f"{nome_usuario}|{nome_prova}|{pilotos_fmt}|{fichas_fmt}|{piloto_11}"
         angulo, estilo = _selecionar_angulo_estilo(seed_texto)
-        payload = {
-            "model": PERPLEXITY_MODEL,
-            "temperature": 0.75,
-            "max_tokens": 120,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
+        system_instruction = (
                         "Você é um especialista em F1 ácido e espirituoso. "
                         "Faça uma previsão sarcástica e afiada sobre a aposta do participante analisando pilotos e fichas, "
                         "sem ofensas pessoais, sem palavrões e sem humilhações. "
@@ -132,10 +123,7 @@ def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[
                         "Escreva em tom humano e natural, com vocabulário variado, evitando clichês e frases repetidas de respostas anteriores. "
                         "Evite frases genéricas como 'boa sorte', 'vamos ver no domingo', 'potencial de glória'."
                     )
-                },
-                {
-                    "role": "user",
-                    "content": (
+        prompt = (
                         f"Participante: {nome_usuario}. Prova: {nome_prova}. "
                         f"Pilotos: {pilotos_fmt}. Fichas: {fichas_fmt}. "
                         f"Palpite 11º: {piloto_11}. "
@@ -143,35 +131,17 @@ def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[
                         f"Estilo obrigatório: {estilo}. "
                         "Entregue texto curto, ácido e não repetitivo."
                     )
-                }
-            ]
-        }
-
-        headers = {
-            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        data = None
-        last_error = None
-        for _ in range(2):
-            try:
-                with httpx.Client(timeout=10.0) as client:
-                    resp = client.post("https://api.perplexity.ai/chat/completions", headers=headers, json=payload)
-                    resp.raise_for_status()
-                    data = resp.json()
-                    break
-            except Exception as retry_error:
-                last_error = retry_error
-
-        if data is None:
-            raise RuntimeError(str(last_error) if last_error else "Falha sem detalhes da API")
-
-        texto = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        texto = (texto or "").strip()
+        texto = gerar_conteudo_gemini(
+            system_instruction=system_instruction,
+            prompt=prompt,
+            temperature=0.75,
+            max_output_tokens=120,
+            timeout_seconds=10.0,
+        )
         if texto:
             return texto
 
-        logger.warning("Perplexity retornou resposta vazia. Usando fallback local.")
+        logger.warning("Gemini retornou resposta vazia. Usando fallback local.")
         return _gerar_previsao_fallback(nome_usuario, nome_prova, pilotos, fichas, piloto_11)
     except Exception as e:
         logger.warning(f"Falha ao gerar previsão sarcástica: {e}")
@@ -245,27 +215,20 @@ def gerar_analise_aposta_com_probabilidade(
     seed_texto = f"{nome_usuario}|{contexto_aposta}|{detalhes_aposta}"
     fallback_prob = _probabilidade_fallback(seed_texto)
     fallback_comment = _gerar_comentario_acido_fallback(seed_texto, nome_usuario, contexto_aposta)
-    fallback_resumo_sem_api = "Estimativa local (Perplexity não configurada)."
-    fallback_resumo_parse = "Estimativa local (Perplexity respondeu fora do formato esperado)."
-    fallback_resumo_erro = "Estimativa local (falha temporária ao consultar a API Perplexity)."
+    fallback_resumo_sem_api = "Estimativa local (Gemini não configurado)."
+    fallback_resumo_parse = "Estimativa local (Gemini respondeu fora do formato esperado)."
+    fallback_resumo_erro = "Estimativa local (falha temporária ao consultar a API Gemini)."
 
     angulo, estilo = _selecionar_angulo_estilo(seed_texto)
 
-    if not PERPLEXITY_API_KEY:
+    if not gemini_disponivel():
         return {
             "comentario": fallback_comment,
             "probabilidade": fallback_prob,
             "resumo": fallback_resumo_sem_api,
         }
 
-    payload = {
-        "model": PERPLEXITY_MODEL,
-        "temperature": 0.45,
-        "max_tokens": 260,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
+    system_instruction = (
                     "Você é analista de F1 com humor ácido e inteligente. "
                     "Use notícias recentes de F1 para estimar chance de acerto de uma aposta de bolão. "
                     "Responda APENAS JSON válido, em uma única linha, sem markdown e sem texto adicional, com o formato EXATO: "
@@ -277,11 +240,8 @@ def gerar_analise_aposta_com_probabilidade(
                     "Não use conteúdo ofensivo, sexual, violento ou discriminatório. "
                     "Evite frases genéricas e repetitivas como 'potencial de glória', 'boa sorte', 'vamos ver no domingo'. "
                     "Faça comentário curto (2 frases), incisivo, com ironia contextual e vocabulário variado."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
+                )
+    prompt = (
                     f"Participante: {nome_usuario}. "
                     f"Contexto da aposta: {contexto_aposta}. "
                     f"Detalhes: {detalhes_aposta}. "
@@ -289,24 +249,28 @@ def gerar_analise_aposta_com_probabilidade(
                     f"Estilo obrigatório: {estilo}. "
                     "Faça uma estimativa plausível, mais ácida do que amistosa, sem repetir clichês. "
                     "Saída obrigatória: JSON puro no formato solicitado e nada além disso."
-                ),
-            },
-        ],
-    }
-    headers = {
-        "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-        "Content-Type": "application/json",
-    }
+                )
 
     try:
-        with httpx.Client(timeout=12.0) as client:
-            resp = client.post("https://api.perplexity.ai/chat/completions", headers=headers, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        content = gerar_conteudo_gemini(
+            system_instruction=system_instruction,
+            prompt=prompt,
+            temperature=0.45,
+            max_output_tokens=260,
+            response_schema={
+                "type": "object",
+                "properties": {
+                    "comentario": {"type": "string"},
+                    "probabilidade": {"type": "integer", "minimum": 0, "maximum": 100},
+                    "resumo": {"type": "string"},
+                },
+                "required": ["comentario", "probabilidade", "resumo"],
+                "additionalProperties": False,
+            },
+        )
         parsed = _extrair_json_texto(content)
         if not parsed:
-            logger.warning("Perplexity retornou conteúdo sem JSON válido para análise de aposta.")
+            logger.warning("Gemini retornou conteúdo sem JSON válido para análise de aposta.")
             return {
                 "comentario": fallback_comment,
                 "probabilidade": fallback_prob,
@@ -327,7 +291,7 @@ def gerar_analise_aposta_com_probabilidade(
             "resumo": resumo,
         }
     except Exception as e:
-        logger.warning(f"Falha ao gerar análise com probabilidade via Perplexity: {e}")
+        logger.warning("Falha ao gerar análise com probabilidade via Gemini: %s", e)
         return {
             "comentario": fallback_comment,
             "probabilidade": fallback_prob,

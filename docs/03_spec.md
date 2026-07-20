@@ -173,6 +173,7 @@ Acesso: todos os perfis ativos; inativos com histórico.
 | `bets_scoring.py`                 | Cálculo de pontuação e salvamento de classificação por prova        |
 | `bets_write.py`                   | Persistência de apostas no banco                                    |
 | `bets_ai.py`                      | Geração de apostas automáticas para participantes ausentes          |
+| `gemini_service.py`               | Cliente centralizado da API Gemini via SDK oficial Google Gen AI    |
 | `championship_service.py`         | Lógica de apostas e resultado de campeonato                         |
 | `rules_service.py`                | Recuperação das regras aplicáveis por temporada/tipo                |
 | `results_service.py`              | Registro de resultados e disparo de recálculo                       |

@@ -20,7 +20,7 @@ from db.repo_races import get_horario_prova, get_pilotos_df, get_provas_df, get_
 from db.repo_users import get_user_by_id
 from db.repo_logs import registrar_log_aposta
 from services.bets_ai import (
-    _gerar_aposta_perplexity,
+    _gerar_aposta_gemini,
     _get_contexto_temporada_atual_ergast,
     _get_resumo_cenario_campeonato,
     _get_resumo_ultimas_apostas,
@@ -1396,7 +1396,7 @@ def gerar_aposta_sem_ideias(usuario_id, prova_id, nome_prova, temporada=None):
     contexto_ergast = _get_contexto_temporada_atual_ergast(temporada=str(temporada or datetime.now().year), nome_prova=nome_prova)
 
     origem = "aleatória"
-    sugestao = _gerar_aposta_perplexity(
+    sugestao = _gerar_aposta_gemini(
         pilotos_df,
         regras,
         nome_prova,

@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import ast
-import importlib
 import json
 import logging
-import os
 from typing import Optional
 
 import pandas as pd
@@ -24,14 +22,10 @@ from utils.data_utils import (
     get_taxa_dnf_por_piloto,
 )
 from utils.data_utils import get_current_season
+from services.gemini_service import gerar_conteudo_gemini
 
 logger = logging.getLogger(__name__)
-MAX_PERPLEXITY_CONTEXT_CHARS = 5200
-
-try:
-    httpx = importlib.import_module("httpx")
-except ImportError:
-    httpx = None
+MAX_GEMINI_CONTEXT_CHARS = 5200
 
 
 def _extrair_json_texto(raw_text: str) -> Optional[dict]:
@@ -299,12 +293,12 @@ def _minimal_context_for_limit(data: dict) -> dict:
 
 def _build_compact_json_with_meta(payload_data: dict) -> tuple[str, str]:
     compact = _canonical_json(payload_data)
-    if len(compact) <= MAX_PERPLEXITY_CONTEXT_CHARS:
+    if len(compact) <= MAX_GEMINI_CONTEXT_CHARS:
         return compact, "none"
 
     reduced = _reduce_context_for_limit(payload_data)
     compact_reduced = _canonical_json(reduced)
-    if len(compact_reduced) <= MAX_PERPLEXITY_CONTEXT_CHARS:
+    if len(compact_reduced) <= MAX_GEMINI_CONTEXT_CHARS:
         return compact_reduced, "reduced"
 
     minimal = _minimal_context_for_limit(payload_data)
@@ -388,7 +382,7 @@ def _validar_formato_json_resposta(
     return True
 
 
-def _gerar_aposta_perplexity(
+def _gerar_aposta_gemini(
     pilotos_df: pd.DataFrame,
     regras: dict,
     nome_prova: str,
@@ -397,14 +391,6 @@ def _gerar_aposta_perplexity(
     cenario: list[dict],
     contexto_ergast: dict,
 ) -> Optional[tuple[list[str], list[int], str]]:
-    if httpx is None:
-        return None
-
-    api_key = os.environ.get("PERPLEXITY_API_KEY", "")
-    model = os.environ.get("PERPLEXITY_MODEL", "sonar")
-    if not api_key:
-        return None
-
     pilotos_disponiveis = [str(x) for x in pilotos_df["nome"].tolist()] if not pilotos_df.empty else []
     min_pilotos = int(regras.get("qtd_minima_pilotos") or regras.get("min_pilotos", 3))
     qtd_fichas = int(regras.get("quantidade_fichas", 15))
@@ -424,10 +410,10 @@ def _gerar_aposta_perplexity(
         contexto_ergast=contexto_ergast,
     )
     logger.debug(
-        "Perplexity payload context size=%d fallback=%s limit=%d",
+        "Gemini payload context size=%d fallback=%s limit=%d",
         len(contexto_compacto_json),
         context_fallback_mode,
-        MAX_PERPLEXITY_CONTEXT_CHARS,
+        MAX_GEMINI_CONTEXT_CHARS,
     )
 
     system_prompt = (
@@ -458,26 +444,23 @@ def _gerar_aposta_perplexity(
         "{\"pilotos\": [\"Nome\"], \"fichas\": [1,2], \"piloto_11\": \"Nome\"}."
     )
 
-    payload = {
-        "model": model,
-        "temperature": 0.35,
-        "max_tokens": 260,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
     try:
-        with httpx.Client(timeout=12.0) as client:
-            resp = client.post("https://api.perplexity.ai/chat/completions", headers=headers, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        content = gerar_conteudo_gemini(
+            system_instruction=system_prompt,
+            prompt=user_prompt,
+            temperature=0.35,
+            max_output_tokens=260,
+            response_schema={
+                "type": "object",
+                "properties": {
+                    "pilotos": {"type": "array", "items": {"type": "string"}},
+                    "fichas": {"type": "array", "items": {"type": "integer"}},
+                    "piloto_11": {"type": "string"},
+                },
+                "required": ["pilotos", "fichas", "piloto_11"],
+                "additionalProperties": False,
+            },
+        )
         parsed = _extrair_json_texto(content)
         if not parsed:
             return None
@@ -496,7 +479,7 @@ def _gerar_aposta_perplexity(
             return None
         return pilotos, fichas, piloto_11
     except Exception as e:
-        logger.warning("Falha na geração via Perplexity para aposta estratégica: %s", e)
+        logger.warning("Falha na geração via Gemini para aposta estratégica: %s", e)
         return None
 
 
@@ -505,5 +488,5 @@ __all__ = [
     "_get_resumo_ultimas_apostas",
     "_get_resumo_cenario_campeonato",
     "_get_contexto_temporada_atual_ergast",
-    "_gerar_aposta_perplexity",
+    "_gerar_aposta_gemini",
 ]

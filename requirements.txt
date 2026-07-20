@@ -29,3 +29,4 @@ requests>=2.31.0
 
 # API Integration
 httpx>=0.25.0
+google-genai>=1.0.0

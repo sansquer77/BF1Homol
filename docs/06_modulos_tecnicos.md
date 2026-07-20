@@ -134,6 +134,10 @@ Análise assistida por IA de apostas e padrões.
 
 - Gera insights e sugestões com base no histórico de apostas do participante
 - Identifica padrões de pilotos mais apostados e acertos do 11º colocado
+- Usa `gemini_service.py` para gerar apostas estratégicas, mantendo fallback local quando a IA não está disponível
+
+### `gemini_service.py`
+Centraliza o SDK oficial `google-genai`, a leitura de `GEMINI_API_KEY`/`GEMINI_MODEL`, timeout, fechamento do cliente e respostas JSON estruturadas.
 
 ### `championship_service.py`
 Lógica de apostas e resultados do campeonato (RN-008).
@@ -322,9 +326,11 @@ Arquivos estáticos servidos diretamente:
 | `plotly` | 5.18.0 | Gráficos interativos |
 | `matplotlib` | 3.8.0 | Gráficos estáticos |
 | `httpx` | 0.25.0 | Requisições HTTP assíncronas |
+| `google-genai` | 1.0.0 | Cliente oficial da API Gemini |
 
 ### Changelog
 
+- `4.3` — 2026-07-20 — Integração de IA consolidada no Gemini com o SDK oficial `google-genai`; contrato legado removido.
 - `4.2` — 2026-07-20 — `jti`, revogação de sessão, cookie obrigatório, normalização de e-mail e contrato estável para DataFrames vazios.
 - `4.1` — 2026-07-20 — Contexto autenticado, operações administrativas e deadline puro.
 - `4.0` — 2026-07-19 — Variáveis, contratos do histórico e limites reais entre camadas corrigidos.
