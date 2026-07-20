@@ -28,6 +28,7 @@ from services.bets_ai import (
 from services.bets_rules import ajustar_aposta_para_regras
 from services.bets_rules import _aposta_valida_regras, pode_fazer_aposta
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
+from utils.performance import measured
 from services.rules_service import get_regras_aplicaveis
 from utils.datetime_utils import now_sao_paulo
 from utils.input_models import BetSubmissionInput, ValidationError
@@ -662,6 +663,7 @@ def _determinar_tipo_prova(prova_row: Union[pd.Series, dict], nome_prova: Option
     return "Normal"
 
 
+@measured("envio_aposta")
 def salvar_aposta(
     usuario_id,
     prova_id,

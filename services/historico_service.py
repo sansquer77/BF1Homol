@@ -33,8 +33,13 @@ from typing import Optional
 
 import pandas as pd
 
-from services.data_access_apostas import get_apostas_df, get_posicoes_participantes_df
-from services.data_access_provas import get_resultados_df
+from services.data_access_apostas import (
+    get_apostas_df,
+    get_apostas_usuario_df,
+    get_posicoes_participantes_df,
+    get_posicoes_usuario_df,
+)
+from services.data_access_provas import get_resultados_df, get_resultados_usuario_df
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +237,15 @@ def calcular_resumo_historico(usuario_id: int) -> ResumoHistorico:
     Returns:
         ResumoHistorico com as métricas calculadas.
     """
-    temporadas = _get_todas_temporadas_do_participante(usuario_id)
+    apostas_todas = get_apostas_usuario_df(usuario_id)
+    posicoes_todas = get_posicoes_usuario_df(usuario_id)
+    resultados_todos = get_resultados_usuario_df(usuario_id)
+    if apostas_todas.empty or "usuario_id" not in apostas_todas.columns:
+        return ResumoHistorico()
+    apostas_usuario = apostas_todas[apostas_todas["usuario_id"] == usuario_id]
+    temporadas = sorted(
+        apostas_usuario["temporada"].dropna().astype(str).str.strip().unique().tolist()
+    ) if "temporada" in apostas_usuario.columns else []
     if not temporadas:
         return ResumoHistorico()
 
@@ -242,7 +255,9 @@ def calcular_resumo_historico(usuario_id: int) -> ResumoHistorico:
 
     for temporada in sorted(temporadas):
         # Fonte oficial: pontos já calculados e persistidos pelo serviço de classificação
-        posicoes_df = get_posicoes_participantes_df(temporada)
+        posicoes_df = posicoes_todas[
+            posicoes_todas["temporada"].astype(str).str.strip() == temporada
+        ] if not posicoes_todas.empty and "temporada" in posicoes_todas.columns else pd.DataFrame()
 
         posicao = _get_posicao_final_de_temporada(posicoes_df, usuario_id, temporada)
         if posicao is not None:
@@ -253,13 +268,13 @@ def calcular_resumo_historico(usuario_id: int) -> ResumoHistorico:
             pontuacoes_por_temporada.append((temporada, pontuacao))
 
         # Acertos do 11º: não está em posicoes_participantes — precisa das apostas
-        apostas_temp = get_apostas_df(temporada)
-        apostas_part = (
-            apostas_temp[apostas_temp["usuario_id"] == usuario_id]
-            if not apostas_temp.empty
-            else pd.DataFrame()
-        )
-        resultados_temp = get_resultados_df(temporada)
+        apostas_part = apostas_usuario[
+            apostas_usuario["temporada"].astype(str).str.strip() == temporada
+        ]
+        prova_ids = set(apostas_part["prova_id"].dropna().astype(int).tolist()) if "prova_id" in apostas_part.columns else set()
+        resultados_temp = resultados_todos[
+            resultados_todos["prova_id"].isin(prova_ids)
+        ] if not resultados_todos.empty and "prova_id" in resultados_todos.columns else pd.DataFrame()
         total_acertos_11 += _contar_acertos_11_em_temporada(
             apostas_part, resultados_temp, usuario_id
         )
@@ -299,7 +314,13 @@ def calcular_dados_grafico(usuario_id: int) -> DadosGrafico:
     Returns:
         DadosGrafico com fichas por temporada/piloto e o piloto mais apostado.
     """
-    temporadas = _get_todas_temporadas_do_participante(usuario_id)
+    apostas_todas = get_apostas_usuario_df(usuario_id)
+    if apostas_todas.empty or "usuario_id" not in apostas_todas.columns:
+        return DadosGrafico()
+    apostas_usuario = apostas_todas[apostas_todas["usuario_id"] == usuario_id]
+    temporadas = sorted(
+        apostas_usuario["temporada"].dropna().astype(str).str.strip().unique().tolist()
+    ) if "temporada" in apostas_usuario.columns else []
     if not temporadas:
         return DadosGrafico()
 
@@ -307,11 +328,13 @@ def calcular_dados_grafico(usuario_id: int) -> DadosGrafico:
     fichas_totais_piloto: dict[str, int] = {}
 
     for temporada in sorted(temporadas):
-        apostas_temp = get_apostas_df(temporada)
+        apostas_temp = apostas_usuario[
+            apostas_usuario["temporada"].astype(str).str.strip() == temporada
+        ]
         if apostas_temp.empty:
             continue
 
-        apostas_part = apostas_temp[apostas_temp["usuario_id"] == usuario_id]
+        apostas_part = apostas_temp
         if apostas_part.empty:
             continue
 

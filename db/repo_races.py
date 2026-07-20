@@ -76,6 +76,21 @@ def get_resultados_df(temporada: Optional[str] = None) -> pd.DataFrame:
     return pd.DataFrame([dict(r) for r in rows])
 
 
+def get_resultados_usuario_df(usuario_id: int, limit: int = 5000) -> pd.DataFrame:
+    """Resultados apenas das provas apostadas pelo usuario, com limite defensivo."""
+    return _query_to_df(
+        """
+        SELECT DISTINCT r.prova_id, r.posicoes, r.abandono_pilotos
+        FROM resultados r
+        JOIN apostas a ON a.prova_id = r.prova_id
+        WHERE a.usuario_id = %s
+        ORDER BY r.prova_id
+        LIMIT %s
+        """,
+        (int(usuario_id), max(1, min(int(limit), 5000))),
+    )
+
+
 def add_piloto(nome: str, equipe: str = "", status: str = "Ativo", numero: int = 0) -> bool:
     try:
         with db_connect() as conn:

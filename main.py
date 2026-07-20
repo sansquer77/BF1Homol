@@ -11,6 +11,7 @@ Melhorias:
 import streamlit as st
 import logging
 import datetime
+from utils.performance import journey
 from pathlib import Path
 
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
@@ -845,7 +846,15 @@ def main():
 
     # EXECUTA A VIEW
     if pagina in PAGES:
-        PAGES[pagina]()
+        journey_names = {
+            "Login": "login",
+            "Painel do Participante": "abertura_painel",
+            "Classificação": "classificacao",
+            "Atualização de resultados": "lancamento_resultado",
+            "Log de Apostas": "historico",
+        }
+        with journey(journey_names.get(pagina, f"pagina:{pagina}"), page=pagina):
+            PAGES[pagina]()
     else:
         st.error("Página não encontrada.")
 

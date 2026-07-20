@@ -29,6 +29,13 @@ def get_apostas_df(temporada: Optional[str] = None) -> pd.DataFrame:
     return _query_to_df("SELECT * FROM apostas")
 
 
+def get_apostas_usuario_df(usuario_id: int, limit: int = 5000) -> pd.DataFrame:
+    return _query_to_df(
+        "SELECT * FROM apostas WHERE usuario_id = %s ORDER BY temporada, prova_id LIMIT %s",
+        (int(usuario_id), max(1, min(int(limit), 5000))),
+    )
+
+
 def get_posicoes_participantes_df(temporada: Optional[str] = None) -> pd.DataFrame:
     if temporada:
         return _query_to_df(
@@ -36,6 +43,13 @@ def get_posicoes_participantes_df(temporada: Optional[str] = None) -> pd.DataFra
             (temporada,),
         )
     return _query_to_df("SELECT * FROM posicoes_participantes ORDER BY prova_id, posicao")
+
+
+def get_posicoes_usuario_df(usuario_id: int, limit: int = 5000) -> pd.DataFrame:
+    return _query_to_df(
+        "SELECT * FROM posicoes_participantes WHERE usuario_id = %s ORDER BY temporada, prova_id LIMIT %s",
+        (int(usuario_id), max(1, min(int(limit), 5000))),
+    )
 
 
 def _usuarios_status_historico_exists(conn) -> bool:
@@ -76,6 +90,8 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
 
 __all__ = [
     "get_apostas_df",
+    "get_apostas_usuario_df",
     "get_posicoes_participantes_df",
+    "get_posicoes_usuario_df",
     "get_participantes_temporada_df",
 ]

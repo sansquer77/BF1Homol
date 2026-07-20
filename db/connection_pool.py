@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import time
 from typing import Any, Iterator, Optional
 
 try:
@@ -21,6 +22,76 @@ from db.db_config import (
     DB_MIN_CONN,
     DB_TIMEOUT,
 )
+from utils.performance import record_query, record_rows
+
+
+class InstrumentedCursor:
+    def __init__(self, cursor: Any) -> None:
+        self._cursor = cursor
+
+    def execute(self, query: Any, params: Any = None, **kwargs: Any):
+        started = time.perf_counter()
+        try:
+            if params is None:
+                self._cursor.execute(query, **kwargs)
+            else:
+                self._cursor.execute(query, params, **kwargs)
+            return self
+        finally:
+            record_query(str(query), time.perf_counter() - started)
+
+    def executemany(self, query: Any, params_seq: Any, **kwargs: Any):
+        started = time.perf_counter()
+        try:
+            self._cursor.executemany(query, params_seq, **kwargs)
+            return self
+        finally:
+            record_query(str(query), time.perf_counter() - started)
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        record_rows(1 if row is not None else 0)
+        return row
+
+    def fetchmany(self, size: int = 0):
+        rows = self._cursor.fetchmany(size) if size else self._cursor.fetchmany()
+        record_rows(len(rows))
+        return rows
+
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        record_rows(len(rows))
+        return rows
+
+    def __iter__(self) -> Iterator[Any]:
+        for row in self._cursor:
+            record_rows(1)
+            yield row
+
+    def __enter__(self):
+        self._cursor.__enter__()
+        return self
+
+    def __exit__(self, *args: Any):
+        return self._cursor.__exit__(*args)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._cursor, name)
+
+
+class InstrumentedConnection:
+    def __init__(self, connection: Any) -> None:
+        self._connection = connection
+
+    def cursor(self, *args: Any, **kwargs: Any) -> InstrumentedCursor:
+        return InstrumentedCursor(self._connection.cursor(*args, **kwargs))
+
+    def execute(self, query: Any, params: Any = None, **kwargs: Any) -> InstrumentedCursor:
+        cursor = self.cursor()
+        return cursor.execute(query, params, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._connection, name)
 
 
 class ConnectionPool:
@@ -54,7 +125,7 @@ class ConnectionPool:
         if self._pg_pool is None:
             raise RuntimeError("Pool PostgreSQL não inicializado")
         with self._pg_pool.connection() as conn:
-            yield conn
+            yield InstrumentedConnection(conn)
 
     def close_all(self) -> None:
         """Fecha todas as conexões do pool."""

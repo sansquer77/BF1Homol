@@ -19,6 +19,8 @@ def _load_access_logs(
     sucesso_sel: str,
     ip_contains: str,
     usuario_contains: str,
+    limit: int = 100,
+    offset: int = 0,
 ) -> pd.DataFrame:
     start_ts = datetime.datetime.combine(data_inicial, datetime.time.min)
     end_ts_exclusive = datetime.datetime.combine(
@@ -70,7 +72,9 @@ def _load_access_logs(
         FROM access_logs
         WHERE {where_sql}
         ORDER BY created_at DESC, id DESC
+        LIMIT %s OFFSET %s
     """
+    params.extend([max(1, min(int(limit), 500)), max(0, int(offset))])
 
     # pd.read_sql_query nao e compativel com psycopg3 (dict_row);
     # usamos cursor manual e construimos o DataFrame a partir da lista de dicts.
@@ -152,6 +156,8 @@ def main() -> None:
     with col_usuario:
         usuario_contains = st.text_input("Usuário/Email contém", value="").strip()
 
+    page_size = st.selectbox("Registros por página", [50, 100, 200], index=1, key="access_logs_page_size")
+    page = int(st.number_input("Página", min_value=1, value=1, step=1, key="access_logs_page"))
     df = _load_access_logs(
         data_inicial=data_inicial,
         data_final=data_final,
@@ -160,6 +166,8 @@ def main() -> None:
         sucesso_sel=sucesso_sel,
         ip_contains=ip_contains,
         usuario_contains=usuario_contains,
+        limit=page_size,
+        offset=(page - 1) * page_size,
     )
 
     if df.empty:

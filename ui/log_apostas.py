@@ -84,7 +84,7 @@ def _normalize_date_for_filter(value: object) -> str:
     return dt.strftime("%Y-%m-%d")
 
 
-def carregar_logs(temporada=None, usuario_id=None, usuario_nome=None, is_admin=False):
+def carregar_logs(temporada=None, usuario_id=None, usuario_nome=None, is_admin=False, *, limit=100, offset=0):
     """Carrega logs de apostas, opcionalmente filtrando por temporada."""
     with db_connect() as conn:
         cols = [str(c) for c in get_table_columns(conn, "log_apostas")]
@@ -133,8 +133,9 @@ def carregar_logs(temporada=None, usuario_id=None, usuario_nome=None, is_admin=F
             f"{ip_expr} AS ip_address, "
             "temporada, "
             f"{status_expr} AS status "
-            f"FROM log_apostas{where_sql} ORDER BY id DESC"
+            f"FROM log_apostas{where_sql} ORDER BY id DESC LIMIT %s OFFSET %s"
         )
+        params.extend([max(1, min(int(limit), 500)), max(0, int(offset))])
 
         # Usa cursor manual — pd.read_sql é incompatível com psycopg3 (dict_row)
         cur = conn.cursor()
@@ -173,7 +174,12 @@ def main():
     season = st.selectbox("Temporada", season_options, index=default_index, key="log_apostas_season")
     st.session_state["temporada"] = season
 
-    df = carregar_logs(season, usuario_id=user_id, usuario_nome=user_nome, is_admin=is_admin)
+    page_size = st.selectbox("Registros por página", [50, 100, 200], index=1, key="log_apostas_page_size")
+    page = int(st.number_input("Página", min_value=1, value=1, step=1, key="log_apostas_page"))
+    df = carregar_logs(
+        season, usuario_id=user_id, usuario_nome=user_nome, is_admin=is_admin,
+        limit=page_size, offset=(page - 1) * page_size,
+    )
     if df.empty:
         st.warning("Nenhum registro no log de apostas.")
         return
