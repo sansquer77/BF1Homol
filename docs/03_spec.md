@@ -282,3 +282,4 @@ Participante acessa aba "Histórico" no Painel
 > DataFrames intermediários criados pelas telas, inclusive após `st.rerun()`, também devem preservar o contrato do domínio; fallbacks não podem retornar `pd.DataFrame()` sem colunas.
 > Após escrita de aposta, a função cacheada de leitura de apostas deve ser invalidada explicitamente antes do `st.rerun()`; mensagens de confirmação devem sobreviver ao rerun via `session_state`.
 > O fluxo “Sem ideias” somente informa sucesso após reler a linha diretamente do banco, sem cache, e transporta os valores confirmados pelo `session_state` para preencher o formulário após o rerun.
+> A Gestão de Apostas normaliza apostas, provas e participantes na entrada da página; a ordenação de provas converte datas com `errors="coerce"`, mantendo registros inválidos ao final sem quebrar a tela.

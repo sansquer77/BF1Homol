@@ -32,6 +32,9 @@ class ApostasDataFrameContractTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] / "ui" / "gestao_apostas.py").read_text(encoding="utf-8")
         self.assertIn("def _normalizar_apostas_df", source)
         self.assertEqual(2, source.count("_normalizar_apostas_df(get_apostas_df(season))"))
+        self.assertIn("_normalizar_provas_df(get_provas_df(season))", source)
+        self.assertIn("_normalizar_participantes_df(get_participantes_temporada_df(season))", source)
+        self.assertNotIn('provas_df.sort_values("data")', source)
 
     def test_painel_fallback_keeps_prova_id_after_sem_ideias_rerun(self):
         source = (Path(__file__).resolve().parents[1] / "ui" / "painel.py").read_text(encoding="utf-8")
