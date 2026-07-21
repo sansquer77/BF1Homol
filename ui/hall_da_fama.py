@@ -26,6 +26,7 @@ from services.hall_da_fama_controller import (
 from utils.helpers import render_page_header
 from services.admin_operations import master_delete_hall, master_save_hall
 from services.access_control import require_operation
+from utils.dataframe_contracts import USUARIOS_COLUMNS, with_required_columns
 
 
 def _table_height(total_rows: int, row_height: int = 36, max_height: int = 620) -> int:
@@ -59,7 +60,7 @@ def hall_da_fama():
         seasons = [r['temporada'] for r in c.fetchall()]
         
         # Get all users (exclude master from historical table)
-        usuarios = get_usuarios_df()
+        usuarios = with_required_columns(get_usuarios_df(), USUARIOS_COLUMNS)
         if not usuarios.empty and 'perfil' in usuarios.columns:
             usuarios = usuarios[usuarios['perfil'].str.lower() != 'master']
         if usuarios.empty:
@@ -287,7 +288,9 @@ def render_admin_panel(conn, seasons):
     st.session_state.hall_fama_season = season_year
 
     c = conn.cursor()
-    usuarios = get_participantes_temporada_df(str(season_year))
+    usuarios = with_required_columns(
+        get_participantes_temporada_df(str(season_year)), USUARIOS_COLUMNS
+    )
     
     if usuarios.empty:
         st.error("❌ Não há usuários cadastrados no sistema. Cadastre usuários primeiro na seção 'Gestão de Usuários'.")

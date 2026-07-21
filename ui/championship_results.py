@@ -8,14 +8,18 @@ from services.championship_service import (
 )
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
+from utils.dataframe_contracts import PILOTOS_COLUMNS, with_required_columns
 
 def main():
     render_page_header(st, "Cadastrar/Atualizar Resultado Oficial do Campeonato")
 
     # Carregar lista completa de pilotos e equipes do banco
-    pilotos_df = get_pilotos_df()
+    pilotos_df = with_required_columns(get_pilotos_df(), PILOTOS_COLUMNS)
     pilotos = sorted(pilotos_df["nome"].unique())
     equipes = sorted(pilotos_df["equipe"].unique())
+    if not pilotos or not equipes:
+        st.warning("Cadastre pilotos e equipes antes de lançar o resultado do campeonato.")
+        return
 
     # Temporada selecionada
     temporadas = get_season_options()

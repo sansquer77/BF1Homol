@@ -11,6 +11,7 @@ from services.data_access_provas import get_pilotos_df
 from services.data_access_auth import get_usuarios_df
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
+from utils.dataframe_contracts import PILOTOS_COLUMNS, USUARIOS_COLUMNS, with_required_columns
 
 def main():
     render_page_header(st, "Apostas do Campeonato")
@@ -21,16 +22,19 @@ def main():
         st.stop()
 
     user_id = st.session_state["user_id"]
-    usuarios_df = get_usuarios_df()
+    usuarios_df = with_required_columns(get_usuarios_df(), USUARIOS_COLUMNS)
     usuario = usuarios_df[usuarios_df['id'] == user_id]
     if usuario.empty:
         st.error("Usuário não encontrado.")
         st.stop()
     user_nome = usuario.iloc[0]["nome"]
 
-    pilotos_df = get_pilotos_df()
+    pilotos_df = with_required_columns(get_pilotos_df(), PILOTOS_COLUMNS)
     pilotos = sorted(pilotos_df['nome'].unique().tolist())
     equipes = sorted(pilotos_df['equipe'].unique().tolist())
+    if not pilotos or not equipes:
+        st.warning("Cadastre pilotos e equipes antes de apostar no campeonato.")
+        st.stop()
 
     # Temporada selecionada
     temporadas = get_season_options()

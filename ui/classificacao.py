@@ -29,6 +29,14 @@ from services.rules_service import get_regras_aplicaveis
 from services.bets_scoring import _parse_datetime_sp, calcular_pontuacao_lote
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
+from utils.dataframe_contracts import (
+    APOSTAS_COLUMNS,
+    POSICOES_COLUMNS,
+    PROVAS_COLUMNS,
+    RESULTADOS_COLUMNS,
+    USUARIOS_COLUMNS,
+    with_required_columns,
+)
 
 
 def _table_height(total_rows: int, row_height: int = 38, max_height: int = 700) -> int:
@@ -294,10 +302,10 @@ def main():
     except (TypeError, ValueError):
         season_int = current_year
 
-    usuarios_df = get_participantes_temporada_df(season)
-    provas_df = get_provas_df(season)
-    apostas_df = get_apostas_df(season)
-    resultados_df = get_resultados_df(season)
+    usuarios_df = with_required_columns(get_participantes_temporada_df(season), USUARIOS_COLUMNS)
+    provas_df = with_required_columns(get_provas_df(season), PROVAS_COLUMNS)
+    apostas_df = with_required_columns(get_apostas_df(season), APOSTAS_COLUMNS)
+    resultados_df = with_required_columns(get_resultados_df(season), RESULTADOS_COLUMNS)
 
     # Garante IDs únicos em provas_df (evita ValueError no set_index/to_dict)
     if not provas_df.empty and provas_df['id'].duplicated().any():
@@ -686,7 +694,7 @@ def main():
 
     st.subheader("Classificação de Cada Participante ao Longo do Campeonato")
     # fix #5: substituir query raw por helper de repositório — elimina conexão extra e duplicação de SQL
-    df_posicoes = get_posicoes_participantes_df(season)
+    df_posicoes = with_required_columns(get_posicoes_participantes_df(season), POSICOES_COLUMNS)
     fig_all = go.Figure()
     for part in participantes['nome']:
         u_id = participantes[participantes['nome'] == part].iloc[0]['id']

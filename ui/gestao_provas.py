@@ -17,17 +17,16 @@ from services.data_access_provas import (
 )
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
+from utils.dataframe_contracts import PROVAS_COLUMNS, with_required_columns
 
 
 def _normalizar_df_provas(df: pd.DataFrame) -> pd.DataFrame:
-    """Normaliza DataFrame de provas para evitar quebra por IDs inválidos."""
+    """Aplica o contrato de provas e remove apenas linhas sem ID válido."""
+    df = with_required_columns(df, PROVAS_COLUMNS)
     if df.empty:
         return df
 
     df_norm = df.copy()
-    if "id" not in df_norm.columns:
-        return pd.DataFrame(columns=df_norm.columns)
-
     df_norm["id"] = pd.to_numeric(df_norm["id"], errors="coerce")
     df_norm = df_norm[df_norm["id"].notna()].copy()
     df_norm["id"] = df_norm["id"].astype(int)
@@ -110,8 +109,9 @@ def _render_aba_editar(df: pd.DataFrame):
         return
     
     # Obter valores da prova selecionada
-    nome_atual = prova_row["nome"]
-    data_atual = pd.to_datetime(prova_row["data"]).date()
+    nome_atual = str(prova_row.get("nome", "") or "").strip()
+    data_parseada = pd.to_datetime(prova_row.get("data"), errors="coerce")
+    data_atual = data_parseada.date() if pd.notna(data_parseada) else datetime.now().date()
     
     horario_atual = prova_row.get("horario_prova", "14:00:00")
     try:

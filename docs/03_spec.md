@@ -283,3 +283,6 @@ Participante acessa aba "Histórico" no Painel
 > Após escrita de aposta, a função cacheada de leitura de apostas deve ser invalidada explicitamente antes do `st.rerun()`; mensagens de confirmação devem sobreviver ao rerun via `session_state`.
 > O fluxo “Sem ideias” somente informa sucesso após reler a linha diretamente do banco, sem cache, e transporta os valores confirmados pelo `session_state` para preencher o formulário após o rerun.
 > A Gestão de Apostas normaliza apostas, provas e participantes na entrada da página; a ordenação de provas converte datas com `errors="coerce"`, mantendo registros inválidos ao final sem quebrar a tela.
+> A Atualização de Resultados normaliza provas, pilotos e resultados em toda leitura, inclusive após salvar/rerun; datas ausentes ou inválidas são exibidas sem interromper a página.
+> Painel, Classificação, Calendário, Usuários, Hall da Fama e apostas/resultados de campeonato reaplicam seus contratos na fronteira da UI para tolerar valores de cache produzidos por versões anteriores.
+> A Gestão de Provas aplica `PROVAS_COLUMNS` antes da tabela e dos formulários; registros sem ID são descartados, enquanto data ausente usa um valor seguro no editor.

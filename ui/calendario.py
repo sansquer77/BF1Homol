@@ -17,6 +17,7 @@ from streamlit_calendar import calendar
 from services.data_access_provas import get_provas_df
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
+from utils.dataframe_contracts import PROVAS_COLUMNS, with_required_columns
 
 
 # ---------------------------------------------------------------------------
@@ -259,7 +260,7 @@ def main():
     temporada = st.selectbox("Temporada", temporadas, key="calendario_temporada")
 
     # --- Carrega e prepara provas ---
-    provas_df = get_provas_df(temporada=temporada)
+    provas_df = with_required_columns(get_provas_df(temporada=temporada), PROVAS_COLUMNS)
     if provas_df.empty:
         st.info("Nenhuma prova cadastrada para a temporada selecionada.")
         return

@@ -8,6 +8,21 @@ from services.bets_scoring import atualizar_classificacoes_todas_as_provas
 from services.result_notification_service import enviar_emails_resultado_prova
 from utils.helpers import render_page_header
 from utils.season_utils import get_current_year_str, get_default_season_index, get_season_options
+from utils.dataframe_contracts import (
+    PILOTOS_COLUMNS,
+    PROVAS_COLUMNS,
+    RESULTADOS_COLUMNS,
+    with_required_columns,
+)
+
+
+def _normalizar_dados_resultados(provas, pilotos, resultados):
+    """Aplica os contratos consumidos pela tela, inclusive sobre cache legado."""
+    return (
+        with_required_columns(provas, PROVAS_COLUMNS),
+        with_required_columns(pilotos, PILOTOS_COLUMNS),
+        with_required_columns(resultados, RESULTADOS_COLUMNS),
+    )
 
 def resultados_view():
     # Verificação de permissão (apenas admin/master)
@@ -31,10 +46,12 @@ def resultados_view():
     st.session_state["temporada"] = temporada_selecionada
 
     # Buscar dados filtrados por temporada
-    provas = get_provas_df(temporada_selecionada)
-    pilotos_df = get_pilotos_df()
+    provas, pilotos_df, resultados_df = _normalizar_dados_resultados(
+        get_provas_df(temporada_selecionada),
+        get_pilotos_df(),
+        get_resultados_df(temporada_selecionada),
+    )
     pilotos_ativos_df = pilotos_df[pilotos_df['status'] == 'Ativo']
-    resultados_df = get_resultados_df(temporada_selecionada)
 
     if len(provas) == 0 or len(pilotos_ativos_df) == 0:
         st.warning("Cadastre provas e pilotos ativos antes de lançar resultados.")
@@ -155,7 +172,9 @@ def resultados_view():
 
     st.markdown("---")
     st.subheader(f"Resultados cadastrados - Temporada {temporada_selecionada}")
-    resultados_df = get_resultados_df(temporada_selecionada)
+    resultados_df = with_required_columns(
+        get_resultados_df(temporada_selecionada), RESULTADOS_COLUMNS
+    )
     provas_resultados = []
     for _, prova in provas.iterrows():
         res = resultados_df[resultados_df['prova_id'] == prova['id']]
@@ -163,7 +182,11 @@ def resultados_view():
             posicoes_dict = ast.literal_eval(res.iloc[0]['posicoes'])
             linha = {
                 "Prova": prova['nome'],
-                "Data": pd.to_datetime(prova['data']).strftime("%d/%m/%Y"),
+                "Data": (
+                    pd.to_datetime(prova['data'], errors="coerce").strftime("%d/%m/%Y")
+                    if pd.notna(pd.to_datetime(prova['data'], errors="coerce"))
+                    else "Data não informada"
+                ),
                 "Tipo": prova.get('tipo', 'Normal')
             }
             for pos in range(1, 12):

@@ -33,7 +33,13 @@ from services.painel_controller import (
 from services.rules_service import get_regras_aplicaveis
 from services.historico_service import calcular_resumo_historico, calcular_dados_grafico
 from utils.datetime_utils import now_sao_paulo
-from utils.dataframe_contracts import APOSTAS_COLUMNS, with_required_columns
+from utils.dataframe_contracts import (
+    APOSTAS_COLUMNS,
+    POSICOES_COLUMNS,
+    PROVAS_COLUMNS,
+    RESULTADOS_COLUMNS,
+    with_required_columns,
+)
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 
@@ -157,8 +163,8 @@ def participante_view():
     temporada = st.session_state.get('temporada', str(now_sao_paulo().year))
     apostas_part = with_required_columns(None, APOSTAS_COLUMNS)
     apostas_df = with_required_columns(None, APOSTAS_COLUMNS)
-    provas_df = pd.DataFrame()
-    resultados_df = pd.DataFrame()
+    provas_df = with_required_columns(None, PROVAS_COLUMNS)
+    resultados_df = with_required_columns(None, RESULTADOS_COLUMNS)
 
     # ------------------ Aba: Apostas ----------------------
     if show_apostas_tab:
@@ -168,9 +174,9 @@ def participante_view():
             # fix(itens 4 e 5): cada DataFrame é buscado UMA única vez por render
             # e reutilizado em todo o escopo da aba — elimina as 2x get_apostas_df
             # e 3x get_provas_df que existiam antes.
-            provas_df = get_provas_df(temporada)
-            apostas_df = get_apostas_df(temporada)
-            resultados_df = get_resultados_df(temporada)
+            provas_df = with_required_columns(get_provas_df(temporada), PROVAS_COLUMNS)
+            apostas_df = with_required_columns(get_apostas_df(temporada), APOSTAS_COLUMNS)
+            resultados_df = with_required_columns(get_resultados_df(temporada), RESULTADOS_COLUMNS)
 
             try:
                 if not provas_df.empty and 'data' in provas_df.columns:
@@ -271,7 +277,7 @@ def participante_view():
                             (apostas_df['usuario_id'] == user['id']) & (apostas_df['prova_id'] == prova_id)
                         ]
                     else:
-                        aposta_existente = pd.DataFrame()
+                        aposta_existente = with_required_columns(None, APOSTAS_COLUMNS)
                     max_linhas = max(10, int(min_pilotos_regra))
                     pilotos_apostados_ant, fichas_ant, piloto_11_ant = [], [], ""
                     if not aposta_existente.empty:
@@ -470,11 +476,11 @@ def participante_view():
 
             temporada = st.session_state.get('temporada', str(now_sao_paulo().year))
             if apostas_df.empty:
-                apostas_df = get_apostas_df(temporada)
+                apostas_df = with_required_columns(get_apostas_df(temporada), APOSTAS_COLUMNS)
             if provas_df.empty:
-                provas_df = get_provas_df(temporada)
+                provas_df = with_required_columns(get_provas_df(temporada), PROVAS_COLUMNS)
             if resultados_df.empty:
-                resultados_df = get_resultados_df(temporada)
+                resultados_df = with_required_columns(get_resultados_df(temporada), RESULTADOS_COLUMNS)
 
             # --- Exibição detalhada das apostas do participante ---
             st.subheader("Minhas apostas detalhadas")
@@ -644,10 +650,12 @@ def participante_view():
             user_id_logado = user['id']
             user_nome_logado = user['nome']
             try:
-                df_posicoes = get_posicoes_participantes_df(temporada)
+                df_posicoes = with_required_columns(
+                    get_posicoes_participantes_df(temporada), POSICOES_COLUMNS
+                )
             except Exception:
                 st.info("Nenhum histórico de posições disponível ainda. Quando houver dados, eles aparecerão aqui.")
-                df_posicoes = pd.DataFrame()
+                df_posicoes = with_required_columns(None, POSICOES_COLUMNS)
 
             if not df_posicoes.empty and {'usuario_id', 'prova_id', 'posicao'}.issubset(df_posicoes.columns):
                 posicoes_part = df_posicoes[df_posicoes['usuario_id'] == user_id_logado]

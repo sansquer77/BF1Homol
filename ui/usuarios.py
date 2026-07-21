@@ -28,10 +28,12 @@ from utils.helpers import get_bf1_logo_data_uri
 from datetime import datetime
 from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
+from utils.dataframe_contracts import USUARIOS_COLUMNS, with_required_columns
 
 
 def _normalizar_df_usuarios(df: pd.DataFrame) -> pd.DataFrame:
     """Normaliza DataFrame de usuários para evitar quebras por dados inválidos."""
+    df = with_required_columns(df, USUARIOS_COLUMNS)
     if df.empty:
         return df
 
@@ -266,7 +268,7 @@ def _render_gestao_financeira_tab():
         _salvar_valor_taxa_temporada(temporada, valor_taxa)
         st.success("Valor da taxa salvo com sucesso!")
 
-    participantes = get_participantes_temporada_df(temporada)
+    participantes = _normalizar_df_usuarios(get_participantes_temporada_df(temporada))
     if not participantes.empty and "perfil" in participantes.columns:
         participantes = participantes[
             participantes["perfil"].astype(str).str.strip().str.lower() != "master"

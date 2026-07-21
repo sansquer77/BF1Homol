@@ -65,3 +65,27 @@ class ApostasDataFrameContractTests(unittest.TestCase):
                 result = with_required_columns(None, columns)
                 self.assertEqual(set(columns), set(result.columns))
                 self.assertTrue(result.empty)
+
+    def test_gestao_resultados_normalizes_every_result_read(self):
+        source = (Path(__file__).resolve().parents[1] / "ui" / "gestao_resultados.py").read_text(encoding="utf-8")
+        self.assertIn("def _normalizar_dados_resultados", source)
+        self.assertEqual(2, source.count("get_resultados_df(temporada_selecionada)"))
+        self.assertIn("with_required_columns(\n        get_resultados_df(temporada_selecionada), RESULTADOS_COLUMNS", source)
+
+    def test_high_risk_pages_apply_contracts_at_ui_boundary(self):
+        root = Path(__file__).resolve().parents[1] / "ui"
+        expected = {
+            "championship_results.py": "PILOTOS_COLUMNS",
+            "championship_bets.py": "USUARIOS_COLUMNS",
+            "classificacao.py": "RESULTADOS_COLUMNS",
+            "hall_da_fama.py": "USUARIOS_COLUMNS",
+            "usuarios.py": "USUARIOS_COLUMNS",
+            "calendario.py": "PROVAS_COLUMNS",
+            "painel.py": "POSICOES_COLUMNS",
+            "gestao_provas.py": "PROVAS_COLUMNS",
+        }
+        for filename, contract in expected.items():
+            with self.subTest(filename=filename):
+                source = (root / filename).read_text(encoding="utf-8")
+                self.assertIn("with_required_columns", source)
+                self.assertIn(contract, source)
