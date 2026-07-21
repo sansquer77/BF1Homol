@@ -83,9 +83,21 @@ class ApostasDataFrameContractTests(unittest.TestCase):
             "calendario.py": "PROVAS_COLUMNS",
             "painel.py": "POSICOES_COLUMNS",
             "gestao_provas.py": "PROVAS_COLUMNS",
+            "analysis.py": "APOSTAS_COLUMNS",
         }
         for filename, contract in expected.items():
             with self.subTest(filename=filename):
                 source = (root / filename).read_text(encoding="utf-8")
                 self.assertIn("with_required_columns", source)
                 self.assertIn(contract, source)
+
+        analysis_source = (root / "analysis.py").read_text(encoding="utf-8")
+        self.assertNotIn("resultados_df['prova_id'].values", analysis_source)
+        self.assertNotIn("apostas_df[apostas_df['prova_id'] == rid]", analysis_source)
+        self.assertIn("resultados_ids", analysis_source)
+        self.assertIn("apostas_por_prova", analysis_source)
+
+        classificacao_source = (root / "classificacao.py").read_text(encoding="utf-8")
+        self.assertIn("def _normalizar_ids_numericos", classificacao_source)
+        self.assertIn('_normalizar_ids_numericos(apostas_df, "usuario_id", "prova_id")', classificacao_source)
+        self.assertIn('.fillna(0.0)', classificacao_source)

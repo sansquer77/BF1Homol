@@ -31,12 +31,24 @@ from utils.helpers import render_page_header
 from utils.season_utils import get_default_season_index, get_season_options
 from utils.dataframe_contracts import (
     APOSTAS_COLUMNS,
+    CHAMPIONSHIP_BETS_COLUMNS,
     POSICOES_COLUMNS,
     PROVAS_COLUMNS,
     RESULTADOS_COLUMNS,
     USUARIOS_COLUMNS,
     with_required_columns,
 )
+
+
+def _normalizar_ids_numericos(df: pd.DataFrame, *columns: str) -> pd.DataFrame:
+    """Descarta IDs ausentes/inválidos antes de conversões e agrupamentos."""
+    result = df.copy()
+    for column in columns:
+        result[column] = pd.to_numeric(result[column], errors="coerce")
+    result = result.dropna(subset=list(columns)).copy()
+    for column in columns:
+        result[column] = result[column].astype(int)
+    return result
 
 
 def _table_height(total_rows: int, row_height: int = 38, max_height: int = 700) -> int:
@@ -307,11 +319,18 @@ def main():
     apostas_df = with_required_columns(get_apostas_df(season), APOSTAS_COLUMNS)
     resultados_df = with_required_columns(get_resultados_df(season), RESULTADOS_COLUMNS)
 
+    usuarios_df = _normalizar_ids_numericos(usuarios_df, "id")
+    provas_df = _normalizar_ids_numericos(provas_df, "id")
+    apostas_df = _normalizar_ids_numericos(apostas_df, "usuario_id", "prova_id")
+    resultados_df = _normalizar_ids_numericos(resultados_df, "prova_id")
+
     # Garante IDs únicos em provas_df (evita ValueError no set_index/to_dict)
     if not provas_df.empty and provas_df['id'].duplicated().any():
         provas_df = provas_df.drop_duplicates(subset='id', keep='first')
 
-    participantes = usuarios_df[usuarios_df['nome'] != 'Master']
+    participantes = usuarios_df[
+        usuarios_df["nome"].notna() & (usuarios_df['nome'].astype(str) != 'Master')
+    ]
     provas_df = provas_df.sort_values('data')
     perfil_usuario = st.session_state.get("user_role", "usuario").strip().lower()
 
@@ -326,6 +345,9 @@ def main():
         apostas_pontos_df["__pontos_calculados"] = [
             0 if p is None else float(p) for p in pontos_calculados
         ]
+        apostas_pontos_df["__pontos_calculados"] = pd.to_numeric(
+            apostas_pontos_df["__pontos_calculados"], errors="coerce"
+        ).fillna(0.0)
     else:
         apostas_pontos_df["__pontos_calculados"] = []
 
@@ -341,7 +363,10 @@ def main():
     resultado_campeonato = get_final_results(season_int)
     championship_bets_map = {}
     if resultado_campeonato:
-        championship_bets_df = get_championship_bets_df(season_int)
+        championship_bets_df = with_required_columns(
+            get_championship_bets_df(season_int), CHAMPIONSHIP_BETS_COLUMNS
+        )
+        championship_bets_df = _normalizar_ids_numericos(championship_bets_df, "user_id")
         if not championship_bets_df.empty:
             championship_bets_map = {
                 int(row['user_id']): {
@@ -695,6 +720,7 @@ def main():
     st.subheader("Classificação de Cada Participante ao Longo do Campeonato")
     # fix #5: substituir query raw por helper de repositório — elimina conexão extra e duplicação de SQL
     df_posicoes = with_required_columns(get_posicoes_participantes_df(season), POSICOES_COLUMNS)
+    df_posicoes = _normalizar_ids_numericos(df_posicoes, "usuario_id", "prova_id")
     fig_all = go.Figure()
     for part in participantes['nome']:
         u_id = participantes[participantes['nome'] == part].iloc[0]['id']

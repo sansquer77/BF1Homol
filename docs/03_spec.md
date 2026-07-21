@@ -286,3 +286,5 @@ Participante acessa aba "Histórico" no Painel
 > A Atualização de Resultados normaliza provas, pilotos e resultados em toda leitura, inclusive após salvar/rerun; datas ausentes ou inválidas são exibidas sem interromper a página.
 > Painel, Classificação, Calendário, Usuários, Hall da Fama e apostas/resultados de campeonato reaplicam seus contratos na fronteira da UI para tolerar valores de cache produzidos por versões anteriores.
 > A Gestão de Provas aplica `PROVAS_COLUMNS` antes da tabela e dos formulários; registros sem ID são descartados, enquanto data ausente usa um valor seguro no editor.
+> O Diagnóstico Regras/Provas da Análise Detalhada aplica os contratos completos de provas, resultados e apostas antes de normalizar IDs ou consultar `prova_id`.
+> A Classificação converte IDs com `errors="coerce"`, descarta linhas sem identificadores válidos antes de `int()` e substitui pontuações não numéricas por zero.

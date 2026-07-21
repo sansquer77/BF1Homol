@@ -20,6 +20,13 @@ from services.data_access_auth import (
 from services.rules_service import get_regras_aplicaveis
 from utils.helpers import render_page_header
 from utils.season_utils import get_season_options, get_default_season_index
+from utils.dataframe_contracts import (
+    APOSTAS_COLUMNS,
+    PROVAS_COLUMNS,
+    RESULTADOS_COLUMNS,
+    USUARIOS_COLUMNS,
+    with_required_columns,
+)
 
 
 def _table_height(total_rows: int, row_height: int = 36, max_height: int = 560) -> int:
@@ -117,7 +124,9 @@ def _get_logged_user_id() -> Optional[int]:
         return None
 
 def _get_participantes_temporada(temporada: Optional[str] = None) -> pd.DataFrame:
-    participantes_df = get_participantes_temporada_df(temporada)
+    participantes_df = with_required_columns(
+        get_participantes_temporada_df(temporada), USUARIOS_COLUMNS
+    )
     if participantes_df.empty:
         return participantes_df
     participantes_df = _normalizar_ids(participantes_df, "id")
@@ -463,11 +472,28 @@ def main():
 
     with tab5:
         st.subheader("Diagnóstico de Tipos de Prova e Regras Aplicadas")
-        provas_df = _normalizar_ids(get_provas_df(season), "id")
-        resultados_df = _normalizar_ids(get_resultados_df(season), "prova_id")
-        apostas_df = _normalizar_ids(get_apostas_df(season), "prova_id")
+        provas_df = _normalizar_ids(
+            with_required_columns(get_provas_df(season), PROVAS_COLUMNS), "id"
+        )
+        resultados_df = _normalizar_ids(
+            with_required_columns(get_resultados_df(season), RESULTADOS_COLUMNS), "prova_id"
+        )
+        apostas_df = _normalizar_ids(
+            with_required_columns(get_apostas_df(season), APOSTAS_COLUMNS), "prova_id"
+        )
         if not apostas_df.empty and 'temporada' in apostas_df.columns:
             apostas_df = apostas_df[apostas_df['temporada'] == season]
+
+        resultados_ids = (
+            set(resultados_df["prova_id"].dropna().astype(int).tolist())
+            if "prova_id" in resultados_df.columns
+            else set()
+        )
+        apostas_por_prova = (
+            apostas_df["prova_id"].dropna().astype(int).value_counts().to_dict()
+            if "prova_id" in apostas_df.columns
+            else {}
+        )
         if provas_df.empty:
             st.info("Nenhuma prova cadastrada para a temporada selecionada.")
         else:
@@ -499,8 +525,8 @@ def main():
                     'pontos_dobrada': regra.get('pontos_dobrada', False),
                     'pontos_posicoes_len': len(pts),
                     'pontos_posicoes_preview': ','.join(map(str, pts[:10])) if pts else '',
-                    'tem_resultado': rid in resultados_df['prova_id'].values if not resultados_df.empty else False,
-                    'qtd_apostas': int(apostas_df[apostas_df['prova_id'] == rid].shape[0]) if not apostas_df.empty else 0
+                    'tem_resultado': int(rid) in resultados_ids,
+                    'qtd_apostas': int(apostas_por_prova.get(int(rid), 0)),
                 })
             diag = pd.DataFrame(linhas)
             st.dataframe(
