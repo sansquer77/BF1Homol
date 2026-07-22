@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import numpy as np
 import matplotlib.pyplot as plt
 from io import BytesIO
 import matplotlib.image as mpimg
@@ -54,12 +55,12 @@ def _table_height(total_rows: int, row_height: int = 38, max_height: int = 700) 
     return min(max_height, 40 + (max(total_rows, 1) * row_height))
 
 
-def _montar_pontos_por_participante(
+def _montar_pontos_por_prova(
     apostas_pontos_df: pd.DataFrame,
     df_class: pd.DataFrame,
     provas_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Monta a grade com participantes nas linhas e provas nas colunas."""
+    """Monta a grade com provas nas linhas e participantes nas colunas."""
     participantes_ordem = df_class[["usuario_id", "Participante"]].drop_duplicates("usuario_id")
     provas_ordem = provas_df[["id", "nome"]].drop_duplicates("id").sort_values("id")
 
@@ -80,9 +81,10 @@ def _montar_pontos_por_participante(
         fill_value=0,
     )
     pontos.index = participantes_ordem["Participante"].tolist()
-    pontos.index.name = "Participante"
     pontos.columns = provas_ordem["nome"].tolist()
-    return pontos.apply(pd.to_numeric, errors="coerce").fillna(0.0)
+    pontos = pontos.apply(pd.to_numeric, errors="coerce").fillna(0.0).T
+    pontos.index.name = "Prova"
+    return pontos
 
 def formatar_brasileiro(valor):
     try:
@@ -294,6 +296,42 @@ def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultado
     plt.close(fig)
     buffer.seek(0)
     return buffer
+
+
+def destacar_heatmap(df: pd.DataFrame, resultados_df: pd.DataFrame, provas_ids_ordenados: list[int]):
+    """Aplica escala vermelho→verde dentro de cada prova já realizada."""
+    resultados_ids = set(resultados_df["prova_id"].tolist())
+
+    def colorir_prova(row):
+        estilos = [""] * len(row)
+        posicao = df.index.get_loc(row.name)
+        if not isinstance(posicao, (int, np.integer)):
+            return estilos
+        prova_id = provas_ids_ordenados[int(posicao)]
+        if prova_id not in resultados_ids:
+            return estilos
+
+        valores = pd.to_numeric(
+            row.astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
+            errors="coerce",
+        ).fillna(0.0)
+        minimo = valores.min()
+        maximo = valores.max()
+        normalizados = (
+            np.zeros(len(valores))
+            if maximo == minimo
+            else (valores.to_numpy() - minimo) / (maximo - minimo)
+        )
+        for indice, normalizado in enumerate(normalizados):
+            vermelho = int(255 * (1 - normalizado))
+            verde = int(255 * normalizado)
+            estilos[indice] = (
+                f"background-color: rgb({vermelho},{verde},0); "
+                "font-weight: bold; color: black"
+            )
+        return estilos
+
+    return df.style.apply(colorir_prova, axis=1)
 
 def main():
     render_page_header(st, "Classificação Geral do Bolão")
@@ -611,22 +649,22 @@ def main():
 
     st.subheader("Pontuação por Prova")
     provas_df_ord = provas_df.sort_values('id')
-    df_por_participante = _montar_pontos_por_participante(
+    provas_ids_ordenados = provas_df_ord["id"].tolist()
+    df_cruzada = _montar_pontos_por_prova(
         apostas_pontos_df,
         df_class,
         provas_df_ord,
     )
-    # As rotinas de gráfico e imagem trabalham com uma prova por linha.
-    df_cruzada = df_por_participante.T
-    df_formatado = df_por_participante.map(lambda x: formatar_brasileiro(float(x)))
+    df_formatado = df_cruzada.map(lambda x: formatar_brasileiro(float(x)))
+    df_styled = destacar_heatmap(df_formatado, resultados_df, provas_ids_ordenados)
     prova_config = {
-        "_index": st.column_config.TextColumn("Participante", width="medium"),
-        **{col: st.column_config.TextColumn(str(col), width="medium") for col in df_formatado.columns},
+        "_index": st.column_config.TextColumn("Prova", width="medium"),
+        **{col: st.column_config.TextColumn(str(col), width="small") for col in df_formatado.columns},
     }
     st.dataframe(
-        df_formatado,
+        df_styled,
         width="stretch",
-        height=_table_height(len(df_formatado), max_height=700),
+        height=_table_height(len(df_formatado), max_height=760),
         column_config=prova_config,
     )
 

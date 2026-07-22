@@ -102,7 +102,7 @@ Acesso: todos os perfis ativos; inativos com histórico.
 
 ### 2.6 Classificação (`ui/classificacao.py`)
 - Tabela com posição geral, pontos totais, pontos com descarte e variação de posição.
-- A grade "Pontuação por Prova" mantém participantes nas linhas e provas nas colunas.
+- A grade "Pontuação por Prova" mantém provas nas linhas, participantes nas colunas e colore, por prova realizada, a menor pontuação em vermelho e a maior em verde.
 - A imagem completa da classificação é preparada sob demanda, sem bloquear a abertura da página.
 - Filtro por temporada.
 - Acesso: todos.

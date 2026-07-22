@@ -101,9 +101,11 @@ class ApostasDataFrameContractTests(unittest.TestCase):
         self.assertIn("def _normalizar_ids_numericos", classificacao_source)
         self.assertIn('_normalizar_ids_numericos(apostas_df, "usuario_id", "prova_id")', classificacao_source)
         self.assertIn('.fillna(0.0)', classificacao_source)
-        self.assertIn("def _montar_pontos_por_participante", classificacao_source)
-        self.assertIn('pontos.index.name = "Participante"', classificacao_source)
-        self.assertIn('"_index": st.column_config.TextColumn("Participante"', classificacao_source)
+        self.assertIn("def _montar_pontos_por_prova", classificacao_source)
+        self.assertIn('pontos.index.name = "Prova"', classificacao_source)
+        self.assertIn('"_index": st.column_config.TextColumn("Prova"', classificacao_source)
+        self.assertIn("def destacar_heatmap", classificacao_source)
+        self.assertIn("df_styled = destacar_heatmap", classificacao_source)
 
         button_pos = classificacao_source.index('st.button("Preparar imagem da tabela"')
         generation_pos = classificacao_source.index(
