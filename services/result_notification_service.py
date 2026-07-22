@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import html
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -14,6 +13,7 @@ from services.bets_scoring import calcular_pontuacao_lote
 from services.data_access_apostas import get_apostas_df, get_participantes_temporada_df
 from services.data_access_provas import get_provas_df, get_resultados_df
 from services.email_service import enviar_email
+from utils.html_utils import escape_html_attr, escape_html_text
 from services.rules_service import get_regras_aplicaveis
 from utils.helpers import get_bf1_logo_data_uri
 from utils.logging_utils import redact_identifier
@@ -183,13 +183,14 @@ def _menor_pontuacao_descarte(
 
 def _montar_corpo_email(nome_usuario: str, detalhes: dict, descarte: dict | None) -> str:
     logo_uri = get_bf1_logo_data_uri()
+    logo_uri_safe = escape_html_attr(logo_uri)
     linhas_html = "".join(
         (
             "<tr>"
-            f"<td>{html.escape(linha['piloto'])}</td>"
+            f"<td>{escape_html_text(linha['piloto'])}</td>"
             f"<td>{int(linha['fichas'])}</td>"
-            f"<td>{html.escape(str(linha['posicao_real']))}</td>"
-            f"<td>{html.escape(str(linha['dnf']))}</td>"
+            f"<td>{escape_html_text(linha['posicao_real'])}</td>"
+            f"<td>{escape_html_text(linha['dnf'])}</td>"
             f"<td>{float(linha['pontos']):.2f}</td>"
             "</tr>"
         )
@@ -200,7 +201,7 @@ def _montar_corpo_email(nome_usuario: str, detalhes: dict, descarte: dict | None
         descarte_html = f"""
             <div class="notice">
                 <p>Sua prova com menor pontuação será descartada no cálculo final do campeonato:</p>
-                <p><strong>{html.escape(descarte['nome_prova'])}</strong> - {float(descarte['pontos']):.2f} pontos</p>
+                <p><strong>{escape_html_text(descarte['nome_prova'])}</strong> - {float(descarte['pontos']):.2f} pontos</p>
             </div>
         """
 
@@ -209,7 +210,7 @@ def _montar_corpo_email(nome_usuario: str, detalhes: dict, descarte: dict | None
         pilotos = ", ".join(detalhes["pilotos_abandonados"])
         penalidade_abandono_html = (
             f"<p><strong>Penalidade por abandono (DNF):</strong> "
-            f"{html.escape(pilotos)} - -{float(detalhes['penalidade_abandono']):.2f} pontos</p>"
+            f"{escape_html_text(pilotos)} - -{float(detalhes['penalidade_abandono']):.2f} pontos</p>"
         )
     penalidade_auto_html = ""
     if detalhes["penalidade_auto"]:
@@ -240,11 +241,11 @@ def _montar_corpo_email(nome_usuario: str, detalhes: dict, descarte: dict | None
 </head>
 <body>
     <div class="container">
-        <div class="header"><img src="{logo_uri}" alt="BF1 Logo" class="logo"></div>
+        <div class="header"><img src="{logo_uri_safe}" alt="BF1 Logo" class="logo"></div>
         <div class="content">
-            <p>Olá, {html.escape(nome_usuario or "Participante")}!</p>
-            <h1>Resultado cadastrado: {html.escape(detalhes["prova_nome"])}</h1>
-            <p>Confira sua pontuação na prova ({html.escape(detalhes["tipo_prova"])}).</p>
+            <p>Olá, {escape_html_text(nome_usuario or "Participante")}!</p>
+            <h1>Resultado cadastrado: {escape_html_text(detalhes["prova_nome"])}</h1>
+            <p>Confira sua pontuação na prova ({escape_html_text(detalhes["tipo_prova"])}).</p>
             <table>
                 <thead>
                     <tr>
@@ -257,7 +258,7 @@ def _montar_corpo_email(nome_usuario: str, detalhes: dict, descarte: dict | None
                 </thead>
                 <tbody>{linhas_html}</tbody>
             </table>
-            <p><strong>11º Apostado:</strong> {html.escape(detalhes["piloto_11_apostado"])} | <strong>11º Real:</strong> {html.escape(detalhes["piloto_11_real"])} | <strong>Pontos 11º:</strong> {float(detalhes["pontos_11"]):.0f}</p>
+            <p><strong>11º Apostado:</strong> {escape_html_text(detalhes["piloto_11_apostado"])} | <strong>11º Real:</strong> {escape_html_text(detalhes["piloto_11_real"])} | <strong>Pontos 11º:</strong> {float(detalhes["pontos_11"]):.0f}</p>
             {penalidade_abandono_html}
             {penalidade_auto_html}
             <p class="total"><strong>Total de Pontos na Prova:</strong> {float(detalhes["total_pontos"]):.2f}</p>

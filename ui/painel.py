@@ -389,18 +389,11 @@ def participante_view():
                         total_detalhe = f"faltam {diferenca_fichas}"
                     else:
                         total_detalhe = f"sobram {abs(diferenca_fichas)}"
-                    st.markdown(
-                        (
-                            "<div style=\"padding:10px 12px;border-radius:8px;"
-                            "border:1px solid #d0d7de;background:#f8f9fa;margin:8px 0 12px 0;\">"
-                            "<strong>Total de fichas:</strong> "
-                            f"<span style='color:{total_cor};font-weight:700'>{total_fichas}/{quantidade_fichas}</span> "
-                            f"<span style='color:{total_cor};font-weight:600'>({total_status})</span> "
-                            f"<span style='color:{total_cor};font-weight:600'>- {total_detalhe}</span>"
-                            "</div>"
-                        ),
-                        unsafe_allow_html=True,
+                    total_message = (
+                        f"Total de fichas: {total_fichas}/{quantidade_fichas} "
+                        f"({total_status}) — {total_detalhe}"
                     )
+                    (st.success if total_ok else st.error)(total_message)
 
                     passo2_ok = total_ok and len(pilotos_com_ficha) >= min_pilotos_regra
                     st.progress(1.0 if passo2_ok else 0.67, text="Progresso do preenchimento")

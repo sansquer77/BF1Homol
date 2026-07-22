@@ -12,6 +12,7 @@ import streamlit as st
 import logging
 import datetime
 from utils.performance import journey
+from utils.html_utils import render_trusted_html, serialize_js_value
 from pathlib import Path
 
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
@@ -28,7 +29,7 @@ def load_css():
     css_file = Path(__file__).parent / "assets" / "styles.css"
     if css_file.exists():
         with open(css_file, "r", encoding="utf-8") as f:
-            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+            render_trusted_html(st, "<style>" + f.read() + "</style>")
 
 def load_pwa_meta_tags():
     """Adiciona meta tags para PWA e iOS Add to Home Screen."""
@@ -58,7 +59,9 @@ def load_pwa_meta_tags():
     if icon_base64 or favicon_base64:
         icon_data_uri = f"data:image/png;base64,{icon_base64}" if icon_base64 else ""
         favicon_data_uri = f"data:image/x-icon;base64,{favicon_base64}" if favicon_base64 else ""
-        st.markdown(f"""
+        favicon_js = serialize_js_value(favicon_data_uri)
+        icon_js = serialize_js_value(icon_data_uri)
+        render_trusted_html(st, f"""
             <script>
             (function() {{
                 var head = document.getElementsByTagName('head')[0];
@@ -72,7 +75,7 @@ def load_pwa_meta_tags():
                 var favicon = document.createElement('link');
                 favicon.rel = 'icon';
                 favicon.type = 'image/x-icon';
-                favicon.href = '{favicon_data_uri}';
+                favicon.href = {favicon_js};
                 head.appendChild(favicon);
                 
                 // Manifest para PWA
@@ -84,13 +87,13 @@ def load_pwa_meta_tags():
                 // Apple Touch Icon (múltiplos tamanhos)
                 var link = document.createElement('link');
                 link.rel = 'apple-touch-icon';
-                link.href = '{icon_data_uri}';
+                link.href = {icon_js};
                 head.appendChild(link);
                 
                 var link180 = document.createElement('link');
                 link180.rel = 'apple-touch-icon';
                 link180.sizes = '180x180';
-                link180.href = '{icon_data_uri}';
+                link180.href = {icon_js};
                 head.appendChild(link180);
                 
                 // Verificar/adicionar meta tags PWA
@@ -116,13 +119,13 @@ def load_pwa_meta_tags():
                 }}
             }})();
             </script>
-        """, unsafe_allow_html=True)
+        """, allow_javascript=True)
     
-    st.markdown("""
+    render_trusted_html(st, """
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="theme-color" content="#d32f2f">
         <meta name="description" content="BF1 - Bolão de Fórmula 1 - Sistema de gerenciamento de apostas de F1">
-    """, unsafe_allow_html=True)
+    """)
 
 
 # Timezones válidos reconhecidos pelo seletor da sidebar.
@@ -166,12 +169,7 @@ def _inject_html(html_code: str) -> None:
     ``streamlit.components.v1.html`` foi depreciado e será removido após
     2026-06-01 (aviso nos logs a partir de ~mai/2026).
     """
-    if hasattr(st, "html"):
-        # st.html() é a API atual e recomendada (Streamlit >= 1.36)
-        st.html(html_code)
-    else:
-        # Fallback para versões anteriores ao 1.36
-        st.markdown(html_code, unsafe_allow_html=True)
+    render_trusted_html(st, html_code, allow_javascript=True)
 
 
 def load_timezone_detector():
@@ -201,6 +199,9 @@ def load_timezone_detector():
 
     # ── Lado JS: detecta TZ do browser e injeta na URL se necessário ─────────
     current_tz_py = st.session_state["client_timezone"]
+    valid_timezones_js = serialize_js_value(sorted(_VALID_TIMEZONES))
+    default_timezone_js = serialize_js_value(_TZ_DEFAULT)
+    current_timezone_js = serialize_js_value(current_tz_py)
     html_code = f"""
     <script>
     (function() {{
@@ -208,11 +209,11 @@ def load_timezone_detector():
         if (!detected) return;
 
         // Timezones aceitos pelo backend (deve espelhar _VALID_TIMEZONES)
-        var validSet = new Set({list(_VALID_TIMEZONES)});
-        var tz = validSet.has(detected) ? detected : '{_TZ_DEFAULT}';
+        var validSet = new Set({valid_timezones_js});
+        var tz = validSet.has(detected) ? detected : {default_timezone_js};
 
         // TZ já confirmado pelo Python neste ciclo — sem rerun necessário
-        var confirmedByPy = '{current_tz_py}';
+        var confirmedByPy = {current_timezone_js};
         if (tz === confirmedByPy) return;
 
         // Verifica o parâmetro atual da URL para não recarregar à toa

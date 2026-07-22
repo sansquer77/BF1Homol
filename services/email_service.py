@@ -1,7 +1,6 @@
 import smtplib
 import os
 import logging
-import html
 import hashlib
 import random
 import json
@@ -9,6 +8,7 @@ from typing import Optional
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from utils.logging_utils import redact_identifier
+from utils.html_utils import escape_html_attr, escape_html_text
 from utils.helpers import get_bf1_logo_data_uri
 from services.gemini_service import gemini_disponivel, gerar_conteudo_gemini
 
@@ -111,7 +111,7 @@ def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[
         return _gerar_previsao_fallback(nome_usuario, nome_prova, pilotos, fichas, piloto_11)
 
     try:
-        pilotos_fmt = ", ".join([html.escape(p) for p in pilotos])
+        pilotos_fmt = ", ".join(str(p) for p in pilotos)
         fichas_fmt = ", ".join([str(f) for f in fichas])
         seed_texto = f"{nome_usuario}|{nome_prova}|{pilotos_fmt}|{fichas_fmt}|{piloto_11}"
         angulo, estilo = _selecionar_angulo_estilo(seed_texto)
@@ -305,11 +305,12 @@ def enviar_email_recuperacao_senha(
     exp_minutes: int = 30,
 ):
     """Envia e-mail com token único de redefinição de senha."""
-    nome_safe = html.escape(nome_usuario or "Participante")
-    token_safe = html.escape(reset_token or "")
+    nome_safe = escape_html_text(nome_usuario or "Participante")
+    token_safe = escape_html_text(reset_token or "")
     
     # Obter logo BF1 como data URI para embutir no email
     bf1_logo_uri = get_bf1_logo_data_uri()
+    bf1_logo_uri_safe = escape_html_attr(bf1_logo_uri)
     
     corpo_html = f"""
 <!DOCTYPE html>
@@ -398,7 +399,7 @@ def enviar_email_recuperacao_senha(
 <body>
     <div class="container">
         <div class="header">
-            <img src="{bf1_logo_uri}" alt="BF1 Logo" class="logo">
+            <img src="{bf1_logo_uri_safe}" alt="BF1 Logo" class="logo">
         </div>
         <div class="content">
             <p class="greeting">Olá, {nome_safe}!</p>

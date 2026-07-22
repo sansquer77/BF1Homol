@@ -52,10 +52,12 @@ def main():
     foco em disponibilidade e rotinas de backup/restauração para continuidade do serviço.
 
     ---
-    <small>Versão atual: 3.0-2026. Todos os direitos reservados.</small>
-
-    <a href="https://www.digitalocean.com/?refcode=7a57329868da&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge"><img src="https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%201.svg" alt="DigitalOcean Referral Badge" /></a>
-    """, unsafe_allow_html=True)
+    """)
+    st.caption("Versão atual: 3.0-2026. Todos os direitos reservados.")
+    st.link_button(
+        "DigitalOcean",
+        "https://www.digitalocean.com/?refcode=7a57329868da&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge",
+    )
 
 if __name__ == "__main__":
     main()

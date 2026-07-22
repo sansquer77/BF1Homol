@@ -221,6 +221,11 @@ MASTER_NOME         # Nome do usuário master inicial
 
 ## Segurança
 
+- Todo valor dinâmico inserido em HTML usa `escape_html_text` ou `escape_html_attr`, conforme o contexto.
+- Valores inseridos em JavaScript são produzidos exclusivamente por `serialize_js_value`.
+- `render_trusted_html` é o único sink permitido para HTML/JavaScript; chamadas diretas com `unsafe_allow_html` ou `unsafe_allow_javascript` são bloqueadas por teste estático.
+- Elementos usados apenas para apresentação devem priorizar componentes nativos do Streamlit.
+
 - **Senhas**: bcrypt com salt automático (nunca texto claro).
 - **Tokens**: JWT HS256 com expiração fixa de 120 minutos no código atual.
 - **Sessões**: `auth_sessions` registra `jti`, usuário, versão, emissão, expiração e revogação.

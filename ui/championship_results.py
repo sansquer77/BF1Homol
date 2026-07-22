@@ -74,17 +74,11 @@ def main():
 
     # Exibe resultado atual
     if resultado_atual:
-        st.markdown(
-            f"""
-            <div style='background-color:#d4edda;padding:1em;border-radius:0.5em;color:black;'>
-            🏆 <b>Campeão:</b> {resultado_atual['champion']}<br>
-            🥈 <b>Vice:</b> {resultado_atual['vice']}<br>
-            🏭 <b>Equipe Campeã:</b> {resultado_atual['team']}<br>
-            📅 <b>Temporada:</b> {temporada_int}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.success("Resultado oficial atualmente registrado")
+        st.write("🏆 Campeão:", resultado_atual["champion"])
+        st.write("🥈 Vice:", resultado_atual["vice"])
+        st.write("🏭 Equipe campeã:", resultado_atual["team"])
+        st.write("📅 Temporada:", temporada_int)
 
 if __name__ == "__main__":
     main()

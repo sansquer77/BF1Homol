@@ -1,5 +1,6 @@
 import streamlit as st
 from utils.helpers import render_page_header
+from utils.html_utils import render_trusted_html
 
 def main():
     render_page_header(st, "Regulamento BF1-2026 (Completo e Oficial)")
@@ -70,12 +71,7 @@ Para dúvidas, consulte a administração ou acesse o grupo oficial do BF1 e lem
         <script type="text/javascript" async src="https://tenor.com/embed.js"></script>
     """
 
-    if hasattr(st, "html"):
-        st.html(html_content, unsafe_allow_javascript=True)
-    else:
-        import streamlit.components.v1 as components
-
-        components.html(html_content, height=520)
+    render_trusted_html(st, html_content, allow_javascript=True, height=520)
 
 if __name__ == "__main__":
     main()

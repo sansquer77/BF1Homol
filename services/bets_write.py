@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import html
 import json
 import logging
 import math
@@ -30,6 +29,7 @@ from services.bets_rules import _aposta_valida_regras, pode_fazer_aposta
 from services.email_service import enviar_email, gerar_analise_aposta_com_probabilidade
 from utils.performance import measured
 from services.access_control import authorize_context, require_operation, resolve_authenticated_context
+from utils.html_utils import escape_html_attr, escape_html_text
 from services.rules_service import get_regras_aplicaveis
 from utils.datetime_utils import now_sao_paulo
 from utils.input_models import BetSubmissionInput, ValidationError
@@ -912,30 +912,30 @@ def salvar_aposta(
 <body>
     <div class="container">
         <div class="header">
-            <img src="{bf1_logo_uri}" alt="BF1 Logo" class="logo">
+            <img src="{escape_html_attr(bf1_logo_uri)}" alt="BF1 Logo" class="logo">
         </div>
         <div class="content">
-            <p class="greeting">Olá {html.escape(usuario['nome'])},</p>
+            <p class="greeting">Olá {escape_html_text(usuario['nome'])},</p>
             <div class="success-message">
-                <strong>✓ Aposta registrada com sucesso!</strong> Sua aposta para <strong>{html.escape(nome_prova_bd)}</strong> foi confirmada no sistema.
+                <strong>✓ Aposta registrada com sucesso!</strong> Sua aposta para <strong>{escape_html_text(nome_prova_bd)}</strong> foi confirmada no sistema.
             </div>
             <div class="details-box">
                 <h3>Detalhes da Aposta</h3>
                 <div class="detail-row">
                     <span class="detail-label">Prova:</span>
-                    <span class="detail-value">{html.escape(nome_prova_bd)}</span>
+                    <span class="detail-value">{escape_html_text(nome_prova_bd)}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Pilotos:</span>
-                    <span class="detail-value">{html.escape(', '.join(pilotos))}</span>
+                    <span class="detail-value">{escape_html_text(', '.join(pilotos))}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Fichas:</span>
-                    <span class="detail-value">{html.escape(', '.join(map(str, fichas)))}</span>
+                    <span class="detail-value">{escape_html_text(', '.join(map(str, fichas)))}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Palpite 11º:</span>
-                    <span class="detail-value">{html.escape(piloto_11)}</span>
+                    <span class="detail-value">{escape_html_text(piloto_11)}</span>
                 </div>
             </div>
             <p class="message">Boa sorte na prova! Você pode revisar ou modificar sua aposta acessando sua conta no sistema até o horário limite.</p>
@@ -1017,7 +1017,7 @@ def salvar_aposta(
 
                 previsao_html = ""
                 if comentario:
-                    previsao_html += "<p>" + "<br>".join(html.escape(comentario).splitlines()) + "</p>"
+                    previsao_html += "<p>" + "<br>".join(escape_html_text(comentario).splitlines()) + "</p>"
                 if pontos_estimados is not None:
                     previsao_html += f"<p><b>Estimativa de pontos:</b> {float(pontos_estimados):.1f}</p>"
                 if chance_11 is not None:
@@ -1150,37 +1150,37 @@ def salvar_aposta(
 <body>
     <div class="container">
         <div class="header">
-            <img src="{bf1_logo_uri}" alt="BF1 Logo" class="logo">
+            <img src="{escape_html_attr(bf1_logo_uri)}" alt="BF1 Logo" class="logo">
         </div>
         <div class="content">
-            <p class="greeting">Olá {html.escape(usuario['nome'])},</p>
+            <p class="greeting">Olá {escape_html_text(usuario['nome'])},</p>
             <div class="success-message">
-                <strong>✓ Aposta registrada com sucesso!</strong> Sua aposta para <strong>{html.escape(nome_prova_bd)}</strong> foi confirmada no sistema.
+                <strong>✓ Aposta registrada com sucesso!</strong> Sua aposta para <strong>{escape_html_text(nome_prova_bd)}</strong> foi confirmada no sistema.
             </div>
             <div class="details-box">
                 <h3>Detalhes da Aposta</h3>
                 <div class="detail-row">
                     <span class="detail-label">Prova:</span>
-                    <span class="detail-value">{html.escape(nome_prova_bd)}</span>
+                    <span class="detail-value">{escape_html_text(nome_prova_bd)}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Pilotos:</span>
-                    <span class="detail-value">{html.escape(', '.join(pilotos))}</span>
+                    <span class="detail-value">{escape_html_text(', '.join(pilotos))}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Fichas:</span>
-                    <span class="detail-value">{html.escape(', '.join(map(str, fichas)))}</span>
+                    <span class="detail-value">{escape_html_text(', '.join(map(str, fichas)))}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Palpite 11º:</span>
-                    <span class="detail-value">{html.escape(piloto_11)}</span>
+                    <span class="detail-value">{escape_html_text(piloto_11)}</span>
                 </div>
             </div>
             {f'''<div class="analysis-box">
                 <h4>📊 Análise da Aposta</h4>
-                <p class="message">{html.escape(abertura_email)}</p>
+                <p class="message">{escape_html_text(abertura_email)}</p>
                 {previsao_html}
-                <p class="message">{html.escape(fechamento_email)}</p>
+                <p class="message">{escape_html_text(fechamento_email)}</p>
             </div>''' if abertura_email or previsao_html or fechamento_email else ''}
             <p class="message">Você pode revisar ou modificar sua aposta acessando sua conta no sistema até o horário limite da prova.</p>
             <p class="disclaimer"><strong>⚠️ Aviso de estimativa:</strong> a probabilidade informada é apenas uma projeção estatística/opinativa com base em informações disponíveis e pode variar a qualquer momento. Não constitui garantia de resultado esportivo nem direito a pontuação, prevalecendo sempre as regras oficiais do bolão.</p>

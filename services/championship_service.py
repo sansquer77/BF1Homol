@@ -1,7 +1,6 @@
 import pandas as pd
 import logging
 from datetime import datetime
-import html
 from typing import Optional
 from db.db_schema import db_connect
 from db.repo_users import get_user_by_id
@@ -12,6 +11,7 @@ from services.email_service import enviar_email, gerar_analise_aposta_com_probab
 from utils.datetime_utils import SAO_PAULO_TZ, now_sao_paulo, normalize_time_string, parse_datetime_sao_paulo
 from utils.input_models import ChampionshipBetInput, ChampionshipResultInput, ValidationError
 from services.access_control import authorize_context, require_operation, resolve_authenticated_context
+from utils.html_utils import escape_html_attr, escape_html_text
 from services.deadlines import evaluate_championship_deadline
 from utils.dataframe_contracts import (
     CHAMPIONSHIP_BETS_COLUMNS,
@@ -178,14 +178,15 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
 
             bloco_analise = ""
             if comentario:
-                bloco_analise += "<p><b>Comentário sarcástico:</b><br>" + "<br>".join(html.escape(comentario).splitlines()) + "</p>"
+                bloco_analise += "<p><b>Comentário sarcástico:</b><br>" + "<br>".join(escape_html_text(comentario).splitlines()) + "</p>"
             if probabilidade is not None:
                 bloco_analise += f"<p><b>Probabilidade estimada de acerto:</b> {int(probabilidade)}%</p>"
             if resumo:
-                bloco_analise += "<p><b>Base da estimativa:</b> " + html.escape(resumo) + "</p>"
+                bloco_analise += "<p><b>Base da estimativa:</b> " + escape_html_text(resumo) + "</p>"
 
             # Obter logo BF1 como data URI para embutir no email
             bf1_logo_uri = get_bf1_logo_data_uri()
+            bf1_logo_uri_safe = escape_html_attr(bf1_logo_uri)
 
             corpo_email = f"""
 <!DOCTYPE html>
@@ -298,10 +299,10 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
 <body>
     <div class="container">
         <div class="header">
-            <img src="{bf1_logo_uri}" alt="BF1 Logo" class="logo">
+            <img src="{bf1_logo_uri_safe}" alt="BF1 Logo" class="logo">
         </div>
         <div class="content">
-            <p class="greeting">Olá {html.escape(user_nome)},</p>
+            <p class="greeting">Olá {escape_html_text(user_nome)},</p>
             <div class="success-message">
                 <strong>✓ Aposta de campeonato registrada com sucesso!</strong> Sua aposta para a temporada <strong>{season_val}</strong> foi confirmada no sistema.
             </div>
@@ -313,19 +314,19 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Campeão:</span>
-                    <span class="detail-value">{html.escape(champion)}</span>
+                    <span class="detail-value">{escape_html_text(champion)}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Vice-campeão:</span>
-                    <span class="detail-value">{html.escape(vice)}</span>
+                    <span class="detail-value">{escape_html_text(vice)}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Equipe campeã:</span>
-                    <span class="detail-value">{html.escape(team)}</span>
+                    <span class="detail-value">{escape_html_text(team)}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Data/Hora do registro (Brasília):</span>
-                    <span class="detail-value">{html.escape(now)}</span>
+                    <span class="detail-value">{escape_html_text(now)}</span>
                 </div>
             </div>
             {f'''<div class="analysis-box">
