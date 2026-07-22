@@ -38,7 +38,7 @@ Arquivo principal da aplicação. Responsável por:
 - Configurar a página Streamlit (`st.set_page_config`)
 - Carregar o CSS do tema Liquid Glass (`load_css`)
 - Injetar meta tags PWA e Apple Touch Icon (`load_pwa_meta_tags`)
-- Detectar e sincronizar o timezone do browser do cliente via JavaScript (`load_timezone_detector`)
+- Detectar e sincronizar o timezone do browser via JavaScript (`load_timezone_detector`), preservando como autoridade qualquer escolha manual registrada em `tz_source=manual`, inclusive fora da sessão autenticada.
 - Executar o bootstrap da aplicação: migrations + criação do usuário master (`bootstrap_app`)
 - Definir os menus por perfil: `menu_master`, `menu_admin`, `menu_participante`, `menu_inativo`
 - Renderizar o menu lateral agrupado por seção (`sidebar_menu`)

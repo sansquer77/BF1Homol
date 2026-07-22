@@ -157,6 +157,9 @@ _VALID_TIMEZONES: set[str] = {
 }
 
 _TZ_DEFAULT = "America/Sao_Paulo"
+_TZ_SOURCE_PARAM = "tz_source"
+_TZ_SOURCE_AUTO = "auto"
+_TZ_SOURCE_MANUAL = "manual"
 
 
 def _inject_html(html_code: str) -> None:
@@ -189,6 +192,7 @@ def load_timezone_detector():
     """
     # ── Lado Python: lê o TZ da query string (enviado pelo JS no rerun) ──────
     tz_from_url = st.query_params.get("tz", "").strip()
+    tz_source = st.query_params.get(_TZ_SOURCE_PARAM, "").strip().lower()
     if tz_from_url and tz_from_url in _VALID_TIMEZONES:
         # Só grava se ainda não estiver definido ou se diferir do atual,
         # evitando reruns em cascata.
@@ -202,9 +206,16 @@ def load_timezone_detector():
     valid_timezones_js = serialize_js_value(sorted(_VALID_TIMEZONES))
     default_timezone_js = serialize_js_value(_TZ_DEFAULT)
     current_timezone_js = serialize_js_value(current_tz_py)
+    timezone_source_js = serialize_js_value(tz_source)
+    manual_source_js = serialize_js_value(_TZ_SOURCE_MANUAL)
+    auto_source_js = serialize_js_value(_TZ_SOURCE_AUTO)
+    source_param_js = serialize_js_value(_TZ_SOURCE_PARAM)
     html_code = f"""
     <script>
     (function() {{
+        // Uma escolha explícita do seletor sempre prevalece sobre a detecção.
+        if ({timezone_source_js} === {manual_source_js}) return;
+
         var detected = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
         if (!detected) return;
 
@@ -222,6 +233,7 @@ def load_timezone_detector():
 
         // Atualiza a URL com o TZ detectado → Streamlit faz rerun e lê query_params
         params.set('tz', tz);
+        params.set({source_param_js}, {auto_source_js});
         var newUrl = window.location.pathname + '?' + params.toString() + window.location.hash;
         window.location.replace(newUrl);
     }})();
@@ -815,8 +827,9 @@ def sidebar_menu():
 
     if selected_tz != st.session_state.get("client_timezone"):
         st.session_state["client_timezone"] = selected_tz
-        # Atualiza a URL também para sincronizar com o detector automático
+        # Persiste a escolha mesmo sem login e impede que o detector a sobrescreva.
         st.query_params["tz"] = selected_tz
+        st.query_params[_TZ_SOURCE_PARAM] = _TZ_SOURCE_MANUAL
         st.rerun()
 
 # ============ APP PRINCIPAL ============
