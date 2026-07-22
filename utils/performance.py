@@ -132,8 +132,13 @@ def instrumented_cache_data(*, ttl: int):
     import streamlit as st
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        # Todos os wrappers abaixo compartilham a mesma implementação interna.
+        # O namespace explícito impede o Streamlit de reutilizar o valor de uma
+        # função em outra quando ambas recebem argumentos iguais (ex.: temporada).
+        cache_namespace = f"{func.__module__}.{func.__qualname__}"
+
         @st.cache_data(ttl=ttl, show_spinner=False)
-        def cached(*args: P.args, **kwargs: P.kwargs) -> R:
+        def cached(namespace: str, *args: P.args, **kwargs: P.kwargs) -> R:
             record_cache(hit=False)
             _cache_miss_serial.set(_cache_miss_serial.get() + 1)
             return func(*args, **kwargs)
@@ -141,7 +146,7 @@ def instrumented_cache_data(*, ttl: int):
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             serial_before = _cache_miss_serial.get()
-            value = cached(*args, **kwargs)
+            value = cached(cache_namespace, *args, **kwargs)
             if _cache_miss_serial.get() == serial_before:
                 record_cache(hit=True)
             return value
