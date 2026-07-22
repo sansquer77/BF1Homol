@@ -26,6 +26,14 @@ from db.backup_validate import (
 	_table_columns,
 )
 from db.db_schema import db_connect
+from utils.backup_security import (
+	BackupLimitExceeded,
+	get_backup_limits,
+	require_restore_authorized,
+	validate_excel_archive,
+	validate_excel_dimensions,
+	validate_upload_size,
+)
 
 
 def _normalize_excel_typed_value(value: Any, data_type: str) -> Any:
@@ -182,13 +190,21 @@ def download_tabela() -> None:
 
 
 def upload_tabela() -> None:
+	require_restore_authorized()
+	limits = get_backup_limits()
 	tables = _list_tables()
 	if not tables:
 		st.info("No tables found for import.")
 		return
 
 	selected = st.selectbox("Destination table", tables, key="import_table_select")
-	uploaded = st.file_uploader("Upload Excel (.xlsx)", type=["xlsx"], key="upload_table_xlsx")
+	uploaded = st.file_uploader(
+		"Upload Excel (.xlsx)",
+		type=["xlsx"],
+		key="upload_table_xlsx",
+		help=f"Limite: {limits.excel_bytes // (1024 * 1024)} MB, "
+		f"{limits.excel_rows} linhas e {limits.excel_columns} colunas.",
+	)
 	validate_fks = st.checkbox(
 		"Pré-validar chaves estrangeiras antes de importar (recomendado)",
 		value=True,
@@ -196,9 +212,24 @@ def upload_tabela() -> None:
 	)
 	if not selected or not uploaded:
 		return
+	try:
+		validate_upload_size(uploaded, limits.excel_bytes, "Backup Excel")
+	except BackupLimitExceeded as exc:
+		st.error(str(exc))
+		return
 
 	if st.button("Import table", type="primary", width="stretch"):
-		df = pd.read_excel(uploaded)
+		content = uploaded.getvalue()
+		try:
+			validate_excel_archive(content)
+			df = pd.read_excel(io.BytesIO(content), nrows=limits.excel_rows + 1)
+			validate_excel_dimensions(len(df.index), len(df.columns))
+		except BackupLimitExceeded as exc:
+			st.error(str(exc))
+			return
+		except Exception:
+			st.error("Arquivo Excel inválido ou incompatível com o formato esperado.")
+			return
 		df.columns = [str(col).strip() for col in df.columns]
 		db_cols = _table_columns(selected)
 		use_cols = [c for c in df.columns if c in db_cols]

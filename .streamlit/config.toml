@@ -4,7 +4,8 @@ address = "0.0.0.0"
 enableCORS = true
 enableXsrfProtection = true
 headless = true
-maxUploadSize = 500
+# Barreira global; limites específicos mais baixos são aplicados no código de backup.
+maxUploadSize = 10
 enableStaticServing = true
 
 [browser]

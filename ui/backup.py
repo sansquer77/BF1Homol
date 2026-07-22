@@ -6,9 +6,11 @@ from services.data_access_backup import (
     download_db,
     get_postgres_backup_mode,
     list_temporadas,
+    reauthorize_restore,
     upload_db,
 )
 from utils.helpers import render_page_header
+from utils.backup_security import RestoreReauthenticationFailed, restore_authorization_error
 
 def main():
     perfil = st.session_state.get("user_role", "participante")
@@ -39,18 +41,42 @@ def main():
     download_db()
 
     st.subheader("Operação crítica: restauração")
-    st.warning(
-        "A restauração substitui dados existentes. Confirme abaixo apenas quando tiver certeza."
-    )
-    confirmar_restore = st.checkbox(
-        "Entendo o impacto e desejo habilitar a restauração do banco completo",
-        value=False,
-        key="backup_confirm_restore",
-    )
-    if confirmar_restore:
-        upload_db()
+    restore_error = restore_authorization_error()
+    if restore_error:
+        st.warning(
+            "A restauração substitui dados existentes e exige nova confirmação da senha do usuário master."
+        )
+        st.caption(restore_error)
+        with st.form("backup_restore_reauthentication", clear_on_submit=True):
+            password = st.text_input(
+                "Digite novamente sua senha",
+                type="password",
+                max_chars=1024,
+            )
+            submitted = st.form_submit_button("Confirmar identidade")
+        if submitted:
+            try:
+                reauthorize_restore(password)
+            except RestoreReauthenticationFailed:
+                st.error("Senha inválida ou sessão expirada.")
+            except PermissionError:
+                st.error("Sua sessão não está autorizada para esta operação.")
+            else:
+                st.success("Identidade confirmada. A restauração foi habilitada temporariamente.")
+                st.rerun()
     else:
-        st.info("Marque a confirmação para habilitar o upload de arquivo .sql de restauração.")
+        st.warning(
+            "Identidade confirmada temporariamente. A restauração substitui dados existentes."
+        )
+        confirmar_restore = st.checkbox(
+            "Entendo o impacto e desejo habilitar a restauração do banco completo",
+            value=False,
+            key="backup_confirm_restore",
+        )
+        if confirmar_restore:
+            upload_db()
+        else:
+            st.info("Marque a confirmação para habilitar o upload de arquivo .sql de restauração.")
 
     st.divider()
     st.header("Backup/Restauração de tabelas específicas")
@@ -58,7 +84,10 @@ def main():
     with tab1:
         download_tabela()
     with tab2:
-        upload_tabela()
+        if restore_error:
+            st.info("Confirme novamente sua senha acima para importar uma tabela.")
+        else:
+            upload_tabela()
 
     st.divider()
     st.header("Temporadas")

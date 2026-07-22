@@ -225,6 +225,9 @@ MASTER_NOME         # Nome do usuário master inicial
 - Valores inseridos em JavaScript são produzidos exclusivamente por `serialize_js_value`.
 - `render_trusted_html` é o único sink permitido para HTML/JavaScript; chamadas diretas com `unsafe_allow_html` ou `unsafe_allow_javascript` são bloqueadas por teste estático.
 - Elementos usados apenas para apresentação devem priorizar componentes nativos do Streamlit.
+- Restaurações SQL e importações Excel ficam bloqueadas por padrão. A liberação exige que o master confirme novamente sua senha atual; a autorização é curta, vinculada ao `user_id` e ao `jti` da sessão revalidada e expira em 10 minutos por padrão (`BACKUP_REAUTH_TTL_SECONDS`, limitado entre 60 e 1800 segundos).
+- A reautenticação na UI não substitui a autorização em profundidade: cada caminho de escrita revalida a operação `backup.write` e a autorização temporária na camada de serviço/banco.
+- Uploads de backup possuem limites globais e específicos de bytes; Excel também limita tamanho descompactado, membros ZIP, linhas, colunas e células antes de qualquer mutação.
 
 - **Senhas**: bcrypt com salt automático (nunca texto claro).
 - **Tokens**: JWT HS256 com expiração fixa de 120 minutos no código atual.

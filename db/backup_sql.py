@@ -26,6 +26,13 @@ from db.backup_utils import (
 )
 from db.db_config import DATABASE_URL
 from db.db_schema import db_connect
+from utils.backup_security import (
+    BackupLimitExceeded,
+    get_backup_limits,
+    require_restore_authorized,
+    validate_sql_content_size,
+    validate_upload_size,
+)
 
 
 def get_postgres_backup_mode() -> tuple[str, str]:
@@ -75,6 +82,8 @@ def download_db() -> None:
 
 
 def restore_backup_from_sql(sql_content: str) -> bool:
+    require_restore_authorized()
+    validate_sql_content_size(sql_content)
     is_data_only = "BF1 POSTGRES DATA-ONLY DUMP" in (sql_content[:4096] or "")
     if is_data_only:
         try:
@@ -190,17 +199,29 @@ def restore_backup_from_sql(sql_content: str) -> bool:
 
 
 def upload_db() -> None:
+    require_restore_authorized()
+    max_sql_bytes = get_backup_limits().sql_bytes
     uploaded = st.file_uploader(
         "Upload PostgreSQL SQL backup",
         type=["sql"],
-        help="Only PostgreSQL SQL dumps are accepted.",
+        help=f"Only PostgreSQL SQL dumps up to {max_sql_bytes // (1024 * 1024)} MB are accepted.",
         key="upload_sql_backup",
     )
     if not uploaded:
         return
 
+    try:
+        validate_upload_size(uploaded, max_sql_bytes, "Backup SQL")
+    except BackupLimitExceeded as exc:
+        st.error(str(exc))
+        return
+
     if st.button("Restore SQL backup", type="primary", width="stretch"):
-        sql_text = uploaded.getvalue().decode("utf-8", errors="ignore")
+        try:
+            sql_text = uploaded.getvalue().decode("utf-8", errors="strict")
+        except UnicodeDecodeError:
+            st.error("Backup SQL deve estar codificado em UTF-8 válido.")
+            return
         if restore_backup_from_sql(sql_text):
             st.success("Backup restored successfully.")
         else:
