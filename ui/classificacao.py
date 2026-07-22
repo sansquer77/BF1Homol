@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import numpy as np
 import matplotlib.pyplot as plt
 from io import BytesIO
 import matplotlib.image as mpimg
@@ -53,6 +52,37 @@ def _normalizar_ids_numericos(df: pd.DataFrame, *columns: str) -> pd.DataFrame:
 
 def _table_height(total_rows: int, row_height: int = 38, max_height: int = 700) -> int:
     return min(max_height, 40 + (max(total_rows, 1) * row_height))
+
+
+def _montar_pontos_por_participante(
+    apostas_pontos_df: pd.DataFrame,
+    df_class: pd.DataFrame,
+    provas_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Monta a grade com participantes nas linhas e provas nas colunas."""
+    participantes_ordem = df_class[["usuario_id", "Participante"]].drop_duplicates("usuario_id")
+    provas_ordem = provas_df[["id", "nome"]].drop_duplicates("id").sort_values("id")
+
+    if apostas_pontos_df.empty:
+        pontos = pd.DataFrame()
+    else:
+        pontos = apostas_pontos_df.pivot_table(
+            index="usuario_id",
+            columns="prova_id",
+            values="__pontos_calculados",
+            aggfunc="last",
+            fill_value=0,
+        )
+
+    pontos = pontos.reindex(
+        index=participantes_ordem["usuario_id"].tolist(),
+        columns=provas_ordem["id"].tolist(),
+        fill_value=0,
+    )
+    pontos.index = participantes_ordem["Participante"].tolist()
+    pontos.index.name = "Participante"
+    pontos.columns = provas_ordem["nome"].tolist()
+    return pontos.apply(pd.to_numeric, errors="coerce").fillna(0.0)
 
 def formatar_brasileiro(valor):
     try:
@@ -265,31 +295,6 @@ def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultado
     buffer.seek(0)
     return buffer
 
-def destacar_heatmap(df, resultados_df, provas_ids_ordenados):
-    def colorir_prova_heatmap(row):
-        estilos = [''] * len(row)
-        prova_nome = row.name
-        prova_idx = [i for i, nome in enumerate(df.index) if nome == prova_nome]
-        if not prova_idx:
-            return estilos
-        prova_id = provas_ids_ordenados[prova_idx[0]]
-        if prova_id not in resultados_df['prova_id'].values:
-            return estilos
-        valores = row.astype(str).str.replace('.', '').str.replace(',', '.').astype(float)
-        min_val = valores.min()
-        max_val = valores.max()
-        if max_val == min_val:
-            norm_vals = np.zeros_like(valores)
-        else:
-            norm_vals = (valores - min_val) / (max_val - min_val)
-        for i, norm_val in enumerate(norm_vals):
-            r = int(255 * (1 - norm_val))
-            g = int(255 * norm_val)
-            b = 0
-            estilos[i] = f'background-color: rgb({r},{g},{b}); font-weight: bold; color: black'
-        return estilos
-    return df.style.apply(colorir_prova_heatmap, axis=1)
-
 def main():
     render_page_header(st, "Classificação Geral do Bolão")
 
@@ -352,13 +357,8 @@ def main():
         apostas_pontos_df["__pontos_calculados"] = []
 
     pontos_por_usuario = {}
-    pontos_por_usuario_prova = {}
     if not apostas_pontos_df.empty:
         pontos_por_usuario = apostas_pontos_df.groupby("usuario_id")["__pontos_calculados"].sum().to_dict()
-        pontos_por_usuario_prova = {
-            (int(row["usuario_id"]), int(row["prova_id"])): float(row["__pontos_calculados"] or 0)
-            for _, row in apostas_pontos_df.iterrows()
-        }
 
     resultado_campeonato = get_final_results(season_int)
     championship_bets_map = {}
@@ -378,7 +378,6 @@ def main():
             }
 
     tabela_classificacao = []
-    tabela_detalhada = []
 
     regras_temporada = get_regras_aplicaveis(str(season), "Normal")
     pontos_campeao = regras_temporada.get('pontos_campeao', 150)
@@ -444,7 +443,6 @@ def main():
         uid_part = int(part['id'])
         apostas_part = apostas_pontos_df[apostas_pontos_df['usuario_id'] == part['id']]
         apostas_part = apostas_part.sort_values(by='prova_id') if not apostas_part.empty else apostas_part
-        pontos_part = apostas_part["__pontos_calculados"].tolist() if not apostas_part.empty else []
         total_provas = float(pontos_por_usuario.get(uid_part, 0) or 0)
 
         bonus_campeao = 0
@@ -483,10 +481,6 @@ def main():
             "Acertou Equipe": acertou_equipe,
             "Acertou Vice": acertou_vice,
             "Apostas no Prazo": apostas_no_prazo
-        })
-        tabela_detalhada.append({
-            "Participante": part['nome'],
-            "Pontos por Prova": pontos_part
         })
 
     df_class = pd.DataFrame(tabela_classificacao)
@@ -599,48 +593,40 @@ def main():
     )
 
     if perfil_usuario in ['admin', 'master']:
-        imagem_buffer = gerar_imagem_tabela_ajustada(df_display, colunas_ordem)
-        st.download_button(
-            label='Baixar imagem da tabela',
-            data=imagem_buffer,
-            file_name='classificacao_geral.png',
-            mime='image/png',
-            on_click="ignore",
-        )
+        if st.button("Preparar imagem da tabela", key="preparar_imagem_classificacao"):
+            with st.spinner("Gerando imagem da classificação..."):
+                st.session_state["imagem_classificacao_geral"] = (
+                    season,
+                    gerar_imagem_tabela_ajustada(df_display, colunas_ordem).getvalue(),
+                )
+        imagem_gerada = st.session_state.get("imagem_classificacao_geral")
+        if imagem_gerada and imagem_gerada[0] == season:
+            st.download_button(
+                label='Baixar imagem da tabela',
+                data=imagem_gerada[1],
+                file_name='classificacao_geral.png',
+                mime='image/png',
+                on_click="ignore",
+            )
 
     st.subheader("Pontuação por Prova")
     provas_df_ord = provas_df.sort_values('id')
-    provas_nomes = provas_df_ord['nome'].tolist()
-    provas_ids_ordenados = provas_df_ord['id'].tolist()
-    dados_cruzados = {prova_nome: {} for prova_nome in provas_nomes}
-    for part in tabela_detalhada:
-        participante = part['Participante']
-        pontos_por_prova = {}
-        usr_id = df_class[df_class['Participante'] == participante]['usuario_id'].iloc[0]
-        apostas_part = apostas_df[apostas_df['usuario_id'] == usr_id]
-        for _, aposta in apostas_part.iterrows():
-            pontos_por_prova[aposta['prova_id']] = pontos_por_usuario_prova.get(
-                (int(usr_id), int(aposta['prova_id'])),
-                0,
-            )
-        for prova_id, prova_nome in zip(provas_ids_ordenados, provas_nomes):
-            pt = pontos_por_prova.get(prova_id, 0)
-            dados_cruzados[prova_nome][participante] = pt if pt is not None else 0
-    df_cruzada = pd.DataFrame(dados_cruzados).T
-    df_cruzada = df_cruzada.reindex(
-        columns=df_class['Participante'].tolist(),
-        fill_value=0
+    df_por_participante = _montar_pontos_por_participante(
+        apostas_pontos_df,
+        df_class,
+        provas_df_ord,
     )
-    df_formatado = df_cruzada.map(lambda x: formatar_brasileiro(float(x)))
-    df_styled = destacar_heatmap(df_formatado, resultados_df, provas_ids_ordenados)
+    # As rotinas de gráfico e imagem trabalham com uma prova por linha.
+    df_cruzada = df_por_participante.T
+    df_formatado = df_por_participante.map(lambda x: formatar_brasileiro(float(x)))
     prova_config = {
-        "_index": st.column_config.TextColumn("Prova", width="medium"),
-        **{col: st.column_config.TextColumn(str(col), width="small") for col in df_formatado.columns},
+        "_index": st.column_config.TextColumn("Participante", width="medium"),
+        **{col: st.column_config.TextColumn(str(col), width="medium") for col in df_formatado.columns},
     }
     st.dataframe(
-        df_styled,
+        df_formatado,
         width="stretch",
-        height=_table_height(len(df_formatado), max_height=760),
+        height=_table_height(len(df_formatado), max_height=700),
         column_config=prova_config,
     )
 

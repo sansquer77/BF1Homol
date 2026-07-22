@@ -3,6 +3,7 @@
 Metas operacionais:
 
 - P95 das jornadas de leitura (`login`, `abertura_painel`, `classificacao`, `historico`) abaixo de 1 s.
+- Downloads com renderização pesada, como a imagem da classificação, são gerados somente após ação explícita do usuário.
 - `envio_aposta` abaixo de 1,5 s.
 - Quantidade de queries constante em relação ao número de temporadas.
 - Logs sempre filtrados e paginados (máximo de 500 linhas por página); dados
