@@ -11,8 +11,8 @@ import streamlit as st
 import logging
 from datetime import datetime, timedelta
 from services.auth_service import redefinir_senha_usuario, redefinir_senha_com_token
-from ui.auth_transport import set_auth_cookies
-from services.auth_service import clear_auth_cookies
+from ui.auth_transport import clear_auth_cookies
+from ui.oidc_auth import render_oidc_login
 from services.email_service import enviar_email_recuperacao_senha
 from utils.request_utils import get_client_ip
 from utils.validators import validar_email
@@ -246,6 +246,7 @@ def login_view():
 
         st.caption("Sistema de Apostas e Ranking")
         st.markdown("---")
+        render_oidc_login(st)
         
         # ========== FORMULÁRIO ==========
         with st.form("login_form", clear_on_submit=False):
@@ -423,14 +424,6 @@ def login_view():
             st.session_state['user_status'] = usuario.get('status', 'Ativo')
             st.session_state['pagina'] = "Painel do Participante"
             st.session_state['force_password_change'] = bool(usuario.get('must_change_password', 0))
-
-            try:
-                set_auth_cookies(token)
-            except Exception as cookie_error:
-                logger.warning(
-                    "Cookie HttpOnly nao emitido; autenticacao mantida somente na sessao Streamlit revogavel: %s",
-                    cookie_error,
-                )
 
             # Registrar sucesso
             registrar_tentativa_login(email, True, ip_address=client_ip, action="login")

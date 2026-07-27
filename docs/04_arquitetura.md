@@ -171,7 +171,7 @@ temporadas_regras
 
 ### 2. JWT e sessão Streamlit
 - **Decisão**: autenticação por JWT HS256 assinado com `JWT_SECRET`, com expiração de 120 minutos.
-- **Implementação atual**: o roteador valida o token em `st.session_state`; `extra-streamlit-components` oferece suporte a cookies, mas o fluxo principal não reidrata automaticamente uma sessão ausente a partir deles.
+- **Implementação atual**: o roteador valida o JWT revogável em `st.session_state`. Quando OIDC está habilitado, uma identidade já validada pelo cookie nativo do Streamlit reidrata esse JWT para um usuário previamente cadastrado.
 
 ### 3. Pool de Conexões PostgreSQL
 - **Decisão**: `connection_pool.py` gerencia um pool de conexões com `psycopg2`.
@@ -194,7 +194,7 @@ temporadas_regras
 
 ### 7. Camadas internas sem dependência de Streamlit
 - **Decisão**: `services/`, `db/` e `utils/` não importam Streamlit nem componentes Streamlit.
-- **Implementação**: `main.py` vincula sessão e metadados da requisição ao contexto neutro de `app_runtime.py`; caches de leitura usam o TTL cache de `utils/ttl_cache.py`; cookies permanecem no adaptador `ui/auth_transport.py`.
+- **Implementação**: `main.py` vincula sessão e metadados da requisição ao contexto neutro de `app_runtime.py`; caches de leitura usam o TTL cache de `utils/ttl_cache.py`; a integração OIDC permanece em `ui/oidc_auth.py`.
 - **Backup**: widgets são fornecidos pela camada chamadora por injeção, enquanto validação, geração e restauração continuam nas camadas internas.
 - **Justificativa**: permite testar e futuramente expor as regras por outra camada de entrega sem simular o ciclo de rerun do Streamlit.
 
@@ -234,7 +234,7 @@ MASTER_NOME         # Nome do usuário master inicial
 - **Senhas**: bcrypt com salt automático (nunca texto claro).
 - **Tokens**: JWT HS256 com expiração fixa de 120 minutos no código atual.
 - **Sessões**: `auth_sessions` registra `jti`, usuário, versão, emissão, expiração e revogação.
-- **Cookie**: `extra-streamlit-components` é client-side e não consegue emitir `HttpOnly`; por isso não é usado como autoridade nem recebe fallback reduzido. Persistência depende de futuro endpoint server-side.
+- **Cookie**: componentes JavaScript de cookie foram removidos. A persistência opcional usa `st.login`/`st.user`/`st.logout`, com cookie de identidade gerenciado pelo Streamlit e configuração OIDC em `[auth]`. O login por senha continua válido, mas restrito à sessão WebSocket.
 - **Proxy**: headers de IP só são confiados com `TRUSTED_PROXY_MODE` e topologia explícita; o padrão `direct` ignora headers.
 - **Retenção**: o bootstrap remove tentativas, logs, tokens expirados e sessões antigas conforme configuração.
 - **Autorização em profundidade**: `access_control.py` revalida o usuário e centraliza matrizes de páginas/operações.

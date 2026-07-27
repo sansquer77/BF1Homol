@@ -6,6 +6,7 @@ from services.admin_operations import admin_save_resultado
 from services.data_access_provas import get_pilotos_df, get_provas_df, get_resultados_df
 from services.bets_scoring import atualizar_classificacoes_todas_as_provas
 from services.result_notification_service import enviar_emails_resultado_prova
+from services.painel_controller import get_prova_atual_sem_resultado_id
 from utils.helpers import render_page_header
 from utils.season_utils import get_current_year_str, get_default_season_index, get_season_options
 from utils.dataframe_contracts import (
@@ -57,10 +58,27 @@ def resultados_view():
         st.warning("Cadastre provas e pilotos ativos antes de lançar resultados.")
         return
 
+    prova_options = [int(value) for value in provas["id"].tolist()]
+    default_prova_id = get_prova_atual_sem_resultado_id(provas, resultados_df)
+    prova_widget_key = "resultados_prova_id"
+    should_reselect = bool(st.session_state.pop("resultados_reselecionar", False))
+    season_changed = st.session_state.get("resultados_default_temporada") != temporada_selecionada
+    current_selection = st.session_state.get(prova_widget_key)
+    if (
+        should_reselect
+        or season_changed
+        or current_selection not in prova_options
+    ):
+        st.session_state[prova_widget_key] = (
+            default_prova_id if default_prova_id in prova_options else prova_options[0]
+        )
+    st.session_state["resultados_default_temporada"] = temporada_selecionada
+
     prova_id = st.selectbox(
         "Selecione a prova",
-        provas['id'],
-        format_func=lambda x: f"{provas[provas['id'] == x]['nome'].values[0]} ({provas[provas['id'] == x]['tipo'].values[0]})"
+        prova_options,
+        format_func=lambda x: f"{provas[provas['id'] == x]['nome'].values[0]} ({provas[provas['id'] == x]['tipo'].values[0]})",
+        key=prova_widget_key,
     )
     tipo_prova = provas[provas['id'] == prova_id]['tipo'].values[0]
     st.info(f"Tipo da prova selecionada: {tipo_prova}")
@@ -168,6 +186,7 @@ def resultados_view():
                     st.warning(f"Resultado salvo, mas houve falha em {stats_email.falhas} envio(s) de e-mail.")
             except Exception as email_error:
                 st.warning(f"Resultado salvo, mas não foi possível enviar os e-mails: {email_error}")
+            st.session_state["resultados_reselecionar"] = True
             st.rerun()
 
     st.markdown("---")

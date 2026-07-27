@@ -10,6 +10,7 @@ Melhorias:
 """
 import streamlit as st
 from app_runtime import bind_runtime
+from importlib import import_module
 import logging
 import datetime
 from utils.performance import journey
@@ -284,29 +285,9 @@ def bootstrap_app() -> bool:
 
 bootstrap_app()
 
-# ============ IMPORTAÇÃO DAS VIEWS ============
-from ui.login import login_view
-from ui.painel import participante_view
-from ui.usuarios import main as usuarios_view
-from ui.gestao_resultados import resultados_view
-from ui.calendario import main as calendario_view
-from ui.championship_bets import main as championship_bets_view
-from ui.championship_results import main as championship_results_view
-from ui.gestao_apostas import main as gestao_apostas_view
-from ui.analysis import main as analysis_view
-from ui.regulamento import main as regulamento_view
-from ui.classificacao import main as classificacao_view
-from ui.log_apostas import main as log_apostas_view
-from ui.log_acessos import main as log_acessos_view
-from ui.gestao_provas import main as gestao_provas_view
-from ui.gestao_regras import main as gestao_regras_view
-from ui.gestao_pilotos import main as gestao_pilotos_view
-from ui.backup import main as backup_view
-from ui.dashboard import main as dashboard_view
-from ui.sobre import main as sobre_view
-from ui.hall_da_fama import hall_da_fama
 from services.auth_service import decode_token
-from ui.auth_transport import clear_auth_cookies, get_auth_cookie_token
+from ui.auth_transport import clear_auth_cookies
+from ui.oidc_auth import logout_oidc, rehydrate_oidc_session
 from services.access_control import page_is_allowed
 
 # ============ ESTADO INICIAL DA SESSÃO ============
@@ -597,23 +578,22 @@ def _clear_session_and_redirect_login(msg: str):
     st.stop()
 
 
-def _ensure_token_from_cookie() -> bool:
-    """Restaura e valida a sessão exclusivamente pelo cookie contratado."""
+def _ensure_token_from_identity() -> bool:
+    """Restaura a sessão pelo cookie OIDC nativo, quando configurado."""
     token = st.session_state.get("token")
     if not token:
         try:
-            token = get_auth_cookie_token()
+            rehydrate_oidc_session(st)
+            token = st.session_state.get("token")
         except Exception as exc:
-            logger.error("Falha ao ler cookie seguro: %s", exc)
+            logger.error("Falha ao restaurar identidade OIDC: %s", exc)
             return False
-        if token and decode_token(token):
-            st.session_state["token"] = token
     return bool(token and decode_token(token))
 
 
 def _sync_session_from_token() -> bool:
     """Sincroniza dados básicos da sessão a partir do token antes de renderizar o menu."""
-    if not _ensure_token_from_cookie():
+    if not _ensure_token_from_identity():
         st.session_state.pop("user_role", None)
         st.session_state.pop("user_id", None)
         st.session_state.pop("user_nome", None)
@@ -663,7 +643,7 @@ def _enforce_route_guard(pagina: str):
     if pagina in ("Login", "Logout"):
         return
 
-    _ensure_token_from_cookie()
+    _ensure_token_from_identity()
     token = st.session_state.get("token")
     if not token:
         _clear_session_and_redirect_login("Sessão ausente. Faça login novamente.")
@@ -717,28 +697,33 @@ def _enforce_route_guard(pagina: str):
         st.stop()
 
 # ============ DICIONÁRIO DE ROTAS ============
-PAGES = {
-    "Login": login_view,
-    "Painel do Participante": participante_view,
-    _calendario_label(): calendario_view,
-    "Gestão de Usuários": usuarios_view,
-    "Gestão de Pilotos": gestao_pilotos_view,
-    "Gestão de Provas": gestao_provas_view,
-    "Gestão de Apostas": gestao_apostas_view,
-    "Gestão de Regras": gestao_regras_view,
-    "Análise de Apostas": analysis_view,
-    "Atualização de resultados": resultados_view,
-    "Apostas Campeonato": championship_bets_view,
-    "Resultado Campeonato": championship_results_view,
-    "Log de Apostas": log_apostas_view,
-    "Log de Acessos": log_acessos_view,
-    "Classificação": classificacao_view,
-    "Hall da Fama": hall_da_fama,
-    "Dashboard F1": dashboard_view,
-    "Backup dos Bancos de Dados": backup_view,
-    "Regulamento": regulamento_view,
-    "Sobre": sobre_view,
+PAGES: dict[str, tuple[str, str]] = {
+    "Login": ("ui.login", "login_view"),
+    "Painel do Participante": ("ui.painel", "participante_view"),
+    _calendario_label(): ("ui.calendario", "main"),
+    "Gestão de Usuários": ("ui.usuarios", "main"),
+    "Gestão de Pilotos": ("ui.gestao_pilotos", "main"),
+    "Gestão de Provas": ("ui.gestao_provas", "main"),
+    "Gestão de Apostas": ("ui.gestao_apostas", "main"),
+    "Gestão de Regras": ("ui.gestao_regras", "main"),
+    "Análise de Apostas": ("ui.analysis", "main"),
+    "Atualização de resultados": ("ui.gestao_resultados", "resultados_view"),
+    "Apostas Campeonato": ("ui.championship_bets", "main"),
+    "Resultado Campeonato": ("ui.championship_results", "main"),
+    "Log de Apostas": ("ui.log_apostas", "main"),
+    "Log de Acessos": ("ui.log_acessos", "main"),
+    "Classificação": ("ui.classificacao", "main"),
+    "Hall da Fama": ("ui.hall_da_fama", "hall_da_fama"),
+    "Dashboard F1": ("ui.dashboard", "main"),
+    "Backup dos Bancos de Dados": ("ui.backup", "main"),
+    "Regulamento": ("ui.regulamento", "main"),
+    "Sobre": ("ui.sobre", "main"),
 }
+
+
+def _load_view(page: str):
+    module_name, function_name = PAGES[page]
+    return getattr(import_module(module_name), function_name)
 
 # ============ MENU LATERAL ============
 def sidebar_menu():
@@ -858,7 +843,9 @@ def main():
         try:
             clear_auth_cookies(st.session_state.get("token"))
         except Exception as exc:
-            logger.error("Falha ao expirar cookie seguro no logout: %s", exc)
+            logger.error("Falha ao revogar sessão no logout: %s", exc)
+        if logout_oidc(st):
+            return
         for k in list(st.session_state.keys()):
             del st.session_state[k]
         st.sidebar.success("Logout realizado com sucesso.")
@@ -877,7 +864,7 @@ def main():
             "Log de Apostas": "historico",
         }
         with journey(journey_names.get(pagina, f"pagina:{pagina}"), page=pagina):
-            PAGES[pagina]()
+            _load_view(pagina)()
     else:
         st.error("Página não encontrada.")
 

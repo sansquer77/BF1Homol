@@ -99,6 +99,9 @@ Acesso: todos os perfis ativos; inativos com histórico.
 - Permite ao `admin`/`master` registrar o resultado (posição dos pilotos 1 a N) de uma prova.
 - Após registro, recalcula automaticamente pontuação e classificação de todos os participantes.
 - Suporte a registro de pilotos que abandonaram (para penalidade de abandono).
+- Ao abrir a tela ou trocar de temporada, seleciona a prova pendente mais recente
+  que já iniciou; se nenhuma iniciou, seleciona a próxima prova sem resultado.
+  A escolha manual é preservada até salvar ou trocar a temporada.
 
 ### 2.6 Classificação (`ui/classificacao.py`)
 - Tabela com posição geral, pontos acumulados e variação de posição.

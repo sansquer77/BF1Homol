@@ -29,7 +29,7 @@ def main():
 
     - **Desenvolvedor:** Cristiano Gaspar
     - **Tecnologias utilizadas no app:**
-        - **Frontend/App:** Streamlit, streamlit-option-menu, extra-streamlit-components
+        - **Frontend/App:** Streamlit e streamlit-calendar
         - **Backend e dados:** Python, PostgreSQL, pandas, numpy
         - **Visualização:** Plotly, Altair, Matplotlib
         - **Segurança e autenticação:** bcrypt, PyJWT, cryptography

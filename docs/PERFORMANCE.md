@@ -16,6 +16,10 @@ das consultas. O agregador de logs deve calcular P95 por campo `journey`.
 
 ## Otimizações implementadas
 
+- Logs de acesso e apostas usam contagem e filtros no PostgreSQL antes de
+  `LIMIT/OFFSET`; os totais representam todo o resultado e a página é ajustada
+  automaticamente quando o conjunto diminui.
+
 - Metadados estáveis de schema (`table_exists` e `get_table_columns`) são mantidos
   em memória e invalidados depois das migrations.
 - Caches de leitura possuem tags por domínio (`apostas`, `provas`, `resultados`,
@@ -27,6 +31,12 @@ das consultas. O agregador de logs deve calcular P95 por campo `journey`.
   contagem do histórico no caminho normal.
 - O envio manual de aposta não força um segundo rerun; o cache afetado é
   invalidado e a confirmação é exibida no mesmo ciclo.
+- As views são importadas sob demanda pelo roteador; módulos pesados de telas
+  não aumentam o tempo de startup de rotas que não os utilizam.
+- O Painel renderiza somente a seção ativa e, no histórico anual, calcula
+  somente a prova selecionada em vez de executar todas as antigas abas.
+- Matplotlib é importado somente durante a geração explícita de imagens da
+  classificação.
 
 ## Benchmark e EXPLAIN
 

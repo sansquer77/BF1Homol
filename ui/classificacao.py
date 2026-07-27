@@ -2,13 +2,10 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-import matplotlib.pyplot as plt
 from io import BytesIO
-import matplotlib.image as mpimg
 import datetime as dt
 import ast
 from zoneinfo import ZoneInfo
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from services.data_access_core import (
     db_connect,
 )
@@ -148,6 +145,10 @@ def formatar_brasileiro(valor):
         return valor
 
 def gerar_imagem_tabela_ajustada(df, colunas):
+    import matplotlib.image as mpimg
+    import matplotlib.pyplot as plt
+    from matplotlib.offsetbox import AnnotationBbox, OffsetImage
+
     df_exibicao = df[colunas].astype(str).copy()
 
     max_larguras = []
@@ -200,6 +201,10 @@ def gerar_imagem_tabela_ajustada(df, colunas):
     return buffer
 
 def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultados_df=None, provas_df=None, df_class=None):
+    import matplotlib.image as mpimg
+    import matplotlib.pyplot as plt
+    from matplotlib.offsetbox import AnnotationBbox, OffsetImage
+
     if prova_selecionada not in df_cruzada.index:
         return None
 

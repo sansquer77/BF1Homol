@@ -44,7 +44,7 @@ Configure as variáveis abaixo no painel da App Platform → **Settings → Envi
 | `MASTER_EMAIL` | ✅ | Email do usuário master criado no primeiro boot |
 | `MASTER_PASSWORD` | ✅ | Senha inicial do usuário master (será hashada com bcrypt) |
 | `MASTER_NOME` | ✅ | Nome de exibição do usuário master |
-| `COOKIE_BACKEND_SUPPORTS_HTTPONLY` | Não | Mantenha `false` com o componente atual; `true` exige backend HTTP server-side comprovado |
+| `OIDC_AUTH_ENABLED` | Não | `true` habilita persistência segura depois de configurar `[auth]` em `.streamlit/secrets.toml` |
 | `TRUSTED_PROXY_MODE` | ✅ | `direct`, `xff` ou `x-real-ip`; padrão seguro `direct` |
 | `TRUSTED_PROXY_HOPS` | se `xff` | Saltos confiáveis contados da direita do XFF |
 | `LOGIN_ATTEMPTS_RETENTION_DAYS` | Não | Retenção das tentativas; padrão 30 dias |

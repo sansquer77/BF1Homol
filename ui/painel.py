@@ -128,8 +128,17 @@ def participante_view():
         # Aba principal de histórico: consolida todas as temporadas do participante.
         tab_labels.append("Histórico")
     tab_labels.append("Minha Conta")
-    tabs = st.tabs(tab_labels)
-    tab_map = {label: tab for label, tab in zip(tab_labels, tabs)}
+    section_key = "painel_secao_ativa"
+    if st.session_state.get(section_key) not in tab_labels:
+        st.session_state[section_key] = tab_labels[0]
+    active_section = st.radio(
+        "Área do painel",
+        tab_labels,
+        horizontal=True,
+        label_visibility="collapsed",
+        key=section_key,
+    )
+    section_container = st.container()
 
     def _on_prova_change():
         st.session_state["aposta_form_force_reload"] = True
@@ -167,8 +176,8 @@ def participante_view():
     resultados_df = with_required_columns(None, RESULTADOS_COLUMNS)
 
     # ------------------ Aba: Apostas ----------------------
-    if show_apostas_tab:
-        with tab_map["Apostas"]:
+    if show_apostas_tab and active_section == "Apostas":
+        with section_container:
             temporada = st.session_state.get('temporada', str(now_sao_paulo().year))
 
             # fix(itens 4 e 5): cada DataFrame é buscado UMA única vez por render
@@ -461,8 +470,8 @@ def participante_view():
             else:
                 st.warning("Administração deve cadastrar provas e pilotos antes das apostas.")
 
-    if show_historico_tab:
-        with tab_map[f"Apostas - {season}"]:
+    if show_historico_tab and active_section == f"Apostas - {season}":
+        with section_container:
             if is_inactive_profile:
                 st.info("Usuário inativo: você só pode visualizar suas apostas anteriores.")
 
@@ -495,9 +504,14 @@ def participante_view():
 
             if not apostas_part.empty:
                 nomes_abas = [f"{ap['nome_prova']} ({ap['prova_id']})" for _, ap in apostas_part.iterrows()]
-                abas = st.tabs(nomes_abas)
-                for aba, (_, aposta) in zip(abas, apostas_part.iterrows()):
-                    with aba:
+                aposta_detalhe = st.selectbox(
+                    "Prova detalhada",
+                    nomes_abas,
+                    key=f"painel_aposta_detalhe_{temporada}",
+                )
+                detalhe_index = nomes_abas.index(aposta_detalhe)
+                for _, aposta in apostas_part.iloc[[detalhe_index]].iterrows():
+                    with st.container():
                         prova_id = aposta['prova_id']
                         prova_nome = aposta['nome_prova']
                         fichas = list(map(int, aposta['fichas'].split(',')))
@@ -684,61 +698,62 @@ def participante_view():
                 st.info("Ainda não há histórico de posições registrado.")
 
     # ------------------ Aba: Histórico (consolidado multi-temporada) ----------------------
-    if show_historico_geral_tab:
-        with tab_map["Histórico"]:
+    if show_historico_geral_tab and active_section == "Histórico":
+        with section_container:
             _render_historico_geral(user['id'])
 
     # ---------------- Aba: Minha Conta ----------------------
-    with tab_map["Minha Conta"]:
-        st.header("Gestão da Minha Conta")
-        st.write(f"Usuário: **{user['nome']}**")
-        novo_email = st.text_input("Email cadastrado", value=user['email'])
-        st.subheader("Alterar Senha")
-        senha_atual = st.text_input("Senha Atual", type="password", key="senha_atual")
-        nova_senha = st.text_input("Nova Senha", type="password", key="nova_senha")
-        confirma_senha = st.text_input("Confirme Nova Senha", type="password", key="confirma_senha")
+    if active_section == "Minha Conta":
+        with section_container:
+            st.header("Gestão da Minha Conta")
+            st.write(f"Usuário: **{user['nome']}**")
+            novo_email = st.text_input("Email cadastrado", value=user['email'])
+            st.subheader("Alterar Senha")
+            senha_atual = st.text_input("Senha Atual", type="password", key="senha_atual")
+            nova_senha = st.text_input("Nova Senha", type="password", key="nova_senha")
+            confirma_senha = st.text_input("Confirme Nova Senha", type="password", key="confirma_senha")
 
-        if st.button("Salvar Alterações (Conta)"):
-            erros = []
-            if not novo_email or novo_email.strip() == "":
-                erros.append("Email não pode ficar vazio.")
-            elif novo_email != user['email']:
-                email_cadastrado = get_user_by_email(novo_email)
-                if email_cadastrado and email_cadastrado['id'] != user['id']:
-                    erros.append("O email informado já está em uso por outro usuário.")
+            if st.button("Salvar Alterações (Conta)"):
+                erros = []
+                if not novo_email or novo_email.strip() == "":
+                    erros.append("Email não pode ficar vazio.")
+                elif novo_email != user['email']:
+                    email_cadastrado = get_user_by_email(novo_email)
+                    if email_cadastrado and email_cadastrado['id'] != user['id']:
+                        erros.append("O email informado já está em uso por outro usuário.")
 
-            if senha_atual or nova_senha or confirma_senha:
-                if not senha_atual:
-                    erros.append("Informe a senha atual para alterar a senha.")
-                # fix(crítico): coluna real é `senha_hash` — era `user['senha']` (KeyError silencioso)
-                elif not check_password(senha_atual, user['senha_hash']):
-                    erros.append("Senha atual incorreta.")
-                elif not nova_senha:
-                    erros.append("Informe a nova senha.")
-                elif nova_senha != confirma_senha:
-                    erros.append("Nova senha e confirmação não coincidem.")
+                if senha_atual or nova_senha or confirma_senha:
+                    if not senha_atual:
+                        erros.append("Informe a senha atual para alterar a senha.")
+                    # fix(crítico): coluna real é `senha_hash` — era `user['senha']` (KeyError silencioso)
+                    elif not check_password(senha_atual, user['senha_hash']):
+                        erros.append("Senha atual incorreta.")
+                    elif not nova_senha:
+                        erros.append("Informe a nova senha.")
+                    elif nova_senha != confirma_senha:
+                        erros.append("Nova senha e confirmação não coincidem.")
 
-            if erros:
-                for erro in erros:
-                    st.error(erro)
-            else:
-                atualizado = False
-                if novo_email and novo_email.strip() != "" and novo_email != user['email']:
-                    if update_user_email(user['id'], novo_email):
-                        st.success("Email atualizado!")
-                        atualizado = True
-                    else:
-                        st.error("Falha ao atualizar email.")
-                if nova_senha:
-                    senha_hash = hash_password(nova_senha)
-                    if update_user_password(user['id'], senha_hash):
-                        st.success("Senha alterada!")
-                        atualizado = True
-                        st.session_state['force_password_change'] = False
-                    else:
-                        st.error("Falha ao alterar senha.")
-                if atualizado:
-                    st.rerun()
+                if erros:
+                    for erro in erros:
+                        st.error(erro)
+                else:
+                    atualizado = False
+                    if novo_email and novo_email.strip() != "" and novo_email != user['email']:
+                        if update_user_email(user['id'], novo_email):
+                            st.success("Email atualizado!")
+                            atualizado = True
+                        else:
+                            st.error("Falha ao atualizar email.")
+                    if nova_senha:
+                        senha_hash = hash_password(nova_senha)
+                        if update_user_password(user['id'], senha_hash):
+                            st.success("Senha alterada!")
+                            atualizado = True
+                            st.session_state['force_password_change'] = False
+                        else:
+                            st.error("Falha ao alterar senha.")
+                    if atualizado:
+                        st.rerun()
 
 
 def _render_historico_geral(usuario_id: int) -> None:

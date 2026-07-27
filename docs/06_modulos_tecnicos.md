@@ -106,7 +106,8 @@ Autenticação e autorização baseadas em JWT.
 - `decode_token(token)` → `dict | None` — decodifica e valida JWT; retorna `None` se inválido/expirado
 - `hash_password(senha)` → `str` — bcrypt hash
 - `verify_password(senha, hash)` → `bool` — validação bcrypt
-- `set_auth_cookies(token)` / `clear_auth_cookies()` — suporte de cookie via `extra-streamlit-components`; a autorização do roteador usa o token da sessão Streamlit
+- `ui/oidc_auth.py` — reidrata a sessão interna por uma identidade OIDC nativa do Streamlit; somente emails já cadastrados são aceitos
+- `clear_auth_cookies()` — revoga o JWT interno; `st.logout()` encerra separadamente a identidade OIDC
 - Rate limiting embutido para mitigar ataques de força bruta no login
 
 ### `bets_rules.py`
@@ -313,7 +314,6 @@ Arquivos estáticos servidos diretamente:
 | Biblioteca | Versão mínima | Uso |
 |---|---|---|
 | `streamlit` | 1.55.0 | Framework principal |
-| `extra-streamlit-components` | 0.1.56 | Gerenciamento de cookies |
 | `streamlit-calendar` | 1.4.0 | Componente de calendário |
 | `psycopg[binary]` | 3.2.0 | Driver PostgreSQL |
 | `psycopg-pool` | 3.2.0 | Pool de conexões |

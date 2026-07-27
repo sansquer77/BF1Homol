@@ -1,10 +1,20 @@
 import datetime
+from dataclasses import dataclass
 import pandas as pd
 import streamlit as st
 
 from services.data_access_core import db_connect
 from utils.helpers import render_page_header
 from utils.timezone_utils import convert_utc_to_client_tz
+from utils.pagination import paginate
+
+
+@dataclass(frozen=True)
+class AccessLogResult:
+    rows: pd.DataFrame
+    total: int
+    successes: int
+    failures: int
 
 
 def _table_height(total_rows: int, row_height: int = 36, max_height: int = 620) -> int:
@@ -21,7 +31,7 @@ def _load_access_logs(
     usuario_contains: str,
     limit: int = 100,
     offset: int = 0,
-) -> pd.DataFrame:
+) -> AccessLogResult:
     start_ts = datetime.datetime.combine(data_inicial, datetime.time.min)
     end_ts_exclusive = datetime.datetime.combine(
         data_final + datetime.timedelta(days=1),
@@ -57,6 +67,14 @@ def _load_access_logs(
 
     where_sql = " AND ".join(where)
 
+    summary_query = f"""
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE sucesso IS TRUE) AS successes,
+            COUNT(*) FILTER (WHERE sucesso IS NOT TRUE) AS failures
+        FROM access_logs
+        WHERE {where_sql}
+    """
     query = f"""
         SELECT
             id,
@@ -74,22 +92,30 @@ def _load_access_logs(
         ORDER BY created_at DESC, id DESC
         LIMIT %s OFFSET %s
     """
-    params.extend([max(1, min(int(limit), 500)), max(0, int(offset))])
+    page_params = [*params, max(1, min(int(limit), 500)), max(0, int(offset))]
 
     # pd.read_sql_query nao e compativel com psycopg3 (dict_row);
     # usamos cursor manual e construimos o DataFrame a partir da lista de dicts.
     with db_connect() as conn:
         cur = conn.cursor()
-        cur.execute(query, params)
+        cur.execute(summary_query, params)
+        summary = cur.fetchone() or {}
+        cur.execute(query, page_params)
         rows = cur.fetchall() or []
 
-    if not rows:
-        return pd.DataFrame(columns=[
+    if rows:
+        frame = pd.DataFrame([dict(r) for r in rows])
+    else:
+        frame = pd.DataFrame(columns=[
             "id", "created_at", "evento", "sucesso",
             "user_id", "email", "nome", "perfil", "ip_address", "detalhes",
         ])
-
-    return pd.DataFrame([dict(r) for r in rows])
+    return AccessLogResult(
+        rows=frame,
+        total=int(summary.get("total") or 0),
+        successes=int(summary.get("successes") or 0),
+        failures=int(summary.get("failures") or 0),
+    )
 
 
 def _get_filter_options() -> tuple[list[str], list[str]]:
@@ -156,9 +182,17 @@ def main() -> None:
     with col_usuario:
         usuario_contains = st.text_input("Usuário/Email contém", value="").strip()
 
+    filter_signature = (
+        data_inicial, data_final, perfil_sel, evento_sel, sucesso_sel,
+        ip_contains, usuario_contains,
+    )
+    if st.session_state.get("_access_logs_filter_signature") != filter_signature:
+        st.session_state["_access_logs_filter_signature"] = filter_signature
+        st.session_state["access_logs_page"] = 1
+
     page_size = st.selectbox("Registros por página", [50, 100, 200], index=1, key="access_logs_page_size")
-    page = int(st.number_input("Página", min_value=1, value=1, step=1, key="access_logs_page"))
-    df = _load_access_logs(
+    requested_page = int(st.session_state.get("access_logs_page", 1))
+    result = _load_access_logs(
         data_inicial=data_inicial,
         data_final=data_final,
         perfil_sel=perfil_sel,
@@ -167,21 +201,41 @@ def main() -> None:
         ip_contains=ip_contains,
         usuario_contains=usuario_contains,
         limit=page_size,
-        offset=(page - 1) * page_size,
+        offset=(requested_page - 1) * page_size,
     )
+    pagination = paginate(requested_page, page_size, result.total)
+    if pagination.page != requested_page:
+        st.session_state["access_logs_page"] = pagination.page
+        result = _load_access_logs(
+            data_inicial, data_final, perfil_sel, evento_sel, sucesso_sel,
+            ip_contains, usuario_contains, pagination.page_size, pagination.offset,
+        )
+    df = result.rows
 
     if df.empty:
         st.info("Nenhum acesso encontrado com os filtros selecionados.")
         return
 
-    total = len(df)
-    total_sucesso = int((df["sucesso"] == True).sum())  # noqa: E712
-    total_falha = total - total_sucesso
-
     m1, m2, m3 = st.columns(3)
-    m1.metric("Total de eventos", total)
-    m2.metric("Sucessos", total_sucesso)
-    m3.metric("Falhas", total_falha)
+    m1.metric("Total de eventos", result.total)
+    m2.metric("Sucessos", result.successes)
+    m3.metric("Falhas", result.failures)
+
+    nav_prev, nav_text, nav_next = st.columns([1, 2, 1])
+    if nav_prev.button("← Anterior", disabled=pagination.page <= 1, key="access_logs_prev"):
+        st.session_state["access_logs_page"] = pagination.page - 1
+        st.rerun()
+    nav_text.caption(
+        f"Página {pagination.page} de {pagination.total_pages} · "
+        f"{len(df)} registros exibidos"
+    )
+    if nav_next.button(
+        "Próxima →",
+        disabled=pagination.page >= pagination.total_pages,
+        key="access_logs_next",
+    ):
+        st.session_state["access_logs_page"] = pagination.page + 1
+        st.rerun()
 
     df_show = df.copy()
     df_show["sucesso"] = df_show["sucesso"].apply(lambda x: "Sucesso" if bool(x) else "Falha")
@@ -208,7 +262,7 @@ def main() -> None:
             }
         ),
         hide_index=True,
-        height=_table_height(total),
+        height=_table_height(len(df)),
     )
 
 

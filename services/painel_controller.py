@@ -83,6 +83,65 @@ def get_proxima_prova_id(provas_df: pd.DataFrame):
     return None
 
 
+def get_prova_atual_sem_resultado_id(
+    provas_df: pd.DataFrame,
+    resultados_df: pd.DataFrame,
+    agora: datetime.datetime | None = None,
+):
+    """Seleciona a prova pendente mais próxima do momento atual.
+
+    Prioriza a prova pendente mais recente que já iniciou. Quando nenhuma
+    pendente iniciou, retorna a próxima do calendário. Provas que já possuem
+    resultado são sempre ignoradas.
+    """
+    if provas_df.empty or "id" not in provas_df.columns:
+        return None
+
+    resultados_ids: set[int] = set()
+    if (
+        isinstance(resultados_df, pd.DataFrame)
+        and not resultados_df.empty
+        and "prova_id" in resultados_df.columns
+    ):
+        resultados_ids = {
+            int(value)
+            for value in pd.to_numeric(resultados_df["prova_id"], errors="coerce").dropna()
+        }
+
+    agora_sp = agora or now_sao_paulo()
+    if agora_sp.tzinfo is None:
+        agora_sp = agora_sp.replace(tzinfo=now_sao_paulo().tzinfo)
+
+    iniciadas: list[tuple[datetime.datetime, int]] = []
+    futuras: list[tuple[datetime.datetime, int]] = []
+    fallback: list[int] = []
+    for _, row in provas_df.iterrows():
+        try:
+            prova_id = int(row.get("id"))
+        except (TypeError, ValueError):
+            continue
+        if prova_id in resultados_ids:
+            continue
+        fallback.append(prova_id)
+        evento_dt = parse_evento_prova_dt(
+            row.get("data"),
+            row.get("horario_prova", "00:00"),
+            agora_sp.tzinfo,
+        )
+        if evento_dt is None:
+            continue
+        if evento_dt <= agora_sp:
+            iniciadas.append((evento_dt, prova_id))
+        else:
+            futuras.append((evento_dt, prova_id))
+
+    if iniciadas:
+        return max(iniciadas, key=lambda item: (item[0], item[1]))[1]
+    if futuras:
+        return min(futuras, key=lambda item: (item[0], item[1]))[1]
+    return fallback[0] if fallback else None
+
+
 def ordenar_provas_por_calendario(provas_df: pd.DataFrame) -> pd.DataFrame:
     """Ordena provas por data/hora do calendário (ascendente), com fallback estável."""
     if provas_df.empty:
@@ -117,5 +176,6 @@ __all__ = [
     "parse_data_prova",
     "parse_evento_prova_dt",
     "get_proxima_prova_id",
+    "get_prova_atual_sem_resultado_id",
     "ordenar_provas_por_calendario",
 ]
