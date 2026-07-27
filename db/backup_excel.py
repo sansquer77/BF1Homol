@@ -9,7 +9,6 @@ from datetime import datetime
 from typing import Any
 
 import pandas as pd
-import streamlit as st
 from openpyxl.utils import get_column_letter
 
 from db.backup_utils import (
@@ -153,13 +152,13 @@ def _apply_excel_datetime_format(
 				cell.number_format = number_format
 
 
-def download_tabela() -> None:
+def download_tabela(presenter) -> None:
 	tables = _list_tables()
 	if not tables:
-		st.info("No tables found for export.")
+		presenter.info("No tables found for export.")
 		return
 
-	selected = st.selectbox("Table to export", tables, key="export_table_select")
+	selected = presenter.selectbox("Table to export", tables, key="export_table_select")
 	if not selected:
 		return
 
@@ -179,7 +178,7 @@ def download_tabela() -> None:
 		_apply_excel_datetime_format(writer, "data", df_excel, col_types)
 	buffer.seek(0)
 
-	st.download_button(
+	presenter.download_button(
 		label=f"Download table {selected} (.xlsx)",
 		data=buffer.getvalue(),
 		file_name=f"{selected}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
@@ -189,23 +188,23 @@ def download_tabela() -> None:
 	)
 
 
-def upload_tabela() -> None:
+def upload_tabela(presenter) -> None:
 	require_restore_authorized()
 	limits = get_backup_limits()
 	tables = _list_tables()
 	if not tables:
-		st.info("No tables found for import.")
+		presenter.info("No tables found for import.")
 		return
 
-	selected = st.selectbox("Destination table", tables, key="import_table_select")
-	uploaded = st.file_uploader(
+	selected = presenter.selectbox("Destination table", tables, key="import_table_select")
+	uploaded = presenter.file_uploader(
 		"Upload Excel (.xlsx)",
 		type=["xlsx"],
 		key="upload_table_xlsx",
 		help=f"Limite: {limits.excel_bytes // (1024 * 1024)} MB, "
 		f"{limits.excel_rows} linhas e {limits.excel_columns} colunas.",
 	)
-	validate_fks = st.checkbox(
+	validate_fks = presenter.checkbox(
 		"Pré-validar chaves estrangeiras antes de importar (recomendado)",
 		value=True,
 		key="import_table_validate_fks",
@@ -215,26 +214,26 @@ def upload_tabela() -> None:
 	try:
 		validate_upload_size(uploaded, limits.excel_bytes, "Backup Excel")
 	except BackupLimitExceeded as exc:
-		st.error(str(exc))
+		presenter.error(str(exc))
 		return
 
-	if st.button("Import table", type="primary", width="stretch"):
+	if presenter.button("Import table", type="primary", width="stretch"):
 		content = uploaded.getvalue()
 		try:
 			validate_excel_archive(content)
 			df = pd.read_excel(io.BytesIO(content), nrows=limits.excel_rows + 1)
 			validate_excel_dimensions(len(df.index), len(df.columns))
 		except BackupLimitExceeded as exc:
-			st.error(str(exc))
+			presenter.error(str(exc))
 			return
 		except Exception:
-			st.error("Arquivo Excel inválido ou incompatível com o formato esperado.")
+			presenter.error("Arquivo Excel inválido ou incompatível com o formato esperado.")
 			return
 		df.columns = [str(col).strip() for col in df.columns]
 		db_cols = _table_columns(selected)
 		use_cols = [c for c in df.columns if c in db_cols]
 		if not use_cols:
-			st.error("No compatible columns were found.")
+			presenter.error("No compatible columns were found.")
 			return
 
 		with db_connect() as conn:
@@ -242,15 +241,15 @@ def upload_tabela() -> None:
 			required_cols = _get_required_columns_for_insert(conn, selected)
 			missing_required = [c for c in required_cols if c not in use_cols]
 			if missing_required:
-				st.error(
+				presenter.error(
 					"Importação bloqueada: o arquivo não contém colunas obrigatórias "
 					f"da tabela '{selected}'."
 				)
-				st.caption(
+				presenter.caption(
 					"Isso normalmente indica seleção incorreta da tabela de destino "
 					"ou arquivo Excel de outra tabela."
 				)
-				st.caption(f"Colunas obrigatórias ausentes: {', '.join(missing_required)}")
+				presenter.caption(f"Colunas obrigatórias ausentes: {', '.join(missing_required)}")
 				return
 
 			payload = df[use_cols].astype(object)
@@ -274,11 +273,11 @@ def upload_tabela() -> None:
 					continue
 				for row_number, row in enumerate(rows, start=2):
 					if row[idx] is None:
-						st.error(
+						presenter.error(
 							"Importação bloqueada: coluna obrigatória com valor vazio "
 							f"na tabela '{selected}'."
 						)
-						st.caption(f"Coluna: {req_col} | Linha Excel: {row_number}")
+						presenter.caption(f"Coluna: {req_col} | Linha Excel: {row_number}")
 						return
 
 			fk_parent_tables = _get_tables_with_fk_children(conn)
@@ -287,12 +286,12 @@ def upload_tabela() -> None:
 			if validate_fks:
 				fk_errors = _prevalidate_fk_values(conn, selected, use_cols, rows)
 				if fk_errors:
-					st.error(
+					presenter.error(
 						"Importação bloqueada por inconsistência de FK no arquivo Excel. "
 						"Corrija os valores e tente novamente."
 					)
 					for item in fk_errors:
-						st.caption(f"- {item}")
+						presenter.caption(f"- {item}")
 					return
 
 			c = conn.cursor()
@@ -302,11 +301,11 @@ def upload_tabela() -> None:
 			if is_fk_parent:
 				pk_cols = _get_pk_columns(conn, selected)
 				if not pk_cols:
-					st.error(
+					presenter.error(
 						f"Importação bloqueada: a tabela '{selected}' é referenciada por FK "
 						"e não possui PRIMARY KEY detectada para UPSERT seguro."
 					)
-					st.info(
+					presenter.info(
 						"Para evitar quebra de integridade, esse cenário não executa TRUNCATE CASCADE. "
 						"Defina uma PK na tabela ou use restore SQL completo."
 					)
@@ -333,7 +332,7 @@ def upload_tabela() -> None:
 					)
 
 				c.executemany(upsert_sql, rows)
-				st.info(
+				presenter.info(
 					f"⚠️ '{selected}' é referenciada por outras tabelas: linhas existentes foram "
 					"atualizadas (UPSERT) e linhas ausentes no Excel foram mantidas. "
 					"Nenhum dado filho foi apagado."
@@ -362,11 +361,11 @@ def upload_tabela() -> None:
 			conn.commit()
 
 		if normalized_cells > 0:
-			st.info(
+			presenter.info(
 				f"{normalized_cells} valores foram normalizados para tipos PostgreSQL "
 				"(JSON/ARRAY) durante a importação."
 			)
 
-		st.success(f"Table {selected} imported successfully.")
+		presenter.success(f"Table {selected} imported successfully.")
 
 __all__ = ["download_tabela", "upload_tabela"]

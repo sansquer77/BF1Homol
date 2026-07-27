@@ -161,7 +161,7 @@ plotly
 - **Tipagem opcional**: `from __future__ import annotations` + type hints onde relevante.
 - **Funções puras em `utils/`**: sem efeitos colaterais, sem acesso a DB.
 - **Serviços sem estado**: `services/*.py` recebem dados como parâmetros, não leem `session_state`.
-- **Serviços preferencialmente sem UI**: manter lógica testável fora do Streamlit; exceções legadas, como o cache em `rules_service.py`, devem ser tratadas como dívida técnica.
+- **Camadas internas independentes da UI**: `services/`, `db/` e `utils/` não importam Streamlit; sessão, transporte de cookies e apresentação são vinculados pela camada de entrega.
 - **UI fina**: `ui/*.py` apenas constrói a interface e delega lógica para `services/`.
 - **Credenciais nunca no código**: sempre via `os.environ` ou variáveis do App Platform.
 - **Migrations idempotentes**: toda migration verifica existência antes de alterar.

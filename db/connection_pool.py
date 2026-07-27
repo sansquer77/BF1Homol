@@ -6,11 +6,6 @@ from contextlib import contextmanager
 import time
 from typing import Any, Iterator, Optional
 
-try:
-    import streamlit as st
-except Exception:  # no cover - fallback para execução fora do Streamlit
-    st = None
-
 import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool as PsycopgConnectionPool
@@ -141,16 +136,8 @@ def _build_pool(pool_size: int) -> ConnectionPool:
     return ConnectionPool(pool_size, DB_TIMEOUT)
 
 
-if st is not None:
-
-    @st.cache_resource(show_spinner=False)
-    def _get_cached_pool(pool_size: int) -> ConnectionPool:
-        return _build_pool(pool_size)
-
-else:
-
-    def _get_cached_pool(pool_size: int) -> ConnectionPool:
-        return _build_pool(pool_size)
+def _get_cached_pool(pool_size: int) -> ConnectionPool:
+    return _build_pool(pool_size)
 
 
 def init_pool(pool_size: int = 5) -> None:

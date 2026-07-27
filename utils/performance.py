@@ -124,12 +124,12 @@ def measured(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
     return decorator
 
 
-def instrumented_cache_data(*, ttl: int):
-    """Substituto observavel para ``st.cache_data``.
+def instrumented_cache_data(*, ttl: int, tags: tuple[str, ...] = ()):
+    """Cache TTL observável e independente do framework web.
 
     O corpo interno roda somente no miss; a chamada externa registra o hit.
     """
-    import streamlit as st
+    from utils.ttl_cache import ttl_cache
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         # Todos os wrappers abaixo compartilham a mesma implementação interna.
@@ -137,7 +137,7 @@ def instrumented_cache_data(*, ttl: int):
         # função em outra quando ambas recebem argumentos iguais (ex.: temporada).
         cache_namespace = f"{func.__module__}.{func.__qualname__}"
 
-        @st.cache_data(ttl=ttl, show_spinner=False)
+        @ttl_cache(ttl=ttl, tags=tags)
         def cached(namespace: str, *args: P.args, **kwargs: P.kwargs) -> R:
             record_cache(hit=False)
             _cache_miss_serial.set(_cache_miss_serial.get() + 1)

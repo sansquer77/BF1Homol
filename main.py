@@ -9,6 +9,7 @@ Melhorias:
 - Detecção automática de Timezone do cliente
 """
 import streamlit as st
+from app_runtime import bind_runtime
 import logging
 import datetime
 from utils.performance import journey
@@ -21,6 +22,12 @@ st.set_page_config(
     page_icon="🏁",
     layout="wide",
     initial_sidebar_state="auto",
+)
+_streamlit_context = getattr(st, "context", None)
+bind_runtime(
+    st.session_state,
+    headers=getattr(_streamlit_context, "headers", None),
+    direct_ip=getattr(_streamlit_context, "ip_address", None),
 )
 
 # ============ CARREGAR ESTILOS CSS LIQUID GLASS ============
@@ -262,12 +269,14 @@ logger = logging.getLogger(__name__)
 # ============ INICIALIZAÇÃO DO BANCO ============
 from db.repo_users import get_user_by_id, get_usuario_temporadas_ativas
 from db.migrations import run_migrations
+from db.db_schema import clear_schema_cache
 from db.master_user_manager import MasterUserManager
 
 @st.cache_resource(show_spinner=False)
 def bootstrap_app() -> bool:
     logger.info("🚀 Inicializando BF1 3.0...")
     run_migrations()
+    clear_schema_cache()
     logger.info("✓ Banco de dados/migrations inicializados")
     MasterUserManager.create_master_user()
     return True
@@ -296,7 +305,8 @@ from ui.backup import main as backup_view
 from ui.dashboard import main as dashboard_view
 from ui.sobre import main as sobre_view
 from ui.hall_da_fama import hall_da_fama
-from services.auth_service import decode_token, clear_auth_cookies, get_auth_cookie_token
+from services.auth_service import decode_token
+from ui.auth_transport import clear_auth_cookies, get_auth_cookie_token
 from services.access_control import page_is_allowed
 
 # ============ ESTADO INICIAL DA SESSÃO ============

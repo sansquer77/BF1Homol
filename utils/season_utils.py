@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Iterable, Optional
-import streamlit as st
+from app_runtime import get_session
 
 from services.data_access_backup import list_temporadas
 
@@ -42,9 +42,10 @@ def get_season_options(
 
     # Restrição global para usuário inativo: apenas temporadas em que esteve ativo.
     try:
-        user_status = str(st.session_state.get("user_status", "")).strip().lower()
+        session = get_session()
+        user_status = str(session.get("user_status", "")).strip().lower()
         if user_status and user_status != "ativo":
-            allowed = _normalize_season_values(st.session_state.get("allowed_seasons", []) or [])
+            allowed = _normalize_season_values(session.get("allowed_seasons", []) or [])
             if allowed:
                 allowed_set = set(allowed)
                 seasons = [s for s in seasons if s in allowed_set]

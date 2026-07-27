@@ -1,6 +1,6 @@
 """Fachada de dados de autenticacao/usuarios para a camada de UI."""
 
-import streamlit as st
+from utils.ttl_cache import ttl_cache
 from utils.dataframe_contracts import USUARIOS_COLUMNS, with_required_columns
 
 from db.db_config import (
@@ -17,7 +17,7 @@ from db.repo_users import (
     registrar_historico_status_usuario as _registrar_historico_status_usuario,
     update_user_email as _update_user_email,
     update_user_password as _update_user_password,
-    usuarios_status_historico_disponivel,
+    usuarios_status_historico_disponivel as _usuarios_status_historico_disponivel,
 )
 from services.access_control import authorize_context, require_operation, resolve_authenticated_context
 
@@ -47,9 +47,14 @@ def registrar_historico_status_usuario(*args, **kwargs):
     return _registrar_historico_status_usuario(*args, **kwargs)
 
 
-@st.cache_data(ttl=60, show_spinner=False)
+@ttl_cache(ttl=60, tags=("usuarios",))
 def get_usuarios_df():
     return with_required_columns(_repo_get_usuarios_df(), USUARIOS_COLUMNS)
+
+
+@ttl_cache(ttl=300, tags=("usuarios",))
+def usuarios_status_historico_disponivel() -> bool:
+    return _usuarios_status_historico_disponivel()
 
 
 __all__ = [

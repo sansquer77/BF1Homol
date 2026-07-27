@@ -192,9 +192,11 @@ temporadas_regras
 - Todas as comparações de data/hora usam `America/Sao_Paulo` via `zoneinfo`.
 - `now_sao_paulo()` é a função canônica para obter o tempo atual.
 
-### 7. Serviços sem Dependência de UI *(v3.6)*
-- **Decisão**: `historico_service.py` retorna `@dataclass` tipados, sem importar Streamlit.
-- **Justificativa**: garante testabilidade isolada da lógica de negócio do histórico, independente do ciclo de rerun do Streamlit.
+### 7. Camadas internas sem dependência de Streamlit
+- **Decisão**: `services/`, `db/` e `utils/` não importam Streamlit nem componentes Streamlit.
+- **Implementação**: `main.py` vincula sessão e metadados da requisição ao contexto neutro de `app_runtime.py`; caches de leitura usam o TTL cache de `utils/ttl_cache.py`; cookies permanecem no adaptador `ui/auth_transport.py`.
+- **Backup**: widgets são fornecidos pela camada chamadora por injeção, enquanto validação, geração e restauração continuam nas camadas internas.
+- **Justificativa**: permite testar e futuramente expor as regras por outra camada de entrega sem simular o ciclo de rerun do Streamlit.
 
 ---
 

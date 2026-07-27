@@ -13,6 +13,8 @@ from utils.input_models import ChampionshipBetInput, ChampionshipResultInput, Va
 from services.access_control import authorize_context, require_operation, resolve_authenticated_context
 from utils.html_utils import escape_html_attr, escape_html_text
 from services.deadlines import evaluate_championship_deadline
+from utils.cache_utils import clear_data_cache
+from utils.performance import instrumented_cache_data
 from utils.dataframe_contracts import (
     CHAMPIONSHIP_BETS_COLUMNS,
     CHAMPIONSHIP_RESULTS_COLUMNS,
@@ -165,6 +167,7 @@ def save_championship_bet(user_id: int, user_nome: str, champion: str, vice: str
                 ''', (user_id, user_nome, champion, vice, team, season_val, now)
             )
             conn.commit()
+            clear_data_cache("championship")
 
         try:
             analise = gerar_analise_aposta_com_probabilidade(
@@ -425,11 +428,13 @@ def save_final_results(champion: str, vice: str, team: str, season: Optional[int
                 ''', (season_val, champion, vice, team)
             )
             conn.commit()
+            clear_data_cache("championship", "classificacao")
             return True
     except Exception as e:
         logger.exception(f"Erro ao salvar resultado final do campeonato (season={season_val}): {e}")
         return False
 
+@instrumented_cache_data(ttl=60, tags=("championship", "classificacao"))
 def get_final_results(season: Optional[int] = None):
     """Retorna o resultado oficial do campeonato para a temporada informada."""
     season_val = _season_or_current(season)
@@ -466,6 +471,7 @@ def calcular_pontuacao_campeonato(user_id: int, season: Optional[int] = None) ->
             pontos += pontos_equipe
     return pontos
 
+@instrumented_cache_data(ttl=60, tags=("championship", "classificacao"))
 def get_championship_bets_df(season: Optional[int] = None):
     """Retorna apostas de campeonato; se season informado, filtra."""
     with db_connect() as conn:

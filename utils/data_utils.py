@@ -5,7 +5,7 @@ from typing import Optional
 
 import pandas as pd
 import requests
-import streamlit as st
+from utils.ttl_cache import ttl_cache
 
 BASE_URL = "https://api.jolpi.ca/ergast/f1"
 REQUEST_TIMEOUT = 10
@@ -55,7 +55,7 @@ def _resolve_season(season: str) -> str:
     return get_current_season()
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@ttl_cache(ttl=900)
 def get_current_season() -> str:
     """Obtém a temporada atual da F1."""
     data = _request_json(f"{BASE_URL}/current.json")
@@ -67,7 +67,7 @@ def get_current_season() -> str:
         return str(datetime.datetime.now().year)
 
 # 2. Get driver standings by season
-@st.cache_data(ttl=600, show_spinner=False)
+@ttl_cache(ttl=600)
 def get_driver_standings(season: str = 'current') -> pd.DataFrame:
     """Obtém classificação de pilotos por temporada
     
@@ -111,7 +111,7 @@ def get_current_driver_standings():
     return get_driver_standings('current')
 
 # 3. Get constructor standings by season
-@st.cache_data(ttl=600, show_spinner=False)
+@ttl_cache(ttl=600)
 def get_constructor_standings(season: str = 'current') -> pd.DataFrame:
     """Obtém classificação de construtores por temporada
     
@@ -152,7 +152,7 @@ def get_current_constructor_standings():
     return get_constructor_standings('current')
 
 # 4. Get driver cumulative points by race
-@st.cache_data(ttl=600, show_spinner=False)
+@ttl_cache(ttl=600)
 def get_driver_points_by_race(season: str = 'current') -> pd.DataFrame:
     """Obtém pontos acumulados dos pilotos por corrida
     
@@ -211,7 +211,7 @@ def get_driver_points_by_race(season: str = 'current') -> pd.DataFrame:
     return pd.DataFrame(output)
 
 # 5. Get qualifying vs race position delta for last race
-@st.cache_data(ttl=600, show_spinner=False)
+@ttl_cache(ttl=600)
 def get_qualifying_vs_race_delta(season: str = 'current') -> pd.DataFrame:
     """Obtém diferença entre posição de classificatória e corrida (última prova da temporada)
     
@@ -276,7 +276,7 @@ def get_qualifying_vs_race_delta(season: str = 'current') -> pd.DataFrame:
     return pd.DataFrame(deltas, columns=columns)
 
 # 6. Get fastest lap times from last race
-@st.cache_data(ttl=600, show_spinner=False)
+@ttl_cache(ttl=600)
 def get_fastest_lap_times(season: str = 'current') -> pd.DataFrame:
     """Obtém tempos de volta mais rápida da última corrida
     
@@ -310,7 +310,7 @@ def get_fastest_lap_times(season: str = 'current') -> pd.DataFrame:
     return pd.DataFrame(laps, columns=columns)
 
 # 7. Get pit stop data for the last race
-@st.cache_data(ttl=600, show_spinner=False)
+@ttl_cache(ttl=600)
 def get_pit_stop_data(season: str = 'current') -> pd.DataFrame:
     """Obtém dados de pit stops da última corrida
     
@@ -359,7 +359,7 @@ def get_pit_stop_data(season: str = 'current') -> pd.DataFrame:
     return pd.DataFrame(result, columns=columns)
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@ttl_cache(ttl=3600)
 def get_posicoes_recentes(season: str = 'current', n_corridas: int = 5) -> dict[str, list[int]]:
     """Retorna posições recentes por piloto: {nome_normalizado: [posições]}.
 
@@ -404,7 +404,7 @@ def get_posicoes_recentes(season: str = 'current', n_corridas: int = 5) -> dict[
     return dict(out)
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@ttl_cache(ttl=3600)
 def get_qualifying_grid_ultima_corrida(season: str = 'current') -> dict[str, int]:
     """Retorna grid de classificação da última corrida disponível na temporada.
 
@@ -443,7 +443,7 @@ def _normalize_race_name(race_name: str) -> str:
     return txt.strip()
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@ttl_cache(ttl=3600)
 def get_circuit_id_por_nome_prova(season: str, nome_prova: str) -> Optional[str]:
     """Resolve circuitId pelo vínculo direto salvo em `provas.circuit_id`."""
     season_val = _resolve_season(season)
@@ -491,7 +491,7 @@ def get_circuit_id_por_nome_prova(season: str, nome_prova: str) -> Optional[str]
     return None
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@ttl_cache(ttl=3600)
 def get_historico_circuito(circuit_id: str, n_anos: int = 4, season_ref: str = 'current') -> dict[str, float]:
     """Retorna média de posição no circuito: {nome_normalizado: media_posicao}."""
     if not circuit_id:
@@ -527,7 +527,7 @@ def get_historico_circuito(circuit_id: str, n_anos: int = 4, season_ref: str = '
     return medias
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
+@ttl_cache(ttl=86400)
 def get_frequencia_11_por_piloto(seasons: Optional[list[str]] = None) -> dict[str, float]:
     """Retorna frequência relativa em P11 por piloto para as temporadas informadas.
 
@@ -573,7 +573,7 @@ def get_frequencia_11_por_piloto(seasons: Optional[list[str]] = None) -> dict[st
     return {name: (count / float(total_corridas)) for name, count in contagem_p11.items()}
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@ttl_cache(ttl=3600)
 def get_taxa_dnf_por_piloto(
     season: str = 'current',
     n_corridas: int = 8,

@@ -86,6 +86,61 @@ def _montar_pontos_por_prova(
     pontos.index.name = "Prova"
     return pontos
 
+
+def _calcular_descartes_atuais(
+    apostas_pontos_df: pd.DataFrame,
+    resultados_df: pd.DataFrame,
+    provas_df: pd.DataFrame,
+) -> dict[int, dict]:
+    """Retorna a pior prova já realizada de cada participante.
+
+    Apenas apostas com pontuação calculada e resultado cadastrado são elegíveis.
+    Em empate de pontuação, a prova de menor ID é usada para manter o resultado
+    determinístico.
+    """
+    if apostas_pontos_df.empty or resultados_df.empty:
+        return {}
+
+    resultados_ids = set(
+        pd.to_numeric(resultados_df["prova_id"], errors="coerce").dropna().astype(int)
+    )
+    elegiveis = apostas_pontos_df[
+        apostas_pontos_df["prova_id"].isin(resultados_ids)
+    ].copy()
+    elegiveis["__pontos_calculados"] = pd.to_numeric(
+        elegiveis["__pontos_calculados"], errors="coerce"
+    )
+    elegiveis = elegiveis.dropna(
+        subset=["usuario_id", "prova_id", "__pontos_calculados"]
+    )
+    if elegiveis.empty:
+        return {}
+
+    # Protege a classificação contra versões históricas duplicadas da mesma aposta.
+    if "data_envio" in elegiveis.columns:
+        elegiveis["__envio_dt_descarte"] = pd.to_datetime(
+            elegiveis["data_envio"], errors="coerce"
+        )
+        elegiveis = elegiveis.sort_values("__envio_dt_descarte")
+    elegiveis = elegiveis.drop_duplicates(
+        subset=["usuario_id", "prova_id"], keep="last"
+    )
+    elegiveis = elegiveis.sort_values(
+        ["usuario_id", "__pontos_calculados", "prova_id"]
+    )
+    piores = elegiveis.groupby("usuario_id", as_index=False).first()
+    nomes_provas = provas_df.set_index("id")["nome"].to_dict()
+
+    return {
+        int(row["usuario_id"]): {
+            "prova_id": int(row["prova_id"]),
+            "prova": str(nomes_provas.get(int(row["prova_id"]), row["prova_id"])),
+            "pontos": float(row["__pontos_calculados"]),
+        }
+        for _, row in piores.iterrows()
+    }
+
+
 def formatar_brasileiro(valor):
     try:
         return f"{valor:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
@@ -418,6 +473,11 @@ def main():
     tabela_classificacao = []
 
     regras_temporada = get_regras_aplicaveis(str(season), "Normal")
+    descarte_ativo = bool(regras_temporada.get("descarte", False))
+    descartes_atuais = (
+        _calcular_descartes_atuais(apostas_pontos_df, resultados_df, provas_df)
+        if descarte_ativo else {}
+    )
     pontos_campeao = regras_temporada.get('pontos_campeao', 150)
     pontos_vice = regras_temporada.get('pontos_vice', 100)
     pontos_equipe = regras_temporada.get('pontos_equipe', 80)
@@ -482,6 +542,9 @@ def main():
         apostas_part = apostas_pontos_df[apostas_pontos_df['usuario_id'] == part['id']]
         apostas_part = apostas_part.sort_values(by='prova_id') if not apostas_part.empty else apostas_part
         total_provas = float(pontos_por_usuario.get(uid_part, 0) or 0)
+        descarte_atual = descartes_atuais.get(uid_part)
+        pontos_descarte = float(descarte_atual["pontos"]) if descarte_atual else 0.0
+        pontos_validos_provas = total_provas - pontos_descarte
 
         bonus_campeao = 0
         bonus_vice = 0
@@ -508,12 +571,15 @@ def main():
         tabela_classificacao.append({
             "Participante": part['nome'],
             "usuario_id": uid_part,
-            "Pontos Provas": total_provas,
+            "Pontos acumulados": total_provas,
+            "Descarte atual": pontos_descarte,
+            "Prova descartada": descarte_atual["prova"] if descarte_atual else "-",
+            "Pontos válidos": pontos_validos_provas,
             "Bônus Campeão": bonus_campeao,
             "Bônus Vice": bonus_vice,
             "Bônus Equipe": bonus_equipe,
             "Pontos Campeonato": pontos_campeonato,
-            "Total Geral": total_provas + pontos_campeonato,
+            "Total Geral": pontos_validos_provas + pontos_campeonato,
             "Acertos 11": acertos_11,
             "Acertou Campeao": acertou_campeao,
             "Acertou Equipe": acertou_equipe,
@@ -547,6 +613,13 @@ def main():
                 float(apostas_anteriores["__pontos_calculados"].sum())
                 if not apostas_anteriores.empty else 0.0
             )
+            if descarte_ativo and not apostas_anteriores.empty:
+                descarte_anterior = float(
+                    pd.to_numeric(
+                        apostas_anteriores["__pontos_calculados"], errors="coerce"
+                    ).min()
+                )
+                total_anteriores -= descarte_anterior
 
             tabela_anterior.append({
                 "Participante": part['nome'],
@@ -582,13 +655,27 @@ def main():
     df_class["Diferença"] = ["-" if i == 0 else formatar_brasileiro(d) for i, d in enumerate(diferencas)]
 
     df_display = df_class.copy()
-    for col in ["Pontos Provas", "Bônus Campeão", "Bônus Vice", "Bônus Equipe", "Pontos Campeonato", "Total Geral"]:
+    colunas_pontos = [
+        "Pontos acumulados", "Bônus Campeão", "Bônus Vice", "Bônus Equipe",
+        "Pontos Campeonato", "Total Geral",
+    ]
+    if descarte_ativo:
+        colunas_pontos.extend(["Descarte atual", "Pontos válidos"])
+    for col in colunas_pontos:
         df_display[col] = df_display[col].apply(lambda x: formatar_brasileiro(float(x)))
 
     colunas_ordem = [
         "Posição",
         "Participante",
-        "Pontos Provas",
+        "Pontos acumulados",
+    ]
+    if descarte_ativo:
+        colunas_ordem.extend([
+            "Descarte atual",
+            "Prova descartada",
+            "Pontos válidos",
+        ])
+    colunas_ordem.extend([
         "Bônus Campeão",
         "Bônus Vice",
         "Bônus Equipe",
@@ -596,14 +683,22 @@ def main():
         "Total Geral",
         "Diferença",
         "Movimentação"
-    ]
+    ])
     st.subheader("Classificação Geral (Provas + Campeonato)")
+    if descarte_ativo:
+        st.caption(
+            "O descarte atual é provisório: a pior pontuação entre as provas já "
+            "realizadas é removida e pode mudar após cada novo resultado."
+        )
     total_rows = len(df_display.index)
     table_height = _table_height(total_rows)
     class_config = {
         "Posição": st.column_config.NumberColumn("Posição", format="%d", width="small"),
         "Participante": st.column_config.TextColumn("Participante", width="medium"),
-        "Pontos Provas": st.column_config.TextColumn("Pontos Provas", width="small"),
+        "Pontos acumulados": st.column_config.TextColumn("Pontos acumulados", width="small"),
+        "Descarte atual": st.column_config.TextColumn("Descarte atual", width="small"),
+        "Prova descartada": st.column_config.TextColumn("Prova descartada", width="medium"),
+        "Pontos válidos": st.column_config.TextColumn("Pontos válidos", width="small"),
         "Bônus Campeão": st.column_config.TextColumn("Bônus Campeão", width="small"),
         "Bônus Vice": st.column_config.TextColumn("Bônus Vice", width="small"),
         "Bônus Equipe": st.column_config.TextColumn("Bônus Equipe", width="small"),

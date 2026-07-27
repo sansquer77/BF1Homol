@@ -38,12 +38,6 @@ def render_trusted_html(st_module: Any, html_content: str, *, allow_javascript: 
             st_module.html(html_content)
         return
 
-    if allow_javascript:
-        import streamlit.components.v1 as components
-
-        components.html(html_content, height=height)
-        return
-
     st_module.markdown(html_content, unsafe_allow_html=True)
 
 

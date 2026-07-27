@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import logging
 
-import streamlit as st
-
+from app_runtime import get_session
 from services.access_control import require_operation
 from utils.backup_security import (
     RestoreReauthenticationFailed,
@@ -29,7 +28,7 @@ def reauthorize_restore(password: str) -> float:
 
     user = get_user_by_id(context.user_id)
     password_hash = str((user or {}).get("senha_hash") or (user or {}).get("senha") or "")
-    token = st.session_state.get("token")
+    token = get_session().get("token")
     payload = decode_token(token) if token else None
     session_matches = bool(
         payload

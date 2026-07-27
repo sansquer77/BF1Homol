@@ -2,16 +2,10 @@ import jwt
 from datetime import datetime, timedelta, timezone
 import os
 import logging
-import importlib
 import hashlib
 import secrets
 import hmac
 import uuid
-
-try:
-    stx = importlib.import_module("extra_streamlit_components")
-except ImportError:
-    stx = None
 
 # Funções de auth/usuário importadas dos módulos focados de dados.
 from db.db_schema import db_connect, get_table_columns
@@ -22,7 +16,7 @@ from utils.security_utils import normalize_email_identifier
 # Exportar explicitamente para manter compatibilidade
 __all__ = ['hash_password', 'check_password', 'autenticar_usuario', 'generate_token',
            'decode_token', 'create_token', 'cadastrar_usuario', 'get_user_by_email',
-           'get_user_by_id', 'set_auth_cookies', 'clear_auth_cookies', 'get_auth_cookie_token',
+           'get_user_by_id', 'revoke_token',
            'redefinir_senha_usuario', 'redefinir_senha_com_token']
 
 logger = logging.getLogger(__name__)
@@ -30,10 +24,6 @@ logger = logging.getLogger(__name__)
 JWT_MIN_SECRET_BYTES = 32
 RESET_TOKEN_EXP_MINUTES = int(os.environ.get("RESET_TOKEN_EXP_MINUTES", "30"))
 _JWT_SECRET_LOGGED = False
-
-_COOKIE_MANAGER_INSTANCE = None
-_COOKIE_MANAGER_KEY = "bf1_auth_cookie_manager"
-_FALLBACK_COOKIE_STORE: dict[str, str] = {}
 
 
 def _get_usuarios_password_column(conn) -> str:
@@ -52,31 +42,6 @@ def _extract_password_hash(user_row: dict | None) -> str:
     return str(user_row.get("senha_hash") or user_row.get("senha") or "")
 
 
-def _get_session_store() -> dict:
-    """Return Streamlit session_state when available, else module-local fallback store."""
-    try:
-        st_mod = importlib.import_module("streamlit")
-        return st_mod.session_state
-    except Exception:
-        return _FALLBACK_COOKIE_STORE
-
-
-def _get_cookie_manager():
-    global _COOKIE_MANAGER_INSTANCE
-    if _COOKIE_MANAGER_INSTANCE is not None:
-        return _COOKIE_MANAGER_INSTANCE
-
-    if os.environ.get("COOKIE_BACKEND_SUPPORTS_HTTPONLY", "").strip().lower() not in {"1", "true", "yes"}:
-        raise RuntimeError(
-            "COOKIE_BACKEND_SUPPORTS_HTTPONLY=true deve confirmar explicitamente um backend capaz de emitir HttpOnly."
-        )
-
-    if stx is None:
-        raise RuntimeError(
-            "Contrato de sessao indisponivel: extra-streamlit-components e obrigatorio para o cookie seguro."
-        )
-    _COOKIE_MANAGER_INSTANCE = stx.CookieManager(key=_COOKIE_MANAGER_KEY)
-    return _COOKIE_MANAGER_INSTANCE
 
 # ============ CONFIGURAÇÃO JWT ============
 # JWT_SECRET DEVE ser configurado via variável de ambiente
@@ -279,17 +244,6 @@ def get_user_by_email(email: str):
 
 # fix #4: get_user_by_id removido daqui — importado de db.repo_users.
 
-# --- GESTÃO DE COOKIES (para login) ---
-def set_auth_cookies(token, expires_minutes=JWT_EXP_MINUTES):
-    """Salva o token JWT em cookie para restaurar a sessão."""
-    cookie_manager = _get_cookie_manager()
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
-    cookie_manager.set(
-        "session_token", token, expires_at=expires_at,
-        options={"path": "/", "secure": True, "httponly": True, "samesite": "Strict"},
-    )
-
-
 def revoke_token(token: str | None) -> None:
     if not token:
         return
@@ -302,30 +256,6 @@ def revoke_token(token: str | None) -> None:
                 conn.commit()
     except Exception as exc:
         logger.warning("Falha ao revogar token de sessao: %s", exc)
-
-def clear_auth_cookies(token: str | None = None):
-    if token is None:
-        token = _get_session_store().get("token")
-    revoke_token(token)
-    cookie_manager = _get_cookie_manager()
-    cookie_manager.set(
-        "session_token", "", expires_at=datetime.now(timezone.utc) - timedelta(days=1),
-        options={"path": "/", "secure": True, "httponly": True, "samesite": "Strict"},
-    )
-
-
-def get_auth_cookie_token():
-    """Retorna token de sessão salvo em cookie, quando disponível."""
-    cookie_manager = _get_cookie_manager()
-    try:
-        cookies = cookie_manager.get_all()
-        if isinstance(cookies, dict):
-            token = cookies.get("session_token")
-            if token:
-                return str(token)
-    except Exception as exc:
-        raise RuntimeError("Falha ao ler o cookie de sessao seguro.") from exc
-    return None
 
 # --- RECUPERAÇÃO DE SENHA SEGURA ---
 

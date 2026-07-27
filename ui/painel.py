@@ -458,7 +458,6 @@ def participante_view():
                             )
                             if ok:
                                 st.success("Aposta registrada/atualizada!")
-                                st.rerun()
             else:
                 st.warning("Administração deve cadastrar provas e pilotos antes das apostas.")
 

@@ -45,6 +45,7 @@ O BF1-2026 terá início, oficialmente, em 08 de março, no dia do GP da Austrá
 
 **Regra de Descarte**
 - Ao final do campeonato, cada participante terá descartada a pontuação de sua pior corrida, ou seja, aquela em que obteve a menor pontuação.
+- Durante o campeonato, a classificação apresenta esse descarte de forma provisória, considerando somente provas já realizadas; a prova descartada pode mudar a cada novo resultado.
 
 **Critérios de Desempate**
 - Caso haja empate de pontos na classificação final, as posições serão definidas nesta ordem:

@@ -61,7 +61,7 @@ def salvar_resultado_prova(prova_id: int, posicoes: dict) -> bool:
             # Sincroniza coluna JSONB nativa (sem rollback se coluna não existir)
             sync_resultado_native(conn, prova_id)
             conn.commit()
-            clear_data_cache()
+            clear_data_cache("resultados", "historico", "classificacao")
             return True
     except Exception as e:
         logger.exception("Erro ao salvar resultado da prova %s: %s", prova_id, e)

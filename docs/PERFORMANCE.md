@@ -14,6 +14,20 @@ Cada jornada gera um evento JSON no logger `bf1.performance` com duração total
 quantidade e tempo de queries, linhas processadas, cache hit/miss e fingerprints
 das consultas. O agregador de logs deve calcular P95 por campo `journey`.
 
+## Otimizações implementadas
+
+- Metadados estáveis de schema (`table_exists` e `get_table_columns`) são mantidos
+  em memória e invalidados depois das migrations.
+- Caches de leitura possuem tags por domínio (`apostas`, `provas`, `resultados`,
+  `posicoes`, `usuarios`, `regras`, `championship`); escritas críticas invalidam
+  somente os domínios afetados.
+- Resultado e apostas de campeonato usados pela classificação possuem cache de
+  leitura com TTL de 60 segundos.
+- A seleção de participantes por temporada evita a consulta separada de
+  contagem do histórico no caminho normal.
+- O envio manual de aposta não força um segundo rerun; o cache afetado é
+  invalidado e a confirmação é exibida no mesmo ciclo.
+
 ## Benchmark e EXPLAIN
 
 Use exclusivamente uma cópia descartável ou anonimizada do PostgreSQL:

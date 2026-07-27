@@ -42,14 +42,10 @@ def get_client_ip() -> Optional[str]:
       a partir da direita de ``X-Forwarded-For``.
     - ``x-real-ip``: confia exclusivamente em ``X-Real-IP``.
     """
-    import streamlit as st
-
+    from app_runtime import get_request_metadata
     mode = os.environ.get("TRUSTED_PROXY_MODE", "direct").strip().lower()
 
-    ctx = getattr(st, "context", None)
-    if not ctx:
-        return None
-    headers = getattr(ctx, "headers", None) or {}
+    headers, direct_ip = get_request_metadata()
 
     hops = 0
     if mode == "xff":
@@ -57,4 +53,4 @@ def get_client_ip() -> Optional[str]:
             hops = int(os.environ.get("TRUSTED_PROXY_HOPS", "0"))
         except ValueError as exc:
             raise RuntimeError("TRUSTED_PROXY_HOPS invalido.") from exc
-    return select_client_ip(mode, headers, getattr(ctx, "ip_address", None), hops)
+    return select_client_ip(mode, headers, direct_ip, hops)

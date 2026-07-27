@@ -6,8 +6,6 @@ import zipfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import streamlit as st
-
 from utils.backup_security import (
     BackupLimitExceeded,
     RestoreNotAuthorized,
@@ -33,7 +31,7 @@ class _Uploaded:
 
 class BackupSecurityTests(unittest.TestCase):
     def test_restore_fica_bloqueado_por_padrao(self):
-        with patch.object(st, "session_state", {}), patch(
+        with patch("app_runtime.get_session", return_value={}), patch(
             "utils.backup_security._current_restore_identity",
             return_value=(7, "jti-atual"),
         ):
@@ -43,7 +41,7 @@ class BackupSecurityTests(unittest.TestCase):
 
     def test_restore_exige_grant_vinculado_ao_usuario_e_jti(self):
         state = {}
-        with patch.object(st, "session_state", state), patch(
+        with patch("app_runtime.get_session", return_value=state), patch(
             "utils.backup_security._current_restore_identity",
             return_value=(7, "jti-atual"),
         ), patch("utils.backup_security.time.time", return_value=1000):
@@ -62,7 +60,7 @@ class BackupSecurityTests(unittest.TestCase):
                 "expires_at": 999,
             }
         }
-        with patch.object(st, "session_state", state), patch(
+        with patch("app_runtime.get_session", return_value=state), patch(
             "utils.backup_security._current_restore_identity",
             return_value=(7, "jti-atual"),
         ), patch("utils.backup_security.time.time", return_value=1000):
@@ -75,8 +73,8 @@ class BackupSecurityTests(unittest.TestCase):
             "APP_ENVIRONMENT": "homologation",
             "BACKUP_RESTORE_ALLOWED_ENVIRONMENTS": "development,homologation",
         }
-        with patch.dict("os.environ", configured, clear=True), patch.object(
-            st, "session_state", {}
+        with patch.dict("os.environ", configured, clear=True), patch(
+            "app_runtime.get_session", return_value={}
         ), patch(
             "utils.backup_security._current_restore_identity",
             return_value=(7, "jti-atual"),
@@ -98,7 +96,7 @@ class BackupSecurityTests(unittest.TestCase):
         fake_auth = types.SimpleNamespace(
             decode_token=lambda token: {"user_id": 7, "jti": "jti-atual"}
         )
-        with patch.object(st, "session_state", {"token": "token-atual"}), patch(
+        with patch("services.backup_restore_authorization.get_session", return_value={"token": "token-atual"}), patch(
             "services.backup_restore_authorization.require_operation", return_value=context
         ), patch.dict(
             sys.modules,
@@ -125,7 +123,7 @@ class BackupSecurityTests(unittest.TestCase):
         fake_auth = types.SimpleNamespace(
             decode_token=lambda token: {"user_id": 7, "jti": "jti-atual"}
         )
-        with patch.object(st, "session_state", {"token": "token-atual"}), patch(
+        with patch("services.backup_restore_authorization.get_session", return_value={"token": "token-atual"}), patch(
             "services.backup_restore_authorization.require_operation", return_value=context
         ), patch.dict(
             sys.modules,

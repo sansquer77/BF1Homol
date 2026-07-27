@@ -121,7 +121,7 @@ def criar_regra(
                 pontos_campeao, pontos_vice, pontos_equipe
             ))
             conn.commit()
-            clear_data_cache()
+            clear_data_cache("regras", "classificacao")
             return True
     except Exception as e:
         logger.error(f"Erro ao criar regra: {e}")
@@ -177,7 +177,7 @@ def atualizar_regra(
                 pontos_campeao, pontos_vice, pontos_equipe, regra_id
             ))
             conn.commit()
-            clear_data_cache()
+            clear_data_cache("regras", "classificacao")
             return True
     except Exception as e:
         logger.error(f"Erro ao atualizar regra: {e}")
@@ -193,7 +193,7 @@ def excluir_regra(regra_id: int) -> bool:
                 return False
             c.execute('DELETE FROM regras WHERE id = %s', (regra_id,))
             conn.commit()
-            clear_data_cache()
+            clear_data_cache("regras", "classificacao")
             return True
     except Exception as e:
         logger.error(f"Erro ao excluir regra: {e}")
@@ -263,7 +263,7 @@ def clonar_regra(regra_id: int, novo_nome: str) -> Optional[int]:
             inserted = c.fetchone()
             new_id = inserted['id'] if inserted else None
             conn.commit()
-            clear_data_cache()
+            clear_data_cache("regras", "classificacao")
             return new_id
     except Exception as e:
         logger.error(f"Erro ao clonar regra: {e}")
@@ -297,7 +297,7 @@ def associar_regra_temporada(temporada: str, regra_id: int) -> bool:
                 (temporada, regra_id),
             )
             conn.commit()
-            clear_data_cache()
+            clear_data_cache("regras", "classificacao")
             return True
     except Exception as e:
         logger.error(f"Erro ao associar regra: {e}")

@@ -1,6 +1,7 @@
 import io
 import ast
 import json
+import logging
 import os
 import re
 import shutil
@@ -12,7 +13,6 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 import pandas as pd
-import streamlit as st
 from openpyxl.utils import get_column_letter
 
 from db.db_config import DATABASE_URL
@@ -26,6 +26,8 @@ from utils.backup_security import (
     validate_sql_content_size,
     validate_upload_size,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _sanitize_identifier(identifier: str) -> str:
@@ -816,19 +818,19 @@ def _generate_backup_sql_content() -> tuple[str, str]:
             )
             if ok and out.strip():
                 return out, "full"
-            st.warning(f"pg_dump failed, using fallback. Detail: {err.strip()}")
+            logger.warning("pg_dump failed, using fallback. Detail: %s", err.strip())
 
     _ = detail
     return _build_data_only_sql(), "fallback"
 
 
-def download_db() -> None:
+def download_db(presenter) -> None:
     sql_content, mode = _generate_backup_sql_content()
     label = "Download PostgreSQL full backup (.sql)"
     if mode == "fallback":
         label = "Download PostgreSQL data-only backup (.sql)"
 
-    st.download_button(
+    presenter.download_button(
         label=label,
         data=sql_content.encode("utf-8"),
         file_name=f"bf1_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql",
@@ -838,7 +840,8 @@ def download_db() -> None:
     )
 
 
-def restore_backup_from_sql(sql_content: str) -> bool:
+def restore_backup_from_sql(sql_content: str, presenter=None) -> bool:
+    feedback = presenter or logger
     require_restore_authorized()
     validate_sql_content_size(sql_content)
     is_data_only = "BF1 POSTGRES DATA-ONLY DUMP" in (sql_content[:4096] or "")
@@ -846,7 +849,7 @@ def restore_backup_from_sql(sql_content: str) -> bool:
         try:
             _prepare_schema_for_restore()
         except Exception as exc:
-            st.error(f"Failed to prepare schema for restore: {exc}")
+            feedback.error(f"Failed to prepare schema for restore: {exc}")
             return False
 
     pg_env, dbname = _build_pg_env_from_database_url(DATABASE_URL)
@@ -861,9 +864,9 @@ def restore_backup_from_sql(sql_content: str) -> bool:
             try:
                 _run_fix_sequences_after_restore()
             except Exception as exc:
-                st.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
+                feedback.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
             return True
-        st.warning(f"psql failed, trying statement execution. Detail: {err.strip()}")
+        feedback.warning(f"psql failed, trying statement execution. Detail: {err.strip()}")
 
     statements = [s.strip() for s in sql_content.split(";") if s.strip()]
     try:
@@ -953,17 +956,17 @@ def restore_backup_from_sql(sql_content: str) -> bool:
         try:
             _run_fix_sequences_after_restore()
         except Exception as exc:
-            st.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
+            feedback.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
         return True
     except Exception as exc:
-        st.error(f"Restore failed: {exc}")
+        feedback.error(f"Restore failed: {exc}")
         return False
 
 
-def upload_db() -> None:
+def upload_db(presenter) -> None:
     require_restore_authorized()
     max_sql_bytes = get_backup_limits().sql_bytes
-    uploaded = st.file_uploader(
+    uploaded = presenter.file_uploader(
         "Upload PostgreSQL SQL backup",
         type=["sql"],
         help=f"Only PostgreSQL SQL dumps up to {max_sql_bytes // (1024 * 1024)} MB are accepted.",
@@ -975,19 +978,19 @@ def upload_db() -> None:
     try:
         validate_upload_size(uploaded, max_sql_bytes, "Backup SQL")
     except BackupLimitExceeded as exc:
-        st.error(str(exc))
+        presenter.error(str(exc))
         return
 
-    if st.button("Restore SQL backup", type="primary", width="stretch"):
+    if presenter.button("Restore SQL backup", type="primary", width="stretch"):
         try:
             sql_text = uploaded.getvalue().decode("utf-8", errors="strict")
         except UnicodeDecodeError:
-            st.error("Backup SQL deve estar codificado em UTF-8 válido.")
+            presenter.error("Backup SQL deve estar codificado em UTF-8 válido.")
             return
-        if restore_backup_from_sql(sql_text):
-            st.success("Backup restored successfully.")
+        if restore_backup_from_sql(sql_text, presenter):
+            presenter.success("Backup restored successfully.")
         else:
-            st.error("Backup restore failed.")
+            presenter.error("Backup restore failed.")
 
 
 def _table_columns(table_name: str) -> list[str]:
@@ -1167,13 +1170,13 @@ def _apply_excel_datetime_format(
                 cell.number_format = number_format
 
 
-def download_tabela() -> None:
+def download_tabela(presenter) -> None:
     tables = _list_tables()
     if not tables:
-        st.info("No tables found for export.")
+        presenter.info("No tables found for export.")
         return
 
-    selected = st.selectbox("Table to export", tables, key="export_table_select")
+    selected = presenter.selectbox("Table to export", tables, key="export_table_select")
     if not selected:
         return
 
@@ -1197,7 +1200,7 @@ def download_tabela() -> None:
         _apply_excel_datetime_format(writer, "data", df_excel, col_types)
     buffer.seek(0)
 
-    st.download_button(
+    presenter.download_button(
         label=f"Download table {selected} (.xlsx)",
         data=buffer.getvalue(),
         file_name=f"{selected}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
@@ -1207,23 +1210,23 @@ def download_tabela() -> None:
     )
 
 
-def upload_tabela() -> None:
+def upload_tabela(presenter) -> None:
     require_restore_authorized()
     limits = get_backup_limits()
     tables = _list_tables()
     if not tables:
-        st.info("No tables found for import.")
+        presenter.info("No tables found for import.")
         return
 
-    selected = st.selectbox("Destination table", tables, key="import_table_select")
-    uploaded = st.file_uploader(
+    selected = presenter.selectbox("Destination table", tables, key="import_table_select")
+    uploaded = presenter.file_uploader(
         "Upload Excel (.xlsx)",
         type=["xlsx"],
         key="upload_table_xlsx",
         help=f"Limite: {limits.excel_bytes // (1024 * 1024)} MB, "
         f"{limits.excel_rows} linhas e {limits.excel_columns} colunas.",
     )
-    validate_fks = st.checkbox(
+    validate_fks = presenter.checkbox(
         "Pré-validar chaves estrangeiras antes de importar (recomendado)",
         value=True,
         key="import_table_validate_fks",
@@ -1234,26 +1237,26 @@ def upload_tabela() -> None:
     try:
         validate_upload_size(uploaded, limits.excel_bytes, "Backup Excel")
     except BackupLimitExceeded as exc:
-        st.error(str(exc))
+        presenter.error(str(exc))
         return
 
-    if st.button("Import table", type="primary", width="stretch"):
+    if presenter.button("Import table", type="primary", width="stretch"):
         content = uploaded.getvalue()
         try:
             validate_excel_archive(content)
             df = pd.read_excel(io.BytesIO(content), nrows=limits.excel_rows + 1)
             validate_excel_dimensions(len(df.index), len(df.columns))
         except BackupLimitExceeded as exc:
-            st.error(str(exc))
+            presenter.error(str(exc))
             return
         except Exception:
-            st.error("Arquivo Excel inválido ou incompatível com o formato esperado.")
+            presenter.error("Arquivo Excel inválido ou incompatível com o formato esperado.")
             return
         df.columns = [str(col).strip() for col in df.columns]
         db_cols = _table_columns(selected)
         use_cols = [c for c in df.columns if c in db_cols]
         if not use_cols:
-            st.error("No compatible columns were found.")
+            presenter.error("No compatible columns were found.")
             return
 
         with db_connect() as conn:
@@ -1262,15 +1265,15 @@ def upload_tabela() -> None:
 
             missing_required = [c for c in required_cols if c not in use_cols]
             if missing_required:
-                st.error(
+                presenter.error(
                     "Importação bloqueada: o arquivo não contém colunas obrigatórias "
                     f"da tabela '{selected}'."
                 )
-                st.caption(
+                presenter.caption(
                     "Isso normalmente indica seleção incorreta da tabela de destino "
                     "ou arquivo Excel de outra tabela."
                 )
-                st.caption(f"Colunas obrigatórias ausentes: {', '.join(missing_required)}")
+                presenter.caption(f"Colunas obrigatórias ausentes: {', '.join(missing_required)}")
                 return
 
             payload = df[use_cols].astype(object)
@@ -1297,11 +1300,11 @@ def upload_tabela() -> None:
                     continue
                 for row_number, row in enumerate(rows, start=2):
                     if row[idx] is None:
-                        st.error(
+                        presenter.error(
                             "Importação bloqueada: coluna obrigatória com valor vazio "
                             f"na tabela '{selected}'."
                         )
-                        st.caption(
+                        presenter.caption(
                             f"Coluna: {req_col} | Linha Excel: {row_number}"
                         )
                         return
@@ -1315,12 +1318,12 @@ def upload_tabela() -> None:
             if validate_fks:
                 fk_errors = _prevalidate_fk_values(conn, selected, use_cols, rows)
                 if fk_errors:
-                    st.error(
+                    presenter.error(
                         "Importação bloqueada por inconsistência de FK no arquivo Excel. "
                         "Corrija os valores e tente novamente."
                     )
                     for item in fk_errors:
-                        st.caption(f"- {item}")
+                        presenter.caption(f"- {item}")
                     return
 
             c = conn.cursor()
@@ -1332,11 +1335,11 @@ def upload_tabela() -> None:
                 # Requer que a tabela tenha PK definida (obrigatório para ON CONFLICT).
                 pk_cols = _get_pk_columns(conn, selected)
                 if not pk_cols:
-                    st.error(
+                    presenter.error(
                         f"Importação bloqueada: a tabela '{selected}' é referenciada por FK "
                         "e não possui PRIMARY KEY detectada para UPSERT seguro."
                     )
-                    st.info(
+                    presenter.info(
                         "Para evitar quebra de integridade, esse cenário não executa TRUNCATE CASCADE. "
                         "Defina uma PK na tabela ou use restore SQL completo."
                     )
@@ -1368,7 +1371,7 @@ def upload_tabela() -> None:
                         )
 
                     c.executemany(upsert_sql, rows)
-                    st.info(
+                    presenter.info(
                         f"⚠️ '{selected}' é referenciada por outras tabelas: linhas existentes foram "
                         "atualizadas (UPSERT) e linhas ausentes no Excel foram mantidas. "
                         "Nenhum dado filho foi apagado."
@@ -1401,12 +1404,12 @@ def upload_tabela() -> None:
             conn.commit()
 
         if normalized_cells > 0:
-            st.info(
+            presenter.info(
                 f"{normalized_cells} valores foram normalizados para tipos PostgreSQL "
                 "(JSON/ARRAY) durante a importação."
             )
 
-        st.success(f"Table {selected} imported successfully.")
+        presenter.success(f"Table {selected} imported successfully.")
 
 
 def list_temporadas() -> list[str]:

@@ -64,12 +64,12 @@ def _reauth_ttl_seconds() -> int:
 
 
 def _current_restore_identity() -> tuple[int, str]:
-    import streamlit as st
+    from app_runtime import get_session
     from services.access_control import require_operation
     from services.auth_service import decode_token
 
     context = require_operation("backup.write")
-    token = st.session_state.get("token")
+    token = get_session().get("token")
     payload = decode_token(token) if token else None
     if not payload or int(payload.get("user_id", 0)) != context.user_id:
         raise RestoreNotAuthorized("A sessão autenticada não pôde ser revalidada.")
@@ -81,10 +81,10 @@ def _current_restore_identity() -> tuple[int, str]:
 
 def grant_restore_authorization(*, user_id: int, jti: str) -> float:
     """Registra autorização curta; deve ser chamada somente após reautenticação no serviço."""
-    import streamlit as st
+    from app_runtime import get_session
 
     expires_at = time.time() + _reauth_ttl_seconds()
-    st.session_state[_RESTORE_GRANT_KEY] = {
+    get_session()[_RESTORE_GRANT_KEY] = {
         "user_id": int(user_id),
         "jti": str(jti),
         "expires_at": expires_at,
@@ -93,13 +93,12 @@ def grant_restore_authorization(*, user_id: int, jti: str) -> float:
 
 
 def clear_restore_authorization() -> None:
-    import streamlit as st
-
-    st.session_state.pop(_RESTORE_GRANT_KEY, None)
+    from app_runtime import get_session
+    get_session().pop(_RESTORE_GRANT_KEY, None)
 
 
 def restore_authorization_error() -> str | None:
-    import streamlit as st
+    from app_runtime import get_session
 
     try:
         user_id, jti = _current_restore_identity()
@@ -107,7 +106,7 @@ def restore_authorization_error() -> str | None:
         clear_restore_authorization()
         return "A sessão precisa estar autenticada como master."
 
-    grant = st.session_state.get(_RESTORE_GRANT_KEY)
+    grant = get_session().get(_RESTORE_GRANT_KEY)
     if not isinstance(grant, dict):
         return "Confirme novamente sua senha para habilitar a restauração."
     try:

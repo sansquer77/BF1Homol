@@ -81,6 +81,9 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 ## RN-007 — Descarte de Resultados na Classificação
 
 - Quando `descarte` está ativo na regra da temporada, a classificação elimina a menor pontuação de prova de cada participante.
+- Durante a temporada, o descarte é aplicado provisoriamente somente às provas com resultado cadastrado e pontuação efetivamente calculada; ele pode mudar após cada novo resultado.
+- A classificação exibe a pontuação acumulada, o valor e a prova do descarte atual e a pontuação válida. A ordenação considera a pontuação válida somada aos bônus de campeonato.
+- Quando `descarte` está inativo, as colunas de descarte e pontos válidos não são exibidas, e a ordenação considera a pontuação acumulada.
 
 ## RN-008 — Apostas de Campeonato
 

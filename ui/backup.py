@@ -38,7 +38,7 @@ def main():
 
     st.header("Banco Completo (.sql)")
     st.subheader("Operação segura")
-    download_db()
+    download_db(st)
 
     st.subheader("Operação crítica: restauração")
     restore_error = restore_authorization_error()
@@ -74,7 +74,7 @@ def main():
             key="backup_confirm_restore",
         )
         if confirmar_restore:
-            upload_db()
+            upload_db(st)
         else:
             st.info("Marque a confirmação para habilitar o upload de arquivo .sql de restauração.")
 
@@ -82,12 +82,12 @@ def main():
     st.header("Backup/Restauração de tabelas específicas")
     tab1, tab2 = st.tabs(["Exportar Tabela", "Importar Tabela"])
     with tab1:
-        download_tabela()
+        download_tabela(st)
     with tab2:
         if restore_error:
             st.info("Confirme novamente sua senha acima para importar uma tabela.")
         else:
-            upload_tabela()
+            upload_tabela(st)
 
     st.divider()
     st.header("Temporadas")

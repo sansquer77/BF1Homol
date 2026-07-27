@@ -10,11 +10,11 @@ logger = logging.getLogger(__name__)
 
 def get_client_timezone() -> str:
     """
-    Obtém o timezone do cliente armazenado em st.session_state.
+    Obtém o timezone do cliente armazenado no contexto da requisição.
     Se não estiver disponível, retorna 'UTC'.
     """
-    import streamlit as st
-    return st.session_state.get("client_timezone", "UTC")
+    from app_runtime import get_session
+    return str(get_session().get("client_timezone", "UTC"))
 
 
 def convert_utc_to_client_tz(

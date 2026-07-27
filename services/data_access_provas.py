@@ -21,22 +21,22 @@ from db.repo_races import (
 )
 
 
-@instrumented_cache_data(ttl=60)
+@instrumented_cache_data(ttl=60, tags=("pilotos",))
 def get_pilotos_df():
     return with_required_columns(_repo_get_pilotos_df(), PILOTOS_COLUMNS)
 
 
-@instrumented_cache_data(ttl=60)
+@instrumented_cache_data(ttl=60, tags=("provas",))
 def get_provas_df(temporada=None):
     return with_required_columns(_repo_get_provas_df(temporada), PROVAS_COLUMNS)
 
 
-@instrumented_cache_data(ttl=60)
+@instrumented_cache_data(ttl=60, tags=("resultados", "classificacao"))
 def get_resultados_df(temporada=None):
     return with_required_columns(_repo_get_resultados_df(temporada), RESULTADOS_COLUMNS)
 
 
-@instrumented_cache_data(ttl=60)
+@instrumented_cache_data(ttl=60, tags=("resultados", "historico"))
 def get_resultados_usuario_df(usuario_id: int, limit: int = 5000):
     return with_required_columns(_repo_get_resultados_usuario_df(usuario_id, limit), RESULTADOS_COLUMNS)
 

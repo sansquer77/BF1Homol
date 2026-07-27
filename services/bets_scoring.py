@@ -203,7 +203,7 @@ def _salvar_classificacoes_provas_lote(classificacoes: list[tuple[int, pd.DataFr
                     rows_to_insert,
                 )
         conn.commit()
-    clear_data_cache()
+    clear_data_cache("posicoes", "historico", "classificacao")
 
 
 def salvar_classificacao_prova(p_id, df_c, temp=None):

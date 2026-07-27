@@ -85,27 +85,27 @@ def get_participantes_temporada_df(temporada: Optional[str] = None) -> pd.DataFr
     with db_connect() as conn:
         has_hist = _usuarios_status_historico_exists(conn)
         if not has_hist:
-            return _query_to_df("SELECT * FROM usuarios WHERE lower(trim(coalesce(status,''))) = 'ativo'")
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM usuarios WHERE lower(trim(coalesce(status,''))) = 'ativo'")
+            rows = cur.fetchall() or []
+            cur.close()
+            return pd.DataFrame([dict(r) for r in rows])
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) AS cnt FROM usuarios_status_historico")
-        row = cur.fetchone()
+        cur.execute(
+            """
+            SELECT DISTINCT u.*
+            FROM usuarios u
+            JOIN usuarios_status_historico h ON h.usuario_id = u.id
+            WHERE lower(trim(coalesce(h.status,''))) = 'ativo'
+              AND h.inicio_em <= %s
+              AND (h.fim_em IS NULL OR h.fim_em >= %s)
+            """,
+            (season_end, season_start),
+        )
+        rows = cur.fetchall() or []
         cur.close()
-        if not row or int(row["cnt"]) == 0:
-            return _query_to_df("SELECT * FROM usuarios WHERE lower(trim(coalesce(status,''))) = 'ativo'")
-
-    df = _query_to_df(
-        """
-        SELECT DISTINCT u.*
-        FROM usuarios u
-        JOIN usuarios_status_historico h ON h.usuario_id = u.id
-        WHERE lower(trim(coalesce(h.status,''))) = 'ativo'
-          AND h.inicio_em <= %s
-          AND (h.fim_em IS NULL OR h.fim_em >= %s)
-        """,
-        (season_end, season_start),
-    )
-    if not df.empty:
-        return df
+        if rows:
+            return pd.DataFrame([dict(r) for r in rows])
     return _query_to_df("SELECT * FROM usuarios WHERE lower(trim(coalesce(status,''))) = 'ativo'")
 
 __all__ = [

@@ -11,7 +11,7 @@ import streamlit as st
 import logging
 from datetime import datetime, timedelta
 from services.auth_service import redefinir_senha_usuario, redefinir_senha_com_token
-from services.auth_service import set_auth_cookies
+from ui.auth_transport import set_auth_cookies
 from services.auth_service import clear_auth_cookies
 from services.email_service import enviar_email_recuperacao_senha
 from utils.request_utils import get_client_ip

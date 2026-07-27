@@ -122,7 +122,7 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil: str = "particip
                 )
             cur.close()
             conn.commit()
-        clear_data_cache()
+        clear_data_cache("usuarios", "classificacao")
         return True
     except Exception as exc:
         logger.warning("cadastrar_usuario falhou: %s", exc)
@@ -146,7 +146,7 @@ def update_user_email(user_id: int, novo_email: str) -> bool:
             )
             cur.close()
             conn.commit()
-        clear_data_cache()
+        clear_data_cache("usuarios", "classificacao")
         logger.info("Email do usuário %s atualizado", user_id)
         return True
     except Exception as exc:
@@ -177,7 +177,7 @@ def update_user_password(user_id: int, nova_senha: str, must_change_password: bo
             cur.execute("UPDATE auth_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=%s AND revoked_at IS NULL", (user_id,))
             cur.close()
             conn.commit()
-        clear_data_cache()
+        clear_data_cache("usuarios", "classificacao")
         logger.info("Senha do usuário %s atualizada", user_id)
         return True
     except Exception as exc:
@@ -200,7 +200,7 @@ def update_usuario(user_id: int, **campos) -> bool:
             cur.execute(f"UPDATE usuarios SET {set_clause} WHERE id = %s", values)
             cur.close()
             conn.commit()
-        clear_data_cache()
+        clear_data_cache("usuarios", "classificacao")
         return True
     except Exception as exc:
         logger.error("update_usuario falhou: %s", exc)
@@ -214,7 +214,7 @@ def delete_usuario(user_id: int) -> bool:
             cur.execute("DELETE FROM usuarios WHERE id = %s", (user_id,))
             cur.close()
             conn.commit()
-        clear_data_cache()
+        clear_data_cache("usuarios", "classificacao")
         return True
     except Exception as exc:
         logger.error("delete_usuario falhou: %s", exc)
@@ -284,7 +284,7 @@ def registrar_historico_status_usuario(
         )
         cursor.close()
         conn.commit()
-    clear_data_cache()
+    clear_data_cache("usuarios", "classificacao")
 
 
 def get_usuario_temporadas_ativas(user_id: int) -> list[str]:

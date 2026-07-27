@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
+from threading import RLock
 
 from db.connection_pool import get_pool
 
 logger = logging.getLogger(__name__)
+_schema_cache_lock = RLock()
+_columns_cache: dict[str, tuple[str, ...]] = {}
+_table_exists_cache: dict[str, bool] = {}
 
 
 def run_migrations() -> None:
@@ -15,6 +19,7 @@ def run_migrations() -> None:
     from db.migrations import run_migrations as _run_migrations
 
     _run_migrations()
+    clear_schema_cache()
 
 
 @contextmanager
@@ -25,6 +30,11 @@ def db_connect():
 
 
 def get_table_columns(conn, table_name: str) -> list[str]:
+    cache_key = str(table_name).strip().lower()
+    with _schema_cache_lock:
+        cached = _columns_cache.get(cache_key)
+    if cached is not None:
+        return list(cached)
     cur = conn.cursor()
     cur.execute(
         """
@@ -37,10 +47,18 @@ def get_table_columns(conn, table_name: str) -> list[str]:
     )
     cols = [row["column_name"] for row in cur.fetchall()]
     cur.close()
+    with _schema_cache_lock:
+        _columns_cache[cache_key] = tuple(cols)
+        _table_exists_cache[cache_key] = bool(cols)
     return cols
 
 
 def table_exists(conn, table_name: str) -> bool:
+    cache_key = str(table_name).strip().lower()
+    with _schema_cache_lock:
+        cached = _table_exists_cache.get(cache_key)
+    if cached is not None:
+        return cached
     cur = conn.cursor()
     cur.execute(
         """
@@ -54,7 +72,16 @@ def table_exists(conn, table_name: str) -> bool:
     )
     exists = cur.fetchone() is not None
     cur.close()
+    with _schema_cache_lock:
+        _table_exists_cache[cache_key] = exists
     return exists
+
+
+def clear_schema_cache() -> None:
+    """Invalida metadados após migrations ou restaurações de schema."""
+    with _schema_cache_lock:
+        _columns_cache.clear()
+        _table_exists_cache.clear()
 
 
 def init_db() -> None:

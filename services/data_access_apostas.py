@@ -16,27 +16,27 @@ from db.repo_bets import (
     get_posicoes_usuario_df as _repo_get_posicoes_usuario_df,
 )
 
-@instrumented_cache_data(ttl=60)
+@instrumented_cache_data(ttl=60, tags=("apostas",))
 def get_apostas_df(temporada=None):
     return with_required_columns(_repo_get_apostas_df(temporada), APOSTAS_COLUMNS)
 
 
-@instrumented_cache_data(ttl=60)
+@instrumented_cache_data(ttl=60, tags=("apostas", "historico"))
 def get_apostas_usuario_df(usuario_id: int, limit: int = 5000):
     return with_required_columns(_repo_get_apostas_usuario_df(usuario_id, limit), APOSTAS_COLUMNS)
 
 
-@instrumented_cache_data(ttl=60)
+@instrumented_cache_data(ttl=60, tags=("posicoes", "classificacao"))
 def get_posicoes_participantes_df(temporada=None):
     return with_required_columns(_repo_get_posicoes_participantes_df(temporada), POSICOES_COLUMNS)
 
 
-@instrumented_cache_data(ttl=60)
+@instrumented_cache_data(ttl=60, tags=("posicoes", "historico"))
 def get_posicoes_usuario_df(usuario_id: int, limit: int = 5000):
     return with_required_columns(_repo_get_posicoes_usuario_df(usuario_id, limit), POSICOES_COLUMNS)
 
 
-@instrumented_cache_data(ttl=60)
+@instrumented_cache_data(ttl=60, tags=("usuarios", "classificacao"))
 def get_participantes_temporada_df(temporada=None):
     return with_required_columns(_repo_get_participantes_temporada_df(temporada), USUARIOS_COLUMNS)
 

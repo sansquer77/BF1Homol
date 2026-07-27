@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import streamlit as st
 
 from db.backup_repair import _repair_insert_legacy_literals
 from db.backup_utils import (
@@ -65,13 +64,13 @@ def get_postgres_backup_mode() -> tuple[str, str]:
     return "full", f"Compatible with {pg_dump}"
 
 
-def download_db() -> None:
+def download_db(presenter) -> None:
     sql_content, mode = _generate_backup_sql_content()
     label = "Download PostgreSQL full backup (.sql)"
     if mode == "fallback":
         label = "Download PostgreSQL data-only backup (.sql)"
 
-    st.download_button(
+    presenter.download_button(
         label=label,
         data=sql_content.encode("utf-8"),
         file_name=f"bf1_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql",
@@ -81,7 +80,7 @@ def download_db() -> None:
     )
 
 
-def restore_backup_from_sql(sql_content: str) -> bool:
+def restore_backup_from_sql(sql_content: str, presenter) -> bool:
     require_restore_authorized()
     validate_sql_content_size(sql_content)
     is_data_only = "BF1 POSTGRES DATA-ONLY DUMP" in (sql_content[:4096] or "")
@@ -89,7 +88,7 @@ def restore_backup_from_sql(sql_content: str) -> bool:
         try:
             _prepare_schema_for_restore()
         except Exception as exc:
-            st.error(f"Failed to prepare schema for restore: {exc}")
+            presenter.error(f"Failed to prepare schema for restore: {exc}")
             return False
 
     pg_env, dbname = _build_pg_env_from_database_url(DATABASE_URL)
@@ -104,9 +103,9 @@ def restore_backup_from_sql(sql_content: str) -> bool:
             try:
                 _run_fix_sequences_after_restore()
             except Exception as exc:
-                st.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
+                presenter.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
             return True
-        st.warning(f"psql failed, trying statement execution. Detail: {err.strip()}")
+        presenter.warning(f"psql failed, trying statement execution. Detail: {err.strip()}")
 
     statements = [s.strip() for s in sql_content.split(";") if s.strip()]
     try:
@@ -191,17 +190,17 @@ def restore_backup_from_sql(sql_content: str) -> bool:
         try:
             _run_fix_sequences_after_restore()
         except Exception as exc:
-            st.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
+            presenter.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
         return True
     except Exception as exc:
-        st.error(f"Restore failed: {exc}")
+        presenter.error(f"Restore failed: {exc}")
         return False
 
 
-def upload_db() -> None:
+def upload_db(presenter) -> None:
     require_restore_authorized()
     max_sql_bytes = get_backup_limits().sql_bytes
-    uploaded = st.file_uploader(
+    uploaded = presenter.file_uploader(
         "Upload PostgreSQL SQL backup",
         type=["sql"],
         help=f"Only PostgreSQL SQL dumps up to {max_sql_bytes // (1024 * 1024)} MB are accepted.",
@@ -213,19 +212,19 @@ def upload_db() -> None:
     try:
         validate_upload_size(uploaded, max_sql_bytes, "Backup SQL")
     except BackupLimitExceeded as exc:
-        st.error(str(exc))
+        presenter.error(str(exc))
         return
 
-    if st.button("Restore SQL backup", type="primary", width="stretch"):
+    if presenter.button("Restore SQL backup", type="primary", width="stretch"):
         try:
             sql_text = uploaded.getvalue().decode("utf-8", errors="strict")
         except UnicodeDecodeError:
-            st.error("Backup SQL deve estar codificado em UTF-8 válido.")
+            presenter.error("Backup SQL deve estar codificado em UTF-8 válido.")
             return
-        if restore_backup_from_sql(sql_text):
-            st.success("Backup restored successfully.")
+        if restore_backup_from_sql(sql_text, presenter):
+            presenter.success("Backup restored successfully.")
         else:
-            st.error("Backup restore failed.")
+            presenter.error("Backup restore failed.")
 
 
 def list_temporadas() -> list[str]:

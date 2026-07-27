@@ -813,7 +813,7 @@ def salvar_aposta(
                 return False
 
             conn.commit()
-            clear_data_cache()
+            clear_data_cache("apostas", "historico", "classificacao")
 
             # Obter logo BF1 como data URI para embutir no email
             bf1_logo_uri = get_bf1_logo_data_uri()

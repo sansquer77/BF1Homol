@@ -5,7 +5,7 @@ import unittest
 
 class CookieContractTests(unittest.TestCase):
     def test_every_session_cookie_write_has_full_security_contract(self):
-        source = (Path(__file__).parents[1] / "services" / "auth_service.py").read_text(encoding="utf-8")
+        source = (Path(__file__).parents[1] / "ui" / "auth_transport.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
         writes = []
         for node in ast.walk(tree):
@@ -26,4 +26,3 @@ class CookieContractTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "services" / "auth_service.py").read_text(encoding="utf-8")
         self.assertNotIn("_FallbackCookieManager", source)
         self.assertNotIn("except TypeError", source)
-

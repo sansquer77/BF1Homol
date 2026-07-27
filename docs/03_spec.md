@@ -101,7 +101,9 @@ Acesso: todos os perfis ativos; inativos com histórico.
 - Suporte a registro de pilotos que abandonaram (para penalidade de abandono).
 
 ### 2.6 Classificação (`ui/classificacao.py`)
-- Tabela com posição geral, pontos totais, pontos com descarte e variação de posição.
+- Tabela com posição geral, pontos acumulados e variação de posição.
+- Quando o descarte está ativo na regra da temporada, exibe também o valor e a prova do descarte provisório e os pontos válidos; a posição é ordenada pelos pontos válidos mais os bônus de campeonato.
+- Provas sem resultado cadastrado não são candidatas ao descarte. Quando a regra está inativa, as colunas relacionadas ao descarte permanecem ocultas.
 - A grade "Pontuação por Prova" mantém provas nas linhas, participantes nas colunas e colore, por prova realizada, a menor pontuação em vermelho e a maior em verde.
 - A imagem completa da classificação é preparada sob demanda, sem bloquear a abertura da página.
 - Filtro por temporada.

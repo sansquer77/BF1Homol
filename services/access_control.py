@@ -79,11 +79,11 @@ def authorize_context(context: AuthenticatedContext, allowed_roles: frozenset[st
 
 def resolve_authenticated_context() -> AuthenticatedContext:
     """Revalida token e usuario; nao usa perfil/user_id informados pela UI."""
-    import streamlit as st
+    from app_runtime import get_session
     from db.repo_users import get_user_by_id, get_usuario_temporadas_ativas
     from services.auth_service import decode_token
 
-    token = st.session_state.get("token")
+    token = get_session().get("token")
     payload = decode_token(token) if token else None
     if not payload or not payload.get("user_id"):
         raise AuthenticationRequired("Sessao ausente ou invalida.")

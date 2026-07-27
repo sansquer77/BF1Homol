@@ -9,14 +9,24 @@ import pandas as pd
 def _carregar_funcoes_classificacao():
     source = (Path(__file__).resolve().parents[1] / "ui" / "classificacao.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
-    nomes = {"_montar_pontos_por_prova", "destacar_heatmap", "formatar_brasileiro"}
+    nomes = {
+        "_calcular_descartes_atuais",
+        "_montar_pontos_por_prova",
+        "destacar_heatmap",
+        "formatar_brasileiro",
+    }
     funcoes = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in nomes]
     namespace = {"pd": pd, "np": np}
     exec(compile(ast.Module(body=funcoes, type_ignores=[]), "ui/classificacao.py", "exec"), namespace)
     return tuple(namespace[nome] for nome in sorted(nomes))
 
 
-_montar_pontos_por_prova, destacar_heatmap, formatar_brasileiro = _carregar_funcoes_classificacao()
+(
+    _calcular_descartes_atuais,
+    _montar_pontos_por_prova,
+    destacar_heatmap,
+    formatar_brasileiro,
+) = _carregar_funcoes_classificacao()
 
 
 class ClassificacaoPontuacaoTests(unittest.TestCase):
@@ -61,6 +71,33 @@ class ClassificacaoPontuacaoTests(unittest.TestCase):
         self.assertIn(("background-color", "rgb(255,0,0)"), contexto[(0, 1)])
         self.assertNotIn((1, 0), contexto)
         self.assertNotIn((1, 1), contexto)
+
+    def test_descarte_considera_apenas_provas_com_resultado(self):
+        apostas = pd.concat([
+            self.apostas,
+            pd.DataFrame([
+                {"usuario_id": 1, "prova_id": 30, "__pontos_calculados": -50},
+            ]),
+        ], ignore_index=True)
+        resultados = pd.DataFrame([{"prova_id": 10}, {"prova_id": 20}])
+
+        descartes = _calcular_descartes_atuais(apostas, resultados, self.provas)
+
+        self.assertEqual(descartes[1]["prova"], "China")
+        self.assertEqual(descartes[1]["pontos"], 0)
+        self.assertEqual(descartes[2]["pontos"], 0)
+
+    def test_descarte_aceita_pontuacao_negativa(self):
+        apostas = pd.DataFrame([
+            {"usuario_id": 1, "prova_id": 10, "__pontos_calculados": 20},
+            {"usuario_id": 1, "prova_id": 20, "__pontos_calculados": -10},
+        ])
+        resultados = pd.DataFrame([{"prova_id": 10}, {"prova_id": 20}])
+
+        descartes = _calcular_descartes_atuais(apostas, resultados, self.provas)
+
+        self.assertEqual(descartes[1]["prova"], "China")
+        self.assertEqual(descartes[1]["pontos"], -10)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 Serviço de Gestão de Regras
 """
 import logging
-import streamlit as st
+from utils.ttl_cache import ttl_cache
 from db.rules_utils import (
     get_regra_temporada,
     get_regra_by_nome
@@ -10,7 +10,7 @@ from db.rules_utils import (
 
 logger = logging.getLogger(__name__)
 
-@st.cache_data(ttl=60, show_spinner=False)
+@ttl_cache(ttl=60, tags=("regras", "classificacao"))
 def get_regras_aplicaveis(temporada: str, tipo_prova: str = "Normal") -> dict:
     """
     Retorna as regras aplicáveis para uma temporada e tipo de prova.
