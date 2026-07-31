@@ -2,7 +2,7 @@
 tipo: metodologia
 area: meta
 status: implementado
-versao: 3.0
+versao: 3.1
 atualizado: 2026-07-31
 relacionados:
   - "[[README]]"
@@ -119,6 +119,30 @@ Regras não óbvias podem citar a spec:
 
 Ao incrementar a versão da spec, revise comentários `spec:` correspondentes.
 
+## Versionamento do aplicativo
+
+<!-- sync:versionamento-bf1 -->
+O BF1 usa **Versionamento Semântico** (`MAJOR.MINOR.PATCH`). Ao concluir uma
+entrega, o agente deve avaliar o impacto acumulado desde a última versão e
+registrar uma destas decisões no resumo da entrega: `sem incremento`, `patch`,
+`minor` ou `major`, com justificativa breve.
+
+- `PATCH` (`3.0.5` → `3.0.6`): correção compatível, segurança, desempenho ou
+  ajuste operacional sem nova capacidade relevante para o usuário.
+- `MINOR` (`3.0.5` → `3.1.0`): nova funcionalidade ou capacidade relevante,
+  compatível com os fluxos e dados existentes.
+- `MAJOR` (`3.0.5` → `4.0.0`): mudança incompatível em fluxo, regra, dados,
+  configuração ou operação que exija migração/ação dos usuários ou operadores.
+- Mudanças somente em documentação, testes, comentários ou refatorações sem
+  efeito observável não incrementam a versão do produto.
+
+Quando houver incremento, atualize na mesma entrega
+`app_version.py::APP_VERSION`, `docs/CHANGELOG.md` e a versão exibida em Sobre
+(esta última deve consumir a constante, nunca repetir um literal). Mudanças
+`minor` ou `major` exigem spec atualizada; `major` também exige ADR e plano de
+migração. Não incremente por suposição nem use datas como versão.
+<!-- /sync:versionamento-bf1 -->
+
 ## Migração da documentação consolidada
 
 A [[03_spec]] permanece válida como inventário funcional. Ao alterar um módulo:
@@ -130,6 +154,7 @@ A [[03_spec]] permanece válida como inventário funcional. Ao alterar um módul
 
 ## Changelog
 
+- `3.1` — 2026-07-31 — Adicionada política SemVer e avaliação obrigatória da versão do produto por entrega.
 - `3.0` — 2026-07-31 — Processo robustecido com modelo spec-anchored, pendências, critérios atômicos, plano e rastreabilidade.
 - `2.3` — 2026-07-19 — Estrutura numerada inicial alinhada ao BF1.
 

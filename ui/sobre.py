@@ -1,10 +1,13 @@
 import streamlit as st
+
+from app_version import APP_VERSION
 from utils.helpers import render_page_header
+
 
 def main():
     render_page_header(st, "Sobre o BF1")
 
-    st.markdown("""
+    st.markdown(f"""
     ## 🏁 BF1 - Bolão de Fórmula 1
 
     O **BF1** é uma plataforma de bolão de Fórmula 1 criada para organizar apostas,
@@ -12,7 +15,7 @@ def main():
     O sistema concentra em um único app os fluxos de participantes e administração,
     mantendo rastreabilidade das ações e regras claras de pontuação.
 
-    ### ✒️ Funcionalidades principais (v3.5)
+    ### ✒️ Funcionalidades principais (v{APP_VERSION})
 
     - Cadastro e gestão de apostas para cada corrida
     - Geração de aposta automática e modo "Sem ideias" com apoio estratégico
@@ -53,7 +56,7 @@ def main():
 
     ---
     """)
-    st.caption("Versão atual: 3.0-2026. Todos os direitos reservados.")
+    st.caption(f"Versão atual: {APP_VERSION}. Todos os direitos reservados.")
     st.link_button(
         "DigitalOcean",
         "https://www.digitalocean.com/?refcode=7a57329868da&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge",

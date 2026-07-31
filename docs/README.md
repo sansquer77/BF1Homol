@@ -2,7 +2,7 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.2
+versao: 1.4
 atualizado: 2026-07-31
 relacionados:
   - "[[sdd]]"
@@ -36,6 +36,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 | [[PERFORMANCE]] | Metas, instrumentação e benchmark |
 | [[MAPA_MENTAL_MODULOS]] | Relações entre componentes |
 | [[glossario]] | Vocabulário de domínio |
+| [[CHANGELOG]] | Versão vigente e histórico de releases do produto |
 
 ## Especificações focadas
 
@@ -72,11 +73,15 @@ migração gradual de cada módulo.
 
 - Todo documento novo usa [[templates/spec-template|o template]].
 - Frontmatter, callout de status, changelog e relacionados são obrigatórios.
+- `app_version.py::APP_VERSION` define a versão do produto exibida em Sobre;
+  `versao` no frontmatter controla somente a versão do respectivo documento.
 - `AGENTS.md` resume as regras para agentes, mas `docs/` é canônico.
 - Código e testes são a fonte executável; specs ancoram intenção e aceite.
 
 ## Changelog
 
+- `1.4` — 2026-07-31 — Adicionados política SemVer e changelog próprio do produto.
+- `1.3` — 2026-07-31 — Documentada a separação entre versão do produto e versão dos documentos.
 - `1.2` — 2026-07-31 — Dez módulos operacionais e de suporte adicionados ao índice.
 - `1.1` — 2026-07-31 — Oito domínios críticos adicionados ao índice de specs focadas.
 - `1.0` — 2026-07-31 — Criado o mapa de conteúdo e a navegação por specs e ADRs.

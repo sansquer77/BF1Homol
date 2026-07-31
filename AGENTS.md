@@ -84,7 +84,31 @@ Para regra não óbvia, cite a spec imediatamente acima do cálculo ou validaç�
 
 Ao mudar a versão de uma spec, revise as referências `spec:` no código.
 
-## 6. Checklist de entrega
+## 6. Versionamento do aplicativo
+
+<!-- sync:versionamento-bf1 -->
+O BF1 usa **Versionamento Semântico** (`MAJOR.MINOR.PATCH`). Ao concluir uma
+entrega, o agente deve avaliar o impacto acumulado desde a última versão e
+registrar uma destas decisões no resumo da entrega: `sem incremento`, `patch`,
+`minor` ou `major`, com justificativa breve.
+
+- `PATCH` (`3.0.5` → `3.0.6`): correção compatível, segurança, desempenho ou
+  ajuste operacional sem nova capacidade relevante para o usuário.
+- `MINOR` (`3.0.5` → `3.1.0`): nova funcionalidade ou capacidade relevante,
+  compatível com os fluxos e dados existentes.
+- `MAJOR` (`3.0.5` → `4.0.0`): mudança incompatível em fluxo, regra, dados,
+  configuração ou operação que exija migração/ação dos usuários ou operadores.
+- Mudanças somente em documentação, testes, comentários ou refatorações sem
+  efeito observável não incrementam a versão do produto.
+
+Quando houver incremento, atualize na mesma entrega
+`app_version.py::APP_VERSION`, `docs/CHANGELOG.md` e a versão exibida em Sobre
+(esta última deve consumir a constante, nunca repetir um literal). Mudanças
+`minor` ou `major` exigem spec atualizada; `major` também exige ADR e plano de
+migração. Não incremente por suposição nem use datas como versão.
+<!-- /sync:versionamento-bf1 -->
+
+## 7. Checklist de entrega
 
 - [ ] Spec existente e sem pendência bloqueante.
 - [ ] Critérios de aceite cobertos por teste ou verificação manual explícita.
@@ -94,8 +118,9 @@ Ao mudar a versão de uma spec, revise as referências `spec:` no código.
 - [ ] Nenhum segredo ou dado de runtime versionado.
 - [ ] Testes direcionados e suíte relevante aprovados.
 - [ ] Versão, data e changelog documental atualizados.
+- [ ] Impacto na versão do app avaliado e, se aplicável, versão e changelog do produto atualizados.
 
-## 7. Referências rápidas
+## 8. Referências rápidas
 
 | Documento | Uso |
 |---|---|
@@ -105,6 +130,6 @@ Ao mudar a versão de uma spec, revise as referências `spec:` no código.
 | [`docs/03_spec.md`](docs/03_spec.md) | Spec consolidada legada |
 | [`docs/04_arquitetura.md`](docs/04_arquitetura.md) | Arquitetura e dados |
 | [`docs/glossario.md`](docs/glossario.md) | Vocabulário |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Histórico de versões do produto |
 | [`docs/templates/spec-template.md`](docs/templates/spec-template.md) | Modelo documental |
 | [`docs/adr/`](docs/adr/) | Decisões técnicas |
-

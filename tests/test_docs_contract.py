@@ -47,16 +47,19 @@ class DocumentationContractTests(unittest.TestCase):
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         sdd = (DOCS / "sdd.md").read_text(encoding="utf-8")
 
-        marker = "fluxo-bf1"
-        pattern = re.compile(
-            rf"<!-- sync:{marker} -->(.*?)<!-- /sync:{marker} -->",
-            re.DOTALL,
-        )
-        agents_block = pattern.search(agents)
-        sdd_block = pattern.search(sdd)
-        self.assertIsNotNone(agents_block)
-        self.assertIsNotNone(sdd_block)
-        self.assertEqual(agents_block.group(1).strip(), sdd_block.group(1).strip())
+        for marker in ("fluxo-bf1", "versionamento-bf1"):
+            pattern = re.compile(
+                rf"<!-- sync:{marker} -->(.*?)<!-- /sync:{marker} -->",
+                re.DOTALL,
+            )
+            agents_block = pattern.search(agents)
+            sdd_block = pattern.search(sdd)
+            self.assertIsNotNone(agents_block)
+            self.assertIsNotNone(sdd_block)
+            self.assertEqual(
+                agents_block.group(1).strip(),
+                sdd_block.group(1).strip(),
+            )
 
     def test_canonical_navigation_files_exist(self):
         focused_specs = [
@@ -85,6 +88,7 @@ class DocumentationContractTests(unittest.TestCase):
             DOCS / "README.md",
             DOCS / "sdd.md",
             DOCS / "glossario.md",
+            DOCS / "CHANGELOG.md",
             DOCS / "templates" / "spec-template.md",
             DOCS / "adr" / "0001-streamlit-postgresql.md",
             DOCS / "adr" / "0002-limites-de-camadas.md",

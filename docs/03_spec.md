@@ -2,7 +2,7 @@
 tipo: spec
 area: bf1
 status: implementado
-versao: 4.5
+versao: 4.6
 atualizado: 2026-07-31
 relacionados:
   - "[[02_regras_de_negocio]]"
@@ -192,6 +192,10 @@ Acesso: todos os perfis ativos; inativos com histórico.
 
 ### 2.19 Sobre (`ui/sobre.py`)
 - Informações sobre a versão do sistema e créditos.
+- A versão do produto é mantida em `app_version.py::APP_VERSION` e exibida de
+  forma idêntica no título de funcionalidades e no rodapé da tela.
+- A versão atual do produto é **3.0.5**. O campo `versao` no frontmatter das
+  specs controla a evolução de cada documento e não representa a versão do app.
 - Acesso: todos.
 
 ---
@@ -311,6 +315,7 @@ Participante acessa aba "Histórico" no Painel
 
 ### Changelog
 
+- `4.6` — 2026-07-31 — Diferenciadas versão do produto e versões documentais; Sobre vinculado à versão 3.0.5.
 - `4.5` — 2026-07-31 — Dez módulos operacionais e de suporte migrados para specs focadas.
 - `4.4` — 2026-07-31 — Oito domínios críticos migrados para specs focadas e rastreáveis.
 - `4.3` — 2026-07-31 — Classificação reconciliada com Total Válido e migração gradual para specs focadas iniciada.
