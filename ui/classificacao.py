@@ -144,6 +144,39 @@ def formatar_brasileiro(valor):
     except:
         return valor
 
+
+def _calcular_totais_classificacao(
+    total_provas: float,
+    bonus_campeao: float,
+    bonus_vice: float,
+    bonus_equipe: float,
+    descarte: float,
+) -> dict[str, float]:
+    """Calcula os totais exibidos sem misturar bruto, bônus e descarte."""
+    total_geral = float(total_provas)
+    total_bonus = float(bonus_campeao) + float(bonus_vice) + float(bonus_equipe)
+    total_valido = total_geral + total_bonus - float(descarte)
+    return {
+        "Total Geral": total_geral,
+        "Bônus Campeonato": total_bonus,
+        "Descarte": float(descarte),
+        "Total Válido": total_valido,
+    }
+
+
+def _colunas_classificacao(descarte_ativo: bool) -> list[str]:
+    colunas = [
+        "Posição",
+        "Participante",
+        "Total Geral",
+        "Bônus Campeão",
+        "Bônus Vice",
+        "Bônus Equipe",
+    ]
+    if descarte_ativo:
+        colunas.append("Descarte")
+    return [*colunas, "Total Válido", "Diferença", "Movimentação"]
+
 def gerar_imagem_tabela_ajustada(df, colunas):
     import matplotlib.image as mpimg
     import matplotlib.pyplot as plt
@@ -282,11 +315,11 @@ def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultado
                     acerto_11 = 0
 
         overall_total = 0.0
-        if df_class is not None and 'Participante' in df_class.columns and 'Total Geral' in df_class.columns:
+        if df_class is not None and 'Participante' in df_class.columns and 'Total Válido' in df_class.columns:
             try:
                 match = df_class[df_class['Participante'] == participante]
                 if not match.empty:
-                    overall_total = float(match['Total Geral'].iloc[0])
+                    overall_total = float(match['Total Válido'].iloc[0])
             except Exception:
                 overall_total = 0.0
 
@@ -456,7 +489,13 @@ def main():
 
     pontos_por_usuario = {}
     if not apostas_pontos_df.empty:
-        pontos_por_usuario = apostas_pontos_df.groupby("usuario_id")["__pontos_calculados"].sum().to_dict()
+        provas_realizadas_ids = set(resultados_df["prova_id"].dropna().astype(int).tolist())
+        pontos_realizados_df = apostas_pontos_df[
+            apostas_pontos_df["prova_id"].isin(provas_realizadas_ids)
+        ]
+        pontos_por_usuario = (
+            pontos_realizados_df.groupby("usuario_id")["__pontos_calculados"].sum().to_dict()
+        )
 
     resultado_campeonato = get_final_results(season_int)
     championship_bets_map = {}
@@ -544,13 +583,9 @@ def main():
 
     for idx, part in participantes.iterrows():
         uid_part = int(part['id'])
-        apostas_part = apostas_pontos_df[apostas_pontos_df['usuario_id'] == part['id']]
-        apostas_part = apostas_part.sort_values(by='prova_id') if not apostas_part.empty else apostas_part
         total_provas = float(pontos_por_usuario.get(uid_part, 0) or 0)
         descarte_atual = descartes_atuais.get(uid_part)
         pontos_descarte = float(descarte_atual["pontos"]) if descarte_atual else 0.0
-        pontos_validos_provas = total_provas - pontos_descarte
-
         bonus_campeao = 0
         bonus_vice = 0
         bonus_equipe = 0
@@ -569,22 +604,25 @@ def main():
                 if resultado_campeonato.get("team") == aposta_camp.get("team"):
                     bonus_equipe = pontos_equipe
                     acertou_equipe = 1
-        pontos_campeonato = bonus_campeao + bonus_vice + bonus_equipe
+        totais = _calcular_totais_classificacao(
+            total_provas,
+            bonus_campeao,
+            bonus_vice,
+            bonus_equipe,
+            pontos_descarte,
+        )
         acertos_11 = int(acertos_11_por_usuario.get(uid_part, 0))
         apostas_no_prazo = int(apostas_no_prazo_por_usuario.get(uid_part, 0))
 
         tabela_classificacao.append({
             "Participante": part['nome'],
             "usuario_id": uid_part,
-            "Pontos acumulados": total_provas,
-            "Descarte atual": pontos_descarte,
-            "Prova descartada": descarte_atual["prova"] if descarte_atual else "-",
-            "Pontos válidos": pontos_validos_provas,
+            "Total Geral": totais["Total Geral"],
+            "Descarte": totais["Descarte"],
             "Bônus Campeão": bonus_campeao,
             "Bônus Vice": bonus_vice,
             "Bônus Equipe": bonus_equipe,
-            "Pontos Campeonato": pontos_campeonato,
-            "Total Geral": pontos_validos_provas + pontos_campeonato,
+            "Total Válido": totais["Total Válido"],
             "Acertos 11": acertos_11,
             "Acertou Campeao": acertou_campeao,
             "Acertou Equipe": acertou_equipe,
@@ -598,7 +636,7 @@ def main():
         return
 
     df_class = df_class.sort_values(
-        ["Total Geral", "Acertos 11", "Acertou Campeao", "Acertou Equipe", "Acertou Vice", "Apostas no Prazo"],
+        ["Total Válido", "Acertos 11", "Acertou Campeao", "Acertou Equipe", "Acertou Vice", "Apostas no Prazo"],
         ascending=[False, False, False, False, False, False]
     ).reset_index(drop=True)
     df_class['Posição'] = df_class.index + 1
@@ -629,10 +667,10 @@ def main():
             tabela_anterior.append({
                 "Participante": part['nome'],
                 "usuario_id": uid_part,
-                "Total Geral": total_anteriores
+                "Total Válido": total_anteriores
             })
         df_class_anterior = pd.DataFrame(tabela_anterior)
-        df_class_anterior = df_class_anterior.sort_values("Total Geral", ascending=False).reset_index(drop=True)
+        df_class_anterior = df_class_anterior.sort_values("Total Válido", ascending=False).reset_index(drop=True)
         df_class_anterior['Posição Anterior'] = df_class_anterior.index + 1
         df_class = df_class.merge(
             df_class_anterior[['usuario_id', 'Posição Anterior']],
@@ -654,41 +692,20 @@ def main():
         df_class['Movimentação'] = "Novo"
 
     diferencas = [0]
-    totals = df_class["Total Geral"].tolist()
+    totals = df_class["Total Válido"].tolist()
     for i in range(1, len(totals)):
         diferencas.append(totals[i-1] - totals[i])
     df_class["Diferença"] = ["-" if i == 0 else formatar_brasileiro(d) for i, d in enumerate(diferencas)]
 
     df_display = df_class.copy()
     colunas_pontos = [
-        "Pontos acumulados", "Bônus Campeão", "Bônus Vice", "Bônus Equipe",
-        "Pontos Campeonato", "Total Geral",
+        "Total Geral", "Bônus Campeão", "Bônus Vice", "Bônus Equipe",
+        "Descarte", "Total Válido",
     ]
-    if descarte_ativo:
-        colunas_pontos.extend(["Descarte atual", "Pontos válidos"])
     for col in colunas_pontos:
         df_display[col] = df_display[col].apply(lambda x: formatar_brasileiro(float(x)))
 
-    colunas_ordem = [
-        "Posição",
-        "Participante",
-        "Pontos acumulados",
-    ]
-    if descarte_ativo:
-        colunas_ordem.extend([
-            "Descarte atual",
-            "Prova descartada",
-            "Pontos válidos",
-        ])
-    colunas_ordem.extend([
-        "Bônus Campeão",
-        "Bônus Vice",
-        "Bônus Equipe",
-        "Pontos Campeonato",
-        "Total Geral",
-        "Diferença",
-        "Movimentação"
-    ])
+    colunas_ordem = _colunas_classificacao(descarte_ativo)
     st.subheader("Classificação Geral (Provas + Campeonato)")
     if descarte_ativo:
         st.caption(
@@ -700,15 +717,12 @@ def main():
     class_config = {
         "Posição": st.column_config.NumberColumn("Posição", format="%d", width="small"),
         "Participante": st.column_config.TextColumn("Participante", width="medium"),
-        "Pontos acumulados": st.column_config.TextColumn("Pontos acumulados", width="small"),
-        "Descarte atual": st.column_config.TextColumn("Descarte atual", width="small"),
-        "Prova descartada": st.column_config.TextColumn("Prova descartada", width="medium"),
-        "Pontos válidos": st.column_config.TextColumn("Pontos válidos", width="small"),
+        "Total Geral": st.column_config.TextColumn("Total Geral", width="small"),
         "Bônus Campeão": st.column_config.TextColumn("Bônus Campeão", width="small"),
         "Bônus Vice": st.column_config.TextColumn("Bônus Vice", width="small"),
         "Bônus Equipe": st.column_config.TextColumn("Bônus Equipe", width="small"),
-        "Pontos Campeonato": st.column_config.TextColumn("Pontos Campeonato", width="small"),
-        "Total Geral": st.column_config.TextColumn("Total Geral", width="small"),
+        "Descarte": st.column_config.TextColumn("Descarte", width="small"),
+        "Total Válido": st.column_config.TextColumn("Total Válido", width="small"),
         "Diferença": st.column_config.TextColumn("Diferença", width="small"),
         "Movimentação": st.column_config.TextColumn("Movimentação", width="small"),
     }

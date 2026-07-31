@@ -105,7 +105,7 @@ Acesso: todos os perfis ativos; inativos com histórico.
 
 ### 2.6 Classificação (`ui/classificacao.py`)
 - Tabela com posição geral, pontos acumulados e variação de posição.
-- Quando o descarte está ativo na regra da temporada, exibe também o valor e a prova do descarte provisório e os pontos válidos; a posição é ordenada pelos pontos válidos mais os bônus de campeonato.
+- Quando o descarte está ativo na regra da temporada, exibe o descarte provisório. `Total Geral` soma todas as provas realizadas e `Total Válido` soma os três bônus de campeonato e subtrai o descarte; posição e diferença usam o Total Válido.
 - Provas sem resultado cadastrado não são candidatas ao descarte. Quando a regra está inativa, as colunas relacionadas ao descarte permanecem ocultas.
 - A grade "Pontuação por Prova" mantém provas nas linhas, participantes nas colunas e colore, por prova realizada, a menor pontuação em vermelho e a maior em verde.
 - A imagem completa da classificação é preparada sob demanda, sem bloquear a abertura da página.

@@ -14,6 +14,8 @@ def _carregar_funcoes_classificacao():
         "_montar_pontos_por_prova",
         "destacar_heatmap",
         "formatar_brasileiro",
+        "_calcular_totais_classificacao",
+        "_colunas_classificacao",
     }
     funcoes = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in nomes]
     namespace = {"pd": pd, "np": np}
@@ -23,6 +25,8 @@ def _carregar_funcoes_classificacao():
 
 (
     _calcular_descartes_atuais,
+    _calcular_totais_classificacao,
+    _colunas_classificacao,
     _montar_pontos_por_prova,
     destacar_heatmap,
     formatar_brasileiro,
@@ -98,6 +102,24 @@ class ClassificacaoPontuacaoTests(unittest.TestCase):
 
         self.assertEqual(descartes[1]["prova"], "China")
         self.assertEqual(descartes[1]["pontos"], -10)
+
+    def test_total_valido_soma_bonus_e_subtrai_descarte(self):
+        totais = _calcular_totais_classificacao(2906, 125, 100, 85, 109)
+
+        self.assertEqual(totais["Total Geral"], 2906)
+        self.assertEqual(totais["Bônus Campeonato"], 310)
+        self.assertEqual(totais["Descarte"], 109)
+        self.assertEqual(totais["Total Válido"], 3107)
+
+    def test_ordem_das_colunas_da_classificacao(self):
+        self.assertEqual(
+            _colunas_classificacao(True),
+            [
+                "Posição", "Participante", "Total Geral", "Bônus Campeão",
+                "Bônus Vice", "Bônus Equipe", "Descarte", "Total Válido",
+                "Diferença", "Movimentação",
+            ],
+        )
 
 
 if __name__ == "__main__":
