@@ -1,4 +1,21 @@
+---
+tipo: arquitetura
+area: performance
+status: implementado
+versao: 1.0
+atualizado: 2026-07-31
+relacionados:
+  - "[[04_arquitetura]]"
+  - "[[06_modulos_tecnicos]]"
+  - "[[adr/0001-streamlit-postgresql]]"
+tags: [arquitetura, "area/performance", "status/implementado"]
+aliases: ["Performance e Jornadas Críticas"]
+---
+
 # Performance e jornadas críticas
+
+> [!info] Status
+> **implementado** · área: `performance` · atualizado em 2026-07-31 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]], [[adr/0001-streamlit-postgresql]]
 
 Metas operacionais:
 
@@ -52,3 +69,20 @@ classificação, histórico e envio de aposta, e inclui `EXPLAIN (ANALYZE, BUFFE
 FORMAT JSON)` das leituras. Ele cria um schema isolado e o remove ao terminar.
 Por padrão recusa executar quando `BENCHMARK_DATABASE_URL` é igual a
 `DATABASE_URL`.
+
+## Critérios de aceite operacional
+
+1. Jornadas instrumentadas emitem duração, queries, linhas e estado de cache.
+2. Consultas de logs limitam a página a no máximo 500 registros.
+3. Benchmark nunca executa contra a mesma URL configurada como produção.
+4. Geração de imagens pesadas só ocorre após ação explícita.
+
+## Changelog
+
+- `1.0` — 2026-07-31 — Documento incorporado ao padrão SDD com metadados e critérios operacionais.
+
+## Relacionados
+
+- [[04_arquitetura]]
+- [[06_modulos_tecnicos]]
+- [[adr/0001-streamlit-postgresql]]

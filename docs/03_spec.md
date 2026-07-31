@@ -2,8 +2,8 @@
 tipo: spec
 area: bf1
 status: implementado
-versao: 4.2
-atualizado: 2026-07-20
+versao: 4.5
+atualizado: 2026-07-31
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[04_arquitetura]]"
@@ -16,9 +16,34 @@ aliases: ["Especificação Funcional"]
 # Especificação Funcional — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-20 · relacionados: [[02_regras_de_negocio]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]], [[05_projeto]]
+> **implementado** · área: `bf1` · atualizado em 2026-07-31 · relacionados: [[02_regras_de_negocio]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]], [[05_projeto]]
 
 ---
+
+## Specs focadas
+
+Esta nota permanece como inventário consolidado durante a migração. Os
+contratos críticos já possuem especificações próprias:
+
+- [[specs/autenticacao-e-sessao]]
+- [[specs/controle-de-acesso]]
+- [[specs/apostas-de-prova]]
+- [[specs/deadline-de-apostas]]
+- [[specs/pontuacao-de-provas]]
+- [[specs/resultados-de-provas]]
+- [[specs/apostas-automaticas]]
+- [[specs/apostas-de-campeonato]]
+- [[specs/classificacao]]
+- [[specs/gestao-de-usuarios]]
+- [[specs/gestao-de-temporadas-e-regras]]
+- [[specs/calendario-provas-e-pilotos]]
+- [[specs/historico-do-participante]]
+- [[specs/logs-e-auditoria]]
+- [[specs/backup-e-restauracao]]
+- [[specs/notificacoes-por-email]]
+- [[specs/analises-e-dashboard]]
+- [[specs/hall-da-fama]]
+- [[specs/pwa-e-preferencias-do-cliente]]
 
 ## 1. Autenticação e Sessão
 
@@ -271,8 +296,24 @@ Participante acessa aba "Histórico" no Painel
   → Retorna DadosGrafico (dataclass) → gráfico Plotly + destaque do piloto
 ```
 
+## Contratos transversais
+
+> Toda fachada tabular deve aplicar o contrato central correspondente (`APOSTAS_COLUMNS`, `PILOTOS_COLUMNS`, `PROVAS_COLUMNS`, `RESULTADOS_COLUMNS`, `USUARIOS_COLUMNS`, `POSICOES_COLUMNS`, `CHAMPIONSHIP_BETS_COLUMNS` ou `CHAMPIONSHIP_RESULTS_COLUMNS`). Ausência de linhas ou cache legado não altera o schema tabular.
+> DataFrames intermediários criados pelas telas, inclusive após `st.rerun()`, também devem preservar o contrato do domínio; fallbacks não podem retornar `pd.DataFrame()` sem colunas.
+> Após escrita de aposta, a função cacheada de leitura de apostas deve ser invalidada explicitamente antes do `st.rerun()`; mensagens de confirmação devem sobreviver ao rerun via `session_state`.
+> O fluxo “Sem ideias” somente informa sucesso após reler a linha diretamente do banco, sem cache, e transporta os valores confirmados pelo `session_state` para preencher o formulário após o rerun.
+> A Gestão de Apostas normaliza apostas, provas e participantes na entrada da página; a ordenação de provas converte datas com `errors="coerce"`, mantendo registros inválidos ao final sem quebrar a tela.
+> A Atualização de Resultados normaliza provas, pilotos e resultados em toda leitura, inclusive após salvar/rerun; datas ausentes ou inválidas são exibidas sem interromper a página.
+> Painel, Classificação, Calendário, Usuários, Hall da Fama e apostas/resultados de campeonato reaplicam seus contratos na fronteira da UI para tolerar valores de cache produzidos por versões anteriores.
+> A Gestão de Provas aplica `PROVAS_COLUMNS` antes da tabela e dos formulários; registros sem ID são descartados, enquanto data ausente usa um valor seguro no editor.
+> O Diagnóstico Regras/Provas da Análise Detalhada aplica os contratos completos de provas, resultados e apostas antes de normalizar IDs ou consultar `prova_id`.
+> A Classificação converte IDs com `errors="coerce"`, descarta linhas sem identificadores válidos antes de `int()` e substitui pontuações não numéricas por zero.
+
 ### Changelog
 
+- `4.5` — 2026-07-31 — Dez módulos operacionais e de suporte migrados para specs focadas.
+- `4.4` — 2026-07-31 — Oito domínios críticos migrados para specs focadas e rastreáveis.
+- `4.3` — 2026-07-31 — Classificação reconciliada com Total Válido e migração gradual para specs focadas iniciada.
 - `4.2` — 2026-07-20 — Sessão revogável, recuperação resistente a timing e retenção automática.
 - `4.1` — 2026-07-20 — Contexto autenticado, matrizes de acesso e deadline fail-closed.
 - `4.0` — 2026-07-19 — Contratos de autenticação, abas e regras atualizados conforme a implementação.
@@ -285,13 +326,22 @@ Participante acessa aba "Histórico" no Painel
 - [[04_arquitetura]]
 - [[MAPA_MENTAL_MODULOS]]
 - [[05_projeto]]
-> Toda fachada tabular deve aplicar o contrato central correspondente (`APOSTAS_COLUMNS`, `PILOTOS_COLUMNS`, `PROVAS_COLUMNS`, `RESULTADOS_COLUMNS`, `USUARIOS_COLUMNS`, `POSICOES_COLUMNS`, `CHAMPIONSHIP_BETS_COLUMNS` ou `CHAMPIONSHIP_RESULTS_COLUMNS`). Ausência de linhas ou cache legado não altera o schema tabular.
-> DataFrames intermediários criados pelas telas, inclusive após `st.rerun()`, também devem preservar o contrato do domínio; fallbacks não podem retornar `pd.DataFrame()` sem colunas.
-> Após escrita de aposta, a função cacheada de leitura de apostas deve ser invalidada explicitamente antes do `st.rerun()`; mensagens de confirmação devem sobreviver ao rerun via `session_state`.
-> O fluxo “Sem ideias” somente informa sucesso após reler a linha diretamente do banco, sem cache, e transporta os valores confirmados pelo `session_state` para preencher o formulário após o rerun.
-> A Gestão de Apostas normaliza apostas, provas e participantes na entrada da página; a ordenação de provas converte datas com `errors="coerce"`, mantendo registros inválidos ao final sem quebrar a tela.
-> A Atualização de Resultados normaliza provas, pilotos e resultados em toda leitura, inclusive após salvar/rerun; datas ausentes ou inválidas são exibidas sem interromper a página.
-> Painel, Classificação, Calendário, Usuários, Hall da Fama e apostas/resultados de campeonato reaplicam seus contratos na fronteira da UI para tolerar valores de cache produzidos por versões anteriores.
-> A Gestão de Provas aplica `PROVAS_COLUMNS` antes da tabela e dos formulários; registros sem ID são descartados, enquanto data ausente usa um valor seguro no editor.
-> O Diagnóstico Regras/Provas da Análise Detalhada aplica os contratos completos de provas, resultados e apostas antes de normalizar IDs ou consultar `prova_id`.
-> A Classificação converte IDs com `errors="coerce"`, descarta linhas sem identificadores válidos antes de `int()` e substitui pontuações não numéricas por zero.
+- [[specs/classificacao]]
+- [[specs/autenticacao-e-sessao]]
+- [[specs/controle-de-acesso]]
+- [[specs/apostas-de-prova]]
+- [[specs/deadline-de-apostas]]
+- [[specs/pontuacao-de-provas]]
+- [[specs/resultados-de-provas]]
+- [[specs/apostas-automaticas]]
+- [[specs/apostas-de-campeonato]]
+- [[specs/gestao-de-usuarios]]
+- [[specs/gestao-de-temporadas-e-regras]]
+- [[specs/calendario-provas-e-pilotos]]
+- [[specs/historico-do-participante]]
+- [[specs/logs-e-auditoria]]
+- [[specs/backup-e-restauracao]]
+- [[specs/notificacoes-por-email]]
+- [[specs/analises-e-dashboard]]
+- [[specs/hall-da-fama]]
+- [[specs/pwa-e-preferencias-do-cliente]]

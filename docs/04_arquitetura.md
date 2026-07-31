@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.2
-atualizado: 2026-07-20
+versao: 4.3
+atualizado: 2026-07-31
 relacionados:
   - "[[01_necessidade]]"
   - "[[02_regras_de_negocio]]"
@@ -16,7 +16,7 @@ aliases: ["Arquitetura do Sistema"]
 # Arquitetura do Sistema — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-20 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
+> **implementado** · área: `bf1` · atualizado em 2026-07-31 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
 
 ## Visão Geral
 
@@ -174,7 +174,7 @@ temporadas_regras
 - **Implementação atual**: o roteador valida o JWT revogável em `st.session_state`. Quando OIDC está habilitado, uma identidade já validada pelo cookie nativo do Streamlit reidrata esse JWT para um usuário previamente cadastrado.
 
 ### 3. Pool de Conexões PostgreSQL
-- **Decisão**: `connection_pool.py` gerencia um pool de conexões com `psycopg2`.
+- **Decisão**: `connection_pool.py` gerencia um pool de conexões com `psycopg` 3 e `psycopg-pool`.
 - **Justificativa**: Streamlit rerenderiza o script inteiro a cada interação; sem pool, cada interação abriria uma nova conexão ao banco.
 
 ### 4. Migrations Incrementais e Idempotentes
@@ -247,6 +247,7 @@ MASTER_NOME         # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.3` — 2026-07-31 — Driver PostgreSQL corrigido e decisões vigentes formalizadas em ADRs.
 - `4.2` — 2026-07-20 — Sessões revogáveis, cookie fail-closed, proxy explícito e retenção automática.
 - `4.1` — 2026-07-20 — Autorização em profundidade, serviços administrativos e deadline fail-closed.
 - `4.0` — 2026-07-19 — Modelo de regras, autenticação, diretórios e variáveis atualizados.
@@ -259,3 +260,5 @@ MASTER_NOME         # Nome do usuário master inicial
 - [[02_regras_de_negocio]]
 - [[03_spec]]
 - [[MAPA_MENTAL_MODULOS]]
+- [[adr/0001-streamlit-postgresql]]
+- [[adr/0002-limites-de-camadas]]

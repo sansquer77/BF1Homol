@@ -2,8 +2,8 @@
 tipo: produto
 area: bf1
 status: implementado
-versao: 4.2
-atualizado: 2026-07-20
+versao: 4.3
+atualizado: 2026-07-31
 relacionados:
   - "[[01_necessidade]]"
   - "[[03_spec]]"
@@ -15,7 +15,7 @@ aliases: ["Regras de Negócio"]
 # Regras de Negócio
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-20 · relacionados: [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
+> **implementado** · área: `bf1` · atualizado em 2026-07-31 · relacionados: [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
 
 ## RN-001 — Controle de Acesso por Perfil
 
@@ -154,6 +154,7 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 
 ### Changelog
 
+- `4.3` — 2026-07-31 — Fórmula de Total Geral, bônus, descarte e Total Válido explicitada e ligada à spec focada.
 - `4.2` — 2026-07-20 — Cookie seguro, revogação de sessões, proxy explícito e retenção de dados de segurança.
 - `4.1` — 2026-07-20 — Deadline de campeonato fail-closed e autorização obrigatória nas operações sensíveis.
 - `4.0` — 2026-07-19 — Regras alinhadas ao modelo atual e ao regulamento BF1-2026.
@@ -165,3 +166,4 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 - [[01_necessidade]]
 - [[03_spec]]
 - [[04_arquitetura]]
+- [[specs/classificacao]]

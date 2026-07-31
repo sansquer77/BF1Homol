@@ -2,8 +2,8 @@
 tipo: produto
 area: bf1
 status: implementado
-versao: 4.0
-atualizado: 2026-07-19
+versao: 4.1
+atualizado: 2026-07-31
 relacionados:
   - "[[01_necessidade]]"
   - "[[02_regras_de_negocio]]"
@@ -17,12 +17,12 @@ aliases: ["Documento de Projeto"]
 # Documento de Projeto — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]]
+> **implementado** · área: `bf1` · atualizado em 2026-07-31 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[04_arquitetura]], [[MAPA_MENTAL_MODULOS]]
 
 > **Versão documental**: 4.0 (o código ainda contém rótulos legados 3.0/3.5/3.6)
 > **Repositório**: `sansquer77/BF1` (branch `main`)
 > **Plataforma de Deploy**: DigitalOcean App Platform
-> **Stack**: Python 3.11+ · Streamlit · PostgreSQL · psycopg2
+> **Stack**: Python 3.11+ · Streamlit · PostgreSQL · psycopg 3
 
 ---
 
@@ -100,7 +100,7 @@ O BF1 é uma plataforma digital de bolão de Fórmula 1, de uso privado por um g
 |--------|-----------|---------------|
 | Frontend / Backend | Python + Streamlit | Desenvolvimento rápido, stack unificada |
 | Banco de dados | PostgreSQL (Managed DO) | Confiabilidade, backups automáticos, SQL padrão |
-| Driver DB | psycopg2 + pool customizado | Controle de conexões no ambiente stateless |
+| Driver DB | psycopg 3 + psycopg-pool | Controle de conexões no ambiente gerenciado |
 | Autenticação | JWT (PyJWT) + bcrypt | Stateless, seguro, compatível com múltiplas instâncias |
 | Fuso horário | zoneinfo (stdlib Python 3.9+) | Sem dependências externas para TZ |
 | Visualização | Plotly (gráficos interativos) | Gráfico de barras empilhadas no histórico |
@@ -113,7 +113,8 @@ O BF1 é uma plataforma digital de bolão de Fórmula 1, de uso privado por um g
 
 ```
 streamlit
-psycopg2-binary
+psycopg[binary]
+psycopg-pool
 bcrypt
 PyJWT
 pandas
@@ -198,6 +199,7 @@ plotly
 
 | Versão | Data | Descrição |
 |--------|------|-----------|
+| 4.1 | 2026-07-31 | Governança SDD robustecida e stack PostgreSQL atualizada para psycopg 3 |
 | 4.0 | 2026-07-19 | Estado atual do código, regulamento 2026 e configuração corrigida (`JWT_SECRET`) |
 | 3.6 | 2026-05-03 | Aba "Histórico" no Painel · `historico_service.py` · renomeação de abas · fix normalização de chaves `posicoes` · fix `setdefault` fora de contexto |
 | 3.5 | — | Versão base (produção anterior) |

@@ -2,83 +2,120 @@
 tipo: template
 area: meta
 status: implementado
-versao: 1.2
-atualizado: 2026-07-19
+versao: 1.3
+atualizado: 2026-07-31
 relacionados:
-  - "[[00_sdd]]"
-tags: [template, meta]
+  - "[[sdd]]"
+  - "[[README]]"
+tags: [template, "area/meta", "status/implementado"]
+aliases: ["Template de Spec"]
 ---
 
-# Template de Spec
+# Template documental
+
+> [!info] Status
+> **implementado** · área: `meta` · atualizado em 2026-07-31 · relacionados: [[sdd]], [[README]]
 
 > [!info] Como usar
-> Duplique este arquivo para criar qualquer novo documento do vault. Para specs, use um nome descritivo e preencha todas as seções obrigatórias. Para outros tipos, adapte frontmatter, título e seções, mantendo status, changelog e relacionados. Veja o processo completo em [[00_sdd]].
+> Duplique este arquivo para qualquer documento novo. Specs ficam em `specs/`,
+> ADRs em `adr/`. Para outros tipos, adapte as seções, mas preserve frontmatter,
+> callout de status, changelog e relacionados. Consulte [[sdd]].
 
 ## Frontmatter obrigatório
 
 ```yaml
 ---
-tipo: spec                 # spec | adr | design | metodologia | produto | arquitetura | roadmap | glossario | template
-area: slug-da-area          # ex.: cartoes, lancamentos, investimentos
-status: rascunho            # rascunho | em-implementacao | implementado | em-revisao | depreciado
+tipo: spec                 # spec | adr | arquitetura | produto | metodologia | glossario | template
+area: slug-da-area         # ex.: apostas, classificacao, autenticacao
+status: rascunho           # rascunho | em-implementacao | implementado | em-revisao | depreciado
 versao: 0.1
 atualizado: AAAA-MM-DD
-relacionados: []             # substitua por wikilinks reais quando existirem
+relacionados:
+  - "[[02_regras_de_negocio]]"
 tags: [spec, "area/slug-da-area", "status/rascunho"]
-aliases: ["Nome bonito da spec"]
+aliases: ["Nome legível"]
 ---
 ```
 
-## [Nome da funcionalidade]
+# [Nome da funcionalidade]
 
 > [!info] Status
 > **{{status}}** · área: `{{area}}` · atualizado em {{data}} · relacionados: {{links}}
 
-### Problema
+## Problema
 
-Qual dor ou necessidade esta spec resolve? Escreva do ponto de vista do usuário, não da implementação.
+Qual necessidade do usuário esta entrega resolve?
 
-### Usuário
+## Usuários
 
-Quem usa esta funcionalidade e em qual contexto? Uma ou duas frases bastam.
+Quem usa a funcionalidade, com qual perfil e em qual contexto?
 
-### Jornada
+## Jornada
 
-1. Passo inicial.
-2. Ação principal.
-3. Resultado esperado observável pelo usuário.
+1. Estado inicial observável.
+2. Ação do usuário ou evento do sistema.
+3. Resultado esperado.
 
-### Dados
+## Dados
 
-- `campo`: descrição, tipo e regra de obrigatoriedade.
+- `campo`: tipo, origem, obrigatoriedade e regra relevante.
 
-### Regras
+## Regras
 
-- Regra de negócio verificável (uma frase, uma regra).
+1. Uma regra verificável por item.
 
-### API e dados
+## Interface, serviços e dados
 
-- Rotas afetadas ou criadas (`MÉTODO /api/caminho`).
-- Tabelas afetadas ou criadas.
+- Tela ou fluxo afetado.
+- Serviço/caso de uso responsável.
+- Tabelas consultadas ou alteradas.
+- API: “não aplicável” enquanto o BF1 não expuser API externa.
 
-### Critérios de aceite
+## Critérios de aceite
 
-- Dado um estado inicial, quando uma ação ocorre, então o resultado deve ser observável.
+> Cada critério cobre um resultado observável. Inclua sucesso, borda e
+> permissão/segurança quando aplicável.
 
-### Fora de escopo *(opcional)*
+1. Dado [estado], quando [ação], então [resultado único].
+2. Dado [borda], quando [ação], então [resultado de borda].
+3. Dado [perfil sem acesso], quando [ação], então [proteção esperada].
 
-O que conscientemente não será feito nesta entrega.
+## Verificação
 
-### Changelog
+- Critério 1 — teste automatizado: `tests/test_exemplo.py::teste`.
+- Critério 2 — verificação manual: passos e resultado esperado.
+
+## Pendências
+
+> [!question] Pendências
+> Obrigatória para `rascunho` e `em-implementacao`. Nenhum agente implementa
+> comportamento dependente de uma decisão aberta sem confirmação humana.
+
+- Nenhuma pendência conhecida.
+
+## Fora de escopo
+
+- Comportamento conscientemente não incluído.
+
+## Plano de implementação
+
+> Obrigatório com mais de seis critérios ou quando mais de um módulo/camada for
+> alterado. Cada passo referencia os critérios que fecha.
+
+- [ ] Passo 1 — mudança e módulo. Fecha: critérios 1 e 2.
+- [ ] Passo 2 — testes e documentação. Fecha: critério 3.
+
+## Changelog
 
 - `{{versao}}` — {{data}} — descrição da mudança.
 
-### Relacionados
+## Relacionados
 
-- Adicione aqui somente documentos existentes e diretamente relacionados.
+- [[02_regras_de_negocio]]
 
 ## Changelog do template
 
-- `1.1` — 2026-07-04 — Uso ampliado: o template passa a ser a base de qualquer novo documento do vault, não apenas specs.
-- `1.2` — 2026-07-19 — Links e instrução de destino alinhados à estrutura atual de `docs/`.
-- `1.0` — 2026-06-29 — Template inicial para specs.
+- `1.3` — 2026-07-31 — Adicionados critérios atômicos, verificação, pendências e plano rastreável.
+- `1.2` — 2026-07-19 — Links alinhados à estrutura documental do BF1.
+- `1.1` — 2026-07-04 — Template ampliado para todos os tipos documentais.
+- `1.0` — 2026-06-29 — Template inicial.
