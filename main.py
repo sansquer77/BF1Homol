@@ -756,10 +756,13 @@ def sidebar_menu():
     # spec: menu-e-navegacao v1.3 — critério 8 (menu em texto, sem bordas)
     # Os itens continuam botões para navegação, mas sem borda/fundo: apenas o
     # texto; densidade maior em telas estreitas preservando o toque.
+    # O DOM do botão usa data-testid="stBaseButton-secondary" desde o
+    # Streamlit 1.35+; o atributo "kind" fica como fallback de versões antigas.
     render_trusted_html(
         st,
         """
         <style>
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
         [data-testid="stSidebar"] button[kind="secondary"] {
             background: transparent;
             border: none;
@@ -769,6 +772,8 @@ def sidebar_menu():
             padding: 0.1rem 0.25rem;
             min-height: 1.6rem;
         }
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,
+        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:focus,
         [data-testid="stSidebar"] button[kind="secondary"]:hover,
         [data-testid="stSidebar"] button[kind="secondary"]:focus {
             background: transparent;
@@ -776,6 +781,7 @@ def sidebar_menu():
             box-shadow: none;
         }
         @media (max-width: 768px) {
+            [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
             [data-testid="stSidebar"] button[kind="secondary"] {
                 font-size: 0.85rem;
                 padding: 0.05rem 0.2rem;

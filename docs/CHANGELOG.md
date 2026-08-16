@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 2.3
+versao: 2.4
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,14 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.10.2
+
+- Correção do estilo do menu: o seletor de borda/fundo usava `kind="secondary"`,
+  que não existe no DOM do Streamlit 1.35+; agora usa
+  `data-testid="stBaseButton-secondary"` (mantendo o antigo como fallback) —
+  os itens aparecem como texto sem bordas (spec `menu-e-navegacao` v1.3,
+  critério 8).
 
 ### 3.10.1
 
