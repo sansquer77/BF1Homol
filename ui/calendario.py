@@ -278,9 +278,9 @@ def main():
         calendar_options = {
             "locale": "pt-br",
             # spec: pwa-e-preferencias-do-cliente v1.1 — critério 8
-            # Sem esta opção o FullCalendar exibe no fuso do navegador ('local'),
-            # ignorando o fuso selecionado na sidebar quando eles diferem.
-            "timezone": tz_exibicao,
+            # FullCalendar v6 usa 'timeZone' (camelCase); 'timezone' é ignorado
+            # e o componente cai em 'local' (fuso do navegador).
+            "timeZone": tz_exibicao,
             "initialView": "listMonth",
             "initialDate": hoje_iso,
             "height": 680,

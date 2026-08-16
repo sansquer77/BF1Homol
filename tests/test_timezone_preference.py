@@ -28,8 +28,8 @@ class TimezonePreferenceTests(unittest.TestCase):
     # spec: pwa-e-preferencias-do-cliente v1.1 — critério 8
     def test_agenda_exibe_no_fuso_selecionado(self):
         source = (ROOT / "ui" / "calendario.py").read_text(encoding="utf-8")
-        self.assertIn('"timezone": tz_exibicao', source)
-        self.assertNotIn('"timezone": "local"', source)
+        self.assertIn('"timeZone": tz_exibicao', source)
+        self.assertNotIn('"timeZone": "local"', source)
 
 
 if __name__ == "__main__":
