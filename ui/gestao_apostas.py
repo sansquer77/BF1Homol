@@ -52,8 +52,12 @@ def main():
 
     # Seletor de temporada (usa temporadas da tabela; fallback fixo)
     season_options = get_season_options(fallback_years=["2025", "2026"])
-    default_index = get_default_season_index(season_options)
-    season = st.selectbox("Temporada", season_options, index=default_index, key="gestao_apostas_season")
+    # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
+    temporada_global = st.session_state.get("temporada_global", "")
+    season = (
+        temporada_global if temporada_global in season_options
+        else season_options[get_default_season_index(season_options)]
+    )
     st.session_state["temporada"] = season
 
     if not usuarios_status_historico_disponivel():

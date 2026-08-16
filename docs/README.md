@@ -2,7 +2,7 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.5
+versao: 1.6
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -60,6 +60,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 - [[specs/hall-da-fama|Hall da Fama]]
 - [[specs/pwa-e-preferencias-do-cliente|PWA e preferências do cliente]]
 - [[specs/polimento-de-interface|Polimento de interface]]
+- [[specs/temporada-global|Temporada global]]
 
 Novas funcionalidades devem ganhar uma spec focada em `docs/specs/`. A
 [[03_spec|spec consolidada]] continua como referência de compatibilidade até a
@@ -81,6 +82,7 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.6` — 2026-08-16 — Adicionada a spec de temporada global ao índice.
 - `1.5` — 2026-08-16 — Adicionada a spec de polimento de interface ao índice.
 - `1.4` — 2026-07-31 — Adicionados política SemVer e changelog próprio do produto.
 - `1.3` — 2026-07-31 — Documentada a separação entre versão do produto e versão dos documentos.

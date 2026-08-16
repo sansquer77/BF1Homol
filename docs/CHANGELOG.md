@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.5
+versao: 1.7
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,21 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.7.0
+
+- Seletor global de temporada na sidebar (`temporada_global`): todas as telas
+  de consulta e operação (classificação, calendário, análises, gestão de
+  apostas/provas/resultados, logs, painel e campeonato) passam a usar a
+  mesma temporada; seletores locais removidos (spec `temporada-global` v1.0);
+  campos de entrada de dados (criar prova, regras, Ergast, Hall da Fama)
+  permanecem locais.
+
+### 3.6.0
+
+- Indicador de progresso da Etapa 2 por validações concluídas (fração real +
+  lista explícita de 6 validações), substituindo o progresso fixo 0.67/1.0
+  (spec `apostas-de-prova` v1.3, critério 11); regras do envio inalteradas.
 
 ### 3.5.0
 
@@ -75,6 +90,8 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
+- `1.7` — 2026-08-16 — Registrada a versão 3.7.0 (temporada global na sidebar).
+- `1.6` — 2026-08-16 — Registrada a versão 3.6.0 (progresso honesto da aposta).
 - `1.5` — 2026-08-16 — Registrada a versão 3.5.0 (menu com botões por item).
 - `1.4` — 2026-08-16 — Registrada a versão 3.4.0 (validação inline da aposta).
 - `1.3` — 2026-08-16 — Registrada a versão 3.3.0 (grade única de aposta).

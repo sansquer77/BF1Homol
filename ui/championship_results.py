@@ -23,11 +23,11 @@ def main():
 
     # Temporada selecionada
     temporadas = get_season_options()
-    temporada_sel = st.selectbox(
-        "Temporada",
-        temporadas,
-        index=get_default_season_index(temporadas),
-        help="Resultado oficial é registrado por temporada"
+    # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
+    temporada_global = st.session_state.get("temporada_global", "")
+    temporada_sel = (
+        temporada_global if temporada_global in temporadas
+        else temporadas[get_default_season_index(temporadas)]
     )
     if temporada_sel is None:
         st.error("Selecione uma temporada válida.")

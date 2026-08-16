@@ -123,8 +123,12 @@ def participante_view():
         season_options = get_season_options(fallback_years=["2025", "2026"])
     has_season_data = bool(season_options)
     if has_season_data:
-        default_index = get_default_season_index(season_options)
-        season = st.selectbox("Temporada", season_options, index=default_index)
+        # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
+        temporada_global = st.session_state.get("temporada_global", "")
+        season = (
+            temporada_global if temporada_global in season_options
+            else season_options[get_default_season_index(season_options)]
+        )
         st.session_state['temporada'] = season
     else:
         if is_inactive_profile and inactive_has_history and allowed_seasons:
@@ -451,9 +455,6 @@ def participante_view():
                     )
                     (st.success if total_ok else st.error)(total_message)
 
-                    passo2_ok = total_ok and len(pilotos_com_ficha) >= min_pilotos_regra
-                    st.progress(1.0 if passo2_ok else 0.67, text="Progresso do preenchimento")
-
                     pilotos_11_opcoes = [p for p in pilotos if p not in pilotos_validos]
                     if not pilotos_11_opcoes:
                         pilotos_11_opcoes = pilotos
@@ -469,6 +470,33 @@ def participante_view():
                     if piloto_11 in pilotos_com_ficha:
                         st.warning(f"O 11º colocado ({piloto_11}) está entre os pilotos apostados.")
 
+                    # spec: apostas-de-prova v1.3 — critério 11 (indicador honesto por validação)
+                    sem_duplicados = len(set(pilotos_com_ficha)) == len(pilotos_com_ficha)
+                    equipes_com_ficha = [pilotos_equipe[p] for p in pilotos_com_ficha]
+                    equipes_ok = permite_mesma_equipe or len(set(equipes_com_ficha)) == len(equipes_com_ficha)
+                    max_por_piloto_ok = not fichas_com_ficha or max(fichas_com_ficha) <= fichas_max_por_piloto
+                    validacoes_etapa2 = [
+                        (
+                            len(pilotos_com_ficha) >= min_pilotos_regra,
+                            f"Mínimo de {min_pilotos_regra} pilotos com fichas",
+                        ),
+                        (total_ok, f"Soma exata de {quantidade_fichas} fichas"),
+                        (sem_duplicados, "Nenhum piloto repetido"),
+                        (
+                            equipes_ok,
+                            "Nenhuma equipe repetida" if not permite_mesma_equipe else "Equipes (sem restrição)",
+                        ),
+                        (max_por_piloto_ok, f"Máximo de {fichas_max_por_piloto} fichas por piloto"),
+                        (piloto_11 not in pilotos_com_ficha, "11º colocado diferente dos apostados"),
+                    ]
+                    concluidas_etapa2 = sum(1 for ok_etapa2, _ in validacoes_etapa2 if ok_etapa2)
+                    st.progress(
+                        concluidas_etapa2 / len(validacoes_etapa2),
+                        text=f"Etapa 2: {concluidas_etapa2}/{len(validacoes_etapa2)} validações concluídas",
+                    )
+                    for ok_etapa2, descricao in validacoes_etapa2:
+                        st.markdown(f"- {'[x]' if ok_etapa2 else '[ ]'} {descricao}")
+
                     st.markdown("### Etapa 3 de 3 - Revise e confirme")
                     st.caption(
                         f"Resumo rapido: {len(pilotos_com_ficha)} pilotos com fichas, "
@@ -479,7 +507,6 @@ def participante_view():
                         erros = []
                         if len(set(pilotos_com_ficha)) != len(pilotos_com_ficha):
                             erros.append("Não é permitido apostar em dois pilotos iguais.")
-                        equipes_com_ficha = [pilotos_equipe[p] for p in pilotos_com_ficha]
                         if not permite_mesma_equipe and len(set(equipes_com_ficha)) < len(equipes_com_ficha):
                             erros.append("Não é permitido apostar em dois pilotos da mesma equipe.")
                         if len(pilotos_com_ficha) < min_pilotos_regra:

@@ -15,7 +15,7 @@ class MenuNavigationTests(unittest.TestCase):
     def test_sidebar_renderiza_secoes_como_expansores(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")
         self.assertIn("st.sidebar.expander(section_name, expanded=expanded)", source)
-        self.assertIn("st.sidebar.button(", source)
+        self.assertIn("if st.button(", source)
 
     def test_itens_sao_botoes_com_primeiro_clique_navegando(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")
