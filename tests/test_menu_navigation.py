@@ -17,16 +17,27 @@ class MenuNavigationTests(unittest.TestCase):
         self.assertIn("st.sidebar.expander(section_name, expanded=expanded)", source)
         self.assertIn("if st.button(", source)
 
-    # spec: menu-e-navegacao v1.3 — critério 8
+    # spec: menu-e-navegacao v1.4 — critério 8
     def test_menu_em_texto_sem_bordas_e_compacto_no_mobile(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")
-        self.assertIn("render_global_css(", source)
+        self.assertIn("render_dom_styles(", source)
         self.assertIn('button[data-testid="stBaseButton-secondary"]', source)
-        self.assertIn("background: transparent !important;", source)
-        self.assertIn("border: none !important;", source)
-        self.assertIn("overflow-y: auto;", source)
-        self.assertIn("@media (max-width: 768px)", source)
-        self.assertIn("min-height: 1.9rem", source)
+        self.assertIn('"background": "transparent"', source)
+        self.assertIn('"border": "none"', source)
+        self.assertIn('"overflowY": "auto"', source)
+        self.assertIn('"media": "(max-width: 768px)"', source)
+        self.assertIn('"minHeight": "1.9rem"', source)
+
+    def test_dom_styles_aplica_inline_com_observer_e_escapa_rules(self):
+        source = (ROOT / "utils" / "html_utils.py").read_text(encoding="utf-8")
+        self.assertIn("setProperty(k,rule.style[k],", source)
+        self.assertIn("MutationObserver", source)
+        self.assertIn("matchMedia", source)
+        self.assertIn("serialize_js_value(rules)", source)
+        self.assertTrue(
+            "unsafe_allow_javascript" in source or "allow_javascript" in source,
+            "o JS deve ser renderizado pelo sink central com permissão de script",
+        )
 
     def test_itens_sao_botoes_com_primeiro_clique_navegando(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")

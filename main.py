@@ -14,7 +14,7 @@ from importlib import import_module
 import logging
 import datetime
 from utils.performance import journey
-from utils.html_utils import render_global_css, render_trusted_html, serialize_js_value
+from utils.html_utils import render_dom_styles, render_trusted_html, serialize_js_value
 from pathlib import Path
 
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
@@ -753,45 +753,72 @@ def _load_view(page: str):
 
 # ============ MENU LATERAL ============
 def sidebar_menu():
-    # spec: menu-e-navegacao v1.3 — critério 8 (menu em texto, sem bordas)
+    # spec: menu-e-navegacao v1.4 — critério 8 (menu em texto, sem bordas)
     # Os itens continuam botões para navegação, mas sem borda/fundo: apenas o
     # texto; densidade maior em telas estreitas preservando o toque.
-    # Seletor: data-testid="stBaseButton-secondary" (Streamlit 1.35+), com o
-    # atributo "kind" como fallback de versões antigas. O overflow explícito
-    # garante rolagem do drawer no celular.
-    render_global_css(
+    # Os estilos são aplicados por JavaScript injetado pelo sink central
+    # (estilo inline no DOM, com prioridade "important"), robusto a
+    # especificidade/sanitização; o CSS de apoio cobre :hover/:focus.
+    render_dom_styles(
         st,
-        """
-        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
-        [data-testid="stSidebar"] button[kind="secondary"] {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            text-align: left;
-            font-size: 0.85rem;
-            padding: 0.1rem 0.25rem !important;
-            min-height: 1.6rem;
-        }
-        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,
-        [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:focus,
-        [data-testid="stSidebar"] button[kind="secondary"]:hover,
-        [data-testid="stSidebar"] button[kind="secondary"]:focus {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-        [data-testid="stSidebarContent"] {
-            overflow-y: auto;
-        }
-        @media (max-width: 768px) {
-            [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
-            [data-testid="stSidebar"] button[kind="secondary"] {
-                font-size: 0.85rem;
-                padding: 0.05rem 0.2rem !important;
-                min-height: 1.9rem;
-            }
-        }
-        """,
+        [
+            {
+                "selector": '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]',
+                "style": {
+                    "background": "transparent",
+                    "border": "none",
+                    "boxShadow": "none",
+                    "textAlign": "left",
+                    "fontSize": "0.85rem",
+                    "padding": "0.1rem 0.25rem",
+                    "minHeight": "1.6rem",
+                },
+            },
+            {
+                "selector": '[data-testid="stSidebar"] button[kind="secondary"]',
+                "style": {
+                    "background": "transparent",
+                    "border": "none",
+                    "boxShadow": "none",
+                    "textAlign": "left",
+                    "fontSize": "0.85rem",
+                    "padding": "0.1rem 0.25rem",
+                    "minHeight": "1.6rem",
+                },
+            },
+            {
+                "selector": '[data-testid="stSidebarContent"]',
+                "style": {"overflowY": "auto"},
+            },
+            {
+                "selector": '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]',
+                "media": "(max-width: 768px)",
+                "style": {
+                    "fontSize": "0.85rem",
+                    "padding": "0.05rem 0.2rem",
+                    "minHeight": "1.9rem",
+                },
+            },
+            {
+                "selector": '[data-testid="stSidebar"] button[kind="secondary"]',
+                "media": "(max-width: 768px)",
+                "style": {
+                    "fontSize": "0.85rem",
+                    "padding": "0.05rem 0.2rem",
+                    "minHeight": "1.9rem",
+                },
+            },
+        ],
+        extra_css=(
+            '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,'
+            '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:focus,'
+            '[data-testid="stSidebar"] button[kind="secondary"]:hover,'
+            '[data-testid="stSidebar"] button[kind="secondary"]:focus {'
+            " background: transparent !important;"
+            " border: none !important;"
+            " box-shadow: none !important;"
+            "}"
+        ),
     )
     token_ok = _sync_session_from_token()
     token = st.session_state.get("token")

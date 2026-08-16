@@ -2,7 +2,7 @@
 tipo: spec
 area: navegacao
 status: implementado
-versao: 1.3
+versao: 1.4
 atualizado: 2026-08-16
 relacionados:
   - "[[04_arquitetura]]"
@@ -63,7 +63,11 @@ visitante anônimo na tela de login.
 8. Os itens do menu são botões sem borda e sem fundo (aparência de texto,
    alinhados à esquerda), com espaçamento mínimo; em telas estreitas
    (`max-width: 768px`) a densidade aumenta sem reduzir a altura mínima de
-   toque. Mudança exclusivamente de apresentação via CSS.
+   toque. Mudança exclusivamente de apresentação: os estilos são aplicados
+   por JavaScript injetado pelo sink central (`utils.html_utils`), com
+   estilos inline de prioridade máxima no DOM renderizado — robusto a
+   sanitização, especificidade do tema e reruns (via `MutationObserver`); o
+   CSS de apoio cobre os estados `:hover`/`:focus`.
 
 ## Interface, serviços e dados
 
@@ -125,9 +129,15 @@ visitante anônimo na tela de login.
       via CSS. Fecha: critério 8.
 - [x] Remover bordas e fundo dos itens (menu em texto), mantendo o toque
       mínimo no celular. Fecha: critério 8.
+- [x] Aplicar os estilos do menu via JavaScript injetado pelo sink central
+      (inline no DOM, robusto a especificidade/sanitização). Fecha: critério 8.
 
 ## Changelog
 
+- `1.4` — 2026-08-16 — Estilos do menu aplicados via JS injetado pelo sink
+  central (`render_dom_styles`): inline no DOM com prioridade máxima e
+  `MutationObserver` para reruns; CSS de apoio para `:hover`/`:focus`
+  (critério 8).
 - `1.3` — 2026-08-16 — Itens do menu sem borda nem fundo (texto), densidade
   maior no celular (critério 8).
 - `1.2` — 2026-08-16 — Botões do menu compactos, com densidade maior em

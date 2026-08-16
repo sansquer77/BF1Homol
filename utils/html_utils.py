@@ -51,9 +51,47 @@ def render_global_css(st_module: Any, css: str) -> None:
     st_module.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 
+def render_dom_styles(st_module: Any, rules: list[dict[str, Any]], *, extra_css: str = "") -> None:
+    """Aplica estilos diretamente no DOM renderizado, imunes a especificidade.
+
+    Cada regra: ``{"selector": str, "style": {prop: valor}, "media": str | None}``.
+    Um ``MutationObserver`` reaplica os estilos inline (via ``setProperty`` com
+    prioridade ``important``) após qualquer mutação do Streamlit, cobrindo
+    reruns, expansores e o drawer móvel. ``extra_css`` injeta ``<style>`` de
+    apoio para estados que inline não alcança (ex.: ``:hover``/``:focus``).
+    """
+    payload = serialize_js_value(rules)
+    script = (
+        "<script>"
+        "(function(){"
+        "var rules=" + payload + ";"
+        "function apply(){"
+        "for(var i=0;i<rules.length;i++){"
+        "var rule=rules[i];"
+        "if(rule.media&&!window.matchMedia(rule.media).matches)continue;"
+        "var els=document.querySelectorAll(rule.selector);"
+        "for(var j=0;j<els.length;j++){"
+        "var el=els[j];"
+        "for(var k in rule.style){"
+        "el.style.setProperty(k,rule.style[k],\"important\")"
+        "}"
+        "}"
+        "}"
+        "}"
+        "apply();"
+        "var mo=new MutationObserver(apply);"
+        "mo.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:[\"class\",\"data-testid\"]});"
+        "})()"
+        "</script>"
+    )
+    body = script if not extra_css else f"<style>{extra_css}</style>{script}"
+    render_trusted_html(st_module, body, allow_javascript=True)
+
+
 __all__ = [
     "escape_html_attr",
     "escape_html_text",
+    "render_dom_styles",
     "render_global_css",
     "render_trusted_html",
     "serialize_js_value",

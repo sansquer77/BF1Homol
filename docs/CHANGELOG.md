@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 2.5
+versao: 2.6
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,15 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.10.4
+
+- Estilo do menu aplicado por JavaScript injetado pelo sink central
+  (`render_dom_styles`): os estilos vão como atributos inline diretamente no
+  DOM renderizado (prioridade máxima, imune a especificidade do tema e a
+  sanitização), com `MutationObserver` reaplicando a cada rerun/mutação —
+  bordas/fundo do Liquid Glass deixam de se sobrepor; rolagem da sidebar no
+  celular também via inline (spec `menu-e-navegacao` v1.4, critério 8).
 
 ### 3.10.3
 
