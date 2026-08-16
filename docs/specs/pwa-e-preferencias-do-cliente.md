@@ -2,8 +2,8 @@
 tipo: spec
 area: cliente
 status: implementado
-versao: 1.1
-atualizado: 2026-08-16
+versao: 1.0
+atualizado: 2026-07-31
 relacionados: ["[[specs/autenticacao-e-sessao]]", "[[04_arquitetura]]", "[[07_guia_deploy]]"]
 tags: [spec, "area/cliente", "status/implementado"]
 aliases: ["PWA e preferências do cliente"]
@@ -12,7 +12,7 @@ aliases: ["PWA e preferências do cliente"]
 # PWA e preferências do cliente
 
 > [!info] Status
-> **implementado** · área: `cliente` · atualizado em 2026-08-16 · relacionados: [[specs/autenticacao-e-sessao]], [[04_arquitetura]], [[07_guia_deploy]]
+> **implementado** · área: `cliente` · atualizado em 2026-07-31 · relacionados: [[specs/autenticacao-e-sessao]], [[04_arquitetura]], [[07_guia_deploy]]
 
 ## Problema
 
@@ -61,12 +61,10 @@ Oferecer experiência instalável e horários compreensíveis por usuário, mant
 5. Dado navegador compatível em HTTPS, quando consultar os metadados, então nome, manifest e ícones permitem a experiência instalável.
 6. Dado query param de preferência, quando acessado sem login, então ele não autentica nem amplia permissões.
 7. Dada configuração de produção, quando iniciar, então XSRF e regras de origem permanecem habilitados conforme o deploy.
-8. Dado fuso de exibição selecionado, quando a Agenda (streamlit-calendar) renderizar, então os eventos são exibidos nesse fuso, mesmo quando o navegador está em outro; quando navegador e seleção coincidem, o resultado é idêntico ao atual.
 
 ## Verificação
 
 - Critérios 1–4 — testes em `tests/test_timezone_preference.py`.
-- Critério 8 — teste estático em `tests/test_timezone_preference.py` (componente da Agenda recebe `timezone` do fuso de exibição).
 - Critérios 6 e 7 — testes em `tests/test_streamlit_security_config.py` e matriz de autenticação.
 - Critério 5 — verificação manual em navegador compatível e HTTPS, incluindo inspeção do manifest e instalação.
 
@@ -82,11 +80,9 @@ Oferecer experiência instalável e horários compreensíveis por usuário, mant
 
 - [x] Implementar detecção, preferência e fallback. Fecha: critérios 1–4 e 6.
 - [x] Publicar ativos PWA e preservar configuração segura. Fecha: critérios 5 e 7.
-- [x] Exibir a Agenda no fuso selecionado (timezone do componente). Fecha: critério 8.
 
 ## Changelog
 
-- `1.1` — 2026-08-16 — Agenda passa a exibir eventos no fuso de exibição selecionado (critério 8).
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
 ## Relacionados

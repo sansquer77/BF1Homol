@@ -61,42 +61,6 @@ def _ordenar_provas_por_calendario(provas_df: pd.DataFrame) -> pd.DataFrame:
     """Ordena provas por data/hora do calendário (ascendente), com fallback estável."""
     return _controller_ordenar_provas_por_calendario(provas_df)
 
-
-# spec: apostas-de-prova v1.2 — critério 10 (validação inline por linha)
-def _avisos_inline_aposta(
-    pilotos_aposta: list[str],
-    pilotos_equipe: dict[str, str],
-    permite_mesma_equipe: bool,
-) -> list[str]:
-    """Avisos imediatos da grade de aposta: piloto repetido e mesma equipe.
-
-    Não substitui as validações do envio; apenas antecipa o feedback.
-    Linhas "Nenhum" são ignoradas e a numeração reflete a linha da grade.
-    """
-    avisos: list[str] = []
-    linhas_por_piloto: dict[str, list[int]] = {}
-    linhas_por_equipe: dict[str, list[int]] = {}
-    for indice, piloto in enumerate(pilotos_aposta):
-        if piloto == "Nenhum":
-            continue
-        numero_linha = indice + 1
-        linhas_por_piloto.setdefault(piloto, []).append(numero_linha)
-        equipe = pilotos_equipe.get(piloto, "")
-        if equipe:
-            linhas_por_equipe.setdefault(equipe, []).append(numero_linha)
-    for piloto, linhas in linhas_por_piloto.items():
-        if len(linhas) > 1:
-            avisos.append(
-                f"Linhas {', '.join(map(str, linhas))}: piloto repetido ({piloto})."
-            )
-    if not permite_mesma_equipe:
-        for equipe, linhas in linhas_por_equipe.items():
-            if len(linhas) > 1:
-                avisos.append(
-                    f"Linhas {', '.join(map(str, linhas))}: mesma equipe ({equipe})."
-                )
-    return avisos
-
 def participante_view():
     if 'token' not in st.session_state or 'user_id' not in st.session_state:
         st.warning("Você precisa estar logado para acessar essa página.")
@@ -123,12 +87,8 @@ def participante_view():
         season_options = get_season_options(fallback_years=["2025", "2026"])
     has_season_data = bool(season_options)
     if has_season_data:
-        # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
-        temporada_global = st.session_state.get("temporada_global", "")
-        season = (
-            temporada_global if temporada_global in season_options
-            else season_options[get_default_season_index(season_options)]
-        )
+        default_index = get_default_season_index(season_options)
+        season = st.selectbox("Temporada", season_options, index=default_index)
         st.session_state['temporada'] = season
     else:
         if is_inactive_profile and inactive_has_history and allowed_seasons:
@@ -272,7 +232,7 @@ def participante_view():
                         elif prova_atual_sel not in prova_ids_validos:
                             st.session_state["sel_prova_aposta"] = proxima_prova_id
 
-                    col_sel, col_btn, col_sem_ideias = st.columns([6, 1.2, 1.4], vertical_alignment="center")
+                    col_sel, col_btn, col_sem_ideias = st.columns([6, 1.2, 1.4])
                     with col_sel:
                         prova_id = st.selectbox(
                             "Escolha a prova",
@@ -282,6 +242,7 @@ def participante_view():
                             on_change=_on_prova_change
                         )
                     with col_btn:
+                        st.write("")
                         if st.button("Ver regras"):
                             prova_nome_sel = provas[provas['id'] == prova_id]['nome'].values[0]
                             tipo_raw = provas[provas['id'] == prova_id]['tipo'].values[0] if not provas[provas['id'] == prova_id].empty else 'Normal'
@@ -289,6 +250,7 @@ def participante_view():
                             regras_sel = get_regras_aplicaveis(temporada, tipo_sel)
                             _mostrar_regras_dialog(regras_sel, temporada, tipo_sel)
                     with col_sem_ideias:
+                        st.write("")
                         feedback_sem_ideias = st.session_state.pop("sem_ideias_feedback", None)
                         if feedback_sem_ideias:
                             st.success(feedback_sem_ideias)
@@ -342,29 +304,16 @@ def participante_view():
                         fichas_ant = [int(f) for f in detalhes_auto.get("fichas", [])]
                         piloto_11_ant = str(detalhes_auto.get("piloto_11", ""))
 
-                    # spec: apostas-de-prova v1.1 — critério 9 (grade única de aposta)
-                    df_form_aposta = pd.DataFrame(
-                        {
-                            "Piloto": [
-                                pilotos_apostados_ant[i]
-                                if i < len(pilotos_apostados_ant) and pilotos_apostados_ant[i] in pilotos
-                                else "Nenhum"
-                                for i in range(max_linhas)
-                            ],
-                            "Fichas": [
-                                int(fichas_ant[i]) if i < len(fichas_ant) else 0
-                                for i in range(max_linhas)
-                            ],
-                        }
-                    )
-
                     prova_id_form = st.session_state.get("aposta_form_prova_id")
                     force_reload_form = bool(st.session_state.get("aposta_form_force_reload", False))
                     if prova_id_form != prova_id or force_reload_form:
-                        # spec: apostas-de-prova v1.1 — critério 9 (grade única de aposta)
-                        # O data_editor não permite atribuir a chave via session_state;
-                        # remover a chave faz o widget re-inicializar a partir de `data=`.
-                        st.session_state.pop("aposta_editor_data", None)
+                        for i in range(max_linhas):
+                            st.session_state[f"piloto_aposta_{i}"] = (
+                                pilotos_apostados_ant[i]
+                                if i < len(pilotos_apostados_ant) and pilotos_apostados_ant[i] in pilotos
+                                else "Nenhum"
+                            )
+                            st.session_state[f"fichas_aposta_{i}"] = int(fichas_ant[i]) if i < len(fichas_ant) else 0
 
                         if piloto_11_ant in pilotos:
                             st.session_state["piloto_11"] = piloto_11_ant
@@ -386,45 +335,45 @@ def participante_view():
                         f"Escolha seus pilotos e distribua suas fichas entre eles de acordo com as regras "
                         f"(mínimo de {min_pilotos_regra} pilotos com fichas > 0)."
                     )
-                    # spec: apostas-de-prova v1.1 — critério 9 (grade única de aposta)
-                    editor_data = st.data_editor(
-                        df_form_aposta,
-                        key="aposta_editor_data",
-                        width="stretch",
-                        hide_index=True,
-                        num_rows="fixed",
-                        column_config={
-                            "Piloto": st.column_config.SelectboxColumn(
-                                "Piloto",
-                                options=["Nenhum"] + pilotos,
-                                required=True,
-                                width="medium",
-                            ),
-                            "Fichas": st.column_config.NumberColumn(
-                                "Fichas",
-                                min_value=0,
-                                max_value=fichas_max_por_piloto,
-                                step=1,
-                                default=0,
-                                width="small",
-                            ),
-                        },
-                    )
                     pilotos_aposta, fichas_aposta = [], []
-                    for _, linha in editor_data.iterrows():
-                        piloto_raw = linha["Piloto"]
-                        piloto_sel = (
-                            "Nenhum" if piloto_raw is None or str(piloto_raw).lower() == "nan"
-                            else str(piloto_raw)
-                        )
-                        fichas_raw = linha["Fichas"]
-                        fichas_valor = 0 if fichas_raw is None else int(fichas_raw)
-                        pilotos_aposta.append(piloto_sel)
-                        fichas_aposta.append(fichas_valor)
-
-                    # spec: apostas-de-prova v1.2 — critério 10 (validação inline por linha)
-                    for aviso in _avisos_inline_aposta(pilotos_aposta, pilotos_equipe, permite_mesma_equipe):
-                        st.warning(aviso)
+                    min_campos_visiveis = max(1, min(int(min_pilotos_regra), int(max_linhas)))
+                    for i in range(max_linhas):
+                        mostrar = False
+                        if i < min_campos_visiveis:
+                            mostrar = True
+                        elif i < max_linhas and len([p for p in pilotos_aposta if p != "Nenhum"]) == i and sum(fichas_aposta) < quantidade_fichas:
+                            mostrar = True
+                        if mostrar:
+                            col1, col2 = st.columns([3, 1])
+                            with col1:
+                                key_piloto = f"piloto_aposta_{i}"
+                                if key_piloto not in st.session_state:
+                                    st.session_state[key_piloto] = (
+                                        pilotos_apostados_ant[i]
+                                        if len(pilotos_apostados_ant) > i and pilotos_apostados_ant[i] in pilotos
+                                        else "Nenhum"
+                                    )
+                                piloto_sel = st.selectbox(
+                                    f"Piloto {i+1}",
+                                    ["Nenhum"] + pilotos,
+                                    key=key_piloto
+                                )
+                            with col2:
+                                if piloto_sel != "Nenhum":
+                                    key_fichas = f"fichas_aposta_{i}"
+                                    if key_fichas not in st.session_state:
+                                        st.session_state[key_fichas] = int(fichas_ant[i]) if len(fichas_ant) > i else 0
+                                    valor_ficha = st.number_input(
+                                        f"Fichas para {piloto_sel}", min_value=0, max_value=fichas_max_por_piloto,
+                                        key=key_fichas
+                                    )
+                                else:
+                                    valor_ficha = 0
+                            pilotos_aposta.append(piloto_sel)
+                            fichas_aposta.append(valor_ficha)
+                        else:
+                            pilotos_aposta.append("Nenhum")
+                            fichas_aposta.append(0)
 
                     pilotos_validos = [p for p in pilotos_aposta if p != "Nenhum"]
                     fichas_validas = [f for i, f in enumerate(fichas_aposta) if pilotos_aposta[i] != "Nenhum"]
@@ -455,6 +404,9 @@ def participante_view():
                     )
                     (st.success if total_ok else st.error)(total_message)
 
+                    passo2_ok = total_ok and len(pilotos_com_ficha) >= min_pilotos_regra
+                    st.progress(1.0 if passo2_ok else 0.67, text="Progresso do preenchimento")
+
                     pilotos_11_opcoes = [p for p in pilotos if p not in pilotos_validos]
                     if not pilotos_11_opcoes:
                         pilotos_11_opcoes = pilotos
@@ -466,37 +418,6 @@ def participante_view():
                         key="piloto_11"
                     )
 
-                    # spec: apostas-de-prova v1.2 — critério 10 (validação inline do 11º)
-                    if piloto_11 in pilotos_com_ficha:
-                        st.warning(f"O 11º colocado ({piloto_11}) está entre os pilotos apostados.")
-
-                    # spec: apostas-de-prova v1.3 — critério 11 (indicador honesto por validação)
-                    sem_duplicados = len(set(pilotos_com_ficha)) == len(pilotos_com_ficha)
-                    equipes_com_ficha = [pilotos_equipe[p] for p in pilotos_com_ficha]
-                    equipes_ok = permite_mesma_equipe or len(set(equipes_com_ficha)) == len(equipes_com_ficha)
-                    max_por_piloto_ok = not fichas_com_ficha or max(fichas_com_ficha) <= fichas_max_por_piloto
-                    validacoes_etapa2 = [
-                        (
-                            len(pilotos_com_ficha) >= min_pilotos_regra,
-                            f"Mínimo de {min_pilotos_regra} pilotos com fichas",
-                        ),
-                        (total_ok, f"Soma exata de {quantidade_fichas} fichas"),
-                        (sem_duplicados, "Nenhum piloto repetido"),
-                        (
-                            equipes_ok,
-                            "Nenhuma equipe repetida" if not permite_mesma_equipe else "Equipes (sem restrição)",
-                        ),
-                        (max_por_piloto_ok, f"Máximo de {fichas_max_por_piloto} fichas por piloto"),
-                        (piloto_11 not in pilotos_com_ficha, "11º colocado diferente dos apostados"),
-                    ]
-                    concluidas_etapa2 = sum(1 for ok_etapa2, _ in validacoes_etapa2 if ok_etapa2)
-                    st.progress(
-                        concluidas_etapa2 / len(validacoes_etapa2),
-                        text=f"Etapa 2: {concluidas_etapa2}/{len(validacoes_etapa2)} validações concluídas",
-                    )
-                    for ok_etapa2, descricao in validacoes_etapa2:
-                        st.markdown(f"- {'[x]' if ok_etapa2 else '[ ]'} {descricao}")
-
                     st.markdown("### Etapa 3 de 3 - Revise e confirme")
                     st.caption(
                         f"Resumo rapido: {len(pilotos_com_ficha)} pilotos com fichas, "
@@ -507,6 +428,7 @@ def participante_view():
                         erros = []
                         if len(set(pilotos_com_ficha)) != len(pilotos_com_ficha):
                             erros.append("Não é permitido apostar em dois pilotos iguais.")
+                        equipes_com_ficha = [pilotos_equipe[p] for p in pilotos_com_ficha]
                         if not permite_mesma_equipe and len(set(equipes_com_ficha)) < len(equipes_com_ficha):
                             erros.append("Não é permitido apostar em dois pilotos da mesma equipe.")
                         if len(pilotos_com_ficha) < min_pilotos_regra:

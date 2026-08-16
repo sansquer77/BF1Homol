@@ -245,14 +245,19 @@ def main():
         st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
         return
 
-    # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
-    temporada_global = st.session_state.get("temporada_global", "")
-    if temporada_global not in temporadas:
-        st.session_state["temporada_global"] = (
-            temporada_atual if temporada_atual in temporadas
-            else temporadas[get_default_season_index(temporadas)]
-        )
-    temporada = st.session_state["temporada_global"]
+    entering_calendar_page = st.session_state.get("_previous_page") != st.session_state.get("_current_page")
+    selected_temporada = st.session_state.get("calendario_temporada")
+
+    if entering_calendar_page and temporada_atual in temporadas:
+        st.session_state["calendario_temporada"] = temporada_atual
+    elif selected_temporada not in temporadas:
+        if temporada_atual in temporadas:
+            st.session_state["calendario_temporada"] = temporada_atual
+        else:
+            default_index = get_default_season_index(temporadas)
+            st.session_state["calendario_temporada"] = temporadas[default_index]
+
+    temporada = st.selectbox("Temporada", temporadas, key="calendario_temporada")
 
     # --- Carrega e prepara provas ---
     provas_df = with_required_columns(get_provas_df(temporada=temporada), PROVAS_COLUMNS)
@@ -277,10 +282,6 @@ def main():
         hoje_iso = now_aware.date().isoformat()
         calendar_options = {
             "locale": "pt-br",
-            # spec: pwa-e-preferencias-do-cliente v1.1 — critério 8
-            # Sem esta opção o FullCalendar exibe no fuso do navegador ('local'),
-            # ignorando o fuso selecionado na sidebar quando eles diferem.
-            "timezone": tz_exibicao,
             "initialView": "listMonth",
             "initialDate": hoje_iso,
             "height": 680,

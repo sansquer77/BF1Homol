@@ -440,6 +440,7 @@ def login_view():
 
             logger.info("Login bem-sucedido: %s perfil=%s status=%s", redact_identifier(email), usuario['perfil'], usuario.get('status', 'Ativo'))
 
+            st.success(f"✅ Bem-vindo, {usuario['nome']}!")
             if status_usuario != 'ativo' or perfil_usuario == 'inativo':
                 st.info("Seu acesso está em modo inativo e foi limitado para consulta.")
 
@@ -447,104 +448,94 @@ def login_view():
             st.rerun()
 
         # ========== ESQUECI A SENHA ==========
-        # spec: polimento-de-interface v1.0 — critério 1
         with st.expander("Esqueci a senha"):
-            passo_reset = st.radio(
-                "Etapa da recuperação",
-                ["1. Solicitar token", "2. Redefinir senha"],
-                horizontal=True,
-                label_visibility="collapsed",
-                key="reset_passo",
-            )
+            st.write("Informe seu email para receber um token único de redefinição.")
+            with st.form("forgot_password_form", clear_on_submit=True):
+                email_reset = st.text_input("📧 Email", placeholder="seu@email.com", key="reset_email")
+                reset_submit = st.form_submit_button("Enviar token de redefinição", width="stretch")
 
-            if passo_reset == "1. Solicitar token":
-                st.write("Informe seu email para receber um token único de redefinição.")
-                with st.form("forgot_password_form", clear_on_submit=True):
-                    email_reset = st.text_input("📧 Email", placeholder="seu@email.com", key="reset_email")
-                    reset_submit = st.form_submit_button("Enviar token de redefinição", width="stretch")
-
-                if reset_submit:
-                    if not email_reset:
-                        st.error("❌ Informe o email.")
-                    else:
-                        try:
-                            email_reset = normalize_email_identifier(email_reset)
-                        except ValueError:
-                            st.error("❌ Email inválido.")
-                            return
-                        valido, _ = validar_email(email_reset)
-                        if not valido:
-                            st.error("❌ Email inválido.")
-                            return
-                        reset_ip = get_client_ip() or "LOCAL"
-                        falhas_email_reset, falhas_ip_reset, bloqueado = obter_tentativas_recentes(
+            if reset_submit:
+                if not email_reset:
+                    st.error("❌ Informe o email.")
+                else:
+                    try:
+                        email_reset = normalize_email_identifier(email_reset)
+                    except ValueError:
+                        st.error("❌ Email inválido.")
+                        return
+                    valido, _ = validar_email(email_reset)
+                    if not valido:
+                        st.error("❌ Email inválido.")
+                        return
+                    reset_ip = get_client_ip() or "LOCAL"
+                    falhas_email_reset, falhas_ip_reset, bloqueado = obter_tentativas_recentes(
+                        email_reset,
+                        reset_ip,
+                        MAX_RESET_ATTEMPTS,
+                        RESET_LOCKOUT_DURATION,
+                        "password_reset"
+                    )
+                    if bloqueado:
+                        motivo_reset = _classificar_motivo_bloqueio(
+                            falhas_email_reset,
+                            falhas_ip_reset,
+                            MAX_RESET_ATTEMPTS,
+                        )
+                        logger.warning(
+                            "[SECURITY_AUDIT] password_reset_blocked email=%s ip=%s motivo=%s falhas_email=%d falhas_ip=%d limite_email=%d limite_ip=%d",
                             email_reset,
                             reset_ip,
+                            motivo_reset,
+                            falhas_email_reset,
+                            falhas_ip_reset,
                             MAX_RESET_ATTEMPTS,
-                            RESET_LOCKOUT_DURATION,
-                            "password_reset"
+                            MAX_RESET_ATTEMPTS * 3,
                         )
-                        if bloqueado:
-                            motivo_reset = _classificar_motivo_bloqueio(
-                                falhas_email_reset,
-                                falhas_ip_reset,
-                                MAX_RESET_ATTEMPTS,
-                            )
-                            logger.warning(
-                                "[SECURITY_AUDIT] password_reset_blocked email=%s ip=%s motivo=%s falhas_email=%d falhas_ip=%d limite_email=%d limite_ip=%d",
-                                email_reset,
-                                reset_ip,
-                                motivo_reset,
-                                falhas_email_reset,
-                                falhas_ip_reset,
-                                MAX_RESET_ATTEMPTS,
-                                MAX_RESET_ATTEMPTS * 3,
-                            )
-                            st.info("Se o email estiver cadastrado, você receberá um token de redefinição em instantes.")
-                            registrar_tentativa_login(email_reset, False, ip_address=reset_ip, action="password_reset")
-                        else:
-                            ok, payload = redefinir_senha_usuario(email_reset)
-                            if ok:
-                                nome_usuario, reset_token, exp_minutes = payload
-                                try:
-                                    enviar_email_recuperacao_senha(email_reset, nome_usuario, reset_token, exp_minutes)
-                                except Exception as e:
-                                    logger.warning(
-                                        "Falha ao enviar email de recuperacao para %s: %s",
-                                        redact_identifier(email_reset),
-                                        e,
-                                    )
-                            # Resposta genérica para evitar enumeração
-                            st.info("Se o email estiver cadastrado, você receberá um token de redefinição em instantes.")
-                            registrar_tentativa_login(email_reset, False, ip_address=reset_ip, action="password_reset")
-            else:
-                st.write("Já recebeu o token? Defina uma nova senha abaixo.")
-                with st.form("forgot_password_token_form", clear_on_submit=True):
-                    email_token = st.text_input("📧 Email da conta", key="reset_email_token")
-                    token_reset = st.text_input("🔐 Token de redefinição", key="reset_token_input")
-                    nova_senha = st.text_input("🔒 Nova senha", type="password", key="reset_new_password")
-                    confirma_senha = st.text_input("🔒 Confirmar nova senha", type="password", key="reset_confirm_password")
-                    token_submit = st.form_submit_button("Redefinir senha com token", width="stretch")
-
-                if token_submit:
-                    if not email_token or not token_reset or not nova_senha or not confirma_senha:
-                        st.error("❌ Preencha email, token e os dois campos de senha.")
-                    elif nova_senha != confirma_senha:
-                        st.error("❌ A confirmação de senha não confere.")
-                    elif len(nova_senha) < 8:
-                        st.error("❌ A nova senha deve ter no mínimo 8 caracteres.")
+                        st.info("Se o email estiver cadastrado, você receberá um token de redefinição em instantes.")
+                        registrar_tentativa_login(email_reset, False, ip_address=reset_ip, action="password_reset")
                     else:
-                        try:
-                            email_token = normalize_email_identifier(email_token)
-                        except ValueError:
-                            st.error("❌ Email inválido.")
-                            return
-                        valido, _ = validar_email(email_token)
-                        if not valido:
-                            st.error("❌ Email inválido.")
+                        ok, payload = redefinir_senha_usuario(email_reset)
+                        if ok:
+                            nome_usuario, reset_token, exp_minutes = payload
+                            try:
+                                enviar_email_recuperacao_senha(email_reset, nome_usuario, reset_token, exp_minutes)
+                            except Exception as e:
+                                logger.warning(
+                                    "Falha ao enviar email de recuperacao para %s: %s",
+                                    redact_identifier(email_reset),
+                                    e,
+                                )
+                        # Resposta genérica para evitar enumeração
+                        st.info("Se o email estiver cadastrado, você receberá um token de redefinição em instantes.")
+                        registrar_tentativa_login(email_reset, False, ip_address=reset_ip, action="password_reset")
+
+            with st.form("forgot_password_token_form", clear_on_submit=True):
+                st.caption("Já recebeu o token? Defina uma nova senha abaixo.")
+                email_token = st.text_input("📧 Email da conta", key="reset_email_token")
+                token_reset = st.text_input("🔐 Token de redefinição", key="reset_token_input")
+                nova_senha = st.text_input("🔒 Nova senha", type="password", key="reset_new_password")
+                confirma_senha = st.text_input("🔒 Confirmar nova senha", type="password", key="reset_confirm_password")
+                token_submit = st.form_submit_button("Redefinir senha com token", width="stretch")
+
+            if token_submit:
+                if not email_token or not token_reset or not nova_senha or not confirma_senha:
+                    st.error("❌ Preencha email, token e os dois campos de senha.")
+                elif nova_senha != confirma_senha:
+                    st.error("❌ A confirmação de senha não confere.")
+                elif len(nova_senha) < 8:
+                    st.error("❌ A nova senha deve ter no mínimo 8 caracteres.")
+                else:
+                    try:
+                        email_token = normalize_email_identifier(email_token)
+                    except ValueError:
+                        st.error("❌ Email inválido.")
+                        return
+                    valido, _ = validar_email(email_token)
+                    if not valido:
+                        st.error("❌ Email inválido.")
+                    else:
+                        ok, msg = redefinir_senha_com_token(email_token, token_reset, nova_senha)
+                        if ok:
+                            st.success("✅ Senha redefinida com sucesso. Faça login com a nova senha.")
                         else:
-                            ok, msg = redefinir_senha_com_token(email_token, token_reset, nova_senha)
-                            if ok:
-                                st.success("✅ Senha redefinida com sucesso. Faça login com a nova senha.")
-                            else:
-                                st.error(f"❌ {msg}")
+                            st.error(f"❌ {msg}")

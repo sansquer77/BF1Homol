@@ -208,12 +208,8 @@ def main():
     if not season_options:
         st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
         return
-    # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
-    temporada_global = st.session_state.get("temporada_global", "")
-    season = (
-        temporada_global if temporada_global in season_options
-        else season_options[get_default_season_index(season_options)]
-    )
+    default_index = get_default_season_index(season_options)
+    season = st.selectbox("Temporada", season_options, index=default_index, key="log_apostas_season")
     st.session_state["temporada"] = season
 
     tipos_map = {0: "Dentro do Prazo", 1: "Fora do Prazo"}

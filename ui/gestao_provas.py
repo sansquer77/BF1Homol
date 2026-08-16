@@ -305,12 +305,8 @@ def main():
     # Filtro por temporada
     current_year = str(datetime.now().year)
     temporadas = get_season_options()
-    # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
-    temporada_global = st.session_state.get("temporada_global", "")
-    temporada_sel = (
-        temporada_global if temporada_global in temporadas
-        else temporadas[get_default_season_index(temporadas, current_year=current_year)]
-    )
+    default_index = get_default_season_index(temporadas, current_year=current_year)
+    temporada_sel = st.selectbox("Temporada", temporadas, index=default_index, key="gestao_provas_temporada")
 
     if st.button("🔄 Atualiza Base de Circuitos", key="btn_atualiza_base_circuitos"):
         temporadas_existentes = set(get_temporadas_existentes_provas())

@@ -132,15 +132,15 @@ def get_bf1_logo_data_uri() -> str:
     return _bf1_logo_data_uri()
 
 
-def render_page_header(st_module: Any, title: str, logo_width: int = 55) -> None:
-    """Renderiza cabeçalho padronizado e compacto com logo BF1 + título."""
-    col_logo, col_title = st_module.columns([1, 18])
+def render_page_header(st_module: Any, title: str, logo_width: int = 75) -> None:
+    """Renderiza cabeçalho padronizado com logo BF1 + título da página."""
+    col_logo, col_title = st_module.columns([1, 16])
     with col_logo:
         logo_uri = get_bf1_logo_data_uri()
         if logo_uri:
             st_module.image(logo_uri, width=logo_width)
     with col_title:
-        st_module.header(title)
+        st_module.title(title)
 
     # Aviso explícito para perfis inativos nas telas de consulta.
     user_status = str(st_module.session_state.get("user_status", "")).strip().lower()

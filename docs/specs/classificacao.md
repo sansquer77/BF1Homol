@@ -2,8 +2,8 @@
 tipo: spec
 area: classificacao
 status: implementado
-versao: 1.2
-atualizado: 2026-08-16
+versao: 1.0
+atualizado: 2026-07-31
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -16,7 +16,7 @@ aliases: ["Spec de Classificação"]
 # Classificação
 
 > [!info] Status
-> **implementado** · área: `classificacao` · atualizado em 2026-08-16 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[glossario]], [[adr/0002-limites-de-camadas]]
+> **implementado** · área: `classificacao` · atualizado em 2026-07-31 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[glossario]], [[adr/0002-limites-de-camadas]]
 
 ## Problema
 
@@ -54,13 +54,6 @@ classificação da temporada. Administradores e master também geram imagens.
 5. A ordenação usa Total Válido e depois os desempates documentados.
 6. A Diferença usa Total Válido.
 7. Sem descarte ativo, a coluna Descarte fica oculta e seu valor matemático é zero.
-8. As colunas numéricas da tabela (totais, descarte e diferença) permanecem
-   numéricas nos dados e são renderizadas com `NumberColumn`, permitindo
-   ordenação pelo usuário; a primeira linha da Diferença (sem antecessor) é
-   `NaN` e não quebra a ordenação.
-9. As seções da tela — classificação, pontuação por prova, imagem por prova,
-   evolução acumulada e posições por prova — são navegadas por abas, com os
-   dados compartilhados calculados uma única vez por renderização.
 
 ## Interface, serviços e dados
 
@@ -78,16 +71,10 @@ classificação da temporada. Administradores e master também geram imagens.
 5. Dados bônus e descarte, quando os participantes são ordenados, então Total Válido é a base primária.
 6. Dados participantes adjacentes, quando a Diferença é calculada, então ela usa seus Totais Válidos.
 7. Dado descarte inativo, quando a tabela é exibida, então a coluna Descarte não aparece.
-8. Dada a tabela da classificação, quando o usuário ordena por uma coluna
-   numérica (total, descarte ou diferença), então a ordenação é numérica;
-   a primeira linha da Diferença exibe "—" sem valor numérico.
-9. Dada a tela de classificação, quando ela renderiza, então as cinco seções
-   aparecem em abas nomeadas e a aba "Classificação" é a primeira; nenhuma
-   seção é removida ou reordenada funcionalmente.
 
 ## Verificação
 
-- Critérios 1, 2, 4, 5, 6, 7 e 8 — testes em `tests/test_classificacao_pontuacao.py` e `tests/test_classification_workflow.py`.
+- Critérios 1, 2, 4, 5, 6 e 7 — testes em `tests/test_classificacao_pontuacao.py` e `tests/test_classification_workflow.py`.
 - Critério 3 — teste da fórmula e verificação manual da tabela após resultado de campeonato.
 
 ## Pendências
@@ -104,17 +91,9 @@ classificação da temporada. Administradores e master também geram imagens.
 - [x] Separar Total Geral e Total Válido. Fecha: critérios 1, 2 e 4.
 - [x] Ordenar colunas e usar Total Válido em posição e diferença. Fecha: critérios 3, 5, 6 e 7.
 - [x] Fortalecer testes e atualizar regras documentadas. Fecha: critérios 1 a 7.
-- [x] Manter colunas numéricas como números (NumberColumn) e Diferença com NaN
-      na primeira linha. Fecha: critério 8.
-- [x] Dividir a tela em cinco abas de navegação interna. Fecha: critério 9.
 
 ## Changelog
 
-- `1.2` — 2026-08-16 — Tela dividida em abas (classificação, pontuação por
-  prova, imagem por prova, evolução acumulada e posições por prova);
-  dados compartilhados calculados uma vez (critério 9).
-- `1.1` — 2026-08-16 — Colunas numéricas renderizadas como números ordenáveis
-  (NumberColumn); primeira linha da Diferença como NaN (critério 8).
 - `1.0` — 2026-07-31 — Spec focada criada e reconciliada com cálculo e testes atuais.
 
 ## Relacionados

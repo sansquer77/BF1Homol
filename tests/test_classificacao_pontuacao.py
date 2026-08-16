@@ -11,7 +11,6 @@ def _carregar_funcoes_classificacao():
     tree = ast.parse(source)
     nomes = {
         "_calcular_descartes_atuais",
-        "_cor_fundo_heatmap",
         "_montar_pontos_por_prova",
         "destacar_heatmap",
         "formatar_brasileiro",
@@ -28,7 +27,6 @@ def _carregar_funcoes_classificacao():
     _calcular_descartes_atuais,
     _calcular_totais_classificacao,
     _colunas_classificacao,
-    _cor_fundo_heatmap,
     _montar_pontos_por_prova,
     destacar_heatmap,
     formatar_brasileiro,
@@ -72,11 +70,9 @@ class ClassificacaoPontuacaoTests(unittest.TestCase):
 
         contexto = destacar_heatmap(formatada, resultados, [10, 20])._compute().ctx
 
-        # spec: polimento-de-interface v1.0 — critério 2
-        # Escala suave: Bruno tem 200 (máximo → verde claro) e Ana 100
-        # (mínimo → vermelho claro) na Austrália; texto escuro legível.
-        self.assertIn(("background-color", "rgb(205,255,205)"), contexto[(0, 0)])
-        self.assertIn(("background-color", "rgb(255,205,205)"), contexto[(0, 1)])
+        # Bruno tem 200 (maior/verde) e Ana 100 (menor/vermelho) na Austrália.
+        self.assertIn(("background-color", "rgb(0,255,0)"), contexto[(0, 0)])
+        self.assertIn(("background-color", "rgb(255,0,0)"), contexto[(0, 1)])
         self.assertNotIn((1, 0), contexto)
         self.assertNotIn((1, 1), contexto)
 
@@ -124,34 +120,6 @@ class ClassificacaoPontuacaoTests(unittest.TestCase):
                 "Diferença", "Movimentação",
             ],
         )
-
-    # spec: classificacao v1.1 — critério 8
-    def test_colunas_numericas_sao_ordenaveis(self):
-        source = (Path(__file__).resolve().parents[1] / "ui" / "classificacao.py").read_text(encoding="utf-8")
-        numericas = [
-            "Total Geral", "Bônus Campeão", "Bônus Vice", "Bônus Equipe",
-            "Descarte", "Total Válido", "Diferença",
-        ]
-        for col in numericas:
-            self.assertIn(f'NumberColumn("{col}", format="%.2f"', source, col)
-            self.assertNotIn(f'TextColumn("{col}"', source, col)
-        self.assertNotIn("df_display[col] = df_display[col].apply(lambda x: formatar_brasileiro(float(x)))", source)
-        self.assertNotIn('"-" if i == 0 else formatar_brasileiro', source)
-        self.assertIn('float("nan") if i == 0', source)
-
-    # spec: classificacao v1.2 — critério 9
-    def test_secoes_divididas_em_abas(self):
-        source = (Path(__file__).resolve().parents[1] / "ui" / "classificacao.py").read_text(encoding="utf-8")
-        for aba in ["Classificação", "Pontuação por Prova", "Imagem por Prova",
-                    "Evolução Acumulada", "Posições por Prova"]:
-            self.assertIn(f'"{aba}"', source, aba)
-        self.assertIn("with tab_classificacao:", source)
-        self.assertIn("with tab_pontos:", source)
-        self.assertIn("with tab_imagens:", source)
-        self.assertIn("with tab_evolucao:", source)
-        self.assertIn("with tab_posicoes:", source)
-        self.assertNotIn('st.subheader("Pontuação por Prova")', source)
-        self.assertNotIn('st.subheader("Evolução da Pontuação Acumulada")', source)
 
 
 if __name__ == "__main__":

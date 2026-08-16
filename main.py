@@ -14,7 +14,7 @@ from importlib import import_module
 import logging
 import datetime
 from utils.performance import journey
-from utils.html_utils import render_dom_styles, render_trusted_html, serialize_js_value
+from utils.html_utils import render_trusted_html, serialize_js_value
 from pathlib import Path
 
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
@@ -33,14 +33,7 @@ bind_runtime(
 
 # ============ CARREGAR ESTILOS CSS LIQUID GLASS ============
 def load_css():
-    """Carrega o arquivo CSS customizado com tema Liquid Glass.
-
-    Diagnóstico temporário: `BF1_DISABLE_THEME=1` desliga o tema para
-    avaliar se o Liquid Glass é a causa do menu com bordas/fundo.
-    """
-    import os
-    if os.getenv("BF1_DISABLE_THEME") == "1":
-        return
+    """Carrega o arquivo CSS customizado com tema Liquid Glass."""
     css_file = Path(__file__).parent / "assets" / "styles.css"
     if css_file.exists():
         with open(css_file, "r", encoding="utf-8") as f:
@@ -176,31 +169,6 @@ _TZ_SOURCE_PARAM = "tz_source"
 _TZ_SOURCE_AUTO = "auto"
 _TZ_SOURCE_MANUAL = "manual"
 
-# Rótulos amigáveis do seletor manual; o valor persistido permanece o
-# identificador IANA canônico (client_timezone).
-_TZ_LABELS: dict[str, str] = {
-    "America/Sao_Paulo": "Brasil (São Paulo)",
-    "America/Recife": "Brasil (Recife)",
-    "America/Manaus": "Brasil (Manaus)",
-    "America/Rio_Branco": "Brasil (Rio Branco)",
-    "America/New_York": "EUA (Nova York)",
-    "America/Chicago": "EUA (Chicago)",
-    "America/Denver": "EUA (Denver)",
-    "America/Los_Angeles": "EUA (Los Angeles)",
-    "America/Anchorage": "EUA (Anchorage)",
-    "Pacific/Honolulu": "EUA (Havaí)",
-    "UTC": "UTC",
-    "Europe/London": "Reino Unido (Londres)",
-    "Europe/Paris": "Europa (Paris)",
-    "Europe/Berlin": "Europa (Berlim)",
-    "Europe/Madrid": "Europa (Madri)",
-    "Europe/Rome": "Europa (Roma)",
-    "Asia/Tokyo": "Ásia (Tóquio)",
-    "Asia/Dubai": "Oriente Médio (Dubai)",
-    "Australia/Sydney": "Oceania (Sydney)",
-    "Australia/Melbourne": "Oceania (Melbourne)",
-}
-
 
 def _inject_html(html_code: str) -> None:
     """Injeta HTML/JS no app usando a API não-depreciada disponível.
@@ -321,7 +289,6 @@ from services.auth_service import decode_token
 from ui.auth_transport import clear_auth_cookies
 from ui.oidc_auth import logout_oidc, rehydrate_oidc_session
 from services.access_control import page_is_allowed
-from utils.season_utils import get_current_year_str, get_season_options
 
 # ============ ESTADO INICIAL DA SESSÃO ============
 if 'pagina' not in st.session_state:
@@ -760,126 +727,6 @@ def _load_view(page: str):
 
 # ============ MENU LATERAL ============
 def sidebar_menu():
-    # spec: menu-e-navegacao v1.6 — critério 8 (estilo inspirado no
-    # Sistema Financeiro: grupos como toggle sem retângulo e itens como
-    # nav-button limpos). Os grupos (expansores) perdem o retângulo: a borda
-    # real fica no <details> (filho do stExpander, sem testid próprio) — por
-    # isso o seletor usa `> details`; header e contêiner também sem borda.
-    # Os estilos são aplicados por JavaScript injetado pelo sink central
-    # (estilo inline no DOM, com prioridade "important"), robusto a
-    # especificidade/sanitização; o CSS de apoio cobre :hover/:focus.
-    render_dom_styles(
-        st,
-        [
-            {
-                "selector": '[data-testid="stSidebar"] [data-testid="stExpander"]',
-                "style": {
-                    "padding": "0.1rem 0",
-                    "background": "transparent",
-                },
-            },
-            {
-                "selector": '[data-testid="stSidebar"] [data-testid="stExpander"] > details',
-                "style": {
-                    "border": "none",
-                    "background": "transparent",
-                    "boxShadow": "none",
-                    "borderRadius": "6px",
-                },
-            },
-            {
-                "selector": '[data-testid="stSidebar"] [data-testid="stExpanderDetails"]',
-                "style": {
-                    "borderTop": "none",
-                    "background": "transparent",
-                    "padding": "0.25rem 0",
-                },
-            },
-            {
-                "selector": '[data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"]',
-                "style": {
-                    "border": "none",
-                    "background": "transparent",
-                    "boxShadow": "none",
-                    "borderRadius": "6px",
-                    "minHeight": "28px",
-                    "padding": "0 4px",
-                    "fontSize": "14px",
-                    "fontWeight": "800",
-                    "color": "var(--text-primary)",
-                    "justifyContent": "space-between",
-                },
-            },
-            {
-                "selector": '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]',
-                "style": {
-                    "background": "transparent",
-                    "border": "none",
-                    "boxShadow": "none",
-                    "borderRadius": "6px",
-                    "textAlign": "left",
-                    "fontSize": "13px",
-                    "fontWeight": "700",
-                    "color": "var(--text-secondary)",
-                    "padding": "0 12px",
-                    "minHeight": "32px",
-                },
-            },
-            {
-                "selector": '[data-testid="stSidebar"] button[kind="secondary"]',
-                "style": {
-                    "background": "transparent",
-                    "border": "none",
-                    "boxShadow": "none",
-                    "borderRadius": "6px",
-                    "textAlign": "left",
-                    "fontSize": "13px",
-                    "fontWeight": "700",
-                    "color": "var(--text-secondary)",
-                    "padding": "0 12px",
-                    "minHeight": "32px",
-                },
-            },
-            {
-                "selector": '[data-testid="stSidebarContent"]',
-                "style": {"overflowY": "auto"},
-            },
-            {
-                "selector": '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]',
-                "media": "(max-width: 768px)",
-                "style": {
-                    "fontSize": "13px",
-                    "padding": "0.05rem 0.4rem",
-                    "minHeight": "1.9rem",
-                },
-            },
-            {
-                "selector": '[data-testid="stSidebar"] button[kind="secondary"]',
-                "media": "(max-width: 768px)",
-                "style": {
-                    "fontSize": "13px",
-                    "padding": "0.05rem 0.4rem",
-                    "minHeight": "1.9rem",
-                },
-            },
-        ],
-        extra_css=(
-            '[data-testid="stSidebar"] [data-testid="stExpander"] > details > summary:hover,'
-            '[data-testid="stSidebar"] [data-testid="stExpander"] > details > summary:focus-within {'
-            " background: var(--glass-bg-hover) !important;"
-            " border-radius: 6px !important;"
-            "}"
-            '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,'
-            '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:focus,'
-            '[data-testid="stSidebar"] button[kind="secondary"]:hover,'
-            '[data-testid="stSidebar"] button[kind="secondary"]:focus {'
-            " background: var(--glass-bg-hover) !important;"
-            " color: var(--text-primary) !important;"
-            " border: none !important;"
-            " box-shadow: none !important;"
-            "}"
-        ),
-    )
     token_ok = _sync_session_from_token()
     token = st.session_state.get("token")
     profile_key = "anon"
@@ -911,6 +758,8 @@ def sidebar_menu():
 
     menu_items, grouped_menu = _normalize_grouped_menu(menu_items, grouped_menu)
 
+    if "menu_lateral" in st.session_state and st.session_state["menu_lateral"] not in menu_items:
+        del st.session_state["menu_lateral"]
     if st.session_state.get("pagina") not in menu_items:
         st.session_state["pagina"] = menu_items[0]
 
@@ -918,45 +767,33 @@ def sidebar_menu():
     last_section_key = f"menu_secao_last_{profile_key}"
     persisted_section = st.session_state.get(last_section_key)
     default_section = persisted_section if persisted_section in grouped_menu else _default_group_for_page(grouped_menu, current_page)
+    section_names = list(grouped_menu.keys())
+    default_section_index = section_names.index(default_section) if default_section in section_names else 0
 
-    # spec: menu-e-navegacao v1.1 — critérios 1, 2, 4, 5 e 7
-    # Navegação em coluna única: cada seção é um expansor e cada item é um
-    # botão de largura total. O item da página atual fica destacado e o
-    # primeiro clique em qualquer item navega (botão sempre dispara rerun,
-    # sem depender de troca de seleção prévia como o radio).
-    for section_name, items in grouped_menu.items():
-        expanded = section_name == default_section
-        with st.sidebar.expander(section_name, expanded=expanded):
-            if not items:
-                continue
-            for item in items:
-                ativo = item == current_page
-                label = f"▶ {item}" if ativo else item
-                if st.button(
-                    label,
-                    key=f"menu_btn_{profile_key}_{section_name}_{item}",
-                    width="stretch",
-                ):
-                    st.session_state["pagina"] = item
-                    st.session_state[last_section_key] = section_name
+    if "menu_secao" in st.session_state and st.session_state["menu_secao"] not in section_names:
+        del st.session_state["menu_secao"]
 
-    # ============ SELETOR GLOBAL DE TEMPORADA ============
-    # spec: temporada-global v1.0 — critério 1 (seletor global na sidebar)
-    st.sidebar.divider()
-    st.sidebar.markdown("### Temporada")
-    season_options_global = get_season_options(fallback_years=["2025", "2026"])
-    if season_options_global:
-        if st.session_state.get("temporada_global") not in season_options_global:
-            current_year_str = get_current_year_str()
-            st.session_state["temporada_global"] = (
-                current_year_str if current_year_str in season_options_global else season_options_global[0]
-            )
-        st.sidebar.selectbox(
-            "Temporada",
-            season_options_global,
-            key="temporada_global",
-            help="Temporada usada por todas as telas de consulta e operação do bolão.",
-        )
+    chosen_section = st.sidebar.selectbox(
+        "Seção",
+        section_names,
+        index=default_section_index,
+        key="menu_secao",
+    )
+    st.session_state[last_section_key] = chosen_section
+
+    section_items = grouped_menu.get(chosen_section, menu_items)
+    if "menu_lateral" in st.session_state and st.session_state["menu_lateral"] not in section_items:
+        del st.session_state["menu_lateral"]
+
+    section_default = current_page if current_page in section_items else section_items[0]
+    section_default_index = section_items.index(section_default)
+    escolha = st.sidebar.radio(
+        "Menu",
+        section_items,
+        index=section_default_index,
+        key="menu_lateral",
+    )
+    st.session_state["pagina"] = escolha
 
     # ============ SELETOR DE TIMEZONE ============
     st.sidebar.divider()
@@ -977,7 +814,6 @@ def sidebar_menu():
         common_timezones,
         index=tz_index,
         key="timezone_selector",
-        format_func=lambda tz: _TZ_LABELS.get(tz, tz),
         help=(
             "Timezone usado para exibir horários no Calendário. "
             "Os dados são armazenados em America/Sao_Paulo."
