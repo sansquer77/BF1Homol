@@ -17,13 +17,15 @@ class MenuNavigationTests(unittest.TestCase):
         self.assertIn("st.sidebar.expander(section_name, expanded=expanded)", source)
         self.assertIn("if st.button(", source)
 
-    # spec: menu-e-navegacao v1.2 — critério 8
-    def test_botoes_compactos_com_altura_de_toque_no_mobile(self):
+    # spec: menu-e-navegacao v1.3 — critério 8
+    def test_menu_em_texto_sem_bordas_e_compacto_no_mobile(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")
         self.assertIn("render_trusted_html(st,", source)
         self.assertIn('button[kind="secondary"]', source)
+        self.assertIn("background: transparent;", source)
+        self.assertIn("border: none;", source)
         self.assertIn("@media (max-width: 768px)", source)
-        self.assertIn("min-height: 2.4rem", source)
+        self.assertIn("min-height: 1.9rem", source)
 
     def test_itens_sao_botoes_com_primeiro_clique_navegando(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")

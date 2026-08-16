@@ -92,36 +92,72 @@ def main():
             part_id = part_row["id"]
             apostas_part = apostas_df[apostas_df["usuario_id"] == part_id]
 
+            # spec: apostas-automaticas v1.1 — critério 8
+            # Tabela-resumo seguida de expander por prova: mesma ação de
+            # geração automática com o ruído da página reduzido.
+            resumo_linhas = []
+            for prova in provas_df.itertuples():
+                aposta = apostas_part[apostas_part["prova_id"] == prova.id]
+                if not aposta.empty:
+                    av = aposta.iloc[0]
+                    resumo_linhas.append({
+                        "Prova": prova.nome,
+                        "Data": prova.data,
+                        "Horário": prova.horario_prova,
+                        "Situação": "Automática" if av["automatica"] not in (None, 0) else "Registrada",
+                        "Pilotos": str(av["pilotos"]),
+                        "Fichas": av["fichas"],
+                        "11º": av["piloto_11"],
+                        "Data envio": av["data_envio"],
+                    })
+                else:
+                    resumo_linhas.append({
+                        "Prova": prova.nome,
+                        "Data": prova.data,
+                        "Horário": prova.horario_prova,
+                        "Situação": "Sem aposta",
+                        "Pilotos": "",
+                        "Fichas": "",
+                        "11º": "",
+                        "Data envio": "",
+                    })
+            st.dataframe(pd.DataFrame(resumo_linhas), width="stretch", hide_index=True)
+            st.caption("Clique em uma prova abaixo para ver o detalhe e gerar aposta automática.")
+
             for idx, prova in enumerate(provas_df.itertuples()):
-                st.markdown(f"#### {prova.nome} ({prova.data} {prova.horario_prova})")
                 aposta = apostas_part[apostas_part["prova_id"] == prova.id]
                 existe_aposta_manual = (
                     not aposta.empty and ("automatica" not in aposta.columns or aposta.iloc[0]['automatica'] in [None, 0])
                 )
-                if not aposta.empty:
-                    aposta_view = aposta.iloc[0]
-                    st.success(
-                        f"**Pilotos:** {aposta_view['pilotos']} \n"
-                        f"**Fichas:** {aposta_view['fichas']} \n"
-                        f"**11º:** {aposta_view['piloto_11']} \n"
-                        f"**Data envio:** {aposta_view['data_envio']} \n"
-                        f"**Automática:** {'Sim' if aposta_view['automatica'] else 'Não'}"
-                    )
+                if not aposta.empty and aposta.iloc[0]['automatica'] not in (None, 0):
+                    situacao = "Automática"
                 else:
-                    st.warning("Sem aposta registrada.")
-
-                disabled_btn = existe_aposta_manual
-                if st.button(
-                    f"Gerar aposta automática ({prova.nome})",
-                    key=f"auto_part_{part_id}_prova_{prova.id}_linha_{idx}",
-                    disabled=disabled_btn):
-                    ok, msg = gerar_aposta_automatica(part_id, prova.id, prova.nome, apostas_df, provas_df, temporada=season)
-                    if ok:
-                        st.cache_data.clear()
-                        st.success(msg)
-                        st.rerun()
+                    situacao = "Registrada" if existe_aposta_manual else "Sem aposta"
+                with st.expander(f"{prova.nome} ({prova.data} {prova.horario_prova}) — {situacao}"):
+                    if not aposta.empty:
+                        aposta_view = aposta.iloc[0]
+                        st.success(
+                            f"**Pilotos:** {aposta_view['pilotos']} \n"
+                            f"**Fichas:** {aposta_view['fichas']} \n"
+                            f"**11º:** {aposta_view['piloto_11']} \n"
+                            f"**Data envio:** {aposta_view['data_envio']} \n"
+                            f"**Automática:** {'Sim' if aposta_view['automatica'] else 'Não'}"
+                        )
                     else:
-                        st.error(msg)
+                        st.warning("Sem aposta registrada.")
+
+                    disabled_btn = existe_aposta_manual
+                    if st.button(
+                        f"Gerar aposta automática ({prova.nome})",
+                        key=f"auto_part_{part_id}_prova_{prova.id}_linha_{idx}",
+                        disabled=disabled_btn):
+                        ok, msg = gerar_aposta_automatica(part_id, prova.id, prova.nome, apostas_df, provas_df, temporada=season)
+                        if ok:
+                            st.cache_data.clear()
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
 
     with aba_prova:
         st.subheader("Visualizar/Atribuir Apostas por Prova")
@@ -294,36 +330,68 @@ def main():
                         else:
                             st.error("Falha ao enviar e-mail de lembrete.")
 
+            # spec: apostas-automaticas v1.1 — critério 8
+            # Tabela-resumo seguida de expander por participante: mesma ação
+            # de geração automática com o ruído da página reduzido.
+            resumo_part_linhas = []
+            for part in participantes.itertuples():
+                aposta = apostas_prova[apostas_prova["usuario_id"] == part.id]
+                if not aposta.empty:
+                    av = aposta.iloc[0]
+                    resumo_part_linhas.append({
+                        "Participante": part.nome,
+                        "Situação": "Automática" if av["automatica"] not in (None, 0) else "Registrada",
+                        "Pilotos": str(av["pilotos"]),
+                        "Fichas": av["fichas"],
+                        "11º": av["piloto_11"],
+                        "Data envio": av["data_envio"],
+                    })
+                else:
+                    resumo_part_linhas.append({
+                        "Participante": part.nome,
+                        "Situação": "Sem aposta",
+                        "Pilotos": "",
+                        "Fichas": "",
+                        "11º": "",
+                        "Data envio": "",
+                    })
+            st.dataframe(pd.DataFrame(resumo_part_linhas), width="stretch", hide_index=True)
+            st.caption("Clique em um participante abaixo para ver o detalhe e gerar aposta automática.")
+
             for idx, part in enumerate(participantes.itertuples()):
                 aposta = apostas_prova[apostas_prova["usuario_id"] == part.id]
                 existe_aposta_manual = (
                     not aposta.empty and ("automatica" not in aposta.columns or aposta.iloc[0]['automatica'] in [None, 0])
                 )
-                st.markdown(f"##### {part.nome}")
-                if not aposta.empty:
-                    aposta_view = aposta.iloc[0]
-                    st.info(
-                        f"**Pilotos:** {aposta_view['pilotos']} \n"
-                        f"**Fichas:** {aposta_view['fichas']} \n"
-                        f"**11º:** {aposta_view['piloto_11']} \n"
-                        f"**Data envio:** {aposta_view['data_envio']} \n"
-                        f"**Automática:** {'Sim' if aposta_view['automatica'] else 'Não'}"
-                    )
+                if not aposta.empty and aposta.iloc[0]['automatica'] not in (None, 0):
+                    situacao = "Automática"
                 else:
-                    st.warning("Sem aposta registrada.")
-
-                disabled_btn = existe_aposta_manual
-                if st.button(
-                    f"Aposta automática ({part.nome})",
-                    key=f"auto_prova_{prova_id}_part_{part.id}_linha_{idx}",
-                    disabled=disabled_btn):
-                    ok, msg = gerar_aposta_automatica(part.id, prova_id, prova_row["nome"], apostas_df_atual, provas_df, temporada=season)
-                    if ok:
-                        st.cache_data.clear()
-                        st.success(msg)
-                        st.rerun()
+                    situacao = "Registrada" if existe_aposta_manual else "Sem aposta"
+                with st.expander(f"{part.nome} — {situacao}"):
+                    if not aposta.empty:
+                        aposta_view = aposta.iloc[0]
+                        st.info(
+                            f"**Pilotos:** {aposta_view['pilotos']} \n"
+                            f"**Fichas:** {aposta_view['fichas']} \n"
+                            f"**11º:** {aposta_view['piloto_11']} \n"
+                            f"**Data envio:** {aposta_view['data_envio']} \n"
+                            f"**Automática:** {'Sim' if aposta_view['automatica'] else 'Não'}"
+                        )
                     else:
-                        st.error(msg)
+                        st.warning("Sem aposta registrada.")
+
+                    disabled_btn = existe_aposta_manual
+                    if st.button(
+                        f"Aposta automática ({part.nome})",
+                        key=f"auto_prova_{prova_id}_part_{part.id}_linha_{idx}",
+                        disabled=disabled_btn):
+                        ok, msg = gerar_aposta_automatica(part.id, prova_id, prova_row["nome"], apostas_df_atual, provas_df, temporada=season)
+                        if ok:
+                            st.cache_data.clear()
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
 
 
 if __name__ == "__main__":

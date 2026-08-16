@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 2.1
+versao: 2.3
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,21 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.10.1
+
+- Itens do menu lateral sem borda e sem fundo (aparência de texto), com
+  espaçamento mínimo e densidade maior no celular preservando a altura de
+  toque (spec `menu-e-navegacao` v1.3, critério 8); mudança exclusivamente
+  visual.
+
+### 3.10.0
+
+- Gestão de Apostas com tabela-resumo e detalhe colapsável por item: na aba
+  "Por Participante" cada prova vira linha da tabela + expander, e na aba
+  "Por Prova" cada participante idem — a geração de aposta automática mantém
+  a mesma ação sem dezenas de blocos e botões soltos (spec
+  `apostas-automaticas` v1.1, critério 8).
 
 ### 3.9.0
 

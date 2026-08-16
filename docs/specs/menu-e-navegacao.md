@@ -2,7 +2,7 @@
 tipo: spec
 area: navegacao
 status: implementado
-versao: 1.2
+versao: 1.3
 atualizado: 2026-08-16
 relacionados:
   - "[[04_arquitetura]]"
@@ -60,9 +60,10 @@ visitante anônimo na tela de login.
 6. O guard de rotas e os redirecionamentos por permissão permanecem
    responsáveis pela navegação segura; o menu é apenas apresentação.
 7. O seletor de timezone da sidebar permanece inalterado abaixo do menu.
-8. Os botões do menu são compactos (fonte e espaçamento reduzidos); em telas
-   estreitas (`max-width: 768px`) a densidade aumenta sem reduzir a altura
-   mínima de toque. Mudança exclusivamente de apresentação via CSS.
+8. Os itens do menu são botões sem borda e sem fundo (aparência de texto,
+   alinhados à esquerda), com espaçamento mínimo; em telas estreitas
+   (`max-width: 768px`) a densidade aumenta sem reduzir a altura mínima de
+   toque. Mudança exclusivamente de apresentação via CSS.
 
 ## Interface, serviços e dados
 
@@ -90,8 +91,8 @@ visitante anônimo na tela de login.
    destacado), então a navegação ocorre no primeiro clique — sem exigir
    selecionar outro item antes.
 8. Dado o menu renderizado, quando a tela é estreita (celular), então os
-   botões aparecem compactos e com altura mínima de toque preservada; a
-   navegação e o destaque do item ativo permanecem idênticos.
+   itens aparecem como texto sem borda nem fundo, com altura mínima de toque
+   preservada; a navegação e o destaque do item ativo permanecem idênticos.
 
 ## Verificação
 
@@ -122,9 +123,13 @@ visitante anônimo na tela de login.
       destacar o item ativo. Fecha: critérios 4 e 7.
 - [x] Compactar os botões do menu e aumentar a densidade em telas estreitas
       via CSS. Fecha: critério 8.
+- [x] Remover bordas e fundo dos itens (menu em texto), mantendo o toque
+      mínimo no celular. Fecha: critério 8.
 
 ## Changelog
 
+- `1.3` — 2026-08-16 — Itens do menu sem borda nem fundo (texto), densidade
+  maior no celular (critério 8).
 - `1.2` — 2026-08-16 — Botões do menu compactos, com densidade maior em
   telas estreitas preservando altura mínima de toque (critério 8).
 - `1.1` — 2026-08-16 — Itens do menu como botões: primeiro clique navega em
