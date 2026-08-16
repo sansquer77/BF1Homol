@@ -11,6 +11,7 @@ def _carregar_funcoes_classificacao():
     tree = ast.parse(source)
     nomes = {
         "_calcular_descartes_atuais",
+        "_cor_fundo_heatmap",
         "_montar_pontos_por_prova",
         "destacar_heatmap",
         "formatar_brasileiro",
@@ -27,6 +28,7 @@ def _carregar_funcoes_classificacao():
     _calcular_descartes_atuais,
     _calcular_totais_classificacao,
     _colunas_classificacao,
+    _cor_fundo_heatmap,
     _montar_pontos_por_prova,
     destacar_heatmap,
     formatar_brasileiro,
@@ -70,9 +72,11 @@ class ClassificacaoPontuacaoTests(unittest.TestCase):
 
         contexto = destacar_heatmap(formatada, resultados, [10, 20])._compute().ctx
 
-        # Bruno tem 200 (maior/verde) e Ana 100 (menor/vermelho) na Austrália.
-        self.assertIn(("background-color", "rgb(0,255,0)"), contexto[(0, 0)])
-        self.assertIn(("background-color", "rgb(255,0,0)"), contexto[(0, 1)])
+        # spec: polimento-de-interface v1.0 — critério 2
+        # Escala suave: Bruno tem 200 (máximo → verde claro) e Ana 100
+        # (mínimo → vermelho claro) na Austrália; texto escuro legível.
+        self.assertIn(("background-color", "rgb(205,255,205)"), contexto[(0, 0)])
+        self.assertIn(("background-color", "rgb(255,205,205)"), contexto[(0, 1)])
         self.assertNotIn((1, 0), contexto)
         self.assertNotIn((1, 1), contexto)
 

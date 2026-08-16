@@ -391,6 +391,21 @@ def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultado
     return buffer
 
 
+def _cor_fundo_heatmap(normalizado: float) -> str:
+    """Fundo suave da grade por prova: vermelho claro → branco → verde claro.
+
+    Mantém a semântica (vermelho = pior, verde = melhor) com contraste
+    suficiente para o texto escuro em qualquer intensidade.
+    """
+    if normalizado <= 0.5:
+        t = normalizado * 2.0
+        r, g, b = 255, int(205 + 50 * t), int(205 + 50 * t)
+    else:
+        t = (normalizado - 0.5) * 2.0
+        r, g, b = int(255 - 50 * t), 255, int(255 - 50 * t)
+    return f"rgb({r},{g},{b})"
+
+
 def destacar_heatmap(df: pd.DataFrame, resultados_df: pd.DataFrame, provas_ids_ordenados: list[int]):
     """Aplica escala vermelho→verde dentro de cada prova já realizada."""
     resultados_ids = set(resultados_df["prova_id"].tolist())
@@ -415,11 +430,10 @@ def destacar_heatmap(df: pd.DataFrame, resultados_df: pd.DataFrame, provas_ids_o
             if maximo == minimo
             else (valores.to_numpy() - minimo) / (maximo - minimo)
         )
+        # spec: polimento-de-interface v1.0 — critério 2
         for indice, normalizado in enumerate(normalizados):
-            vermelho = int(255 * (1 - normalizado))
-            verde = int(255 * normalizado)
             estilos[indice] = (
-                f"background-color: rgb({vermelho},{verde},0); "
+                f"background-color: {_cor_fundo_heatmap(float(normalizado))}; "
                 "font-weight: bold; color: black"
             )
         return estilos

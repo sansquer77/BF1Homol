@@ -169,6 +169,31 @@ _TZ_SOURCE_PARAM = "tz_source"
 _TZ_SOURCE_AUTO = "auto"
 _TZ_SOURCE_MANUAL = "manual"
 
+# Rótulos amigáveis do seletor manual; o valor persistido permanece o
+# identificador IANA canônico (client_timezone).
+_TZ_LABELS: dict[str, str] = {
+    "America/Sao_Paulo": "Brasil (São Paulo)",
+    "America/Recife": "Brasil (Recife)",
+    "America/Manaus": "Brasil (Manaus)",
+    "America/Rio_Branco": "Brasil (Rio Branco)",
+    "America/New_York": "EUA (Nova York)",
+    "America/Chicago": "EUA (Chicago)",
+    "America/Denver": "EUA (Denver)",
+    "America/Los_Angeles": "EUA (Los Angeles)",
+    "America/Anchorage": "EUA (Anchorage)",
+    "Pacific/Honolulu": "EUA (Havaí)",
+    "UTC": "UTC",
+    "Europe/London": "Reino Unido (Londres)",
+    "Europe/Paris": "Europa (Paris)",
+    "Europe/Berlin": "Europa (Berlim)",
+    "Europe/Madrid": "Europa (Madri)",
+    "Europe/Rome": "Europa (Roma)",
+    "Asia/Tokyo": "Ásia (Tóquio)",
+    "Asia/Dubai": "Oriente Médio (Dubai)",
+    "Australia/Sydney": "Oceania (Sydney)",
+    "Australia/Melbourne": "Oceania (Melbourne)",
+}
+
 
 def _inject_html(html_code: str) -> None:
     """Injeta HTML/JS no app usando a API não-depreciada disponível.
@@ -811,6 +836,7 @@ def sidebar_menu():
         common_timezones,
         index=tz_index,
         key="timezone_selector",
+        format_func=lambda tz: _TZ_LABELS.get(tz, tz),
         help=(
             "Timezone usado para exibir horários no Calendário. "
             "Os dados são armazenados em America/Sao_Paulo."

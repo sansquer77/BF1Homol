@@ -232,7 +232,7 @@ def participante_view():
                         elif prova_atual_sel not in prova_ids_validos:
                             st.session_state["sel_prova_aposta"] = proxima_prova_id
 
-                    col_sel, col_btn, col_sem_ideias = st.columns([6, 1.2, 1.4])
+                    col_sel, col_btn, col_sem_ideias = st.columns([6, 1.2, 1.4], vertical_alignment="center")
                     with col_sel:
                         prova_id = st.selectbox(
                             "Escolha a prova",
@@ -242,7 +242,6 @@ def participante_view():
                             on_change=_on_prova_change
                         )
                     with col_btn:
-                        st.write("")
                         if st.button("Ver regras"):
                             prova_nome_sel = provas[provas['id'] == prova_id]['nome'].values[0]
                             tipo_raw = provas[provas['id'] == prova_id]['tipo'].values[0] if not provas[provas['id'] == prova_id].empty else 'Normal'
@@ -250,7 +249,6 @@ def participante_view():
                             regras_sel = get_regras_aplicaveis(temporada, tipo_sel)
                             _mostrar_regras_dialog(regras_sel, temporada, tipo_sel)
                     with col_sem_ideias:
-                        st.write("")
                         feedback_sem_ideias = st.session_state.pop("sem_ideias_feedback", None)
                         if feedback_sem_ideias:
                             st.success(feedback_sem_ideias)
@@ -304,16 +302,26 @@ def participante_view():
                         fichas_ant = [int(f) for f in detalhes_auto.get("fichas", [])]
                         piloto_11_ant = str(detalhes_auto.get("piloto_11", ""))
 
-                    prova_id_form = st.session_state.get("aposta_form_prova_id")
-                    force_reload_form = bool(st.session_state.get("aposta_form_force_reload", False))
-                    if prova_id_form != prova_id or force_reload_form:
-                        for i in range(max_linhas):
-                            st.session_state[f"piloto_aposta_{i}"] = (
+                    # spec: apostas-de-prova v1.1 — critério 9 (grade única de aposta)
+                    df_form_aposta = pd.DataFrame(
+                        {
+                            "Piloto": [
                                 pilotos_apostados_ant[i]
                                 if i < len(pilotos_apostados_ant) and pilotos_apostados_ant[i] in pilotos
                                 else "Nenhum"
-                            )
-                            st.session_state[f"fichas_aposta_{i}"] = int(fichas_ant[i]) if i < len(fichas_ant) else 0
+                                for i in range(max_linhas)
+                            ],
+                            "Fichas": [
+                                int(fichas_ant[i]) if i < len(fichas_ant) else 0
+                                for i in range(max_linhas)
+                            ],
+                        }
+                    )
+
+                    prova_id_form = st.session_state.get("aposta_form_prova_id")
+                    force_reload_form = bool(st.session_state.get("aposta_form_force_reload", False))
+                    if prova_id_form != prova_id or force_reload_form:
+                        st.session_state["aposta_editor_data"] = df_form_aposta.copy()
 
                         if piloto_11_ant in pilotos:
                             st.session_state["piloto_11"] = piloto_11_ant
@@ -335,45 +343,41 @@ def participante_view():
                         f"Escolha seus pilotos e distribua suas fichas entre eles de acordo com as regras "
                         f"(mínimo de {min_pilotos_regra} pilotos com fichas > 0)."
                     )
+                    # spec: apostas-de-prova v1.1 — critério 9 (grade única de aposta)
+                    editor_data = st.data_editor(
+                        df_form_aposta,
+                        key="aposta_editor_data",
+                        width="stretch",
+                        hide_index=True,
+                        num_rows="fixed",
+                        column_config={
+                            "Piloto": st.column_config.SelectboxColumn(
+                                "Piloto",
+                                options=["Nenhum"] + pilotos,
+                                required=True,
+                                width="medium",
+                            ),
+                            "Fichas": st.column_config.NumberColumn(
+                                "Fichas",
+                                min_value=0,
+                                max_value=fichas_max_por_piloto,
+                                step=1,
+                                default=0,
+                                width="small",
+                            ),
+                        },
+                    )
                     pilotos_aposta, fichas_aposta = [], []
-                    min_campos_visiveis = max(1, min(int(min_pilotos_regra), int(max_linhas)))
-                    for i in range(max_linhas):
-                        mostrar = False
-                        if i < min_campos_visiveis:
-                            mostrar = True
-                        elif i < max_linhas and len([p for p in pilotos_aposta if p != "Nenhum"]) == i and sum(fichas_aposta) < quantidade_fichas:
-                            mostrar = True
-                        if mostrar:
-                            col1, col2 = st.columns([3, 1])
-                            with col1:
-                                key_piloto = f"piloto_aposta_{i}"
-                                if key_piloto not in st.session_state:
-                                    st.session_state[key_piloto] = (
-                                        pilotos_apostados_ant[i]
-                                        if len(pilotos_apostados_ant) > i and pilotos_apostados_ant[i] in pilotos
-                                        else "Nenhum"
-                                    )
-                                piloto_sel = st.selectbox(
-                                    f"Piloto {i+1}",
-                                    ["Nenhum"] + pilotos,
-                                    key=key_piloto
-                                )
-                            with col2:
-                                if piloto_sel != "Nenhum":
-                                    key_fichas = f"fichas_aposta_{i}"
-                                    if key_fichas not in st.session_state:
-                                        st.session_state[key_fichas] = int(fichas_ant[i]) if len(fichas_ant) > i else 0
-                                    valor_ficha = st.number_input(
-                                        f"Fichas para {piloto_sel}", min_value=0, max_value=fichas_max_por_piloto,
-                                        key=key_fichas
-                                    )
-                                else:
-                                    valor_ficha = 0
-                            pilotos_aposta.append(piloto_sel)
-                            fichas_aposta.append(valor_ficha)
-                        else:
-                            pilotos_aposta.append("Nenhum")
-                            fichas_aposta.append(0)
+                    for _, linha in editor_data.iterrows():
+                        piloto_raw = linha["Piloto"]
+                        piloto_sel = (
+                            "Nenhum" if piloto_raw is None or str(piloto_raw).lower() == "nan"
+                            else str(piloto_raw)
+                        )
+                        fichas_raw = linha["Fichas"]
+                        fichas_valor = 0 if fichas_raw is None else int(fichas_raw)
+                        pilotos_aposta.append(piloto_sel)
+                        fichas_aposta.append(fichas_valor)
 
                     pilotos_validos = [p for p in pilotos_aposta if p != "Nenhum"]
                     fichas_validas = [f for i, f in enumerate(fichas_aposta) if pilotos_aposta[i] != "Nenhum"]

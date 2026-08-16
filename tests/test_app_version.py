@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class AppVersionTests(unittest.TestCase):
     def test_current_app_version(self):
-        self.assertEqual(APP_VERSION, "3.1.0")
+        self.assertEqual(APP_VERSION, "3.3.0")
         self.assertRegex(APP_VERSION, r"^\d+\.\d+\.\d+$")
 
     def test_product_changelog_contains_current_version(self):

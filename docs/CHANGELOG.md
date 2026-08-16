@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.1
+versao: 1.3
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,22 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.3.0
+
+- Formulário de aposta em grade única: seleção de pilotos e distribuição de
+  fichas em um só widget (spec `apostas-de-prova` v1.1, critério 9); regras e
+  validações inalteradas, pré-preenchimento da aposta existente mantido.
+
+### 3.2.0
+
+- Recuperação de senha em passos guiados na tela de login (spec
+  `polimento-de-interface` v1.0).
+- Heatmap da classificação por prova com escala suave e contraste legível.
+- Botões do painel alinhados sem espaçadores `st.write("")`.
+- Seletor de timezone com rótulos amigáveis; valor IANA canônico mantido.
+- Cabeçalho de página compacto em todas as telas.
+- Saudação pós-login exibida uma única vez.
 
 ### 3.1.0
 
@@ -45,6 +61,8 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
+- `1.3` — 2026-08-16 — Registrada a versão 3.3.0 (grade única de aposta).
+- `1.2` — 2026-08-16 — Registrada a versão 3.2.0 (polimento de interface).
 - `1.1` — 2026-08-16 — Registrada a versão 3.1.0 (menu lateral em coluna única).
 - `1.0` — 2026-07-31 — Criado o histórico canônico a partir da versão vigente 3.0.5.
 

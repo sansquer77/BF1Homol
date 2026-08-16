@@ -2,8 +2,8 @@
 tipo: spec
 area: apostas
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-08-16
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[specs/deadline-de-apostas]]"
@@ -16,7 +16,7 @@ aliases: ["Apostas de Prova"]
 # Apostas de prova
 
 > [!info] Status
-> **implementado** · área: `apostas` · atualizado em 2026-07-31 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/pontuacao-de-provas]], [[specs/apostas-automaticas]]
+> **implementado** · área: `apostas` · atualizado em 2026-08-16 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/pontuacao-de-provas]], [[specs/apostas-automaticas]]
 
 ## Problema
 
@@ -71,11 +71,13 @@ explicitamente autorizadas.
 6. Dado piloto desconhecido ou inativo, quando enviado, então a aposta é rejeitada.
 7. Dado prazo encerrado, quando enviada, então nenhuma escrita ocorre.
 8. Dado envio confirmado, quando a tela continua, então cache e feedback refletem a nova aposta.
+9. Dada a etapa de montagem, quando o participante seleciona pilotos e distribui fichas, então a seleção e a distribuição acontecem em uma única grade (widget único), com pré-preenchimento da aposta existente, e alimentam exatamente as mesmas validações da composição (regras inalteradas).
 
 ## Verificação
 
 - Critérios 2 a 7 — `tests/test_bets_rules_extended.py`.
 - Critério 8 — `tests/test_apostas_dataframe_contract.py` e `tests/test_performance_optimizations.py`.
+- Critério 9 — `tests/test_apostas_grade.py` (verificação estática da grade única).
 - Critério 1 — verificação de integração do fluxo de envio.
 
 ## Pendências
@@ -90,9 +92,11 @@ explicitamente autorizadas.
 
 - [x] Consolidar composição, persistência e auditoria. Fecha: critérios 1 a 8.
 - [x] Relacionar validações e contratos de UI. Fecha: critérios 2 a 8.
+- [x] Grade única de montagem da aposta (data_editor) sem alterar regras. Fecha: critério 9.
 
 ## Changelog
 
+- `1.1` — 2026-08-16 — Grade única de montagem da aposta (critério 9).
 - `1.0` — 2026-07-31 — Fluxo de aposta de prova especificado.
 
 ## Relacionados
