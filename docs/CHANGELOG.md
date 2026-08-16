@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 2.4
+versao: 2.5
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,14 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.10.3
+
+- Estilo do menu reforçado: injeção de CSS pelo padrão clássico de markdown
+  (sink `render_global_css`), com `!important` para vencer o tema — os itens
+  ficam em texto sem bordas/fundo; rolagem explícita do conteúdo da sidebar
+  no celular (`overflow-y: auto`) para navegar o menu completo (spec
+  `menu-e-navegacao` v1.3, critério 8).
 
 ### 3.10.2
 

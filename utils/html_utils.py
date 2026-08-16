@@ -41,9 +41,20 @@ def render_trusted_html(st_module: Any, html_content: str, *, allow_javascript: 
     st_module.markdown(html_content, unsafe_allow_html=True)
 
 
+def render_global_css(st_module: Any, css: str) -> None:
+    """Injeta CSS global no documento da aplicação.
+
+    Usa o padrão clássico ``st.markdown(..., unsafe_allow_html=True)``,
+    comprovado para injetar ``<style>`` no documento (a ``<style>`` via
+    ``st.html`` nem sempre alcança o documento em todas as versões).
+    """
+    st_module.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+
+
 __all__ = [
     "escape_html_attr",
     "escape_html_text",
+    "render_global_css",
     "render_trusted_html",
     "serialize_js_value",
 ]

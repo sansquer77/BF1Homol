@@ -14,7 +14,7 @@ from importlib import import_module
 import logging
 import datetime
 from utils.performance import journey
-from utils.html_utils import render_trusted_html, serialize_js_value
+from utils.html_utils import render_global_css, render_trusted_html, serialize_js_value
 from pathlib import Path
 
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
@@ -756,39 +756,41 @@ def sidebar_menu():
     # spec: menu-e-navegacao v1.3 — critério 8 (menu em texto, sem bordas)
     # Os itens continuam botões para navegação, mas sem borda/fundo: apenas o
     # texto; densidade maior em telas estreitas preservando o toque.
-    # O DOM do botão usa data-testid="stBaseButton-secondary" desde o
-    # Streamlit 1.35+; o atributo "kind" fica como fallback de versões antigas.
-    render_trusted_html(
+    # Seletor: data-testid="stBaseButton-secondary" (Streamlit 1.35+), com o
+    # atributo "kind" como fallback de versões antigas. O overflow explícito
+    # garante rolagem do drawer no celular.
+    render_global_css(
         st,
         """
-        <style>
         [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
         [data-testid="stSidebar"] button[kind="secondary"] {
-            background: transparent;
-            border: none;
-            box-shadow: none;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
             text-align: left;
             font-size: 0.85rem;
-            padding: 0.1rem 0.25rem;
+            padding: 0.1rem 0.25rem !important;
             min-height: 1.6rem;
         }
         [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,
         [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:focus,
         [data-testid="stSidebar"] button[kind="secondary"]:hover,
         [data-testid="stSidebar"] button[kind="secondary"]:focus {
-            background: transparent;
-            border: none;
-            box-shadow: none;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        [data-testid="stSidebarContent"] {
+            overflow-y: auto;
         }
         @media (max-width: 768px) {
             [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
             [data-testid="stSidebar"] button[kind="secondary"] {
                 font-size: 0.85rem;
-                padding: 0.05rem 0.2rem;
+                padding: 0.05rem 0.2rem !important;
                 min-height: 1.9rem;
             }
         }
-        </style>
         """,
     )
     token_ok = _sync_session_from_token()
