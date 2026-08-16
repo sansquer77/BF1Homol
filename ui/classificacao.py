@@ -434,9 +434,12 @@ def main():
     if not season_options:
         st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
         return
-    default_index = get_default_season_index(season_options, current_year=str(current_year))
-
-    season = st.selectbox("Temporada", season_options, index=default_index, key="classificacao_season")
+    # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
+    temporada_global = st.session_state.get("temporada_global", "")
+    season = (
+        temporada_global if temporada_global in season_options
+        else season_options[get_default_season_index(season_options, current_year=str(current_year))]
+    )
     st.session_state['temporada'] = season
 
     if not usuarios_status_historico_disponivel():

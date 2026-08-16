@@ -2,8 +2,8 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.4
-atualizado: 2026-07-31
+versao: 1.5
+atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
   - "[[01_necessidade]]"
@@ -16,7 +16,7 @@ aliases: ["Documentação BF1", "Map of Content"]
 # Documentação BF1
 
 > [!info] Status
-> **implementado** · área: `meta` · atualizado em 2026-07-31 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
+> **implementado** · área: `meta` · atualizado em 2026-08-16 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
 
 Este é o ponto de entrada da documentação do BF1. O vault é compatível com
 Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
@@ -59,6 +59,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 - [[specs/analises-e-dashboard|Análises e dashboard]]
 - [[specs/hall-da-fama|Hall da Fama]]
 - [[specs/pwa-e-preferencias-do-cliente|PWA e preferências do cliente]]
+- [[specs/temporada-global|Temporada global]]
 
 Novas funcionalidades devem ganhar uma spec focada em `docs/specs/`. A
 [[03_spec|spec consolidada]] continua como referência de compatibilidade até a
@@ -80,6 +81,7 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.5` — 2026-08-16 — Adicionada a spec de temporada global ao índice.
 - `1.4` — 2026-07-31 — Adicionados política SemVer e changelog próprio do produto.
 - `1.3` — 2026-07-31 — Documentada a separação entre versão do produto e versão dos documentos.
 - `1.2` — 2026-07-31 — Dez módulos operacionais e de suporte adicionados ao índice.

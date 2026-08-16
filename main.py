@@ -289,6 +289,7 @@ from services.auth_service import decode_token
 from ui.auth_transport import clear_auth_cookies
 from ui.oidc_auth import logout_oidc, rehydrate_oidc_session
 from services.access_control import page_is_allowed
+from utils.season_utils import get_current_year_str, get_season_options
 
 # ============ ESTADO INICIAL DA SESSÃO ============
 if 'pagina' not in st.session_state:
@@ -794,6 +795,24 @@ def sidebar_menu():
         key="menu_lateral",
     )
     st.session_state["pagina"] = escolha
+
+    # ============ SELETOR GLOBAL DE TEMPORADA ============
+    # spec: temporada-global v1.0 — critério 1 (seletor global na sidebar)
+    st.sidebar.divider()
+    st.sidebar.markdown("### Temporada")
+    season_options_global = get_season_options(fallback_years=["2025", "2026"])
+    if season_options_global:
+        if st.session_state.get("temporada_global") not in season_options_global:
+            current_year_str = get_current_year_str()
+            st.session_state["temporada_global"] = (
+                current_year_str if current_year_str in season_options_global else season_options_global[0]
+            )
+        st.sidebar.selectbox(
+            "Temporada",
+            season_options_global,
+            key="temporada_global",
+            help="Temporada usada por todas as telas de consulta e operação do bolão.",
+        )
 
     # ============ SELETOR DE TIMEZONE ============
     st.sidebar.divider()

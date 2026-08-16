@@ -87,8 +87,12 @@ def participante_view():
         season_options = get_season_options(fallback_years=["2025", "2026"])
     has_season_data = bool(season_options)
     if has_season_data:
-        default_index = get_default_season_index(season_options)
-        season = st.selectbox("Temporada", season_options, index=default_index)
+        # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
+        temporada_global = st.session_state.get("temporada_global", "")
+        season = (
+            temporada_global if temporada_global in season_options
+            else season_options[get_default_season_index(season_options)]
+        )
         st.session_state['temporada'] = season
     else:
         if is_inactive_profile and inactive_has_history and allowed_seasons:

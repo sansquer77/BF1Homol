@@ -36,13 +36,11 @@ def resultados_view():
     # Seletor de temporada
     current_year_str = get_current_year_str()
     temporadas = get_season_options(descending=True)
-    default_index = get_default_season_index(temporadas, current_year=current_year_str)
-    
-    temporada_selecionada = st.selectbox(
-        "🗓️ Temporada",
-        temporadas,
-        index=default_index,
-        key="resultados_temporada"
+    # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
+    temporada_global = st.session_state.get("temporada_global", "")
+    temporada_selecionada = (
+        temporada_global if temporada_global in temporadas
+        else temporadas[get_default_season_index(temporadas, current_year=current_year_str)]
     )
     st.session_state["temporada"] = temporada_selecionada
 

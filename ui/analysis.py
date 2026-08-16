@@ -323,8 +323,12 @@ def main():
     if not season_options:
         st.info("Não há temporadas disponíveis para consulta no seu histórico de status.")
         return
-    season_default_idx = get_default_season_index(season_options)
-    season = st.selectbox("Temporada", season_options, index=season_default_idx, key="analysis_season")
+    # spec: temporada-global v1.0 — critério 2 (fonte única: seletor da sidebar)
+    temporada_global = st.session_state.get("temporada_global", "")
+    season = (
+        temporada_global if temporada_global in season_options
+        else season_options[get_default_season_index(season_options)]
+    )
     participantes_df = _get_participantes_temporada(season)
 
     apostas_pilotos = get_apostas_por_piloto(season, participantes_df)
