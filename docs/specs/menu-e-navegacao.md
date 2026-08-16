@@ -2,7 +2,7 @@
 tipo: spec
 area: navegacao
 status: implementado
-versao: 1.4
+versao: 1.5
 atualizado: 2026-08-16
 relacionados:
   - "[[04_arquitetura]]"
@@ -63,9 +63,11 @@ visitante anônimo na tela de login.
 8. Os itens do menu são botões sem borda e sem fundo (aparência de texto,
    alinhados à esquerda), com espaçamento mínimo; em telas estreitas
    (`max-width: 768px`) a densidade aumenta sem reduzir a altura mínima de
-   toque. Mudança exclusivamente de apresentação: os estilos são aplicados
-   por JavaScript injetado pelo sink central (`utils.html_utils`), com
-   estilos inline de prioridade máxima no DOM renderizado — robusto a
+   toque. Os grupos (expansores) também perdem o retângulo: o cabeçalho da
+   seção e o contêiner colapsável ficam sem borda nem fundo, restando apenas
+   o texto da seção. Mudança exclusivamente de apresentação: os estilos são
+   aplicados por JavaScript injetado pelo sink central (`utils.html_utils`),
+   com estilos inline de prioridade máxima no DOM renderizado — robusto a
    sanitização, especificidade do tema e reruns (via `MutationObserver`); o
    CSS de apoio cobre os estados `:hover`/`:focus`.
 
@@ -131,9 +133,14 @@ visitante anônimo na tela de login.
       mínimo no celular. Fecha: critério 8.
 - [x] Aplicar os estilos do menu via JavaScript injetado pelo sink central
       (inline no DOM, robusto a especificidade/sanitização). Fecha: critério 8.
+- [x] Remover o retângulo dos grupos do menu: expansores sem borda/fundo
+      (cabeçalho e contêiner colapsável). Fecha: critério 8.
 
 ## Changelog
 
+- `1.5` — 2026-08-16 — Grupos do menu sem retângulo: expansores da sidebar
+  sem borda nem fundo (cabeçalho `stBaseButton-headerNoPadding` e contêiner
+  `stExpanderDetails`), restando o texto da seção (critério 8).
 - `1.4` — 2026-08-16 — Estilos do menu aplicados via JS injetado pelo sink
   central (`render_dom_styles`): inline no DOM com prioridade máxima e
   `MutationObserver` para reruns; CSS de apoio para `:hover`/`:focus`

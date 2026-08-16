@@ -17,7 +17,7 @@ class MenuNavigationTests(unittest.TestCase):
         self.assertIn("st.sidebar.expander(section_name, expanded=expanded)", source)
         self.assertIn("if st.button(", source)
 
-    # spec: menu-e-navegacao v1.4 — critério 8
+    # spec: menu-e-navegacao v1.5 — critério 8
     def test_menu_em_texto_sem_bordas_e_compacto_no_mobile(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")
         self.assertIn("render_dom_styles(", source)
@@ -27,6 +27,14 @@ class MenuNavigationTests(unittest.TestCase):
         self.assertIn('"overflowY": "auto"', source)
         self.assertIn('"media": "(max-width: 768px)"', source)
         self.assertIn('"minHeight": "1.9rem"', source)
+
+    def test_grupos_do_menu_sem_retangulo_de_expansor(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        self.assertIn('[data-testid="stSidebar"] [data-testid="stExpander"]', source)
+        self.assertIn('[data-testid="stSidebar"] [data-testid="stExpanderDetails"]', source)
+        self.assertIn('stBaseButton-headerNoPadding', source)
+        self.assertIn('"boxShadow": "none"', source)
+        self.assertIn('stExpander"]:hover', source)
 
     def test_dom_styles_aplica_inline_com_observer_e_escapa_rules(self):
         source = (ROOT / "utils" / "html_utils.py").read_text(encoding="utf-8")

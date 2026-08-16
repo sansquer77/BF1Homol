@@ -33,7 +33,14 @@ bind_runtime(
 
 # ============ CARREGAR ESTILOS CSS LIQUID GLASS ============
 def load_css():
-    """Carrega o arquivo CSS customizado com tema Liquid Glass."""
+    """Carrega o arquivo CSS customizado com tema Liquid Glass.
+
+    Diagnóstico temporário: `BF1_DISABLE_THEME=1` desliga o tema para
+    avaliar se o Liquid Glass é a causa do menu com bordas/fundo.
+    """
+    import os
+    if os.getenv("BF1_DISABLE_THEME") == "1":
+        return
     css_file = Path(__file__).parent / "assets" / "styles.css"
     if css_file.exists():
         with open(css_file, "r", encoding="utf-8") as f:
@@ -753,15 +760,45 @@ def _load_view(page: str):
 
 # ============ MENU LATERAL ============
 def sidebar_menu():
-    # spec: menu-e-navegacao v1.4 — critério 8 (menu em texto, sem bordas)
+    # spec: menu-e-navegacao v1.5 — critério 8 (menu em texto, sem bordas)
     # Os itens continuam botões para navegação, mas sem borda/fundo: apenas o
     # texto; densidade maior em telas estreitas preservando o toque.
+    # Os grupos (expansores) perdem o retângulo: header e contêiner sem
+    # borda/fundo — o grupo vira apenas o texto da seção.
     # Os estilos são aplicados por JavaScript injetado pelo sink central
     # (estilo inline no DOM, com prioridade "important"), robusto a
     # especificidade/sanitização; o CSS de apoio cobre :hover/:focus.
     render_dom_styles(
         st,
         [
+            {
+                "selector": '[data-testid="stSidebar"] [data-testid="stExpander"]',
+                "style": {
+                    "border": "none",
+                    "background": "transparent",
+                    "boxShadow": "none",
+                    "padding": "0.1rem 0",
+                },
+            },
+            {
+                "selector": '[data-testid="stSidebar"] [data-testid="stExpanderDetails"]',
+                "style": {
+                    "border": "none",
+                    "background": "transparent",
+                    "boxShadow": "none",
+                    "padding": "0",
+                },
+            },
+            {
+                "selector": '[data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"]',
+                "style": {
+                    "border": "none",
+                    "background": "transparent",
+                    "boxShadow": "none",
+                    "padding": "0.25rem 0.25rem",
+                    "justifyContent": "space-between",
+                },
+            },
             {
                 "selector": '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]',
                 "style": {
@@ -810,6 +847,8 @@ def sidebar_menu():
             },
         ],
         extra_css=(
+            '[data-testid="stSidebar"] [data-testid="stExpander"]:hover,'
+            '[data-testid="stSidebar"] [data-testid="stExpander"]:focus-within,'
             '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,'
             '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:focus,'
             '[data-testid="stSidebar"] button[kind="secondary"]:hover,'

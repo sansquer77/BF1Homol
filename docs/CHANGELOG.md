@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 2.6
+versao: 2.7
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,14 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.10.5
+
+- O "retângulo" do menu era o grupo (expansor), não os botões: o cabeçalho
+  da seção (`stBaseButton-headerNoPadding`) e o contêiner colapsável
+  (`stExpanderDetails`) agora ficam sem borda nem fundo — o grupo vira apenas
+  o texto da seção, com hover transparente (spec `menu-e-navegacao` v1.5,
+  critério 8).
 
 ### 3.10.4
 
