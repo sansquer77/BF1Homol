@@ -125,6 +125,20 @@ class ClassificacaoPontuacaoTests(unittest.TestCase):
             ],
         )
 
+    # spec: classificacao v1.1 — critério 8
+    def test_colunas_numericas_sao_ordenaveis(self):
+        source = (Path(__file__).resolve().parents[1] / "ui" / "classificacao.py").read_text(encoding="utf-8")
+        numericas = [
+            "Total Geral", "Bônus Campeão", "Bônus Vice", "Bônus Equipe",
+            "Descarte", "Total Válido", "Diferença",
+        ]
+        for col in numericas:
+            self.assertIn(f'NumberColumn("{col}", format="%.2f"', source, col)
+            self.assertNotIn(f'TextColumn("{col}"', source, col)
+        self.assertNotIn("df_display[col] = df_display[col].apply(lambda x: formatar_brasileiro(float(x)))", source)
+        self.assertNotIn('"-" if i == 0 else formatar_brasileiro', source)
+        self.assertIn('float("nan") if i == 0', source)
+
 
 if __name__ == "__main__":
     unittest.main()

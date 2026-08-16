@@ -2,7 +2,7 @@
 tipo: spec
 area: navegacao
 status: implementado
-versao: 1.1
+versao: 1.2
 atualizado: 2026-08-16
 relacionados:
   - "[[04_arquitetura]]"
@@ -60,6 +60,9 @@ visitante anônimo na tela de login.
 6. O guard de rotas e os redirecionamentos por permissão permanecem
    responsáveis pela navegação segura; o menu é apenas apresentação.
 7. O seletor de timezone da sidebar permanece inalterado abaixo do menu.
+8. Os botões do menu são compactos (fonte e espaçamento reduzidos); em telas
+   estreitas (`max-width: 768px`) a densidade aumenta sem reduzir a altura
+   mínima de toque. Mudança exclusivamente de apresentação via CSS.
 
 ## Interface, serviços e dados
 
@@ -86,13 +89,18 @@ visitante anônimo na tela de login.
 7. Dado bloco recém-expandido, quando o usuário clica no primeiro item (já
    destacado), então a navegação ocorre no primeiro clique — sem exigir
    selecionar outro item antes.
+8. Dado o menu renderizado, quando a tela é estreita (celular), então os
+   botões aparecem compactos e com altura mínima de toque preservada; a
+   navegação e o destaque do item ativo permanecem idênticos.
 
 ## Verificação
 
-- Critérios 3 e 7 — teste automatizado: `tests/test_menu_navigation.py`.
+- Critérios 3, 7 e 8 — teste automatizado: `tests/test_menu_navigation.py`.
 - Critérios 1, 2, 4, 5 e 6 — verificação manual em navegador com cada perfil
   (expansores por seção, item ativo destacado, primeiro clique navegando e
   logout funcional).
+- Critério 8 — verificação visual em janela estreita e em dispositivo móvel
+  (botões compactos e tocáveis).
 
 ## Pendências
 
@@ -112,9 +120,13 @@ visitante anônimo na tela de login.
 - [x] Registrar versão minor e changelog. Fecha: critério 6 (verificação).
 - [x] Trocar o radio por botões por item (primeiro clique sempre navega) e
       destacar o item ativo. Fecha: critérios 4 e 7.
+- [x] Compactar os botões do menu e aumentar a densidade em telas estreitas
+      via CSS. Fecha: critério 8.
 
 ## Changelog
 
+- `1.2` — 2026-08-16 — Botões do menu compactos, com densidade maior em
+  telas estreitas preservando altura mínima de toque (critério 8).
 - `1.1` — 2026-08-16 — Itens do menu como botões: primeiro clique navega em
   qualquer item, item ativo destacado; radio por seção removido (critério 7).
 - `1.0` — 2026-08-16 — Menu lateral em coluna única: seções como expansores,

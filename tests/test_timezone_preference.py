@@ -25,6 +25,12 @@ class TimezonePreferenceTests(unittest.TestCase):
         ]
         self.assertTrue(reruns, "A alteração manual deve concluir com rerun controlado da UI.")
 
+    # spec: pwa-e-preferencias-do-cliente v1.1 — critério 8
+    def test_agenda_exibe_no_fuso_selecionado(self):
+        source = (ROOT / "ui" / "calendario.py").read_text(encoding="utf-8")
+        self.assertIn('"timezone": tz_exibicao', source)
+        self.assertNotIn('"timezone": "local"', source)
+
 
 if __name__ == "__main__":
     unittest.main()

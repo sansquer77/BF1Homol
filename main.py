@@ -753,6 +753,30 @@ def _load_view(page: str):
 
 # ============ MENU LATERAL ============
 def sidebar_menu():
+    # spec: menu-e-navegacao v1.2 — critério 8 (densidade compacta do menu)
+    # Botões do menu menores e altura mínima de toque preservada em telas
+    # estreitas; apenas apresentação, sem efeito na navegação.
+    render_trusted_html(
+        st,
+        """
+        <style>
+        [data-testid="stSidebar"] button[kind="secondary"] {
+            font-size: 0.85rem;
+            padding-top: 0.3rem;
+            padding-bottom: 0.3rem;
+            min-height: 2.1rem;
+        }
+        @media (max-width: 768px) {
+            [data-testid="stSidebar"] button[kind="secondary"] {
+                font-size: 0.78rem;
+                padding-top: 0.2rem;
+                padding-bottom: 0.2rem;
+                min-height: 2.4rem;
+            }
+        }
+        </style>
+        """,
+    )
     token_ok = _sync_session_from_token()
     token = st.session_state.get("token")
     profile_key = "anon"

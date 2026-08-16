@@ -708,19 +708,16 @@ def main():
     else:
         df_class['Movimentação'] = "Novo"
 
+    # spec: classificacao v1.1 — critério 8
+    # Valores numéricos permanecem numéricos (ordenáveis); o primeiro item da
+    # Diferença não tem antecessor e fica como NaN (exibido como "—").
     diferencas = [0]
     totals = df_class["Total Válido"].tolist()
     for i in range(1, len(totals)):
         diferencas.append(totals[i-1] - totals[i])
-    df_class["Diferença"] = ["-" if i == 0 else formatar_brasileiro(d) for i, d in enumerate(diferencas)]
+    df_class["Diferença"] = [float("nan") if i == 0 else float(d) for i, d in enumerate(diferencas)]
 
     df_display = df_class.copy()
-    colunas_pontos = [
-        "Total Geral", "Bônus Campeão", "Bônus Vice", "Bônus Equipe",
-        "Descarte", "Total Válido",
-    ]
-    for col in colunas_pontos:
-        df_display[col] = df_display[col].apply(lambda x: formatar_brasileiro(float(x)))
 
     colunas_ordem = _colunas_classificacao(descarte_ativo)
     st.subheader("Classificação Geral (Provas + Campeonato)")
@@ -734,13 +731,13 @@ def main():
     class_config = {
         "Posição": st.column_config.NumberColumn("Posição", format="%d", width="small"),
         "Participante": st.column_config.TextColumn("Participante", width="medium"),
-        "Total Geral": st.column_config.TextColumn("Total Geral", width="small"),
-        "Bônus Campeão": st.column_config.TextColumn("Bônus Campeão", width="small"),
-        "Bônus Vice": st.column_config.TextColumn("Bônus Vice", width="small"),
-        "Bônus Equipe": st.column_config.TextColumn("Bônus Equipe", width="small"),
-        "Descarte": st.column_config.TextColumn("Descarte", width="small"),
-        "Total Válido": st.column_config.TextColumn("Total Válido", width="small"),
-        "Diferença": st.column_config.TextColumn("Diferença", width="small"),
+        "Total Geral": st.column_config.NumberColumn("Total Geral", format="%.2f", width="small"),
+        "Bônus Campeão": st.column_config.NumberColumn("Bônus Campeão", format="%.2f", width="small"),
+        "Bônus Vice": st.column_config.NumberColumn("Bônus Vice", format="%.2f", width="small"),
+        "Bônus Equipe": st.column_config.NumberColumn("Bônus Equipe", format="%.2f", width="small"),
+        "Descarte": st.column_config.NumberColumn("Descarte", format="%.2f", width="small"),
+        "Total Válido": st.column_config.NumberColumn("Total Válido", format="%.2f", width="small"),
+        "Diferença": st.column_config.NumberColumn("Diferença", format="%.2f", width="small"),
         "Movimentação": st.column_config.TextColumn("Movimentação", width="small"),
     }
     st.dataframe(

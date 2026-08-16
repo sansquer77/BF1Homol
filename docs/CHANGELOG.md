@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.7
+versao: 2.0
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,28 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.8.0
+
+- Classificação com colunas numéricas ordenáveis: totais, descarte e
+  diferença deixam de ser pré-formatados como texto e passam a
+  `NumberColumn` (`%.2f`) — o usuário pode ordenar pela coluna
+  (spec `classificacao` v1.1, critério 8); primeira linha da Diferença
+  permanece vazia ("—") e o CSV sai com valores numéricos.
+
+### 3.7.2
+
+- Botões do menu lateral compactos (fonte e espaçamento reduzidos) e
+  densidade maior em telas estreitas, preservando altura mínima de toque
+  (spec `menu-e-navegacao` v1.2, critério 8); mudança exclusivamente visual.
+
+### 3.7.1
+
+- Agenda do calendário passa a exibir os eventos no fuso de exibição
+  selecionado na sidebar (spec `pwa-e-preferencias-do-cliente` v1.1,
+  critério 8): o componente streamlit-calendar recebia o fuso `local` do
+  navegador e ignorava a escolha quando ela diferia do navegador; a aba
+  "Horário limite" e a legenda da tela já respeitavam a escolha.
 
 ### 3.7.0
 
