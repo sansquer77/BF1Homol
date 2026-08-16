@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.3
+versao: 1.4
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,13 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.4.0
+
+- Validação inline da grade de aposta: aviso imediato de piloto repetido,
+  mesma equipe (quando proibida) e 11º também apostado, sem esperar o envio
+  (spec `apostas-de-prova` v1.2, critério 10); validações do envio
+  inalteradas como gate final.
 
 ### 3.3.0
 
@@ -61,6 +68,7 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
+- `1.4` — 2026-08-16 — Registrada a versão 3.4.0 (validação inline da aposta).
 - `1.3` — 2026-08-16 — Registrada a versão 3.3.0 (grade única de aposta).
 - `1.2` — 2026-08-16 — Registrada a versão 3.2.0 (polimento de interface).
 - `1.1` — 2026-08-16 — Registrada a versão 3.1.0 (menu lateral em coluna única).

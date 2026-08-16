@@ -29,8 +29,11 @@ class ApostasGradeTests(unittest.TestCase):
         self.assertIn("max_value=fichas_max_por_piloto", self.fonte)
 
     def test_grade_preenche_aposta_existente(self):
-        self.assertIn('st.session_state["aposta_editor_data"] = df_form_aposta.copy()', self.fonte)
+        self.assertIn('st.session_state.pop("aposta_editor_data", None)', self.fonte)
+        self.assertNotIn('st.session_state["aposta_editor_data"] =', self.fonte)
         self.assertIn('if prova_id_form != prova_id or force_reload_form:', self.fonte)
+        self.assertIn("editor_data = st.data_editor(", self.fonte)
+        self.assertIn("        df_form_aposta,", self.fonte)
 
     def test_formulario_antigo_empilhado_removido(self):
         self.assertNotIn('f"Piloto {i+1}"', self.fonte)

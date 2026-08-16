@@ -61,6 +61,42 @@ def _ordenar_provas_por_calendario(provas_df: pd.DataFrame) -> pd.DataFrame:
     """Ordena provas por data/hora do calendário (ascendente), com fallback estável."""
     return _controller_ordenar_provas_por_calendario(provas_df)
 
+
+# spec: apostas-de-prova v1.2 — critério 10 (validação inline por linha)
+def _avisos_inline_aposta(
+    pilotos_aposta: list[str],
+    pilotos_equipe: dict[str, str],
+    permite_mesma_equipe: bool,
+) -> list[str]:
+    """Avisos imediatos da grade de aposta: piloto repetido e mesma equipe.
+
+    Não substitui as validações do envio; apenas antecipa o feedback.
+    Linhas "Nenhum" são ignoradas e a numeração reflete a linha da grade.
+    """
+    avisos: list[str] = []
+    linhas_por_piloto: dict[str, list[int]] = {}
+    linhas_por_equipe: dict[str, list[int]] = {}
+    for indice, piloto in enumerate(pilotos_aposta):
+        if piloto == "Nenhum":
+            continue
+        numero_linha = indice + 1
+        linhas_por_piloto.setdefault(piloto, []).append(numero_linha)
+        equipe = pilotos_equipe.get(piloto, "")
+        if equipe:
+            linhas_por_equipe.setdefault(equipe, []).append(numero_linha)
+    for piloto, linhas in linhas_por_piloto.items():
+        if len(linhas) > 1:
+            avisos.append(
+                f"Linhas {', '.join(map(str, linhas))}: piloto repetido ({piloto})."
+            )
+    if not permite_mesma_equipe:
+        for equipe, linhas in linhas_por_equipe.items():
+            if len(linhas) > 1:
+                avisos.append(
+                    f"Linhas {', '.join(map(str, linhas))}: mesma equipe ({equipe})."
+                )
+    return avisos
+
 def participante_view():
     if 'token' not in st.session_state or 'user_id' not in st.session_state:
         st.warning("Você precisa estar logado para acessar essa página.")
@@ -321,7 +357,10 @@ def participante_view():
                     prova_id_form = st.session_state.get("aposta_form_prova_id")
                     force_reload_form = bool(st.session_state.get("aposta_form_force_reload", False))
                     if prova_id_form != prova_id or force_reload_form:
-                        st.session_state["aposta_editor_data"] = df_form_aposta.copy()
+                        # spec: apostas-de-prova v1.1 — critério 9 (grade única de aposta)
+                        # O data_editor não permite atribuir a chave via session_state;
+                        # remover a chave faz o widget re-inicializar a partir de `data=`.
+                        st.session_state.pop("aposta_editor_data", None)
 
                         if piloto_11_ant in pilotos:
                             st.session_state["piloto_11"] = piloto_11_ant
@@ -379,6 +418,10 @@ def participante_view():
                         pilotos_aposta.append(piloto_sel)
                         fichas_aposta.append(fichas_valor)
 
+                    # spec: apostas-de-prova v1.2 — critério 10 (validação inline por linha)
+                    for aviso in _avisos_inline_aposta(pilotos_aposta, pilotos_equipe, permite_mesma_equipe):
+                        st.warning(aviso)
+
                     pilotos_validos = [p for p in pilotos_aposta if p != "Nenhum"]
                     fichas_validas = [f for i, f in enumerate(fichas_aposta) if pilotos_aposta[i] != "Nenhum"]
                     pilotos_com_ficha = [
@@ -421,6 +464,10 @@ def participante_view():
                         "Palpite para 11º colocado", pilotos_11_opcoes,
                         key="piloto_11"
                     )
+
+                    # spec: apostas-de-prova v1.2 — critério 10 (validação inline do 11º)
+                    if piloto_11 in pilotos_com_ficha:
+                        st.warning(f"O 11º colocado ({piloto_11}) está entre os pilotos apostados.")
 
                     st.markdown("### Etapa 3 de 3 - Revise e confirme")
                     st.caption(
