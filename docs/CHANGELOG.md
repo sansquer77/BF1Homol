@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.4
+versao: 1.5
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,13 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.5.0
+
+- Menu lateral com botões por item: o primeiro clique em qualquer item navega
+  (inclusive o primeiro de um bloco recém-aberto); item da página atual
+  destacado com `▶` (spec `menu-e-navegacao` v1.1, critério 7); radio por
+  seção removido.
 
 ### 3.4.0
 
@@ -68,6 +75,7 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
+- `1.5` — 2026-08-16 — Registrada a versão 3.5.0 (menu com botões por item).
 - `1.4` — 2026-08-16 — Registrada a versão 3.4.0 (validação inline da aposta).
 - `1.3` — 2026-08-16 — Registrada a versão 3.3.0 (grade única de aposta).
 - `1.2` — 2026-08-16 — Registrada a versão 3.2.0 (polimento de interface).

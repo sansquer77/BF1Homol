@@ -15,7 +15,15 @@ class MenuNavigationTests(unittest.TestCase):
     def test_sidebar_renderiza_secoes_como_expansores(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")
         self.assertIn("st.sidebar.expander(section_name, expanded=expanded)", source)
-        self.assertIn("radio_key = f\"menu_radio_{profile_key}_{section_name}\"", source)
+        self.assertIn("st.sidebar.button(", source)
+
+    def test_itens_sao_botoes_com_primeiro_clique_navegando(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        self.assertIn('key=f"menu_btn_{profile_key}_{section_name}_{item}"', source)
+        self.assertIn('label = f"▶ {item}" if ativo else item', source)
+        self.assertNotIn('st.radio(', source)
+        self.assertNotIn('menu_applied_', source)
+        self.assertNotIn('menu_radio_', source)
 
     def test_itens_por_perfil_permanecem_agrupados(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")

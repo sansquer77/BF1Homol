@@ -791,31 +791,26 @@ def sidebar_menu():
     persisted_section = st.session_state.get(last_section_key)
     default_section = persisted_section if persisted_section in grouped_menu else _default_group_for_page(grouped_menu, current_page)
 
-    # spec: menu-e-navegacao v1.0 — critérios 1, 2 e 4
-    # Navegação em coluna única: cada seção é um expansor; a seção ativa
-    # inicia expandida, as demais colapsadas, e o item da página atual fica
-    # selecionado no radio da respectiva seção.
+    # spec: menu-e-navegacao v1.1 — critérios 1, 2, 4, 5 e 7
+    # Navegação em coluna única: cada seção é um expansor e cada item é um
+    # botão de largura total. O item da página atual fica destacado e o
+    # primeiro clique em qualquer item navega (botão sempre dispara rerun,
+    # sem depender de troca de seleção prévia como o radio).
     for section_name, items in grouped_menu.items():
-        default_item = current_page if current_page in items else items[0]
-        applied_key = f"menu_applied_{profile_key}_{section_name}"
-        if applied_key not in st.session_state:
-            st.session_state[applied_key] = default_item
         expanded = section_name == default_section
         with st.sidebar.expander(section_name, expanded=expanded):
             if not items:
                 continue
-            radio_key = f"menu_radio_{profile_key}_{section_name}"
-            selected = st.radio(
-                "Menu",
-                items,
-                index=items.index(default_item),
-                key=radio_key,
-                label_visibility="collapsed",
-            )
-            if selected != st.session_state.get(applied_key):
-                st.session_state[applied_key] = selected
-                st.session_state["pagina"] = selected
-                st.session_state[last_section_key] = section_name
+            for item in items:
+                ativo = item == current_page
+                label = f"▶ {item}" if ativo else item
+                if st.sidebar.button(
+                    label,
+                    key=f"menu_btn_{profile_key}_{section_name}_{item}",
+                    width="stretch",
+                ):
+                    st.session_state["pagina"] = item
+                    st.session_state[last_section_key] = section_name
 
     # ============ SELETOR DE TIMEZONE ============
     st.sidebar.divider()
