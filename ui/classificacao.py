@@ -720,14 +720,18 @@ def main():
     df_display = df_class.copy()
 
     colunas_ordem = _colunas_classificacao(descarte_ativo)
-    st.subheader("Classificação Geral (Provas + Campeonato)")
-    if descarte_ativo:
-        st.caption(
-            "O descarte atual é provisório: a pior pontuação entre as provas já "
-            "realizadas é removida e pode mudar após cada novo resultado."
-        )
-    total_rows = len(df_display.index)
-    table_height = _table_height(total_rows)
+    # spec: classificacao v1.2 — critério 9 (navegação interna por abas)
+    tab_classificacao, tab_pontos, tab_imagens, tab_evolucao, tab_posicoes = st.tabs(
+        [
+            "Classificação",
+            "Pontuação por Prova",
+            "Imagem por Prova",
+            "Evolução Acumulada",
+            "Posições por Prova",
+        ]
+    )
+
+    # Dados compartilhados entre as abas (Streamlit executa tudo em cada rerun).
     class_config = {
         "Posição": st.column_config.NumberColumn("Posição", format="%d", width="small"),
         "Participante": st.column_config.TextColumn("Participante", width="medium"),
@@ -740,42 +744,6 @@ def main():
         "Diferença": st.column_config.NumberColumn("Diferença", format="%.2f", width="small"),
         "Movimentação": st.column_config.TextColumn("Movimentação", width="small"),
     }
-    st.dataframe(
-        df_display[colunas_ordem],
-        hide_index=True,
-        width="stretch",
-        height=table_height,
-        row_height=38,
-        column_config=class_config,
-    )
-
-    csv_classificacao = df_display[colunas_ordem].to_csv(index=False)
-    st.download_button(
-        label="Baixar tabela da classificação (CSV)",
-        data=csv_classificacao,
-        file_name="classificacao_geral.csv",
-        mime="text/csv",
-        on_click="ignore",
-    )
-
-    if perfil_usuario in ['admin', 'master']:
-        if st.button("Preparar imagem da tabela", key="preparar_imagem_classificacao"):
-            with st.spinner("Gerando imagem da classificação..."):
-                st.session_state["imagem_classificacao_geral"] = (
-                    season,
-                    gerar_imagem_tabela_ajustada(df_display, colunas_ordem).getvalue(),
-                )
-        imagem_gerada = st.session_state.get("imagem_classificacao_geral")
-        if imagem_gerada and imagem_gerada[0] == season:
-            st.download_button(
-                label='Baixar imagem da tabela',
-                data=imagem_gerada[1],
-                file_name='classificacao_geral.png',
-                mime='image/png',
-                on_click="ignore",
-            )
-
-    st.subheader("Pontuação por Prova")
     provas_df_ord = provas_df.sort_values('id')
     provas_ids_ordenados = provas_df_ord["id"].tolist()
     df_cruzada = _montar_pontos_por_prova(
@@ -789,115 +757,160 @@ def main():
         "_index": st.column_config.TextColumn("Prova", width="medium"),
         **{col: st.column_config.TextColumn(str(col), width="small") for col in df_formatado.columns},
     }
-    st.dataframe(
-        df_styled,
-        width="stretch",
-        height=_table_height(len(df_formatado), max_height=760),
-        column_config=prova_config,
-    )
-
-    st.subheader("Imagem da classificação de uma prova específica")
-    prova_selecionada = st.selectbox(
-        "Selecione a prova para gerar imagem da classificação:",
-        options=df_cruzada.index.tolist()
-    )
-    if perfil_usuario in ['admin', 'master']:
-        if st.button("Gerar imagem da prova selecionada"):
-            imagem_buffer_prova = gerar_imagem_prova(
-                df_cruzada,
-                prova_selecionada,
-                apostas_df=apostas_df,
-                resultados_df=resultados_df,
-                provas_df=provas_df,
-                df_class=df_class,
-            )
-            if imagem_buffer_prova:
-                st.download_button(
-                    label=f"Baixar imagem da classificação da prova {prova_selecionada}",
-                    data=imagem_buffer_prova,
-                    file_name=f'classificacao_{prova_selecionada}.png',
-                    mime='image/png',
-                    on_click="ignore",
-                )
-            else:
-                st.warning("Prova selecionada não contém dados para gerar imagem.")
-
-    st.subheader("Evolução da Pontuação Acumulada")
     provas_com_resultado_ids = resultados_df['prova_id'].unique()
     provas_com_resultado_nomes = provas_df[provas_df['id'].isin(provas_com_resultado_ids)].sort_values('id')['nome'].tolist()
     df_grafico = df_cruzada.loc[df_cruzada.index.isin(provas_com_resultado_nomes)]
     df_grafico = df_grafico.reindex(provas_com_resultado_nomes)
-    def texto_para_float(x):
-        if isinstance(x, float): return x
-        return float(str(x).replace('.', '').replace(',', '.'))
-    df_grafico_float = df_grafico.map(texto_para_float)
-    if not df_grafico_float.empty:
-        fig = go.Figure()
-        for participante in df_grafico_float.columns:
-            pontos_acumulados = df_grafico_float[participante].cumsum()
-            fig.add_trace(go.Scatter(
-                x=df_grafico_float.index.tolist(),
-                y=pontos_acumulados,
-                mode='lines+markers',
-                name=participante
-            ))
-        fig.update_layout(
-            title="Evolução da Pontuação Acumulada",
-            xaxis_title="Prova",
-            yaxis_title="Pontuação Acumulada",
-            xaxis_tickangle=-45,
-            margin=dict(l=40, r=20, t=60, b=80),
-            plot_bgcolor='#000000',
-            paper_bgcolor='#000000',
-            font=dict(color='#F5F7FA'),
-            xaxis=dict(
-                tickfont=dict(color='#F5F7FA'),
-                title_font=dict(color='#F5F7FA'),
-                gridcolor='rgba(255,255,255,0.16)'
-            ),
-            yaxis=dict(
-                tickformat=',.0f',
-                tickfont=dict(color='#F5F7FA'),
-                title_font=dict(color='#F5F7FA'),
-                gridcolor='rgba(255,255,255,0.16)',
-                zerolinecolor='rgba(255,255,255,0.25)'
-            ),
-            legend=dict(
-                font=dict(color='#F5F7FA'),
-                bgcolor='rgba(0,0,0,0.35)'
-            )
-        )
-        st.plotly_chart(fig, width="stretch")
-
-    st.subheader("Classificação de Cada Participante ao Longo do Campeonato")
-    # fix #5: substituir query raw por helper de repositório — elimina conexão extra e duplicação de SQL
     df_posicoes = with_required_columns(get_posicoes_participantes_df(season), POSICOES_COLUMNS)
     df_posicoes = _normalizar_ids_numericos(df_posicoes, "usuario_id", "prova_id")
-    fig_all = go.Figure()
-    for part in participantes['nome']:
-        u_id = participantes[participantes['nome'] == part].iloc[0]['id']
-        if df_posicoes.empty:
-            continue
-        posicoes_part_raw = df_posicoes[df_posicoes['usuario_id'] == u_id]
-        if isinstance(posicoes_part_raw, pd.Series):
-            posicoes_part = pd.DataFrame([posicoes_part_raw])
-        else:
-            posicoes_part = posicoes_part_raw
-        posicoes_part = posicoes_part.sort_values(by='prova_id')
-        if not posicoes_part.empty:
-            x_vals = []
-            for pid in posicoes_part['prova_id']:
-                p_name_arr = provas_df[provas_df['id'] == pid]['nome'].values
-                x_vals.append(p_name_arr[0] if len(p_name_arr) > 0 else f"ID {pid}")
-            fig_all.add_trace(go.Scatter(
-                x=x_vals,
-                y=posicoes_part['posicao'],
-                mode='lines+markers',
-                name=part
-            ))
-    fig_all.update_yaxes(autorange="reversed")
-    fig_all.update_layout(xaxis_title="Prova", yaxis_title="Posição", legend_title="Participante")
-    st.plotly_chart(fig_all, width="stretch")
+
+    with tab_classificacao:
+        if descarte_ativo:
+            st.caption(
+                "O descarte atual é provisório: a pior pontuação entre as provas já "
+                "realizadas é removida e pode mudar após cada novo resultado."
+            )
+        total_rows = len(df_display.index)
+        table_height = _table_height(total_rows)
+        st.dataframe(
+            df_display[colunas_ordem],
+            hide_index=True,
+            width="stretch",
+            height=table_height,
+            row_height=38,
+            column_config=class_config,
+        )
+
+        csv_classificacao = df_display[colunas_ordem].to_csv(index=False)
+        st.download_button(
+            label="Baixar tabela da classificação (CSV)",
+            data=csv_classificacao,
+            file_name="classificacao_geral.csv",
+            mime="text/csv",
+            on_click="ignore",
+        )
+
+        if perfil_usuario in ['admin', 'master']:
+            if st.button("Preparar imagem da tabela", key="preparar_imagem_classificacao"):
+                with st.spinner("Gerando imagem da classificação..."):
+                    st.session_state["imagem_classificacao_geral"] = (
+                        season,
+                        gerar_imagem_tabela_ajustada(df_display, colunas_ordem).getvalue(),
+                    )
+            imagem_gerada = st.session_state.get("imagem_classificacao_geral")
+            if imagem_gerada and imagem_gerada[0] == season:
+                st.download_button(
+                    label='Baixar imagem da tabela',
+                    data=imagem_gerada[1],
+                    file_name='classificacao_geral.png',
+                    mime='image/png',
+                    on_click="ignore",
+                )
+
+    with tab_pontos:
+        st.dataframe(
+            df_styled,
+            width="stretch",
+            height=_table_height(len(df_formatado), max_height=760),
+            column_config=prova_config,
+        )
+
+    with tab_imagens:
+        prova_selecionada = st.selectbox(
+            "Selecione a prova para gerar imagem da classificação:",
+            options=df_cruzada.index.tolist()
+        )
+        if perfil_usuario in ['admin', 'master']:
+            if st.button("Gerar imagem da prova selecionada"):
+                imagem_buffer_prova = gerar_imagem_prova(
+                    df_cruzada,
+                    prova_selecionada,
+                    apostas_df=apostas_df,
+                    resultados_df=resultados_df,
+                    provas_df=provas_df,
+                    df_class=df_class,
+                )
+                if imagem_buffer_prova:
+                    st.download_button(
+                        label=f"Baixar imagem da classificação da prova {prova_selecionada}",
+                        data=imagem_buffer_prova,
+                        file_name=f'classificacao_{prova_selecionada}.png',
+                        mime='image/png',
+                        on_click="ignore",
+                    )
+                else:
+                    st.warning("Prova selecionada não contém dados para gerar imagem.")
+
+    with tab_evolucao:
+        def texto_para_float(x):
+            if isinstance(x, float): return x
+            return float(str(x).replace('.', '').replace(',', '.'))
+        df_grafico_float = df_grafico.map(texto_para_float)
+        if not df_grafico_float.empty:
+            fig = go.Figure()
+            for participante in df_grafico_float.columns:
+                pontos_acumulados = df_grafico_float[participante].cumsum()
+                fig.add_trace(go.Scatter(
+                    x=df_grafico_float.index.tolist(),
+                    y=pontos_acumulados,
+                    mode='lines+markers',
+                    name=participante
+                ))
+            fig.update_layout(
+                title="Evolução da Pontuação Acumulada",
+                xaxis_title="Prova",
+                yaxis_title="Pontuação Acumulada",
+                xaxis_tickangle=-45,
+                margin=dict(l=40, r=20, t=60, b=80),
+                plot_bgcolor='#000000',
+                paper_bgcolor='#000000',
+                font=dict(color='#F5F7FA'),
+                xaxis=dict(
+                    tickfont=dict(color='#F5F7FA'),
+                    title_font=dict(color='#F5F7FA'),
+                    gridcolor='rgba(255,255,255,0.16)'
+                ),
+                yaxis=dict(
+                    tickformat=',.0f',
+                    tickfont=dict(color='#F5F7FA'),
+                    title_font=dict(color='#F5F7FA'),
+                    gridcolor='rgba(255,255,255,0.16)',
+                    zerolinecolor='rgba(255,255,255,0.25)'
+                ),
+                legend=dict(
+                    font=dict(color='#F5F7FA'),
+                    bgcolor='rgba(0,0,0,0.35)'
+                )
+            )
+            st.plotly_chart(fig, width="stretch")
+
+    with tab_posicoes:
+        # fix #5: substituir query raw por helper de repositório — elimina conexão extra e duplicação de SQL
+        fig_all = go.Figure()
+        for part in participantes['nome']:
+            u_id = participantes[participantes['nome'] == part].iloc[0]['id']
+            if df_posicoes.empty:
+                continue
+            posicoes_part_raw = df_posicoes[df_posicoes['usuario_id'] == u_id]
+            if isinstance(posicoes_part_raw, pd.Series):
+                posicoes_part = pd.DataFrame([posicoes_part_raw])
+            else:
+                posicoes_part = posicoes_part_raw
+            posicoes_part = posicoes_part.sort_values(by='prova_id')
+            if not posicoes_part.empty:
+                x_vals = []
+                for pid in posicoes_part['prova_id']:
+                    p_name_arr = provas_df[provas_df['id'] == pid]['nome'].values
+                    x_vals.append(p_name_arr[0] if len(p_name_arr) > 0 else f"ID {pid}")
+                fig_all.add_trace(go.Scatter(
+                    x=x_vals,
+                    y=posicoes_part['posicao'],
+                    mode='lines+markers',
+                    name=part
+                ))
+        fig_all.update_yaxes(autorange="reversed")
+        fig_all.update_layout(xaxis_title="Prova", yaxis_title="Posição", legend_title="Participante")
+        st.plotly_chart(fig_all, width="stretch")
 
 if __name__ == "__main__":
     main()

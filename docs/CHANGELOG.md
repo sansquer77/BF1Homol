@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 2.0
+versao: 2.1
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,13 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.9.0
+
+- Tela de classificação dividida em cinco abas — Classificação, Pontuação
+  por Prova, Imagem por Prova, Evolução Acumulada e Posições por Prova —
+  eliminando a rolagem longa única (spec `classificacao` v1.2, critério 9);
+  dados compartilhados calculados uma vez por renderização.
 
 ### 3.8.0
 

@@ -139,6 +139,20 @@ class ClassificacaoPontuacaoTests(unittest.TestCase):
         self.assertNotIn('"-" if i == 0 else formatar_brasileiro', source)
         self.assertIn('float("nan") if i == 0', source)
 
+    # spec: classificacao v1.2 — critério 9
+    def test_secoes_divididas_em_abas(self):
+        source = (Path(__file__).resolve().parents[1] / "ui" / "classificacao.py").read_text(encoding="utf-8")
+        for aba in ["Classificação", "Pontuação por Prova", "Imagem por Prova",
+                    "Evolução Acumulada", "Posições por Prova"]:
+            self.assertIn(f'"{aba}"', source, aba)
+        self.assertIn("with tab_classificacao:", source)
+        self.assertIn("with tab_pontos:", source)
+        self.assertIn("with tab_imagens:", source)
+        self.assertIn("with tab_evolucao:", source)
+        self.assertIn("with tab_posicoes:", source)
+        self.assertNotIn('st.subheader("Pontuação por Prova")', source)
+        self.assertNotIn('st.subheader("Evolução da Pontuação Acumulada")', source)
+
 
 if __name__ == "__main__":
     unittest.main()

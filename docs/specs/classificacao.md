@@ -2,7 +2,7 @@
 tipo: spec
 area: classificacao
 status: implementado
-versao: 1.1
+versao: 1.2
 atualizado: 2026-08-16
 relacionados:
   - "[[02_regras_de_negocio]]"
@@ -58,6 +58,9 @@ classificação da temporada. Administradores e master também geram imagens.
    numéricas nos dados e são renderizadas com `NumberColumn`, permitindo
    ordenação pelo usuário; a primeira linha da Diferença (sem antecessor) é
    `NaN` e não quebra a ordenação.
+9. As seções da tela — classificação, pontuação por prova, imagem por prova,
+   evolução acumulada e posições por prova — são navegadas por abas, com os
+   dados compartilhados calculados uma única vez por renderização.
 
 ## Interface, serviços e dados
 
@@ -78,6 +81,9 @@ classificação da temporada. Administradores e master também geram imagens.
 8. Dada a tabela da classificação, quando o usuário ordena por uma coluna
    numérica (total, descarte ou diferença), então a ordenação é numérica;
    a primeira linha da Diferença exibe "—" sem valor numérico.
+9. Dada a tela de classificação, quando ela renderiza, então as cinco seções
+   aparecem em abas nomeadas e a aba "Classificação" é a primeira; nenhuma
+   seção é removida ou reordenada funcionalmente.
 
 ## Verificação
 
@@ -100,9 +106,13 @@ classificação da temporada. Administradores e master também geram imagens.
 - [x] Fortalecer testes e atualizar regras documentadas. Fecha: critérios 1 a 7.
 - [x] Manter colunas numéricas como números (NumberColumn) e Diferença com NaN
       na primeira linha. Fecha: critério 8.
+- [x] Dividir a tela em cinco abas de navegação interna. Fecha: critério 9.
 
 ## Changelog
 
+- `1.2` — 2026-08-16 — Tela dividida em abas (classificação, pontuação por
+  prova, imagem por prova, evolução acumulada e posições por prova);
+  dados compartilhados calculados uma vez (critério 9).
 - `1.1` — 2026-08-16 — Colunas numéricas renderizadas como números ordenáveis
   (NumberColumn); primeira linha da Diferença como NaN (critério 8).
 - `1.0` — 2026-07-31 — Spec focada criada e reconciliada com cálculo e testes atuais.
