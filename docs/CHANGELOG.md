@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 2.7
+versao: 2.8
 atualizado: 2026-08-16
 relacionados:
   - "[[sdd]]"
@@ -21,6 +21,15 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.10.6
+
+- Menu com o estilo do Sistema Financeiro (inspiração): grupos como toggle —
+  rótulo 14px extra-bold com chevron, sem retângulo — e itens como
+  `nav-button` (13px bold, altura 32px, cantos 6px, hover suave). A borda
+  do retângulo ficava no `<details>` do `stExpander` (elemento sem testid),
+  por isso os grupos colapsados persistiam: agora a remoção usa o seletor
+  estrutural `> details` (spec `menu-e-navegacao` v1.6, critério 8).
 
 ### 3.10.5
 

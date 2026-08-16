@@ -760,11 +760,11 @@ def _load_view(page: str):
 
 # ============ MENU LATERAL ============
 def sidebar_menu():
-    # spec: menu-e-navegacao v1.5 — critério 8 (menu em texto, sem bordas)
-    # Os itens continuam botões para navegação, mas sem borda/fundo: apenas o
-    # texto; densidade maior em telas estreitas preservando o toque.
-    # Os grupos (expansores) perdem o retângulo: header e contêiner sem
-    # borda/fundo — o grupo vira apenas o texto da seção.
+    # spec: menu-e-navegacao v1.6 — critério 8 (estilo inspirado no
+    # Sistema Financeiro: grupos como toggle sem retângulo e itens como
+    # nav-button limpos). Os grupos (expansores) perdem o retângulo: a borda
+    # real fica no <details> (filho do stExpander, sem testid próprio) — por
+    # isso o seletor usa `> details`; header e contêiner também sem borda.
     # Os estilos são aplicados por JavaScript injetado pelo sink central
     # (estilo inline no DOM, com prioridade "important"), robusto a
     # especificidade/sanitização; o CSS de apoio cobre :hover/:focus.
@@ -774,19 +774,25 @@ def sidebar_menu():
             {
                 "selector": '[data-testid="stSidebar"] [data-testid="stExpander"]',
                 "style": {
+                    "padding": "0.1rem 0",
+                    "background": "transparent",
+                },
+            },
+            {
+                "selector": '[data-testid="stSidebar"] [data-testid="stExpander"] > details',
+                "style": {
                     "border": "none",
                     "background": "transparent",
                     "boxShadow": "none",
-                    "padding": "0.1rem 0",
+                    "borderRadius": "6px",
                 },
             },
             {
                 "selector": '[data-testid="stSidebar"] [data-testid="stExpanderDetails"]',
                 "style": {
-                    "border": "none",
+                    "borderTop": "none",
                     "background": "transparent",
-                    "boxShadow": "none",
-                    "padding": "0",
+                    "padding": "0.25rem 0",
                 },
             },
             {
@@ -795,7 +801,12 @@ def sidebar_menu():
                     "border": "none",
                     "background": "transparent",
                     "boxShadow": "none",
-                    "padding": "0.25rem 0.25rem",
+                    "borderRadius": "6px",
+                    "minHeight": "28px",
+                    "padding": "0 4px",
+                    "fontSize": "14px",
+                    "fontWeight": "800",
+                    "color": "var(--text-primary)",
                     "justifyContent": "space-between",
                 },
             },
@@ -805,10 +816,13 @@ def sidebar_menu():
                     "background": "transparent",
                     "border": "none",
                     "boxShadow": "none",
+                    "borderRadius": "6px",
                     "textAlign": "left",
-                    "fontSize": "0.85rem",
-                    "padding": "0.1rem 0.25rem",
-                    "minHeight": "1.6rem",
+                    "fontSize": "13px",
+                    "fontWeight": "700",
+                    "color": "var(--text-secondary)",
+                    "padding": "0 12px",
+                    "minHeight": "32px",
                 },
             },
             {
@@ -817,10 +831,13 @@ def sidebar_menu():
                     "background": "transparent",
                     "border": "none",
                     "boxShadow": "none",
+                    "borderRadius": "6px",
                     "textAlign": "left",
-                    "fontSize": "0.85rem",
-                    "padding": "0.1rem 0.25rem",
-                    "minHeight": "1.6rem",
+                    "fontSize": "13px",
+                    "fontWeight": "700",
+                    "color": "var(--text-secondary)",
+                    "padding": "0 12px",
+                    "minHeight": "32px",
                 },
             },
             {
@@ -831,8 +848,8 @@ def sidebar_menu():
                 "selector": '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]',
                 "media": "(max-width: 768px)",
                 "style": {
-                    "fontSize": "0.85rem",
-                    "padding": "0.05rem 0.2rem",
+                    "fontSize": "13px",
+                    "padding": "0.05rem 0.4rem",
                     "minHeight": "1.9rem",
                 },
             },
@@ -840,20 +857,24 @@ def sidebar_menu():
                 "selector": '[data-testid="stSidebar"] button[kind="secondary"]',
                 "media": "(max-width: 768px)",
                 "style": {
-                    "fontSize": "0.85rem",
-                    "padding": "0.05rem 0.2rem",
+                    "fontSize": "13px",
+                    "padding": "0.05rem 0.4rem",
                     "minHeight": "1.9rem",
                 },
             },
         ],
         extra_css=(
-            '[data-testid="stSidebar"] [data-testid="stExpander"]:hover,'
-            '[data-testid="stSidebar"] [data-testid="stExpander"]:focus-within,'
+            '[data-testid="stSidebar"] [data-testid="stExpander"] > details > summary:hover,'
+            '[data-testid="stSidebar"] [data-testid="stExpander"] > details > summary:focus-within {'
+            " background: var(--glass-bg-hover) !important;"
+            " border-radius: 6px !important;"
+            "}"
             '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover,'
             '[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:focus,'
             '[data-testid="stSidebar"] button[kind="secondary"]:hover,'
             '[data-testid="stSidebar"] button[kind="secondary"]:focus {'
-            " background: transparent !important;"
+            " background: var(--glass-bg-hover) !important;"
+            " color: var(--text-primary) !important;"
             " border: none !important;"
             " box-shadow: none !important;"
             "}"

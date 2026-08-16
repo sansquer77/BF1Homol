@@ -2,7 +2,7 @@
 tipo: spec
 area: navegacao
 status: implementado
-versao: 1.5
+versao: 1.6
 atualizado: 2026-08-16
 relacionados:
   - "[[04_arquitetura]]"
@@ -60,14 +60,18 @@ visitante anônimo na tela de login.
 6. O guard de rotas e os redirecionamentos por permissão permanecem
    responsáveis pela navegação segura; o menu é apenas apresentação.
 7. O seletor de timezone da sidebar permanece inalterado abaixo do menu.
-8. Os itens do menu são botões sem borda e sem fundo (aparência de texto,
-   alinhados à esquerda), com espaçamento mínimo; em telas estreitas
+8. Os grupos (expansores) não exibem retângulo: a borda do `stExpander`
+   fica no elemento `<details>` (filho direto, sem testid próprio), então a
+   remoção usa o seletor estrutural `> details` — header e contêiner
+   colapsável também sem borda nem fundo. Os itens seguem o padrão
+   `nav-button` do Sistema Financeiro (inspiração): texto de 13px bold
+   alinhado à esquerda, altura mínima de 32px, cantos de 6px e hover suave;
+   os grupos seguem o padrão `nav-group-toggle`: rótulo 14px extra-bold com
+   chevron, altura mínima de 28px e hover suave. Em telas estreitas
    (`max-width: 768px`) a densidade aumenta sem reduzir a altura mínima de
-   toque. Os grupos (expansores) também perdem o retângulo: o cabeçalho da
-   seção e o contêiner colapsável ficam sem borda nem fundo, restando apenas
-   o texto da seção. Mudança exclusivamente de apresentação: os estilos são
-   aplicados por JavaScript injetado pelo sink central (`utils.html_utils`),
-   com estilos inline de prioridade máxima no DOM renderizado — robusto a
+   toque. Mudança exclusivamente de apresentação: os estilos são aplicados
+   por JavaScript injetado pelo sink central (`utils.html_utils`), com
+   estilos inline de prioridade máxima no DOM renderizado — robusto a
    sanitização, especificidade do tema e reruns (via `MutationObserver`); o
    CSS de apoio cobre os estados `:hover`/`:focus`.
 
@@ -135,9 +139,16 @@ visitante anônimo na tela de login.
       (inline no DOM, robusto a especificidade/sanitização). Fecha: critério 8.
 - [x] Remover o retângulo dos grupos do menu: expansores sem borda/fundo
       (cabeçalho e contêiner colapsável). Fecha: critério 8.
+- [x] Estilo inspirado no Sistema Financeiro: grupos como toggle (14px
+      extra-bold, chevron, hover suave) e itens como `nav-button` (13px
+      bold, altura 32px, cantos 6px, hover suave); borda real do grupo
+      removida via seletor estrutural `> details`. Fecha: critério 8.
 
 ## Changelog
 
+- `1.6` — 2026-08-16 — Estilo do menu inspirado no Sistema Financeiro:
+  grupos como `nav-group-toggle` e itens como `nav-button`; borda do grupo
+  removida no `<details>` (seletor `> details`) (critério 8).
 - `1.5` — 2026-08-16 — Grupos do menu sem retângulo: expansores da sidebar
   sem borda nem fundo (cabeçalho `stBaseButton-headerNoPadding` e contêiner
   `stExpanderDetails`), restando o texto da seção (critério 8).
