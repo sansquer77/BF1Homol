@@ -1,0 +1,45 @@
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class MenuNavigationTests(unittest.TestCase):
+    def test_sidebar_nao_usa_navegacao_em_dois_niveis(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        self.assertNotIn('key="menu_secao"', source)
+        self.assertNotIn('key="menu_lateral"', source)
+        self.assertNotIn('"Seção",', source)
+
+    def test_sidebar_renderiza_secoes_como_expansores(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        self.assertIn("st.sidebar.expander(section_name, expanded=expanded)", source)
+        self.assertIn("radio_key = f\"menu_radio_{profile_key}_{section_name}\"", source)
+
+    def test_itens_por_perfil_permanecem_agrupados(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        for fn in (
+            "grouped_menu_master",
+            "grouped_menu_admin",
+            "grouped_menu_participante",
+            "grouped_menu_inativo",
+        ):
+            self.assertIn(f"def {fn}(", source)
+        self.assertIn("_normalize_grouped_menu(menu_items, grouped_menu)", source)
+        self.assertIn('has_logout = "Logout" in menu_items', source)
+
+    def test_secao_ativa_e_persistida_para_expansao(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        self.assertIn('last_section_key = f"menu_secao_last_{profile_key}"', source)
+        self.assertIn("default_section = persisted_section if persisted_section in grouped_menu", source)
+        self.assertIn('expanded = section_name == default_section', source)
+
+    def test_guard_de_rotas_e_timezone_permanecem(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        self.assertIn("_enforce_route_guard(pagina)", source)
+        self.assertIn('st.sidebar.selectbox(', source)
+
+
+if __name__ == "__main__":
+    unittest.main()

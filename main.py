@@ -758,8 +758,6 @@ def sidebar_menu():
 
     menu_items, grouped_menu = _normalize_grouped_menu(menu_items, grouped_menu)
 
-    if "menu_lateral" in st.session_state and st.session_state["menu_lateral"] not in menu_items:
-        del st.session_state["menu_lateral"]
     if st.session_state.get("pagina") not in menu_items:
         st.session_state["pagina"] = menu_items[0]
 
@@ -767,33 +765,32 @@ def sidebar_menu():
     last_section_key = f"menu_secao_last_{profile_key}"
     persisted_section = st.session_state.get(last_section_key)
     default_section = persisted_section if persisted_section in grouped_menu else _default_group_for_page(grouped_menu, current_page)
-    section_names = list(grouped_menu.keys())
-    default_section_index = section_names.index(default_section) if default_section in section_names else 0
 
-    if "menu_secao" in st.session_state and st.session_state["menu_secao"] not in section_names:
-        del st.session_state["menu_secao"]
-
-    chosen_section = st.sidebar.selectbox(
-        "Seção",
-        section_names,
-        index=default_section_index,
-        key="menu_secao",
-    )
-    st.session_state[last_section_key] = chosen_section
-
-    section_items = grouped_menu.get(chosen_section, menu_items)
-    if "menu_lateral" in st.session_state and st.session_state["menu_lateral"] not in section_items:
-        del st.session_state["menu_lateral"]
-
-    section_default = current_page if current_page in section_items else section_items[0]
-    section_default_index = section_items.index(section_default)
-    escolha = st.sidebar.radio(
-        "Menu",
-        section_items,
-        index=section_default_index,
-        key="menu_lateral",
-    )
-    st.session_state["pagina"] = escolha
+    # spec: menu-e-navegacao v1.0 — critérios 1, 2 e 4
+    # Navegação em coluna única: cada seção é um expansor; a seção ativa
+    # inicia expandida, as demais colapsadas, e o item da página atual fica
+    # selecionado no radio da respectiva seção.
+    for section_name, items in grouped_menu.items():
+        default_item = current_page if current_page in items else items[0]
+        applied_key = f"menu_applied_{profile_key}_{section_name}"
+        if applied_key not in st.session_state:
+            st.session_state[applied_key] = default_item
+        expanded = section_name == default_section
+        with st.sidebar.expander(section_name, expanded=expanded):
+            if not items:
+                continue
+            radio_key = f"menu_radio_{profile_key}_{section_name}"
+            selected = st.radio(
+                "Menu",
+                items,
+                index=items.index(default_item),
+                key=radio_key,
+                label_visibility="collapsed",
+            )
+            if selected != st.session_state.get(applied_key):
+                st.session_state[applied_key] = selected
+                st.session_state["pagina"] = selected
+                st.session_state[last_section_key] = section_name
 
     # ============ SELETOR DE TIMEZONE ============
     st.sidebar.divider()
