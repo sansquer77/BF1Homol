@@ -17,6 +17,8 @@ from utils.performance import journey
 from utils.html_utils import render_trusted_html, serialize_js_value
 from pathlib import Path
 
+from app_version import APP_VERSION
+
 # ============ CONFIGURAR PÁGINA PRIMEIRO ============
 st.set_page_config(
     page_title="BF1",
@@ -40,29 +42,37 @@ def load_css():
             render_trusted_html(st, "<style>" + f.read() + "</style>")
 
 def load_pwa_meta_tags():
-    """Adiciona meta tags para PWA e iOS Add to Home Screen."""
+    """Adiciona meta tags para PWA e iOS Add to Home Screen.
+
+    Usa APP_VERSION como cache-buster nos assets estáticos para forçar o
+    navegador/PWA a recarregar quando o app for atualizado no deploy.
+    """
     import base64
     from pathlib import Path
-    
+
     # Carregar ícone 180x180 como base64 (tamanho ideal para iOS)
     icon_path = Path(__file__).parent / "static" / "apple-touch-icon-180.png"
     if not icon_path.exists():
         icon_path = Path(__file__).parent / "static" / "apple-touch-icon.png"
-    
+
     # Carregar favicon como base64
     favicon_path = Path(__file__).parent / "static" / "favicon.ico"
-    
+
     icon_base64 = ""
     favicon_base64 = ""
-    
+
     if icon_path.exists():
         with open(icon_path, "rb") as f:
             icon_base64 = base64.b64encode(f.read()).decode()
-    
+
     if favicon_path.exists():
         with open(favicon_path, "rb") as f:
             favicon_base64 = base64.b64encode(f.read()).decode()
-    
+
+    version_js = serialize_js_value(APP_VERSION)
+    manifest_href = f"/static/manifest.json?v={APP_VERSION}"
+    manifest_href_js = serialize_js_value(manifest_href)
+
     # Usar JavaScript para injetar as meta tags no <head> do documento
     if icon_base64 or favicon_base64:
         icon_data_uri = f"data:image/png;base64,{icon_base64}" if icon_base64 else ""
@@ -73,37 +83,54 @@ def load_pwa_meta_tags():
             <script>
             (function() {{
                 var head = document.getElementsByTagName('head')[0];
-                
+                var appVersion = {version_js};
+
+                // Invalida cache do PWA quando a versão do app muda.
+                var storedVersion = null;
+                try {{ storedVersion = localStorage.getItem('bf1_app_version'); }} catch (e) {{}}
+                if (storedVersion && storedVersion !== appVersion) {{
+                    try {{
+                        localStorage.setItem('bf1_app_version', appVersion);
+                        if ('caches' in window) {{
+                            caches.keys().then(function(names) {{
+                                names.forEach(function(name) {{ caches.delete(name); }});
+                            }});
+                        }}
+                    }} catch (e) {{}}
+                }} else if (!storedVersion) {{
+                    try {{ localStorage.setItem('bf1_app_version', appVersion); }} catch (e) {{}}
+                }}
+
                 // Remover meta tags antigas se existirem
                 document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(el => el.remove());
                 document.querySelectorAll('link[rel="icon"]').forEach(el => el.remove());
                 document.querySelectorAll('link[rel="manifest"]').forEach(el => el.remove());
-                
+
                 // Favicon via data URI
                 var favicon = document.createElement('link');
                 favicon.rel = 'icon';
                 favicon.type = 'image/x-icon';
                 favicon.href = {favicon_js};
                 head.appendChild(favicon);
-                
-                // Manifest para PWA
+
+                // Manifest para PWA com cache-buster
                 var manifest = document.createElement('link');
                 manifest.rel = 'manifest';
-                manifest.href = '/static/manifest.json';
+                manifest.href = {manifest_href_js};
                 head.appendChild(manifest);
-                
+
                 // Apple Touch Icon (múltiplos tamanhos)
                 var link = document.createElement('link');
                 link.rel = 'apple-touch-icon';
                 link.href = {icon_js};
                 head.appendChild(link);
-                
+
                 var link180 = document.createElement('link');
                 link180.rel = 'apple-touch-icon';
                 link180.sizes = '180x180';
                 link180.href = {icon_js};
                 head.appendChild(link180);
-                
+
                 // Verificar/adicionar meta tags PWA
                 if (!document.querySelector('meta[name="apple-mobile-web-app-capable"]')) {{
                     var meta1 = document.createElement('meta');
@@ -111,14 +138,14 @@ def load_pwa_meta_tags():
                     meta1.content = 'yes';
                     head.appendChild(meta1);
                 }}
-                
+
                 if (!document.querySelector('meta[name="apple-mobile-web-app-title"]')) {{
                     var meta2 = document.createElement('meta');
                     meta2.name = 'apple-mobile-web-app-title';
                     meta2.content = 'BF1';
                     head.appendChild(meta2);
                 }}
-                
+
                 if (!document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')) {{
                     var meta3 = document.createElement('meta');
                     meta3.name = 'apple-mobile-web-app-status-bar-style';
@@ -128,12 +155,48 @@ def load_pwa_meta_tags():
             }})();
             </script>
         """, allow_javascript=True)
-    
+
     render_trusted_html(st, """
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="theme-color" content="#d32f2f">
         <meta name="description" content="BF1 - Bolão de Fórmula 1 - Sistema de gerenciamento de apostas de F1">
     """)
+
+    # Recuperação defensiva: se o frontend falhar ao carregar um módulo JS
+    # (cache legado após deploy), limpa caches e força recarga única.
+    render_trusted_html(st, f"""
+        <script>
+        (function() {{
+            var appVersion = {version_js};
+            var reloadedKey = 'bf1_module_reload_' + appVersion;
+            try {{
+                if (window.__bf1ModuleErrorHandled) return;
+                window.__bf1ModuleErrorHandled = true;
+                window.addEventListener('error', function(event) {{
+                    var msg = (event && event.message) || '';
+                    var filename = (event && event.filename) || '';
+                    if (
+                        msg.indexOf('Importing a module script failed') !== -1 ||
+                        msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+                        filename.indexOf('/static/') !== -1 && msg.indexOf('Failed to load') !== -1
+                    ) {{
+                        try {{
+                            var alreadyReloaded = sessionStorage.getItem(reloadedKey);
+                            if (alreadyReloaded) return;
+                            sessionStorage.setItem(reloadedKey, '1');
+                            if ('caches' in window) {{
+                                caches.keys().then(function(names) {{
+                                    names.forEach(function(name) {{ caches.delete(name); }});
+                                }});
+                            }}
+                        }} catch (e) {{}}
+                        window.location.reload(true);
+                    }}
+                }});
+            }} catch (e) {{}}
+        }})();
+        </script>
+    """, allow_javascript=True)
 
 
 # Timezones válidos reconhecidos pelo seletor da sidebar.
@@ -876,11 +939,10 @@ def main():
     # EXECUTA A VIEW
     if pagina in PAGES:
         journey_names = {
-            "Login": "login",
+            "Login": "abertura_login",
             "Painel do Participante": "abertura_painel",
             "Classificação": "classificacao",
-            "Atualização de resultados": "lancamento_resultado",
-            "Log de Apostas": "historico",
+            "Atualização de resultados": "abertura_resultados",
         }
         with journey(journey_names.get(pagina, f"pagina:{pagina}"), page=pagina):
             _load_view(pagina)()

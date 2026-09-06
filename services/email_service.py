@@ -92,7 +92,7 @@ def enviar_email(destinatario: str, assunto: str, corpo_html: str, cco: Optional
     msg['Subject'] = assunto
     msg.attach(MIMEText(corpo_html, 'html'))
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15) as server:
             server.login(EMAIL_REMETENTE, SENHA_REMETENTE)
             server.sendmail(EMAIL_REMETENTE, destinatarios_envio, msg.as_string())
         return True

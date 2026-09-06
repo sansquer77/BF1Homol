@@ -1,5 +1,6 @@
 # BF1 3.5 - Requirements
 # Sistema de Bolão de Fórmula 1 com Performance e Segurança
+# Requer Python >= 3.10 (dict_row, ParamSpec, tomllib, match-case usados no código)
 
 # Core Framework
 streamlit>=1.55.0

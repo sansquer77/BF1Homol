@@ -20,6 +20,7 @@ from utils.input_models import LoginInput, ValidationError
 from utils.logging_utils import redact_identifier
 from utils.helpers import get_bf1_logo_data_uri
 from utils.html_utils import render_trusted_html
+from utils.performance import promote_current_journey
 from services.data_access_core import (
     db_connect,
 )
@@ -277,6 +278,7 @@ def login_view():
         
         # ========== PROCESSAMENTO DO LOGIN ==========
         if submit_button:
+            promote_current_journey("login", action="submit")
             if not email or not senha:
                 st.error("❌ Por favor, preencha email e senha")
                 logger.warning("Tentativa de login com campos vazios")

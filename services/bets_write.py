@@ -664,7 +664,7 @@ def _determinar_tipo_prova(prova_row: Union[pd.Series, dict], nome_prova: Option
     return "Normal"
 
 
-@measured("envio_aposta")
+@measured("envio_aposta", promote=True)
 def salvar_aposta(
     usuario_id,
     prova_id,

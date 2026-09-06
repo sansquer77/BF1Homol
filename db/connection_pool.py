@@ -17,7 +17,7 @@ from db.db_config import (
     DB_MIN_CONN,
     DB_TIMEOUT,
 )
-from utils.performance import record_query, record_rows
+from utils.performance import record_processed_rows, record_query, record_rows
 
 
 class InstrumentedCursor:
@@ -45,22 +45,27 @@ class InstrumentedCursor:
 
     def fetchone(self):
         row = self._cursor.fetchone()
-        record_rows(1 if row is not None else 0)
+        count = 1 if row is not None else 0
+        record_rows(count)
+        record_processed_rows(count)
         return row
 
     def fetchmany(self, size: int = 0):
         rows = self._cursor.fetchmany(size) if size else self._cursor.fetchmany()
         record_rows(len(rows))
+        record_processed_rows(len(rows))
         return rows
 
     def fetchall(self):
         rows = self._cursor.fetchall()
         record_rows(len(rows))
+        record_processed_rows(len(rows))
         return rows
 
     def __iter__(self) -> Iterator[Any]:
         for row in self._cursor:
             record_rows(1)
+            record_processed_rows(1)
             yield row
 
     def __enter__(self):
@@ -102,13 +107,22 @@ class ConnectionPool:
         """Inicializa recursos do backend PostgreSQL."""
         if not DATABASE_URL:
             raise ValueError("DATABASE_URL não configurada para backend PostgreSQL")
+        # kwargs extras são passados para cada conexão criada.
+        # application_name facilita identificar conexões BF1 no PostgreSQL.
+        # connect_timeout evita espera indefinida em problemas de rede.
+        conn_kwargs = {
+            "autocommit": False,
+            "row_factory": dict_row,
+            "application_name": "bf1_app",
+            "connect_timeout": 10,
+        }
         self._pg_pool = PsycopgConnectionPool(
             conninfo=DATABASE_URL,
             min_size=DB_MIN_CONN,
             max_size=DB_MAX_CONN,
             max_lifetime=DB_CONN_MAX_LIFETIME,
             timeout=self.timeout,
-            kwargs={"autocommit": False, "row_factory": dict_row},
+            kwargs=conn_kwargs,
             open=True,
         )
 

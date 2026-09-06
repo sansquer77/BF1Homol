@@ -151,6 +151,28 @@ def _get_log_apostas_df(
     if not cols:
         return pd.DataFrame()
 
+    # spec: seguranca sql — valida identificadores antes de interpolar no SELECT
+    valid_cols = frozenset(str(c).lower() for c in cols)
+
+    def _split_alias(item: str) -> tuple[str, str | None]:
+        parts = item.strip().split(" AS ", 1)
+        return parts[0].strip(), (parts[1].strip() if len(parts) == 2 else None)
+
+    safe_campos: list[str] = []
+    for campo in campos:
+        col_name, alias = _split_alias(campo)
+        # Normaliza nome removendo qualificação de tabela (ex: a.usuario_id -> usuario_id)
+        normalized = col_name.lower().split(".")[-1].strip()
+        if normalized not in valid_cols:
+            raise ValueError(f"Coluna não permitida em log_apostas: {campo}")
+        if alias:
+            # Alias deve ser um identificador SQL simples
+            if not alias.replace("_", "").isalnum() or not (alias[0].isalpha() or alias[0] == "_"):
+                raise ValueError(f"Alias inválido em log_apostas: {alias}")
+            safe_campos.append(f'"{col_name}" AS "{alias}"')
+        else:
+            safe_campos.append(f'"{col_name}"')
+
     conditions = ["tipo_aposta = 0"]
     params: list = []
 
@@ -176,7 +198,7 @@ def _get_log_apostas_df(
         return pd.DataFrame()
 
     # Mapeia alias de campos para nomes reais (ex: 'apostador AS participante')
-    select_cols = ', '.join(campos)
+    select_cols = ', '.join(safe_campos)
     where_sql = ' AND '.join(conditions)
     query = f"SELECT {select_cols} FROM log_apostas WHERE {where_sql}"
 

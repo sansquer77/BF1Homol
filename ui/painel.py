@@ -41,6 +41,7 @@ from utils.dataframe_contracts import (
     with_required_columns,
 )
 from utils.helpers import render_page_header
+from utils.performance import promote_current_journey
 from utils.season_utils import get_default_season_index, get_season_options
 
 
@@ -770,6 +771,7 @@ def _render_historico_geral(usuario_id: int) -> None:
     2. Gráfico de barras: fichas por piloto por temporada
     3. Destaque do piloto mais apostado
     """
+    promote_current_journey("historico", section="historico_consolidado")
     resumo = calcular_resumo_historico(usuario_id)
     dados_grafico = calcular_dados_grafico(usuario_id)
 

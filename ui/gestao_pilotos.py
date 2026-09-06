@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 from services.data_access_provas import get_pilotos_df
 from services.admin_operations import admin_add_piloto, admin_delete_piloto, admin_update_piloto
+from utils.cache_utils import clear_data_cache
 from utils.helpers import render_page_header
 
 
@@ -138,7 +139,7 @@ def _render_aba_editar(df: pd.DataFrame):
                 return
             
             st.success("✅ Piloto atualizado com sucesso!")
-            st.cache_data.clear()
+            clear_data_cache("pilotos")
             st.rerun()
     
     # Botão: Excluir
@@ -149,7 +150,7 @@ def _render_aba_editar(df: pd.DataFrame):
                 return
             
             st.success("✅ Piloto excluído com sucesso!")
-            st.cache_data.clear()
+            clear_data_cache("pilotos")
             st.rerun()
 
 
@@ -171,7 +172,7 @@ def _render_aba_adicionar():
                 return
             
             st.success("✅ Piloto adicionado com sucesso!")
-            st.cache_data.clear()
+            clear_data_cache("pilotos")
             st.rerun()
 
 

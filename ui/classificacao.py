@@ -37,6 +37,28 @@ from utils.dataframe_contracts import (
 )
 
 
+_IMAGE_DPI = 130
+_IMAGE_MAX_WIDTH_IN = 18.0
+_IMAGE_MAX_HEIGHT_IN = 20.0
+_IMAGE_MAX_PIXELS = 6_100_000
+
+
+def _calcular_layout_imagem(
+    linhas: int,
+    total_chars: int,
+    *,
+    largura_minima: float,
+    altura_minima: float,
+    fator_largura: float,
+) -> tuple[float, float, int]:
+    """Dimensiona o PNG sem exceder a memória segura do container."""
+    largura = min(_IMAGE_MAX_WIDTH_IN, max(largura_minima, total_chars * fator_largura))
+    altura = min(_IMAGE_MAX_HEIGHT_IN, max(altura_minima, linhas * 0.62 + 2.2))
+    dpi_limite = int((_IMAGE_MAX_PIXELS / (largura * altura)) ** 0.5)
+    dpi = max(96, min(_IMAGE_DPI, dpi_limite))
+    return largura, altura, dpi
+
+
 def _normalizar_ids_numericos(df: pd.DataFrame, *columns: str) -> pd.DataFrame:
     """Descarta IDs ausentes/inválidos antes de conversões e agrupamentos."""
     result = df.copy()
@@ -193,9 +215,15 @@ def gerar_imagem_tabela_ajustada(df, colunas):
     total_chars = sum(max_larguras) if sum(max_larguras) > 0 else 1
     col_widths = [max_len / total_chars for max_len in max_larguras]
 
-    largura_figura = max(16.0, total_chars * 0.14)
-    altura_figura = max(4.8, len(df_exibicao) * 0.62 + 2.2)
-    fig, ax = plt.subplots(figsize=(largura_figura, altura_figura), dpi=200)
+    # spec: classificacao v1.1 — critérios 8 e 9
+    largura_figura, altura_figura, dpi = _calcular_layout_imagem(
+        len(df_exibicao),
+        total_chars,
+        largura_minima=16.0,
+        altura_minima=4.8,
+        fator_largura=0.14,
+    )
+    fig, ax = plt.subplots(figsize=(largura_figura, altura_figura), dpi=dpi)
     ax.axis('off')
 
     fonte_tabela = 13 if len(df_exibicao) <= 20 else 11
@@ -228,10 +256,15 @@ def gerar_imagem_tabela_ajustada(df, colunas):
         cell.set_linewidth(0.7)
 
     buffer = BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight', dpi=320)
-    plt.close(fig)
-    buffer.seek(0)
-    return buffer
+    try:
+        fig.savefig(buffer, format='png', bbox_inches='tight', dpi=dpi)
+        buffer.seek(0)
+        return buffer
+    except Exception:
+        buffer.close()
+        raise
+    finally:
+        plt.close(fig)
 
 def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultados_df=None, provas_df=None, df_class=None):
     import matplotlib.image as mpimg
@@ -345,9 +378,15 @@ def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultado
     max_nome = max(df_prova.index.astype(str).map(len).max(), len("Participante")) if linhas > 0 else len("Participante")
     max_valor = max(df_prova[prova_selecionada].astype(str).map(len).max(), len(prova_selecionada)) if linhas > 0 else len(prova_selecionada)
     total_chars = max_nome + max_valor
-    largura_figura = max(8.8, total_chars * 0.2)
-    altura_figura = max(4.6, linhas * 0.62 + 2.2)
-    fig, ax = plt.subplots(figsize=(largura_figura, altura_figura), dpi=200)
+    # spec: classificacao v1.1 — critérios 8 e 9
+    largura_figura, altura_figura, dpi = _calcular_layout_imagem(
+        linhas,
+        total_chars,
+        largura_minima=8.8,
+        altura_minima=4.6,
+        fator_largura=0.2,
+    )
+    fig, ax = plt.subplots(figsize=(largura_figura, altura_figura), dpi=dpi)
     ax.axis('off')
 
     fonte_tabela = 13 if linhas <= 20 else 11
@@ -385,10 +424,15 @@ def gerar_imagem_prova(df_cruzada, prova_selecionada, apostas_df=None, resultado
         cell.set_linewidth(0.7)
 
     buffer = BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight', dpi=320)
-    plt.close(fig)
-    buffer.seek(0)
-    return buffer
+    try:
+        fig.savefig(buffer, format='png', bbox_inches='tight', dpi=dpi)
+        buffer.seek(0)
+        return buffer
+    except Exception:
+        buffer.close()
+        raise
+    finally:
+        plt.close(fig)
 
 
 def destacar_heatmap(df: pd.DataFrame, resultados_df: pd.DataFrame, provas_ids_ordenados: list[int]):

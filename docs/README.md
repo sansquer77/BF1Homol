@@ -2,8 +2,8 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.5
-atualizado: 2026-08-16
+versao: 1.7
+atualizado: 2026-09-06
 relacionados:
   - "[[sdd]]"
   - "[[01_necessidade]]"
@@ -16,7 +16,7 @@ aliases: ["Documentação BF1", "Map of Content"]
 # Documentação BF1
 
 > [!info] Status
-> **implementado** · área: `meta` · atualizado em 2026-08-16 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
+> **implementado** · área: `meta` · atualizado em 2026-09-06 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
 
 Este é o ponto de entrada da documentação do BF1. O vault é compatível com
 Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
@@ -37,6 +37,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 | [[MAPA_MENTAL_MODULOS]] | Relações entre componentes |
 | [[glossario]] | Vocabulário de domínio |
 | [[CHANGELOG]] | Versão vigente e histórico de releases do produto |
+| [[inventario-v4]] | Inventário de telas, jornadas, serviços e contratos para a versão 4 |
 
 ## Especificações focadas
 
@@ -60,6 +61,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 - [[specs/hall-da-fama|Hall da Fama]]
 - [[specs/pwa-e-preferencias-do-cliente|PWA e preferências do cliente]]
 - [[specs/temporada-global|Temporada global]]
+- [[specs/migracao-v4-nextjs-fastapi|Migração BF1 4.0 para Next.js e FastAPI]]
 
 Novas funcionalidades devem ganhar uma spec focada em `docs/specs/`. A
 [[03_spec|spec consolidada]] continua como referência de compatibilidade até a
@@ -69,6 +71,7 @@ migração gradual de cada módulo.
 
 - [[adr/0001-streamlit-postgresql|ADR-0001 — Streamlit e PostgreSQL gerenciado]]
 - [[adr/0002-limites-de-camadas|ADR-0002 — Limites entre UI, serviços e banco]]
+- [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados|ADR-0003 — Next.js, FastAPI e compatibilidade de dados]]
 
 ## Governança
 
@@ -81,6 +84,8 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.7` — 2026-09-06 — Aprovada a arquitetura V4 e registrada a primeira fonte de backup V3.5.0.
+- `1.6` — 2026-09-06 — Adicionados inventário, spec e ADR proposto da migração 4.0.
 - `1.5` — 2026-08-16 — Adicionada a spec de temporada global ao índice.
 - `1.4` — 2026-07-31 — Adicionados política SemVer e changelog próprio do produto.
 - `1.3` — 2026-07-31 — Documentada a separação entre versão do produto e versão dos documentos.

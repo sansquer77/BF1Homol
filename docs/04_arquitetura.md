@@ -208,6 +208,9 @@ temporadas_regras
 | Banco de Dados        | Managed PostgreSQL              | Backups automáticos, SSL obrigatório     |
 | Variáveis de Ambiente | App Platform Env Vars           | `DATABASE_URL`, `JWT_SECRET`, `MASTER_*` |
 | CI/CD                 | Auto-deploy no push para `main` | Sem pipeline adicional necessário        |
+| Runtime Python        | >= 3.10 (preferencialmente 3.13)| ParamSpec, tomllib e dict_row do psycopg 3 são utilizados |
+
+A configuração do Streamlit em `.streamlit/config.toml` mantém `enableCORS` e `enableXsrfProtection` explicitamente ativos, além de desabilitar o envio de estatísticas de uso (`gatherUsageStats = false`).
 
 ### Variáveis de Ambiente Obrigatórias
 

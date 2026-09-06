@@ -24,10 +24,12 @@ R = TypeVar("R")
 @dataclass
 class JourneyMetrics:
     name: str
+    dimensions: dict[str, Any] = field(default_factory=dict)
     started: float = field(default_factory=time.perf_counter)
     queries: int = 0
     db_seconds: float = 0.0
-    rows: int = 0
+    rows_fetched: int = 0
+    rows_processed: int = 0
     cache_hits: int = 0
     cache_misses: int = 0
     query_fingerprints: dict[str, int] = field(default_factory=dict)
@@ -60,7 +62,21 @@ def record_query(sql: str, elapsed: float) -> None:
 def record_rows(count: int) -> None:
     metrics = _current.get()
     if metrics is not None:
-        metrics.rows += max(0, int(count))
+        metrics.rows_fetched += max(0, int(count))
+
+
+def record_processed_rows(count: int) -> None:
+    metrics = _current.get()
+    if metrics is not None:
+        metrics.rows_processed += max(0, int(count))
+
+
+def promote_current_journey(name: str, **dimensions: Any) -> None:
+    """Marca a ação crítica que de fato ocorreu no rerun atual."""
+    metrics = _current.get()
+    if metrics is not None:
+        metrics.name = name
+        metrics.dimensions.update(dimensions)
 
 
 def record_cache(hit: bool) -> None:
@@ -83,11 +99,13 @@ class journey:
         self.owner = False
 
     def __enter__(self) -> JourneyMetrics:
+        if not performance_enabled():
+            return JourneyMetrics(self.name, dimensions=dict(self.dimensions))
         existing = _current.get()
         if existing is not None:
             return existing
         self.owner = True
-        self.metrics = JourneyMetrics(self.name)
+        self.metrics = JourneyMetrics(self.name, dimensions=dict(self.dimensions))
         self.token = _current.set(self.metrics)
         return self.metrics
 
@@ -102,22 +120,25 @@ class journey:
             "duration_ms": round(elapsed * 1000, 2),
             "query_count": self.metrics.queries,
             "db_time_ms": round(self.metrics.db_seconds * 1000, 2),
-            "rows_processed": self.metrics.rows,
+            "rows_fetched": self.metrics.rows_fetched,
+            "rows_processed": self.metrics.rows_processed,
             "cache_hits": self.metrics.cache_hits,
             "cache_misses": self.metrics.cache_misses,
             "success": exc_type is None or control_flow,
             "query_fingerprints": self.metrics.query_fingerprints,
-            **self.dimensions,
+            **self.metrics.dimensions,
         }
         logger.info(json.dumps(payload, ensure_ascii=False, sort_keys=True))
         if self.token is not None:
             _current.reset(self.token)
 
 
-def measured(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def measured(name: str, *, promote: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            if promote:
+                promote_current_journey(name)
             with journey(name):
                 return func(*args, **kwargs)
         return wrapper
@@ -147,8 +168,14 @@ def instrumented_cache_data(*, ttl: int, tags: tuple[str, ...] = ()):
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             serial_before = _cache_miss_serial.get()
             value = cached(cache_namespace, *args, **kwargs)
-            if _cache_miss_serial.get() == serial_before:
+            cache_hit = _cache_miss_serial.get() == serial_before
+            if cache_hit:
                 record_cache(hit=True)
+                try:
+                    if not isinstance(value, (str, bytes, bytearray, dict)):
+                        record_processed_rows(len(value))  # type: ignore[arg-type]
+                except (TypeError, AttributeError):
+                    pass
             return value
 
         wrapper.clear = cached.clear  # type: ignore[attr-defined]

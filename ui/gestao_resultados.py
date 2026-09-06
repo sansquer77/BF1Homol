@@ -8,6 +8,7 @@ from services.bets_scoring import atualizar_classificacoes_todas_as_provas
 from services.result_notification_service import enviar_emails_resultado_prova
 from services.painel_controller import get_prova_atual_sem_resultado_id
 from utils.helpers import render_page_header
+from utils.performance import promote_current_journey
 from utils.season_utils import get_current_year_str, get_default_season_index, get_season_options
 from utils.dataframe_contracts import (
     PILOTOS_COLUMNS,
@@ -171,6 +172,10 @@ def resultados_view():
         if erro:
             st.error(erro)
         else:
+            promote_current_journey(
+                "lancamento_resultado",
+                season=str(temporada_selecionada),
+            )
             admin_save_resultado(int(prova_id), str(temporada_selecionada), posicoes, abandono_pilotos)
             st.success("Resultado salvo!")
             st.cache_data.clear()
