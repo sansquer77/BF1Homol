@@ -110,6 +110,21 @@ def _get_array_columns(conn, table_name: str) -> set[str]:
     return {str(r["column_name"]).lower() for r in (c.fetchall() or []) if r and r["column_name"]}
 
 
+def _get_boolean_columns(conn, table_name: str) -> set[str]:
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = %s
+          AND data_type = 'boolean'
+        """,
+        (table_name,),
+    )
+    return {str(r["column_name"]).lower() for r in (c.fetchall() or []) if r and r["column_name"]}
+
+
 def _normalize_legacy_json_sql_literal(value_literal: str) -> str | None:
     token = (value_literal or "").strip()
     if len(token) < 2 or not (token.startswith("'") and token.endswith("'")):
@@ -234,6 +249,38 @@ def _repair_insert_array_literals(conn, statement: str, table_name: str) -> str 
     )
 
 
+def _repair_insert_boolean_literals(conn, statement: str, table_name: str) -> str | None:
+    boolean_cols = _get_boolean_columns(conn, table_name)
+    if not boolean_cols:
+        return None
+    cols = _extract_insert_columns(statement)
+    payload = _extract_values_payload(statement)
+    if not cols or payload is None:
+        return None
+    values = _split_sql_csv(payload)
+    if len(cols) != len(values):
+        return None
+    changed = False
+    for idx, col in enumerate(cols):
+        if col.lower() not in boolean_cols:
+            continue
+        token = values[idx].strip()
+        if token == "0":
+            values[idx] = "FALSE"
+            changed = True
+        elif token == "1":
+            values[idx] = "TRUE"
+            changed = True
+    if not changed:
+        return None
+    return re.sub(
+        r"(\bVALUES\s*\().*(\)\s*$)",
+        lambda m: f"{m.group(1)}{', '.join(values)}{m.group(2)}",
+        statement,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+
 def _repair_insert_legacy_literals(conn, statement: str, table_name: str) -> str | None:
     repaired_stmt = statement
     changed = False
@@ -248,10 +295,16 @@ def _repair_insert_legacy_literals(conn, statement: str, table_name: str) -> str
         repaired_stmt = array_stmt
         changed = True
 
+    boolean_stmt = _repair_insert_boolean_literals(conn, repaired_stmt, table_name)
+    if boolean_stmt and boolean_stmt != repaired_stmt:
+        repaired_stmt = boolean_stmt
+        changed = True
+
     return repaired_stmt if changed else None
 
 __all__ = [
     "_repair_insert_json_literals",
     "_repair_insert_array_literals",
+    "_repair_insert_boolean_literals",
     "_repair_insert_legacy_literals",
 ]

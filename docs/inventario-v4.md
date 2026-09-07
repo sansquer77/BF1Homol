@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: migracao-v4
 status: em-revisao
-versao: 0.3
+versao: 0.4
 atualizado: 2026-09-06
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
@@ -96,8 +96,29 @@ pelos backups não podem ser removidos nem ter semântica reinterpretada.
 
 O primeiro exemplar oficial recebido foi gerado pela V3.5.0 em 2026-09-06. É
 um dump lógico data-only com 20 tabelas e 3.913 instruções `INSERT`. Como contém
-dados pessoais, hashes, sessões e logs, o original não é versionado; somente o
-manifesto estrutural e uma futura fixture anonimizada podem entrar no Git.
+dados pessoais, hashes, sessões e logs, o original não é versionado. O manifesto
+estrutural e a fixture SQL anonimizada e determinística ficam no Git; IDs, FKs,
+tipos e regras esportivas foram preservados.
+
+O exemplar contém dois registros históricos com o mesmo nome de piloto e IDs
+distintos. Por isso, `pilotos.id` permanece a identidade canônica e o schema V4
+não impõe unicidade global sobre `pilotos.nome`; duplicidade em novos cadastros
+é uma validação de serviço contextual, não uma restrição incompatível do banco.
+
+### Restore de caracterização V3.5.0
+
+Validado em PostgreSQL 18.6 local e isolado em 2026-09-06:
+
+- 20 tabelas e 3.913 linhas coincidentes com o manifesto;
+- zero órfãos nas FKs verificadas;
+- sequences maiores ou iguais aos IDs restaurados;
+- hashes bcrypt anonimizados autenticáveis pela senha da fixture;
+- colunas nativas de data, arrays e JSON preenchidas após migrations;
+- duas execuções consecutivas das migrations sem erro.
+
+O ensaio revelou e corrigiu três incompatibilidades do caminho anterior:
+tabelas/colunas criadas apenas sob demanda, booleanos legados como `0/1` e a
+unicidade global de nome de piloto incompatível com o histórico real.
 
 ### Estruturas encontradas
 
@@ -154,7 +175,7 @@ nunca são abertos diretamente.
 ## Bootstrap do usuário Master
 
 O FastAPI preserva a mecânica atual: no bootstrap de banco vazio, cria o Master
-com `MASTER_EMAIL`, `MASTER_PASSWORD` e `MASTER_NOME` do ambiente DigitalOcean.
+com `EMAIL_MASTER`, `SENHA_MASTER` e `USUARIO_MASTER` do ambiente DigitalOcean.
 As variáveis são obrigatórias na primeira inicialização, tratadas como segredo e
 nunca registradas. Se um Master já existir, reiniciar ou alterar a variável não
 redefine a credencial persistida.
@@ -184,6 +205,7 @@ redefine a credencial persistida.
 
 ## Changelog
 
+- `0.4` — 2026-09-06 — Restore V3.5.0 validado em PostgreSQL 18.6 e incompatibilidades encontradas documentadas.
 - `0.3` — 2026-09-06 — Adicionados exemplar V3.5.0, política de logs e bootstrap Master por ambiente.
 - `0.2` — 2026-09-06 — Registradas topologia de mesma origem e V4 pura sem Streamlit.
 - `0.1` — 2026-09-06 — Inventário inicial de telas, jornadas, serviços, segurança e compatibilidade do banco/backup.

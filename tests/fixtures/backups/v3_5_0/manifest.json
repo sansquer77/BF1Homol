@@ -1,5 +1,5 @@
 {
-  "fixture_status": "source_received_pending_anonymization",
+  "fixture_status": "anonymized_sql_fixture_generated",
   "source_version": "3.5.0",
   "source_filename": "bf1_backup_20260906_195821.sql",
   "source_sha256": "a46cb07266875ca11701d1dfad462de79eae2cfeb64c0d09ef60ed0246b2d78d",
@@ -9,6 +9,10 @@
   "table_count": 20,
   "contains_sensitive_data": true,
   "raw_source_must_not_be_committed": true,
+  "fixture_filename": "fixture.sql",
+  "fixture_sha256": "467d9bba42267bd5e47da06fc59d29137a1dceb480fd11f49bc8f0fb9b3dd762",
+  "fixture_size_bytes": 1391336,
+  "fixture_password": "FixtureV4!2026",
   "tables": {
     "access_logs": 264,
     "apostas": 786,

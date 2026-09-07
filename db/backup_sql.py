@@ -141,7 +141,7 @@ def restore_backup_from_sql(sql_content: str, presenter) -> bool:
                 if ok_stmt:
                     continue
 
-                if insert_table and err_stmt and (_is_json_syntax_error(err_stmt) or _is_array_syntax_error(err_stmt)):
+                if insert_table and err_stmt:
                     repaired_stmt = _repair_insert_legacy_literals(conn, stmt, insert_table)
                     if repaired_stmt and repaired_stmt != stmt:
                         ok_repaired, err_repaired = _execute_with_savepoint(c, repaired_stmt)

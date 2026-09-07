@@ -41,9 +41,9 @@ Configure as variáveis abaixo no painel da App Platform → **Settings → Envi
 |---|---|---|
 | `DATABASE_URL` | ✅ | Connection string completa do PostgreSQL (`postgresql://user:pass@host:port/dbname?sslmode=require`) |
 | `JWT_SECRET` | ✅ | Segredo aleatório com no mínimo 32 bytes para assinar tokens JWT |
-| `MASTER_EMAIL` | ✅ | Email do usuário master criado no primeiro boot |
-| `MASTER_PASSWORD` | ✅ | Senha inicial do usuário master (será hashada com bcrypt) |
-| `MASTER_NOME` | ✅ | Nome de exibição do usuário master |
+| `EMAIL_MASTER` | ✅ | Email do usuário master criado no primeiro boot |
+| `SENHA_MASTER` | ✅ | Senha inicial do usuário master (será hashada com bcrypt) |
+| `USUARIO_MASTER` | ✅ | Nome de exibição do usuário master |
 | `OIDC_AUTH_ENABLED` | Não | `true` habilita persistência segura depois de configurar `[auth]` em `.streamlit/secrets.toml` |
 | `TRUSTED_PROXY_MODE` | ✅ | `direct`, `xff` ou `x-real-ip`; padrão seguro `direct` |
 | `TRUSTED_PROXY_HOPS` | se `xff` | Saltos confiáveis contados da direita do XFF |

@@ -87,14 +87,18 @@ def test_v3_5_backup_source_is_registered_without_raw_sensitive_dump():
     assert manifest["insert_count"] == sum(manifest["tables"].values())
     assert manifest["contains_sensitive_data"] is True
     assert manifest["raw_source_must_not_be_committed"] is True
-    assert not list(BACKUP_MANIFEST.parent.glob("*.sql"))
+    sql_files = list(BACKUP_MANIFEST.parent.glob("*.sql"))
+    assert [path.name for path in sql_files] == ["fixture.sql"]
+    fixture = sql_files[0].read_text(encoding="utf-8")
+    assert fixture.startswith("-- BF1 POSTGRES DATA-ONLY DUMP (V3.5.0 ANONYMIZED CHARACTERIZATION FIXTURE)")
+    assert manifest["fixture_status"] == "anonymized_sql_fixture_generated"
 
 
 def test_v4_records_invite_only_master_bootstrap_and_log_download():
     spec = SPEC.read_text(encoding="utf-8")
 
     assert "Não existe cadastro público" in spec
-    assert "`MASTER_EMAIL`, `MASTER_PASSWORD` e `MASTER_NOME`" in spec
+    assert "`EMAIL_MASTER`, `SENHA_MASTER` e `USUARIO_MASTER`" in spec
     assert "reinícios nunca redefinem" in spec
     assert "O Master pode baixar arquivos de log" in spec
     assert "allowlist de arquivos" in spec

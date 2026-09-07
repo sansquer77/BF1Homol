@@ -217,9 +217,9 @@ A configuração do Streamlit em `.streamlit/config.toml` mantém `enableCORS` e
 ```
 DATABASE_URL        # Connection string PostgreSQL
 JWT_SECRET          # Chave HS256 (mínimo 32 bytes)
-MASTER_EMAIL        # Email do usuário master inicial
-MASTER_PASSWORD     # Senha do usuário master inicial
-MASTER_NOME         # Nome do usuário master inicial
+EMAIL_MASTER        # Email do usuário master inicial
+SENHA_MASTER        # Senha do usuário master inicial
+USUARIO_MASTER      # Nome do usuário master inicial
 ```
 
 ---

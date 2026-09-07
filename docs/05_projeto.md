@@ -132,9 +132,9 @@ plotly
 |----------|------------|----------|
 | `DATABASE_URL` | Sim | Connection string PostgreSQL completa |
 | `JWT_SECRET` | Sim | Chave de assinatura JWT (mínimo 32 bytes) |
-| `MASTER_EMAIL` | Sim | E-mail do usuário master criado no bootstrap |
-| `MASTER_PASSWORD` | Sim | Senha inicial do usuário master |
-| `MASTER_NOME` | Sim | Nome de exibição do usuário master |
+| `EMAIL_MASTER` | Sim | E-mail do usuário master criado no bootstrap |
+| `SENHA_MASTER` | Sim | Senha inicial do usuário master |
+| `USUARIO_MASTER` | Sim | Nome de exibição do usuário master |
 
 ---
 

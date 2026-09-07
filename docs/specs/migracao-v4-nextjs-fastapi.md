@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 0.3
+versao: 0.4
 atualizado: 2026-09-06
 relacionados:
   - "[[inventario-v4]]"
@@ -43,7 +43,7 @@ operação responsável por deploy, observabilidade e restauração.
 - API: JSON com schemas explícitos, datas ISO 8601 e erros sem detalhes sensíveis.
 - Sessão: identificador/token em cookie `Secure`, `HttpOnly`, com rotação e revogação.
 - Logs: JSON Lines em arquivos persistentes com rotação e retenção.
-- Bootstrap Master: `MASTER_EMAIL`, `MASTER_PASSWORD` e `MASTER_NOME` fornecidos
+- Bootstrap Master: `EMAIL_MASTER`, `SENHA_MASTER` e `USUARIO_MASTER` fornecidos
   como segredos/variáveis do ambiente DigitalOcean.
 
 ## Regras
@@ -62,7 +62,7 @@ operação responsável por deploy, observabilidade e restauração.
 12. Datas/deadlines continuam usando `America/Sao_Paulo`; timezone do cliente altera apenas apresentação.
 13. Frontend e API são publicados pela mesma origem; o ingresso encaminha `/api/*` ao FastAPI e as demais rotas ao Next.js.
 14. Não existe cadastro público: somente o Master autenticado cria e administra usuários convidados.
-15. No bootstrap, se ainda não existir usuário Master, o backend cria um usando `MASTER_EMAIL`, `MASTER_PASSWORD` e `MASTER_NOME`; reinícios nunca redefinem a senha de um Master existente e nenhum desses valores é registrado em logs.
+15. No bootstrap, se ainda não existir usuário Master, o backend cria um usando `EMAIL_MASTER`, `SENHA_MASTER` e `USUARIO_MASTER`; reinícios nunca redefinem a senha de um Master existente e nenhum desses valores é registrado em logs. Os nomes permanecem idênticos aos usados atualmente na DigitalOcean.
 16. A sessão usa cookie `Secure`, `HttpOnly`, `SameSite=Lax`, validade de duas horas e rotação durante atividade; há uma sessão ativa por usuário, troca de senha revoga todas as sessões e operações críticas exigem reautenticação.
 17. OIDC não integra a primeira entrega da versão 4; a arquitetura não impede inclusão opcional futura, sem substituir o acesso por convite e senha.
 18. Arquivos de aplicação, acesso, segurança e erro usam JSON Lines em volume persistente, rotação diária ou a 100 MB e retenção de 30 dias.
@@ -141,7 +141,7 @@ operação responsável por deploy, observabilidade e restauração.
 
 ## Plano de implementação
 
-- [ ] Fase 1 — congelar inventário, snapshot do schema e fixtures de backup. Fecha: critérios 1–3.
+- [ ] Fase 1 — congelar inventário, snapshot do schema e fixtures de backup. Fixture SQL V3.5.0 anonimizada e restore real em PostgreSQL 18.6 concluídos; snapshot versionado e fixture Excel ainda pendentes. Fecha: critérios 1–3.
 - [ ] Fase 2 — ampliar testes de caracterização de serviços e jornadas. Fecha: critérios 4 e 10.
 - [ ] Fase 3 — criar FastAPI, contratos `/api/v1`, contexto por requisição, auth, bootstrap Master e observabilidade. Fecha: critérios 5–9, 13, 14 e 17–20.
 - [ ] Fase 4 — criar Next.js responsivo, design system, cliente tipado e adaptador ApexCharts. Fecha: critérios 11 e 12.
@@ -154,6 +154,7 @@ operação responsável por deploy, observabilidade e restauração.
 
 ## Changelog
 
+- `0.4` — 2026-09-06 — Restore da fixture V3.5.0 validado em PostgreSQL 18.6, incluindo contagens, FKs, sequences, bcrypt, tipos nativos e idempotência das migrations.
 - `0.3` — 2026-09-06 — Fechadas compatibilidade V3.x, sessão, acesso somente por convite, logs baixáveis pelo Master, metas de qualidade, direção visual e bootstrap Master por ambiente.
 - `0.2` — 2026-09-06 — Aprovadas mesma origem com `/api` e implementação V4 sem convivência ou dependência de Streamlit.
 - `0.1` — 2026-09-06 — Visão, contratos, critérios e fases iniciais da migração 4.0.

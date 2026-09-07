@@ -19,6 +19,7 @@ from utils.backup_security import (
     validate_sql_content_size,
     validate_upload_size,
 )
+from db.backup_repair import _repair_insert_boolean_literals
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,20 @@ class _Uploaded:
 
 
 class BackupSecurityTests(unittest.TestCase):
+    def test_reparo_converte_somente_inteiros_de_colunas_booleanas(self):
+        statement = (
+            'INSERT INTO "usuarios" ("id", "must_change_password", "faltas") '
+            "VALUES (7, 0, 1)"
+        )
+        with patch("db.backup_repair._get_boolean_columns", return_value={"must_change_password"}):
+            repaired = _repair_insert_boolean_literals(Mock(), statement, "usuarios")
+
+        self.assertEqual(
+            repaired,
+            'INSERT INTO "usuarios" ("id", "must_change_password", "faltas") '
+            "VALUES (7, FALSE, 1)",
+        )
+
     def test_restore_fica_bloqueado_por_padrao(self):
         with patch("app_runtime.get_session", return_value={}), patch(
             "utils.backup_security._current_restore_identity",
@@ -186,6 +201,25 @@ class BackupSecurityTests(unittest.TestCase):
         self.assertIn("validate_excel_dimensions", excel)
         self.assertIn("nrows=limits.excel_rows + 1", excel)
         self.assertGreaterEqual(legacy.count("require_restore_authorized()"), 4)
+
+    def test_preparacao_do_restore_cria_tabelas_v35_antes_do_dump(self):
+        legacy = (ROOT / "db" / "backup_utils.py").read_text(encoding="utf-8")
+        prepare = legacy[legacy.index("def _prepare_schema_for_restore"):legacy.index("def _extract_truncate_tables")]
+
+        for table in (
+            "temporadas",
+            "login_attempts",
+            "access_logs",
+            "financeiro_participantes",
+            "financeiro_config_temporada",
+        ):
+            self.assertIn(table, prepare)
+        self.assertIn("init_rules_table()", prepare)
+        self.assertNotIn("BOOLEAN DEFAULT 0", prepare)
+        self.assertIn("DROP CONSTRAINT IF EXISTS pilotos_nome_key", prepare)
+        self.assertIn("data_registro TIMESTAMP", prepare)
+        self.assertIn("ALTER TABLE regras ALTER COLUMN temporada DROP NOT NULL", prepare)
+        self.assertIn("nome_regra TEXT", prepare)
 
 
 if __name__ == "__main__":
