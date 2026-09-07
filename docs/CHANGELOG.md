@@ -2,8 +2,8 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.0
-atualizado: 2026-09-06
+versao: 1.1
+atualizado: 2026-09-07
 relacionados:
   - "[[sdd]]"
   - "[[03_spec]]"
@@ -15,12 +15,21 @@ aliases: ["Changelog do produto", "Versões do BF1"]
 # Changelog do produto BF1
 
 > [!info] Status
-> **implementado** · área: `releases` · atualizado em 2026-09-06 · relacionados: [[sdd]], [[03_spec]], [[07_guia_deploy]]
+> **implementado** · área: `releases` · atualizado em 2026-09-07 · relacionados: [[sdd]], [[03_spec]], [[07_guia_deploy]]
 
 Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
+
+### 3.5.1
+
+- Compatibilidade: restore Excel converte booleanos legados `0/1` para colunas
+  PostgreSQL `BOOLEAN` e rejeita valores ambíguos.
+- Robustez: o preparo repetido do restore invalida o cache de schema após DDL,
+  preservando a idempotência das migrations.
+- Caracterização V4: fixtures anonimizadas de 21 exportações Excel e contrato
+  reconstruído de schema passam a proteger a compatibilidade dos backups V3.x.
 
 ### 3.5.0
 
@@ -71,6 +80,7 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
+- `1.1` — 2026-09-07 — Registrado o patch 3.5.1 de compatibilidade e robustez do restore Excel.
 - `1.0` — 2026-07-31 — Criado o histórico canônico a partir da versão vigente 3.0.5.
 
 ## Relacionados

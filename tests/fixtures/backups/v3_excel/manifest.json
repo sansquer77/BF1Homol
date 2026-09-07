@@ -1,0 +1,364 @@
+{
+  "format_version": 1,
+  "source_version": "3.x",
+  "generated_from": "V3 Excel per-table exports",
+  "tables": {
+    "access_logs": {
+      "file": "access_logs.xlsx",
+      "sheet": "data",
+      "rows": 268,
+      "columns": [
+        "id",
+        "evento",
+        "sucesso",
+        "user_id",
+        "email",
+        "nome",
+        "perfil",
+        "ip_address",
+        "detalhes",
+        "created_at"
+      ],
+      "source_sha256": "91882519dcbeedb77ceb0205db64195fb3825993c95ca4a02559aa0cdb7fd37a",
+      "logical_sha256": "6373acde58ac0dde07794f5bb052ecb1a68ac3e0cac01efab322c9f417058134"
+    },
+    "apostas": {
+      "file": "apostas.xlsx",
+      "sheet": "data",
+      "rows": 786,
+      "columns": [
+        "id",
+        "usuario_id",
+        "prova_id",
+        "data_envio",
+        "pilotos",
+        "fichas",
+        "piloto_11",
+        "nome_prova",
+        "automatica",
+        "temporada",
+        "data_envio_ts",
+        "pilotos_arr",
+        "fichas_arr"
+      ],
+      "source_sha256": "e451f1bf2a49b14fca816bfee3f935b29091a39dc1057529fd8d33533f2e3b19",
+      "logical_sha256": "b665f1ae3034038c460c42f7e6a74e23b6eb7804ab19b1e0ff4ed9f49b030eb1"
+    },
+    "auth_sessions": {
+      "file": "auth_sessions.xlsx",
+      "sheet": "data",
+      "rows": 79,
+      "columns": [
+        "jti",
+        "user_id",
+        "session_version",
+        "issued_at",
+        "expires_at",
+        "revoked_at"
+      ],
+      "source_sha256": "25ee5b81de7e3f3abc5096fedec6920defdf67b1ca76c1f9cbb92999187e4922",
+      "logical_sha256": "be902fb0de3c1994a1146c2e2398b74427600e16203cf46db66706aa9a4d3fbe"
+    },
+    "championship_bets": {
+      "file": "championship_bets.xlsx",
+      "sheet": "data",
+      "rows": 33,
+      "columns": [
+        "id",
+        "user_id",
+        "user_nome",
+        "champion",
+        "vice",
+        "team",
+        "season",
+        "bet_time"
+      ],
+      "source_sha256": "8b5ee1a4c5478429aa7b4cd732599f3f038984bbd1a1ba6b98a27243f520974a",
+      "logical_sha256": "128105b4a40ab4dc62ea83379208fc759a93251a56d1b9262f5b37000a473780"
+    },
+    "championship_bets_log": {
+      "file": "championship_bets_log.xlsx",
+      "sheet": "data",
+      "rows": 0,
+      "columns": [
+        "id",
+        "user_id",
+        "user_nome",
+        "champion",
+        "vice",
+        "team",
+        "season",
+        "bet_time"
+      ],
+      "source_sha256": "8dad4343408353d4925a2c2932001223b6351d90290fc7a8a85daf61ab67350f",
+      "logical_sha256": "1021b044f80198962362dd043d39fc07df0042fe881a70c0376617bf291e5496"
+    },
+    "championship_results": {
+      "file": "championship_results.xlsx",
+      "sheet": "data",
+      "rows": 1,
+      "columns": [
+        "id",
+        "season",
+        "champion",
+        "vice",
+        "team"
+      ],
+      "source_sha256": "8cf2612299f7cfc996b0bb172cb678f83f43b463af49d552beea4fe4944b6317",
+      "logical_sha256": "705aef6bdd2bee24c43ab2fff27b698feb351f9edd3bc77d045a60c85126b33f"
+    },
+    "circuitos_f1": {
+      "file": "circuitos_f1.xlsx",
+      "sheet": "data",
+      "rows": 25,
+      "columns": [
+        "circuit_id",
+        "circuit_name",
+        "country",
+        "locality",
+        "aliases",
+        "atualizado_em"
+      ],
+      "source_sha256": "9d9ce28619dc27c661a1912470b4f1e0966822537b58d75ceca12177d6b33cea",
+      "logical_sha256": "f7b36cd203304512f59617150d25b0008563bb9292290ea4a200aa8296b18cb1"
+    },
+    "financeiro_config_temporada": {
+      "file": "financeiro_config_temporada.xlsx",
+      "sheet": "data",
+      "rows": 2,
+      "columns": [
+        "id",
+        "temporada",
+        "valor_taxa",
+        "atualizado_em"
+      ],
+      "source_sha256": "15379f87f33608b2fed33734acc9e7ae3b541bc600d5167ee26ac15d0f46cb30",
+      "logical_sha256": "7e281027234894247048e15b687da01b20eabf97433ec2e6252943d3889bd8af"
+    },
+    "financeiro_participantes": {
+      "file": "financeiro_participantes.xlsx",
+      "sheet": "data",
+      "rows": 33,
+      "columns": [
+        "id",
+        "usuario_id",
+        "temporada",
+        "pago",
+        "atualizado_em"
+      ],
+      "source_sha256": "f3281ef69ad176b3e8d7e6f4a31c8326836a6c3eeec85a7fd8b3b9dd44e4e37a",
+      "logical_sha256": "0c69f7edeba654042851cb54b2eb82f142d4708621c7420d09932f5919c66693"
+    },
+    "hall_da_fama": {
+      "file": "hall_da_fama.xlsx",
+      "sheet": "data",
+      "rows": 138,
+      "columns": [
+        "id",
+        "usuario_id",
+        "temporada",
+        "posicao_final",
+        "pontos"
+      ],
+      "source_sha256": "ebca77ca22a963b0f40908ae9afdcc056479eb2ce8c54d3fc5f9d5a2f68ac63c",
+      "logical_sha256": "9d335faa79c575298a2afb4dc90bfccb114067d00bfe98427ce02f8f3ea65bdd"
+    },
+    "log_apostas": {
+      "file": "log_apostas.xlsx",
+      "sheet": "data",
+      "rows": 1093,
+      "columns": [
+        "id",
+        "usuario_id",
+        "prova_id",
+        "apostador",
+        "aposta",
+        "nome_prova",
+        "pilotos",
+        "piloto_11",
+        "tipo_aposta",
+        "automatica",
+        "data",
+        "horario",
+        "ip_address",
+        "temporada",
+        "status",
+        "data_criacao"
+      ],
+      "source_sha256": "c4e9ad2b986fd5b8d375ff0532c5bcfc99cad7c65938a7ca0e386dea5423b03f",
+      "logical_sha256": "1bdd987284702093301ad060a00cd879cdea562f2ace22413a82e613ac651c0d"
+    },
+    "login_attempts": {
+      "file": "login_attempts.xlsx",
+      "sheet": "data",
+      "rows": 337,
+      "columns": [
+        "id",
+        "email",
+        "tentativa_em",
+        "sucesso",
+        "ip_address",
+        "action"
+      ],
+      "source_sha256": "f22e07184167f715988cd51734b2f57e76cf8738c618d71c966b9d580bb77548",
+      "logical_sha256": "d525e37317d4045fa759714b542fc6be242529f20c7dfaf6691f190067629582"
+    },
+    "pilotos": {
+      "file": "pilotos.xlsx",
+      "sheet": "data",
+      "rows": 25,
+      "columns": [
+        "id",
+        "nome",
+        "equipe",
+        "status",
+        "numero"
+      ],
+      "source_sha256": "46489ceeee2b7055af09966fdd72a76bb18ce4812edaadd6e3db7307a737e5c0",
+      "logical_sha256": "7c46681a15f6c057a1709351e5e9be9fb441e9cbd230adb9187e93f47e12c5cc"
+    },
+    "posicoes_participantes": {
+      "file": "posicoes_participantes.xlsx",
+      "sheet": "data",
+      "rows": 864,
+      "columns": [
+        "id",
+        "prova_id",
+        "usuario_id",
+        "posicao",
+        "pontos",
+        "data_registro",
+        "temporada"
+      ],
+      "source_sha256": "65ede05983c08624dc1f9076ef1a03443022d2723365a38998b6943d372fae86",
+      "logical_sha256": "013783f8c2edf7302e82f69aa89cc4b5f9da541549315ddfb8f1f76993bd3f65"
+    },
+    "provas": {
+      "file": "provas.xlsx",
+      "sheet": "data",
+      "rows": 60,
+      "columns": [
+        "id",
+        "nome",
+        "data",
+        "horario_prova",
+        "status",
+        "tipo",
+        "temporada",
+        "circuit_id",
+        "data_date",
+        "horario_ts"
+      ],
+      "source_sha256": "9994a510c48a5f888020a6583ddfbe6d987ac30353b0ec2073dba894bc7c47a8",
+      "logical_sha256": "f6e39ab27e6c343c850e6ab3c18e0c2b2191b98bfc362eb03cbb704e198717b6"
+    },
+    "regras": {
+      "file": "regras.xlsx",
+      "sheet": "data",
+      "rows": 4,
+      "columns": [
+        "id",
+        "nome_regra",
+        "quantidade_fichas",
+        "fichas_por_piloto",
+        "mesma_equipe",
+        "descarte",
+        "pontos_pole",
+        "pontos_vr",
+        "pontos_posicoes",
+        "pontos_11_colocado",
+        "regra_sprint",
+        "pontos_sprint_pole",
+        "pontos_sprint_vr",
+        "pontos_sprint_posicoes",
+        "pontos_dobrada",
+        "bonus_vencedor",
+        "bonus_podio_completo",
+        "bonus_podio_qualquer",
+        "qtd_minima_pilotos",
+        "penalidade_abandono",
+        "pontos_penalidade",
+        "penalidade_auto_percent",
+        "pontos_campeao",
+        "pontos_vice",
+        "pontos_equipe",
+        "criado_em",
+        "atualizado_em"
+      ],
+      "source_sha256": "e93aac3a54a5eafa847b6419e822907c9f6e94533f93c18bfbc9f601cfc18060",
+      "logical_sha256": "60b36a468f58803f30544882463fa64b1bc68b5437f71df45dba4ba2221be34b"
+    },
+    "resultados": {
+      "file": "resultados.xlsx",
+      "sheet": "data",
+      "rows": 48,
+      "columns": [
+        "prova_id",
+        "posicoes",
+        "abandono_pilotos",
+        "temporada",
+        "posicoes_jsonb",
+        "abandono_arr"
+      ],
+      "source_sha256": "ab2e25ddbfbbf46c0fd27fa478fcce0cda9014ab2d2cb3f8a6b07dc35dfd53c7",
+      "logical_sha256": "1bade099c764df2c8a45e597efb54dfe52185854a85c58da2f4b38d5a9abb9c8"
+    },
+    "temporadas": {
+      "file": "temporadas.xlsx",
+      "sheet": "data",
+      "rows": 2,
+      "columns": [
+        "temporada",
+        "criado_em"
+      ],
+      "source_sha256": "a11518a6e470d5b3d24cbbb2d074b914714fe577a8f633b06c4681f5f0213b61",
+      "logical_sha256": "db2c37ac0ca3243e204ff09790150b3e979dc987e777baed79b5826c439bff27"
+    },
+    "temporadas_regras": {
+      "file": "temporadas_regras.xlsx",
+      "sheet": "data",
+      "rows": 2,
+      "columns": [
+        "temporada",
+        "regra_id"
+      ],
+      "source_sha256": "314d37cae5cc23e78481b15e38352e369dc027f3117c032db8d709274373f40a",
+      "logical_sha256": "53f0cf92f49b77b788bb8daebe272b10470d8a25de7e163e6722e0052abb6fb5"
+    },
+    "usuarios": {
+      "file": "usuarios.xlsx",
+      "sheet": "data",
+      "rows": 38,
+      "columns": [
+        "id",
+        "nome",
+        "email",
+        "senha_hash",
+        "perfil",
+        "status",
+        "faltas",
+        "must_change_password",
+        "criado_em",
+        "session_version"
+      ],
+      "source_sha256": "2011b20e10d79058c7774df33281baf7649837c5a2d6023285ff46037aaf2761",
+      "logical_sha256": "4bac475a891d991a4db8b2fa21818ee0c634fe0e5da0d79fdea8b482b1fb1392"
+    },
+    "usuarios_status_historico": {
+      "file": "usuarios_status_historico.xlsx",
+      "sheet": "data",
+      "rows": 66,
+      "columns": [
+        "id",
+        "usuario_id",
+        "status",
+        "inicio_em",
+        "fim_em",
+        "alterado_por",
+        "motivo"
+      ],
+      "source_sha256": "59a42aa971291798c13cb89c4f6cdf4cf91a6f80636f73f827fae69cfab0043f",
+      "logical_sha256": "7a354ce6a180ab715f6fc9c0ad14ac12a23d233f2cc7ec05a1af5abed30c1bb4"
+    }
+  }
+}

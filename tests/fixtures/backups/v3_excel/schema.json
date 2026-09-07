@@ -1,0 +1,2132 @@
+{
+  "format_version": 1,
+  "contract": "v3.x-reconstructed",
+  "tables": {
+    "access_logs": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "evento",
+          "ordinal_position": 2,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "sucesso",
+          "ordinal_position": 3,
+          "data_type": "boolean",
+          "udt_name": "bool",
+          "is_nullable": "YES",
+          "column_default": "false"
+        },
+        {
+          "column_name": "user_id",
+          "ordinal_position": 4,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "email",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "nome",
+          "ordinal_position": 6,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "perfil",
+          "ordinal_position": 7,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "ip_address",
+          "ordinal_position": 8,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "detalhes",
+          "ordinal_position": 9,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "created_at",
+          "ordinal_position": 10,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "access_logs_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "access_logs_user_id_fkey",
+          "local_column": "user_id",
+          "parent_table": "usuarios",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "access_logs_pkey",
+          "indexdef": "CREATE UNIQUE INDEX access_logs_pkey ON public.access_logs USING btree (id)"
+        },
+        {
+          "indexname": "idx_access_logs_created_at",
+          "indexdef": "CREATE INDEX idx_access_logs_created_at ON public.access_logs USING btree (created_at)"
+        },
+        {
+          "indexname": "idx_access_logs_created_at_id_desc",
+          "indexdef": "CREATE INDEX idx_access_logs_created_at_id_desc ON public.access_logs USING btree (created_at DESC, id DESC)"
+        },
+        {
+          "indexname": "idx_access_logs_perfil",
+          "indexdef": "CREATE INDEX idx_access_logs_perfil ON public.access_logs USING btree (perfil)"
+        },
+        {
+          "indexname": "idx_access_logs_perfil_created_at_desc",
+          "indexdef": "CREATE INDEX idx_access_logs_perfil_created_at_desc ON public.access_logs USING btree (perfil, created_at DESC)"
+        },
+        {
+          "indexname": "idx_access_logs_sucesso",
+          "indexdef": "CREATE INDEX idx_access_logs_sucesso ON public.access_logs USING btree (sucesso)"
+        }
+      ]
+    },
+    "apostas": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "usuario_id",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "prova_id",
+          "ordinal_position": 3,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "data_envio",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "pilotos",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "fichas",
+          "ordinal_position": 6,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "piloto_11",
+          "ordinal_position": 7,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "nome_prova",
+          "ordinal_position": 8,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "automatica",
+          "ordinal_position": 9,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": "0"
+        },
+        {
+          "column_name": "temporada",
+          "ordinal_position": 10,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "data_envio_ts",
+          "ordinal_position": 11,
+          "data_type": "timestamp with time zone",
+          "udt_name": "timestamptz",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "pilotos_arr",
+          "ordinal_position": 12,
+          "data_type": "ARRAY",
+          "udt_name": "_text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "fichas_arr",
+          "ordinal_position": 13,
+          "data_type": "ARRAY",
+          "udt_name": "_int4",
+          "is_nullable": "YES",
+          "column_default": null
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "apostas_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "apostas_prova_id_fkey",
+          "local_column": "prova_id",
+          "parent_table": "provas",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        },
+        {
+          "constraint_name": "apostas_usuario_id_fkey",
+          "local_column": "usuario_id",
+          "parent_table": "usuarios",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "apostas_pkey",
+          "indexdef": "CREATE UNIQUE INDEX apostas_pkey ON public.apostas USING btree (id)"
+        },
+        {
+          "indexname": "idx_apostas_data",
+          "indexdef": "CREATE INDEX idx_apostas_data ON public.apostas USING btree (data_envio)"
+        },
+        {
+          "indexname": "idx_apostas_data_envio_ts",
+          "indexdef": "CREATE INDEX idx_apostas_data_envio_ts ON public.apostas USING btree (data_envio_ts)"
+        },
+        {
+          "indexname": "idx_apostas_prova",
+          "indexdef": "CREATE INDEX idx_apostas_prova ON public.apostas USING btree (prova_id)"
+        },
+        {
+          "indexname": "idx_apostas_temporada",
+          "indexdef": "CREATE INDEX idx_apostas_temporada ON public.apostas USING btree (temporada)"
+        },
+        {
+          "indexname": "idx_apostas_usuario",
+          "indexdef": "CREATE INDEX idx_apostas_usuario ON public.apostas USING btree (usuario_id)"
+        },
+        {
+          "indexname": "idx_apostas_usuario_prova_temporada",
+          "indexdef": "CREATE INDEX idx_apostas_usuario_prova_temporada ON public.apostas USING btree (usuario_id, prova_id, temporada)"
+        }
+      ]
+    },
+    "auth_sessions": {
+      "columns": [
+        {
+          "column_name": "jti",
+          "ordinal_position": 1,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "user_id",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "session_version",
+          "ordinal_position": 3,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "issued_at",
+          "ordinal_position": 4,
+          "data_type": "timestamp with time zone",
+          "udt_name": "timestamptz",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "expires_at",
+          "ordinal_position": 5,
+          "data_type": "timestamp with time zone",
+          "udt_name": "timestamptz",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "revoked_at",
+          "ordinal_position": 6,
+          "data_type": "timestamp with time zone",
+          "udt_name": "timestamptz",
+          "is_nullable": "YES",
+          "column_default": null
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "auth_sessions_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{jti}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "auth_sessions_user_id_fkey",
+          "local_column": "user_id",
+          "parent_table": "usuarios",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "auth_sessions_pkey",
+          "indexdef": "CREATE UNIQUE INDEX auth_sessions_pkey ON public.auth_sessions USING btree (jti)"
+        },
+        {
+          "indexname": "idx_auth_sessions_user_active",
+          "indexdef": "CREATE INDEX idx_auth_sessions_user_active ON public.auth_sessions USING btree (user_id, revoked_at, expires_at)"
+        }
+      ]
+    },
+    "championship_bets": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "user_id",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "user_nome",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "champion",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "vice",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "team",
+          "ordinal_position": 6,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "season",
+          "ordinal_position": 7,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "bet_time",
+          "ordinal_position": 8,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "championship_bets_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        },
+        {
+          "constraint_name": "championship_bets_user_id_season_key",
+          "constraint_type": "UNIQUE",
+          "columns": "{user_id,season}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "championship_bets_user_id_fkey",
+          "local_column": "user_id",
+          "parent_table": "usuarios",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "championship_bets_pkey",
+          "indexdef": "CREATE UNIQUE INDEX championship_bets_pkey ON public.championship_bets USING btree (id)"
+        },
+        {
+          "indexname": "championship_bets_user_id_season_key",
+          "indexdef": "CREATE UNIQUE INDEX championship_bets_user_id_season_key ON public.championship_bets USING btree (user_id, season)"
+        },
+        {
+          "indexname": "idx_championship_bets_season",
+          "indexdef": "CREATE INDEX idx_championship_bets_season ON public.championship_bets USING btree (season)"
+        },
+        {
+          "indexname": "idx_championship_bets_user_season",
+          "indexdef": "CREATE INDEX idx_championship_bets_user_season ON public.championship_bets USING btree (user_id, season)"
+        }
+      ]
+    },
+    "championship_bets_log": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "user_id",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "user_nome",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "champion",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "vice",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "team",
+          "ordinal_position": 6,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "season",
+          "ordinal_position": 7,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "2026"
+        },
+        {
+          "column_name": "bet_time",
+          "ordinal_position": 8,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "championship_bets_log_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "championship_bets_log_user_id_fkey",
+          "local_column": "user_id",
+          "parent_table": "usuarios",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "championship_bets_log_pkey",
+          "indexdef": "CREATE UNIQUE INDEX championship_bets_log_pkey ON public.championship_bets_log USING btree (id)"
+        },
+        {
+          "indexname": "idx_championship_bets_log_user_season_time",
+          "indexdef": "CREATE INDEX idx_championship_bets_log_user_season_time ON public.championship_bets_log USING btree (user_id, season, bet_time DESC)"
+        }
+      ]
+    },
+    "championship_results": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "season",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "champion",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "vice",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "team",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "championship_results_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        },
+        {
+          "constraint_name": "championship_results_season_key",
+          "constraint_type": "UNIQUE",
+          "columns": "{season}"
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "indexname": "championship_results_pkey",
+          "indexdef": "CREATE UNIQUE INDEX championship_results_pkey ON public.championship_results USING btree (id)"
+        },
+        {
+          "indexname": "championship_results_season_key",
+          "indexdef": "CREATE UNIQUE INDEX championship_results_season_key ON public.championship_results USING btree (season)"
+        }
+      ]
+    },
+    "circuitos_f1": {
+      "columns": [
+        {
+          "column_name": "circuit_id",
+          "ordinal_position": 1,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "circuit_name",
+          "ordinal_position": 2,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "country",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "locality",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "aliases",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "atualizado_em",
+          "ordinal_position": 6,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "circuitos_f1_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{circuit_id}"
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "indexname": "circuitos_f1_pkey",
+          "indexdef": "CREATE UNIQUE INDEX circuitos_f1_pkey ON public.circuitos_f1 USING btree (circuit_id)"
+        },
+        {
+          "indexname": "idx_circuitos_f1_country",
+          "indexdef": "CREATE INDEX idx_circuitos_f1_country ON public.circuitos_f1 USING btree (country)"
+        },
+        {
+          "indexname": "idx_circuitos_f1_locality",
+          "indexdef": "CREATE INDEX idx_circuitos_f1_locality ON public.circuitos_f1 USING btree (locality)"
+        }
+      ]
+    },
+    "financeiro_config_temporada": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "temporada",
+          "ordinal_position": 2,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "valor_taxa",
+          "ordinal_position": 3,
+          "data_type": "real",
+          "udt_name": "float4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "atualizado_em",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "financeiro_config_temporada_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        },
+        {
+          "constraint_name": "financeiro_config_temporada_temporada_key",
+          "constraint_type": "UNIQUE",
+          "columns": "{temporada}"
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "indexname": "financeiro_config_temporada_pkey",
+          "indexdef": "CREATE UNIQUE INDEX financeiro_config_temporada_pkey ON public.financeiro_config_temporada USING btree (id)"
+        },
+        {
+          "indexname": "financeiro_config_temporada_temporada_key",
+          "indexdef": "CREATE UNIQUE INDEX financeiro_config_temporada_temporada_key ON public.financeiro_config_temporada USING btree (temporada)"
+        }
+      ]
+    },
+    "financeiro_participantes": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "usuario_id",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "temporada",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "pago",
+          "ordinal_position": 4,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "atualizado_em",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "financeiro_participantes_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        },
+        {
+          "constraint_name": "financeiro_participantes_usuario_id_temporada_key",
+          "constraint_type": "UNIQUE",
+          "columns": "{usuario_id,temporada}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "financeiro_participantes_usuario_id_fkey",
+          "local_column": "usuario_id",
+          "parent_table": "usuarios",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "financeiro_participantes_pkey",
+          "indexdef": "CREATE UNIQUE INDEX financeiro_participantes_pkey ON public.financeiro_participantes USING btree (id)"
+        },
+        {
+          "indexname": "financeiro_participantes_usuario_id_temporada_key",
+          "indexdef": "CREATE UNIQUE INDEX financeiro_participantes_usuario_id_temporada_key ON public.financeiro_participantes USING btree (usuario_id, temporada)"
+        }
+      ]
+    },
+    "hall_da_fama": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "usuario_id",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "temporada",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "posicao_final",
+          "ordinal_position": 4,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "pontos",
+          "ordinal_position": 5,
+          "data_type": "real",
+          "udt_name": "float4",
+          "is_nullable": "YES",
+          "column_default": "0"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "hall_da_fama_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        },
+        {
+          "constraint_name": "hall_da_fama_usuario_id_temporada_key",
+          "constraint_type": "UNIQUE",
+          "columns": "{usuario_id,temporada}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "hall_da_fama_usuario_id_fkey",
+          "local_column": "usuario_id",
+          "parent_table": "usuarios",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "hall_da_fama_pkey",
+          "indexdef": "CREATE UNIQUE INDEX hall_da_fama_pkey ON public.hall_da_fama USING btree (id)"
+        },
+        {
+          "indexname": "hall_da_fama_usuario_id_temporada_key",
+          "indexdef": "CREATE UNIQUE INDEX hall_da_fama_usuario_id_temporada_key ON public.hall_da_fama USING btree (usuario_id, temporada)"
+        },
+        {
+          "indexname": "idx_hall_da_fama_temporada_posicao",
+          "indexdef": "CREATE INDEX idx_hall_da_fama_temporada_posicao ON public.hall_da_fama USING btree (temporada, posicao_final)"
+        },
+        {
+          "indexname": "idx_hall_da_fama_usuario_temporada",
+          "indexdef": "CREATE INDEX idx_hall_da_fama_usuario_temporada ON public.hall_da_fama USING btree (usuario_id, temporada)"
+        }
+      ]
+    },
+    "log_apostas": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "usuario_id",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "prova_id",
+          "ordinal_position": 3,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "apostador",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "aposta",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "nome_prova",
+          "ordinal_position": 6,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "pilotos",
+          "ordinal_position": 7,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "piloto_11",
+          "ordinal_position": 8,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "tipo_aposta",
+          "ordinal_position": 9,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "automatica",
+          "ordinal_position": 10,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "data",
+          "ordinal_position": 11,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "horario",
+          "ordinal_position": 12,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "ip_address",
+          "ordinal_position": 13,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "temporada",
+          "ordinal_position": 14,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "'2026'::text"
+        },
+        {
+          "column_name": "status",
+          "ordinal_position": 15,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "'Registrada'::text"
+        },
+        {
+          "column_name": "data_criacao",
+          "ordinal_position": 16,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "log_apostas_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "log_apostas_prova_id_fkey",
+          "local_column": "prova_id",
+          "parent_table": "provas",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        },
+        {
+          "constraint_name": "log_apostas_usuario_id_fkey",
+          "local_column": "usuario_id",
+          "parent_table": "usuarios",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "idx_log_apostas_temporada_id_desc",
+          "indexdef": "CREATE INDEX idx_log_apostas_temporada_id_desc ON public.log_apostas USING btree (temporada, id DESC)"
+        },
+        {
+          "indexname": "idx_log_apostas_temporada_usuario_id_desc",
+          "indexdef": "CREATE INDEX idx_log_apostas_temporada_usuario_id_desc ON public.log_apostas USING btree (temporada, usuario_id, id DESC)"
+        },
+        {
+          "indexname": "log_apostas_pkey",
+          "indexdef": "CREATE UNIQUE INDEX log_apostas_pkey ON public.log_apostas USING btree (id)"
+        }
+      ]
+    },
+    "login_attempts": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "email",
+          "ordinal_position": 2,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "tentativa_em",
+          "ordinal_position": 3,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        },
+        {
+          "column_name": "sucesso",
+          "ordinal_position": 4,
+          "data_type": "boolean",
+          "udt_name": "bool",
+          "is_nullable": "YES",
+          "column_default": "false"
+        },
+        {
+          "column_name": "ip_address",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "action",
+          "ordinal_position": 6,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "'login'::text"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "login_attempts_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "indexname": "idx_login_attempts_email_time",
+          "indexdef": "CREATE INDEX idx_login_attempts_email_time ON public.login_attempts USING btree (email, tentativa_em DESC)"
+        },
+        {
+          "indexname": "idx_login_attempts_ip_time",
+          "indexdef": "CREATE INDEX idx_login_attempts_ip_time ON public.login_attempts USING btree (ip_address, tentativa_em DESC)"
+        },
+        {
+          "indexname": "login_attempts_pkey",
+          "indexdef": "CREATE UNIQUE INDEX login_attempts_pkey ON public.login_attempts USING btree (id)"
+        }
+      ]
+    },
+    "pilotos": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "nome",
+          "ordinal_position": 2,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "equipe",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "''::text"
+        },
+        {
+          "column_name": "status",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "'Ativo'::text"
+        },
+        {
+          "column_name": "numero",
+          "ordinal_position": 5,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": "0"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "pilotos_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "indexname": "idx_pilotos_nome_norm",
+          "indexdef": "CREATE INDEX idx_pilotos_nome_norm ON public.pilotos USING btree (lower(nome))"
+        },
+        {
+          "indexname": "idx_pilotos_nome_num_eq_norm",
+          "indexdef": "CREATE INDEX idx_pilotos_nome_num_eq_norm ON public.pilotos USING btree (lower(nome), numero, lower(equipe), status)"
+        },
+        {
+          "indexname": "pilotos_pkey",
+          "indexdef": "CREATE UNIQUE INDEX pilotos_pkey ON public.pilotos USING btree (id)"
+        }
+      ]
+    },
+    "posicoes_participantes": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "prova_id",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "usuario_id",
+          "ordinal_position": 3,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "posicao",
+          "ordinal_position": 4,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "pontos",
+          "ordinal_position": 5,
+          "data_type": "real",
+          "udt_name": "float4",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "temporada",
+          "ordinal_position": 6,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "data_registro",
+          "ordinal_position": 7,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "posicoes_participantes_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "posicoes_participantes_prova_id_fkey",
+          "local_column": "prova_id",
+          "parent_table": "provas",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        },
+        {
+          "constraint_name": "posicoes_participantes_usuario_id_fkey",
+          "local_column": "usuario_id",
+          "parent_table": "usuarios",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "idx_posicoes_participantes_temporada_posicao",
+          "indexdef": "CREATE INDEX idx_posicoes_participantes_temporada_posicao ON public.posicoes_participantes USING btree (temporada, posicao)"
+        },
+        {
+          "indexname": "idx_posicoes_participantes_usuario_temporada",
+          "indexdef": "CREATE INDEX idx_posicoes_participantes_usuario_temporada ON public.posicoes_participantes USING btree (usuario_id, temporada)"
+        },
+        {
+          "indexname": "posicoes_participantes_pkey",
+          "indexdef": "CREATE UNIQUE INDEX posicoes_participantes_pkey ON public.posicoes_participantes USING btree (id)"
+        }
+      ]
+    },
+    "provas": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "nome",
+          "ordinal_position": 2,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "data",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "horario_prova",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "''::text"
+        },
+        {
+          "column_name": "tipo",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "'Normal'::text"
+        },
+        {
+          "column_name": "status",
+          "ordinal_position": 6,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "'Pendente'::text"
+        },
+        {
+          "column_name": "temporada",
+          "ordinal_position": 7,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "circuit_id",
+          "ordinal_position": 8,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "data_date",
+          "ordinal_position": 9,
+          "data_type": "date",
+          "udt_name": "date",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "horario_ts",
+          "ordinal_position": 10,
+          "data_type": "time without time zone",
+          "udt_name": "time",
+          "is_nullable": "YES",
+          "column_default": null
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "provas_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "provas_circuit_id_fkey",
+          "local_column": "circuit_id",
+          "parent_table": "circuitos_f1",
+          "parent_column": "circuit_id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "idx_provas_circuit_id",
+          "indexdef": "CREATE INDEX idx_provas_circuit_id ON public.provas USING btree (circuit_id)"
+        },
+        {
+          "indexname": "idx_provas_data",
+          "indexdef": "CREATE INDEX idx_provas_data ON public.provas USING btree (data)"
+        },
+        {
+          "indexname": "idx_provas_data_date",
+          "indexdef": "CREATE INDEX idx_provas_data_date ON public.provas USING btree (data_date)"
+        },
+        {
+          "indexname": "idx_provas_data_date_status",
+          "indexdef": "CREATE INDEX idx_provas_data_date_status ON public.provas USING btree (data_date, status)"
+        },
+        {
+          "indexname": "idx_provas_data_date_temporada",
+          "indexdef": "CREATE INDEX idx_provas_data_date_temporada ON public.provas USING btree (temporada, data_date)"
+        },
+        {
+          "indexname": "idx_provas_status",
+          "indexdef": "CREATE INDEX idx_provas_status ON public.provas USING btree (status)"
+        },
+        {
+          "indexname": "idx_provas_temporada_data",
+          "indexdef": "CREATE INDEX idx_provas_temporada_data ON public.provas USING btree (temporada, data)"
+        },
+        {
+          "indexname": "provas_pkey",
+          "indexdef": "CREATE UNIQUE INDEX provas_pkey ON public.provas USING btree (id)"
+        }
+      ]
+    },
+    "regras": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "temporada",
+          "ordinal_position": 2,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "tipo_prova",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "'Normal'::text"
+        },
+        {
+          "column_name": "qtd_minima_pilotos",
+          "ordinal_position": 4,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": "3"
+        },
+        {
+          "column_name": "quantidade_fichas",
+          "ordinal_position": 5,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": "15"
+        },
+        {
+          "column_name": "fichas_por_piloto",
+          "ordinal_position": 6,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": "15"
+        },
+        {
+          "column_name": "mesma_equipe",
+          "ordinal_position": 7,
+          "data_type": "boolean",
+          "udt_name": "bool",
+          "is_nullable": "YES",
+          "column_default": "false"
+        },
+        {
+          "column_name": "pontos_11_colocado",
+          "ordinal_position": 8,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": "25"
+        },
+        {
+          "column_name": "penalidade_abandono",
+          "ordinal_position": 9,
+          "data_type": "boolean",
+          "udt_name": "bool",
+          "is_nullable": "YES",
+          "column_default": "false"
+        },
+        {
+          "column_name": "pontos_penalidade",
+          "ordinal_position": 10,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": "0"
+        },
+        {
+          "column_name": "pontos_dobrada",
+          "ordinal_position": 11,
+          "data_type": "boolean",
+          "udt_name": "bool",
+          "is_nullable": "YES",
+          "column_default": "false"
+        },
+        {
+          "column_name": "pontos_posicoes",
+          "ordinal_position": 12,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "pontos_sprint_posicoes",
+          "ordinal_position": 13,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "penalidade_auto_percent",
+          "ordinal_position": 14,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "20"
+        },
+        {
+          "column_name": "nome_regra",
+          "ordinal_position": 15,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "descarte",
+          "ordinal_position": 16,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "pontos_pole",
+          "ordinal_position": 17,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "pontos_vr",
+          "ordinal_position": 18,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "regra_sprint",
+          "ordinal_position": 19,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "pontos_sprint_pole",
+          "ordinal_position": 20,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "pontos_sprint_vr",
+          "ordinal_position": 21,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "bonus_vencedor",
+          "ordinal_position": 22,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "bonus_podio_completo",
+          "ordinal_position": 23,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "bonus_podio_qualquer",
+          "ordinal_position": 24,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        },
+        {
+          "column_name": "pontos_campeao",
+          "ordinal_position": 25,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "150"
+        },
+        {
+          "column_name": "pontos_vice",
+          "ordinal_position": 26,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "100"
+        },
+        {
+          "column_name": "pontos_equipe",
+          "ordinal_position": 27,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "80"
+        },
+        {
+          "column_name": "criado_em",
+          "ordinal_position": 28,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        },
+        {
+          "column_name": "atualizado_em",
+          "ordinal_position": 29,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "regras_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        },
+        {
+          "constraint_name": "regras_temporada_tipo_prova_key",
+          "constraint_type": "UNIQUE",
+          "columns": "{temporada,tipo_prova}"
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "indexname": "regras_pkey",
+          "indexdef": "CREATE UNIQUE INDEX regras_pkey ON public.regras USING btree (id)"
+        },
+        {
+          "indexname": "regras_temporada_tipo_prova_key",
+          "indexdef": "CREATE UNIQUE INDEX regras_temporada_tipo_prova_key ON public.regras USING btree (temporada, tipo_prova)"
+        }
+      ]
+    },
+    "resultados": {
+      "columns": [
+        {
+          "column_name": "prova_id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "posicoes",
+          "ordinal_position": 2,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "temporada",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "'2026'::text"
+        },
+        {
+          "column_name": "abandono_pilotos",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "''::text"
+        },
+        {
+          "column_name": "posicoes_jsonb",
+          "ordinal_position": 5,
+          "data_type": "jsonb",
+          "udt_name": "jsonb",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "abandono_arr",
+          "ordinal_position": 6,
+          "data_type": "ARRAY",
+          "udt_name": "_text",
+          "is_nullable": "YES",
+          "column_default": null
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "resultados_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{prova_id}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "resultados_prova_id_fkey",
+          "local_column": "prova_id",
+          "parent_table": "provas",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "idx_resultados_abandono_arr",
+          "indexdef": "CREATE INDEX idx_resultados_abandono_arr ON public.resultados USING gin (abandono_arr)"
+        },
+        {
+          "indexname": "idx_resultados_posicoes_jsonb",
+          "indexdef": "CREATE INDEX idx_resultados_posicoes_jsonb ON public.resultados USING gin (posicoes_jsonb)"
+        },
+        {
+          "indexname": "idx_resultados_prova",
+          "indexdef": "CREATE INDEX idx_resultados_prova ON public.resultados USING btree (prova_id)"
+        },
+        {
+          "indexname": "idx_resultados_prova_temporada",
+          "indexdef": "CREATE INDEX idx_resultados_prova_temporada ON public.resultados USING btree (prova_id, temporada)"
+        },
+        {
+          "indexname": "resultados_pkey",
+          "indexdef": "CREATE UNIQUE INDEX resultados_pkey ON public.resultados USING btree (prova_id)"
+        }
+      ]
+    },
+    "temporadas": {
+      "columns": [
+        {
+          "column_name": "temporada",
+          "ordinal_position": 1,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "criado_em",
+          "ordinal_position": 2,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "temporadas_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{temporada}"
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "indexname": "temporadas_pkey",
+          "indexdef": "CREATE UNIQUE INDEX temporadas_pkey ON public.temporadas USING btree (temporada)"
+        }
+      ]
+    },
+    "temporadas_regras": {
+      "columns": [
+        {
+          "column_name": "temporada",
+          "ordinal_position": 1,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "regra_id",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "temporadas_regras_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{temporada}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "temporadas_regras_regra_id_fkey",
+          "local_column": "regra_id",
+          "parent_table": "regras",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "temporadas_regras_pkey",
+          "indexdef": "CREATE UNIQUE INDEX temporadas_regras_pkey ON public.temporadas_regras USING btree (temporada)"
+        }
+      ]
+    },
+    "usuarios": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "nome",
+          "ordinal_position": 2,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "email",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "senha_hash",
+          "ordinal_position": 4,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "perfil",
+          "ordinal_position": 5,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "'participante'::text"
+        },
+        {
+          "column_name": "status",
+          "ordinal_position": 6,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": "'ativo'::text"
+        },
+        {
+          "column_name": "must_change_password",
+          "ordinal_position": 7,
+          "data_type": "boolean",
+          "udt_name": "bool",
+          "is_nullable": "YES",
+          "column_default": "false"
+        },
+        {
+          "column_name": "faltas",
+          "ordinal_position": 8,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": "0"
+        },
+        {
+          "column_name": "criado_em",
+          "ordinal_position": 9,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": "CURRENT_TIMESTAMP"
+        },
+        {
+          "column_name": "session_version",
+          "ordinal_position": 10,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "0"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "usuarios_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        },
+        {
+          "constraint_name": "usuarios_email_key",
+          "constraint_type": "UNIQUE",
+          "columns": "{email}"
+        }
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "indexname": "idx_usuarios_email",
+          "indexdef": "CREATE INDEX idx_usuarios_email ON public.usuarios USING btree (email)"
+        },
+        {
+          "indexname": "idx_usuarios_perfil",
+          "indexdef": "CREATE INDEX idx_usuarios_perfil ON public.usuarios USING btree (perfil)"
+        },
+        {
+          "indexname": "idx_usuarios_perfil_norm",
+          "indexdef": "CREATE INDEX idx_usuarios_perfil_norm ON public.usuarios USING btree (lower(TRIM(BOTH FROM COALESCE(perfil, ''::text))))"
+        },
+        {
+          "indexname": "idx_usuarios_status",
+          "indexdef": "CREATE INDEX idx_usuarios_status ON public.usuarios USING btree (status)"
+        },
+        {
+          "indexname": "idx_usuarios_status_norm",
+          "indexdef": "CREATE INDEX idx_usuarios_status_norm ON public.usuarios USING btree (lower(TRIM(BOTH FROM COALESCE(status, ''::text))))"
+        },
+        {
+          "indexname": "usuarios_email_key",
+          "indexdef": "CREATE UNIQUE INDEX usuarios_email_key ON public.usuarios USING btree (email)"
+        },
+        {
+          "indexname": "usuarios_pkey",
+          "indexdef": "CREATE UNIQUE INDEX usuarios_pkey ON public.usuarios USING btree (id)"
+        }
+      ]
+    },
+    "usuarios_status_historico": {
+      "columns": [
+        {
+          "column_name": "id",
+          "ordinal_position": 1,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": "identity"
+        },
+        {
+          "column_name": "usuario_id",
+          "ordinal_position": 2,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "status",
+          "ordinal_position": 3,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "inicio_em",
+          "ordinal_position": 4,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "fim_em",
+          "ordinal_position": 5,
+          "data_type": "timestamp without time zone",
+          "udt_name": "timestamp",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "alterado_por",
+          "ordinal_position": 6,
+          "data_type": "integer",
+          "udt_name": "int4",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "motivo",
+          "ordinal_position": 7,
+          "data_type": "text",
+          "udt_name": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        }
+      ],
+      "constraints": [
+        {
+          "constraint_name": "usuarios_status_historico_pkey",
+          "constraint_type": "PRIMARY KEY",
+          "columns": "{id}"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "constraint_name": "usuarios_status_historico_usuario_id_fkey",
+          "local_column": "usuario_id",
+          "parent_table": "usuarios",
+          "parent_column": "id",
+          "update_rule": "NO ACTION",
+          "delete_rule": "NO ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "indexname": "idx_ush_periodo",
+          "indexdef": "CREATE INDEX idx_ush_periodo ON public.usuarios_status_historico USING btree (inicio_em, fim_em)"
+        },
+        {
+          "indexname": "idx_ush_status",
+          "indexdef": "CREATE INDEX idx_ush_status ON public.usuarios_status_historico USING btree (status)"
+        },
+        {
+          "indexname": "idx_ush_usuario_id",
+          "indexdef": "CREATE INDEX idx_ush_usuario_id ON public.usuarios_status_historico USING btree (usuario_id)"
+        },
+        {
+          "indexname": "usuarios_status_historico_pkey",
+          "indexdef": "CREATE UNIQUE INDEX usuarios_status_historico_pkey ON public.usuarios_status_historico USING btree (id)"
+        }
+      ]
+    }
+  }
+}

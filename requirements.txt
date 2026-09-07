@@ -5,6 +5,8 @@
 # Core Framework
 streamlit>=1.55.0
 streamlit-calendar>=1.4.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
 
 # Database
 psycopg[binary]>=3.2.0
@@ -19,6 +21,7 @@ pandas>=2.2.0
 numpy>=1.26.0
 openpyxl>=3.1.0
 pydantic>=2.9.0
+email-validator>=2.2.0
 
 # Visualização
 plotly>=5.18.0

@@ -8,7 +8,7 @@ import os
 import logging
 from typing import Optional, TypedDict
 from db.connection_pool import get_pool
-from db.repo_users import hash_password, get_user_by_email
+from db.repo_users import hash_password
 from utils.logging_utils import redact_identifier
 
 logger = logging.getLogger(__name__)
@@ -79,16 +79,10 @@ class MasterUserManager:
     def _master_exists() -> bool:
         """Verifica se já existe um usuário Master no banco"""
         try:
-            # Obter credenciais para verificar email correto
-            creds = MasterUserManager._get_credentials()
-            if creds:
-                user = get_user_by_email(creds['email'])
-                if user and user.get('perfil') == 'master':
-                    return True
-            
-            # Fallback para email padrão
-            user = get_user_by_email('master@sistema.local')
-            return user is not None
+            with get_pool().get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT 1 FROM usuarios WHERE lower(trim(perfil))='master' LIMIT 1")
+                return cur.fetchone() is not None
         except Exception as e:
             logger.warning(f"Erro ao verificar existência do Master: {e}")
             return False
@@ -107,22 +101,29 @@ class MasterUserManager:
         Returns:
             bool: True se criou, False se já existia ou erro
         """
-        # Obter credenciais
-        creds = MasterUserManager._get_credentials()
-        if not creds:
-            logger.info("ℹ️  Variáveis de ambiente do Master não configuradas. Pulando criação automática.")
-            return False
-        
         # Verificar se já existe
         if MasterUserManager._master_exists():
             logger.info("✓ Usuário Master já existe no banco de dados")
-            return False
+            return True
+
+        # Em banco sem Master, configuração incompleta deve falhar fechada.
+        creds = MasterUserManager._get_credentials()
+        if not creds:
+            raise RuntimeError(
+                "Banco sem usuário Master: EMAIL_MASTER, SENHA_MASTER e USUARIO_MASTER são obrigatórios."
+            )
         
         # Criar Master
         try:
             pool = get_pool()
             with pool.get_connection() as conn:
                 cursor = conn.cursor()
+                # Serializa bootstraps concorrentes do mesmo aplicativo.
+                cursor.execute("SELECT pg_advisory_xact_lock(42463100)")
+                cursor.execute("SELECT 1 FROM usuarios WHERE lower(trim(perfil))='master' LIMIT 1")
+                if cursor.fetchone() is not None:
+                    conn.commit()
+                    return True
                 
                 # Hash da senha com bcrypt
                 senha_hashed = hash_password(creds['senha'])
@@ -153,9 +154,9 @@ class MasterUserManager:
                 
                 return True
                 
-        except Exception as e:
-            logger.error(f"✗ Erro ao criar usuário Master: {e}")
-            return False
+        except Exception:
+            logger.exception("✗ Erro ao criar usuário Master")
+            raise
     
     @staticmethod
     def create_master_user() -> bool:

@@ -458,7 +458,8 @@ def _build_data_only_sql() -> str:
 
 def _prepare_schema_for_restore() -> None:
     """Ensure every table emitted by supported data-only dumps exists."""
-    from db.migrations import run_migrations
+    # Use o ponto de entrada público, que invalida o cache de metadados após DDL.
+    from db.db_schema import run_migrations
     from db.rules_utils import init_rules_table
 
     run_migrations()

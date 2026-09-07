@@ -20,6 +20,7 @@ from utils.backup_security import (
     validate_upload_size,
 )
 from db.backup_repair import _repair_insert_boolean_literals
+from db.backup_excel import _normalize_excel_typed_value
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +32,16 @@ class _Uploaded:
 
 
 class BackupSecurityTests(unittest.TestCase):
+    def test_excel_restore_normaliza_booleanos_legados(self):
+        self.assertIs(_normalize_excel_typed_value(1, "boolean"), True)
+        self.assertIs(_normalize_excel_typed_value(0, "boolean"), False)
+        self.assertIs(_normalize_excel_typed_value("sim", "boolean"), True)
+        self.assertIs(_normalize_excel_typed_value("false", "boolean"), False)
+
+    def test_excel_restore_rejeita_booleano_ambiguo(self):
+        with self.assertRaisesRegex(ValueError, "booleano incompatível"):
+            _normalize_excel_typed_value("talvez", "boolean")
+
     def test_reparo_converte_somente_inteiros_de_colunas_booleanas(self):
         statement = (
             'INSERT INTO "usuarios" ("id", "must_change_password", "faltas") '

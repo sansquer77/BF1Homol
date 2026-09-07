@@ -1,0 +1,25 @@
+{
+  "captured_at": "2026-09-06",
+  "baseline": {
+    "tests_passed": 126,
+    "subtests_passed": 139,
+    "failures": 0,
+    "warnings": 43,
+    "warning_debt": "pandas deprecation in services/bets_scoring.py"
+  },
+  "domains": {
+    "authentication_and_authorization": [
+      "tests/test_access_matrix.py",
+      "tests/test_permissions_extended.py",
+      "tests/test_security_utils.py",
+      "tests/test_cookie_contract.py",
+      "tests/test_proxy_topology.py"
+    ],
+    "bets_and_deadlines": ["tests/test_bets_rules_extended.py", "tests/test_championship_deadline.py", "tests/test_classification_workflow.py"],
+    "scoring_and_classification": ["tests/test_bets_scoring_rules.py", "tests/test_classificacao_pontuacao.py", "tests/test_classificacao_imagem.py"],
+    "data_contracts_and_seasons": ["tests/test_apostas_dataframe_contract.py", "tests/test_temporada_global.py", "tests/test_timezone_preference.py"],
+    "backup_and_restore": ["tests/test_backup_security.py", "tests/test_backup_fixture_anonymizer.py", "tests/test_v4_master_env_contract.py"],
+    "architecture_and_security": ["tests/test_framework_boundaries.py", "tests/test_admin_ui_has_no_writes.py", "tests/test_html_security.py", "tests/test_v4_migration_docs.py"],
+    "performance": ["tests/test_performance_baseline.py", "tests/test_performance_optimizations.py", "tests/test_performance_cache_namespace.py"]
+  }
+}

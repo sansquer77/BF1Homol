@@ -13,6 +13,7 @@ from openpyxl.utils import get_column_letter
 
 from db.backup_utils import (
 	_get_pk_columns,
+	_prepare_schema_for_restore,
 	_get_serial_columns,
 	_get_tables_with_fk_children,
 	_list_tables,
@@ -39,6 +40,18 @@ def _normalize_excel_typed_value(value: Any, data_type: str) -> Any:
 	dtype = (data_type or "").lower()
 	if value is None:
 		return None
+
+	if dtype == "boolean":
+		if isinstance(value, bool):
+			return value
+		if isinstance(value, (int, float)) and value in {0, 1}:
+			return bool(value)
+		text = str(value).strip().lower()
+		if text in {"0", "false", "f", "não", "nao"}:
+			return False
+		if text in {"1", "true", "t", "sim"}:
+			return True
+		raise ValueError(f"Valor booleano incompatível no backup Excel: {value!r}")
 
 	if dtype in {"json", "jsonb"}:
 		if isinstance(value, (dict, list, tuple)):
@@ -190,6 +203,10 @@ def download_tabela(presenter) -> None:
 
 def upload_tabela(presenter) -> None:
 	require_restore_authorized()
+	# spec: migracao-v4-nextjs-fastapi v0.7 — critérios 1 a 3
+	# O export Excel V3 usa o contrato nomeado de regras e pode trazer colunas
+	# criadas sob demanda; prepare o mesmo schema compatível usado no restore SQL.
+	_prepare_schema_for_restore()
 	limits = get_backup_limits()
 	tables = _list_tables()
 	if not tables:

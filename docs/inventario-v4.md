@@ -1,9 +1,9 @@
 ---
 tipo: arquitetura
 area: migracao-v4
-status: em-revisao
-versao: 0.4
-atualizado: 2026-09-06
+status: implementado
+versao: 0.6
+atualizado: 2026-09-07
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
   - "[[04_arquitetura]]"
@@ -15,7 +15,7 @@ aliases: ["Inventário funcional e técnico da versão 4"]
 # Inventário funcional e técnico da versão 4
 
 > [!info] Status
-> **em-revisao** · área: `migracao-v4` · atualizado em 2026-09-06 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[04_arquitetura]], [[03_spec]]
+> **implementado** · área: `migracao-v4` · atualizado em 2026-09-07 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[04_arquitetura]], [[03_spec]]
 
 ## Objetivo e método
 
@@ -120,6 +120,49 @@ O ensaio revelou e corrigiu três incompatibilidades do caminho anterior:
 tabelas/colunas criadas apenas sob demanda, booleanos legados como `0/1` e a
 unicidade global de nome de piloto incompatível com o histórico real.
 
+### Fontes canônicas do contrato V3.x
+
+Não existe dependência de acesso ao PostgreSQL hospedado na DigitalOcean para
+congelar o contrato. A compatibilidade é reconstruída e comprovada pela
+combinação destas fontes:
+
+1. código V3.x de criação de schema e migrations, que define a estrutura pretendida;
+2. código de restore SQL e Excel, que define tabelas, colunas, conversões,
+   reparos legados, limites, ordem e comportamento efetivamente aceitos;
+3. backup SQL real V3.5.0, que comprova o formato produzido em operação;
+4. exportações Excel reais, que comprovam o contrato de arquivo por tabela.
+
+Em divergências, backups reais e comportamento comprovado do restore orientam
+os testes de caracterização; código e documentação são então corrigidos para
+representar esse contrato. Um PostgreSQL temporário e isolado pode ser usado
+para prova de restore, sem credenciais ou acesso ao banco da DigitalOcean.
+
+Em 2026-09-07 foram recebidas 21 exportações Excel V3.x, todas com uma aba
+`data`: `access_logs`, `apostas`, `auth_sessions`, `championship_bets`,
+`championship_bets_log`, `championship_results`, `circuitos_f1`,
+`financeiro_config_temporada`, `financeiro_participantes`, `hall_da_fama`,
+`log_apostas`, `login_attempts`, `pilotos`, `posicoes_participantes`, `provas`,
+`regras`, `resultados`, `temporadas`, `temporadas_regras`, `usuarios` e
+`usuarios_status_historico`. Os arquivos originais contêm dados sensíveis e
+não são versionados. As fixtures determinísticas anonimizadas preservam abas,
+cabeçalhos, tipos lógicos, IDs, relacionamentos e casos de tabela vazia.
+
+### Restore de caracterização Excel V3.x
+
+Validado em PostgreSQL 18.6 local e isolado em 2026-09-07:
+
+- 21 arquivos/tabelas e 3.904 linhas coincidentes com o manifesto;
+- aba `data`, cabeçalhos e casos vazios preservados;
+- FKs pré-validadas pelo caminho real de importação;
+- IDs e sequences preservados/ressincronizados;
+- hashes bcrypt substituídos por hash conhecido exclusivo da fixture;
+- schema reconstruído contendo todas as colunas exportadas;
+- duas execuções adicionais das migrations sem alteração do snapshot.
+
+O ensaio revelou e corrigiu duas incompatibilidades adicionais: booleanos do
+Excel representados como `0/1` diante de colunas PostgreSQL `BOOLEAN`, e cache
+de metadados não invalidado entre preparações consecutivas do restore.
+
 ### Estruturas encontradas
 
 | Grupo | Tabelas/estruturas |
@@ -129,9 +172,10 @@ unicidade global de nome de piloto incompatível com o histórico real.
 | Segurança/auditoria | `auth_sessions`, `login_attempts`, `password_reset_tokens`, `access_logs`, `log_apostas` |
 | Apoio operacional | `circuitos_f1`, `financeiro_participantes`, `financeiro_config_temporada` |
 
-O contrato exato de colunas, tipos, nulabilidade, defaults, chaves, índices,
-sequences e ordem de restauração será congelado por snapshot automatizado na
-etapa 2. O código já contém colunas nativas paralelas (`*_date`, `*_ts`,
+O contrato reconstruído de colunas, tipos, nulabilidade, defaults, chaves,
+índices, sequences e ordem de restauração será congelado em artefato
+automatizado e versionado. Ele não será apresentado como snapshot do banco de
+produção inacessível. O código já contém colunas nativas paralelas (`*_date`, `*_ts`,
 `*_arr`, `*_jsonb`); elas são uma estratégia válida porque preservam as colunas
 TEXT originais.
 
@@ -161,16 +205,16 @@ TEXT originais.
 - CORS usa allowlist explícita; documentação da API e endpoints operacionais
   não ficam públicos em produção por padrão.
 
-## Observabilidade em arquivo
+## Observabilidade no PostgreSQL
 
-Backend e frontend server-side emitem logs estruturados em JSON para arquivos
-separados de aplicação, acesso HTTP, segurança e erro. Os registros têm UTC,
+O backend persiste eventos estruturados de aplicação, acesso HTTP, segurança e
+erro em tabela própria no PostgreSQL. Os registros têm UTC,
 `request_id`, rota, status, duração e identidade pseudonimizada quando
 necessária; nunca incluem senha, JWT, token de reset, conteúdo de backup ou
-payload sensível. Rotação, retenção, permissões, volume persistente e coleta de
-métricas seguem a spec V4. O download pelo Master usa reautenticação, nomes de
-arquivo provenientes de allowlist e auditoria; caminhos enviados pelo cliente
-nunca são abertos diretamente.
+payload sensível. A retenção e os limites seguem a spec V4. O download pelo
+Master gera JSON Lines compactado sob demanda, com reautenticação e auditoria;
+nenhum caminho de arquivo é recebido do cliente. `stdout/stderr` cobre falhas
+que não possam ser gravadas no próprio banco.
 
 ## Bootstrap do usuário Master
 
@@ -197,14 +241,15 @@ redefine a credencial persistida.
   análise); precisam ganhar serviços antes de virarem endpoints.
 - A gestão financeira cria schema a partir do serviço e ainda possui helpers na
   UI; a fronteira deve ser consolidada antes da migração dessa área.
-- O contrato de logs em banco deve coexistir com os novos logs em arquivo; um
-  não substitui a auditoria de domínio do outro.
-- A mesma origem com `/api` e a ausência de Streamlit estão aprovadas; ainda é
-  preciso fechar persistência dos arquivos operacionais e política de rollback
-  por artefato/backup.
+- O log operacional em banco deve coexistir com `access_logs` e `log_apostas`;
+  nenhum deles substitui a auditoria de domínio do outro.
+- A mesma origem, a ausência de Streamlit e logs no PostgreSQL estão aprovados;
+  ainda é preciso fechar a política de rollback por artefato/backup.
 
 ## Changelog
 
+- `0.6` — 2026-09-07 — Restore das 21 fixtures Excel aprovado no PostgreSQL 18.6 e contrato reconstruído de schema congelado.
+- `0.5` — 2026-09-07 — Inventário congelado com quatro fontes canônicas do contrato V3.x e 21 exportações Excel reais recebidas.
 - `0.4` — 2026-09-06 — Restore V3.5.0 validado em PostgreSQL 18.6 e incompatibilidades encontradas documentadas.
 - `0.3` — 2026-09-06 — Adicionados exemplar V3.5.0, política de logs e bootstrap Master por ambiente.
 - `0.2` — 2026-09-06 — Registradas topologia de mesma origem e V4 pura sem Streamlit.

@@ -28,7 +28,8 @@ def test_v4_spec_keeps_backup_compatibility_as_primary_contract():
     assert "ApexCharts" in spec
     assert "autorização por objeto" in spec
     assert "força bruta" in spec
-    assert "logs, métricas e erros em arquivos" in spec
+    assert "registros estruturados no PostgreSQL" in spec
+    assert "`stdout/stderr`" in spec
 
 
 def test_v4_inventory_covers_every_current_route():
@@ -100,6 +101,7 @@ def test_v4_records_invite_only_master_bootstrap_and_log_download():
     assert "Não existe cadastro público" in spec
     assert "`EMAIL_MASTER`, `SENHA_MASTER` e `USUARIO_MASTER`" in spec
     assert "reinícios nunca redefinem" in spec
-    assert "O Master pode baixar arquivos de log" in spec
-    assert "allowlist de arquivos" in spec
-    assert "Nenhuma pendência bloqueante conhecida" in spec
+    assert "O Master pode baixar uma exportação de logs" in spec
+    assert "gerada sob demanda" in spec
+    assert "[x] Fase 1" in spec
+    assert "21 Excel anonimizadas e versionadas" in spec

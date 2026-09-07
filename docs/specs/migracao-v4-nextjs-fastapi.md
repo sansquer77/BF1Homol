@@ -2,8 +2,8 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 0.4
-atualizado: 2026-09-06
+versao: 0.8
+atualizado: 2026-09-07
 relacionados:
   - "[[inventario-v4]]"
   - "[[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]"
@@ -15,7 +15,7 @@ aliases: ["Migração BF1 4.0 para Next.js e FastAPI"]
 # Migração BF1 4.0 para Next.js e FastAPI
 
 > [!info] Status
-> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-06 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
+> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-07 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
 
 ## Problema
 
@@ -34,7 +34,7 @@ operação responsável por deploy, observabilidade e restauração.
 2. O frontend autentica pela API FastAPI e recebe sessão protegida por cookie.
 3. Cada página consulta ou altera recursos por contratos HTTP versionados.
 4. FastAPI resolve identidade, autoriza a operação/objeto e chama os serviços Python existentes.
-5. Os serviços usam os adaptadores PostgreSQL compatíveis e registram auditoria; a infraestrutura registra logs, métricas e erros em arquivos.
+5. Os serviços usam os adaptadores PostgreSQL compatíveis e registram auditoria e observabilidade estruturada.
 
 ## Dados
 
@@ -42,7 +42,7 @@ operação responsável por deploy, observabilidade e restauração.
 - Backups SQL e Excel atuais: entradas que a versão 4 deve restaurar.
 - API: JSON com schemas explícitos, datas ISO 8601 e erros sem detalhes sensíveis.
 - Sessão: identificador/token em cookie `Secure`, `HttpOnly`, com rotação e revogação.
-- Logs: JSON Lines em arquivos persistentes com rotação e retenção.
+- Logs: registros estruturados no PostgreSQL, exportáveis sob demanda em JSON Lines compactado.
 - Bootstrap Master: `EMAIL_MASTER`, `SENHA_MASTER` e `USUARIO_MASTER` fornecidos
   como segredos/variáveis do ambiente DigitalOcean.
 
@@ -56,7 +56,7 @@ operação responsável por deploy, observabilidade e restauração.
 6. Autorização ocorre por rota, operação, objeto e temporada, revalidando o usuário no servidor para impedir IDOR.
 7. Login e recuperação mitigam enumeração e força bruta e preservam compatibilidade com bcrypt.
 8. Mutações autenticadas por cookie possuem proteção CSRF e validação de origem.
-9. Logs e métricas em arquivo não substituem logs de auditoria do domínio no PostgreSQL.
+9. Logs operacionais no PostgreSQL não substituem as trilhas de auditoria de domínio existentes.
 10. Cada área é implementada isoladamente e só é considerada concluída após paridade automatizada e verificação mobile.
 11. A versão 4 é uma aplicação limpa, sem runtime, rota, dependência ou mecanismo de sessão do Streamlit.
 12. Datas/deadlines continuam usando `America/Sao_Paulo`; timezone do cliente altera apenas apresentação.
@@ -65,8 +65,8 @@ operação responsável por deploy, observabilidade e restauração.
 15. No bootstrap, se ainda não existir usuário Master, o backend cria um usando `EMAIL_MASTER`, `SENHA_MASTER` e `USUARIO_MASTER`; reinícios nunca redefinem a senha de um Master existente e nenhum desses valores é registrado em logs. Os nomes permanecem idênticos aos usados atualmente na DigitalOcean.
 16. A sessão usa cookie `Secure`, `HttpOnly`, `SameSite=Lax`, validade de duas horas e rotação durante atividade; há uma sessão ativa por usuário, troca de senha revoga todas as sessões e operações críticas exigem reautenticação.
 17. OIDC não integra a primeira entrega da versão 4; a arquitetura não impede inclusão opcional futura, sem substituir o acesso por convite e senha.
-18. Arquivos de aplicação, acesso, segurança e erro usam JSON Lines em volume persistente, rotação diária ou a 100 MB e retenção de 30 dias.
-19. O Master pode baixar arquivos de log por endpoint com reautenticação, allowlist de arquivos e limites; a API nunca aceita caminho arbitrário.
+18. Aplicação, acesso HTTP, segurança e erros geram registros estruturados no PostgreSQL com retenção inicial de 30 dias; falhas anteriores à conexão ou do próprio banco permanecem em `stdout/stderr`.
+19. O Master pode baixar uma exportação de logs gerada sob demanda por endpoint com reautenticação, intervalo e volume limitados; a API nunca aceita caminho arbitrário.
 20. A identidade visual preserva a marca BF1; cores, tipografia, densidade e
     composição podem mudar quando houver ganho demonstrável de UX.
 21. A interface é mobile-first e busca WCAG 2.2 AA, incluindo teclado, foco,
@@ -104,7 +104,7 @@ operação responsável por deploy, observabilidade e restauração.
 11. Dado viewport de 360 px, quando uma jornada prioritária é usada, então não há rolagem horizontal da página e alvos interativos permanecem utilizáveis.
 12. Dado um gráfico, quando o contêiner muda de tamanho, então ApexCharts se ajusta sem perder legenda/dados e existe alternativa textual acessível.
 13. Dada uma requisição, quando termina, então logs correlacionáveis registram status e duração sem conteúdo sensível.
-14. Dada falha não tratada, quando ocorre, então o cliente recebe erro opaco com `request_id` e o servidor registra stack trace no arquivo de erros.
+14. Dada falha não tratada, quando ocorre, então o cliente recebe erro opaco com `request_id` e o servidor registra o erro sanitizado, usando `stdout/stderr` como contingência se o banco estiver indisponível.
 15. Dada a meta de carga definida antes do cutover, quando o cenário representativo é executado, então latência, erros e saturação ficam dentro dos limites aprovados.
 16. Dado o artefato da versão 4, quando dependências e imports são inspecionados, então não existe dependência de Streamlit nem código de compatibilidade com sua sessão/UI.
 17. Dado o primeiro bootstrap sem Master, quando as três variáveis obrigatórias estão válidas, então exatamente um Master é criado; em reinícios, suas credenciais persistidas não são alteradas.
@@ -128,8 +128,9 @@ operação responsável por deploy, observabilidade e restauração.
 > [!question] Pendências
 > As decisões de produto e arquitetura necessárias ao scaffold foram aprovadas.
 
-- Nenhuma pendência bloqueante conhecida.
-- Detalhes físicos do volume/coleta de logs serão verificados contra a infraestrutura DigitalOcean durante a preparação do deploy, sem alterar o contrato funcional acima.
+- Fase 3: completar os testes de integração de sessão, força bruta, CSRF,
+  bootstrap e exportação de observabilidade antes de fechar seus critérios.
+- A retenção poderá ser ajustada após observar o volume real, sem reduzir os controles de acesso, sanitização e exportação.
 
 ## Fora de escopo
 
@@ -141,9 +142,9 @@ operação responsável por deploy, observabilidade e restauração.
 
 ## Plano de implementação
 
-- [ ] Fase 1 — congelar inventário, snapshot do schema e fixtures de backup. Fixture SQL V3.5.0 anonimizada e restore real em PostgreSQL 18.6 concluídos; snapshot versionado e fixture Excel ainda pendentes. Fecha: critérios 1–3.
-- [ ] Fase 2 — ampliar testes de caracterização de serviços e jornadas. Fecha: critérios 4 e 10.
-- [ ] Fase 3 — criar FastAPI, contratos `/api/v1`, contexto por requisição, auth, bootstrap Master e observabilidade. Fecha: critérios 5–9, 13, 14 e 17–20.
+- [x] Fase 1 — inventário congelado; fixtures SQL e 21 Excel anonimizadas e versionadas; restores reais aprovados no PostgreSQL 18.6; contrato reconstruído de schema versionado e estável após migrations repetidas. Fecha: critérios 1–3.
+- [x] Fase 2 — baseline de 126 testes e 139 subtestes aprovada e congelada por domínio em `tests/characterization_v4.json`. Fecha: critérios 4 e 10 no comportamento legado; autorização HTTP será ampliada na Fase 3.
+- [ ] Fase 3 — em implementação. Scaffold FastAPI, contratos iniciais `/api/v1`, contexto por requisição, auth, bootstrap Master e observabilidade no PostgreSQL criados; testes direcionados iniciais aprovados, gates de integração ainda pendentes. Fecha: critérios 5–9, 13, 14 e 17–20.
 - [ ] Fase 4 — criar Next.js responsivo, design system, cliente tipado e adaptador ApexCharts. Fecha: critérios 11 e 12.
 - [ ] Fase 5 — migrar conteúdo e consultas simples (Sobre, Regulamento, Calendário e Painel). Fecha parte dos critérios 4, 10–12.
 - [ ] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Fecha critérios 4, 10 e 12.
@@ -154,6 +155,10 @@ operação responsável por deploy, observabilidade e restauração.
 
 ## Changelog
 
+- `0.8` — 2026-09-07 — Fase 1 concluída: 21 fixtures Excel/3.904 linhas restauradas, contrato de schema reconstruído congelado e duas incompatibilidades do restore corrigidas.
+- `0.7` — 2026-09-07 — Status consolidado: inventário implementado, 21 exportações Excel recebidas, Fase 1 em validação final e Fase 3 em implementação.
+- `0.6` — 2026-09-06 — Observabilidade movida para o PostgreSQL por decisão explícita de custo, com exportação sob demanda e contingência em stdout/stderr.
+- `0.5` — 2026-09-06 — Baseline de caracterização congelada por domínio com 126 testes e 139 subtestes aprovados.
 - `0.4` — 2026-09-06 — Restore da fixture V3.5.0 validado em PostgreSQL 18.6, incluindo contagens, FKs, sequences, bcrypt, tipos nativos e idempotência das migrations.
 - `0.3` — 2026-09-06 — Fechadas compatibilidade V3.x, sessão, acesso somente por convite, logs baixáveis pelo Master, metas de qualidade, direção visual e bootstrap Master por ambiente.
 - `0.2` — 2026-09-06 — Aprovadas mesma origem com `/api` e implementação V4 sem convivência ou dependência de Streamlit.

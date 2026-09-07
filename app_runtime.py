@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from typing import Any, MutableMapping
 
 _fallback_session: dict[str, Any] = {}
@@ -11,10 +11,21 @@ _headers: ContextVar[object] = ContextVar("bf1_request_headers", default={})
 _direct_ip: ContextVar[object] = ContextVar("bf1_direct_ip", default=None)
 
 
-def bind_runtime(session: MutableMapping[str, Any], *, headers: object = None, direct_ip: object = None) -> None:
-    _session.set(session)
-    _headers.set(headers or {})
-    _direct_ip.set(direct_ip)
+def bind_runtime(session: MutableMapping[str, Any], *, headers: object = None, direct_ip: object = None) -> tuple[Token, Token, Token]:
+    """Vincula metadados ao contexto atual e retorna tokens para restauração."""
+    return (
+        _session.set(session),
+        _headers.set(headers or {}),
+        _direct_ip.set(direct_ip),
+    )
+
+
+def reset_runtime(tokens: tuple[Token, Token, Token]) -> None:
+    """Restaura o contexto anterior, evitando vazamento entre requisições."""
+    session_token, headers_token, ip_token = tokens
+    _direct_ip.reset(ip_token)
+    _headers.reset(headers_token)
+    _session.reset(session_token)
 
 
 def get_session() -> MutableMapping[str, Any]:

@@ -2,8 +2,8 @@
 tipo: adr
 area: arquitetura
 status: implementado
-versao: 1.0
-atualizado: 2026-09-06
+versao: 1.1
+atualizado: 2026-09-07
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
   - "[[inventario-v4]]"
@@ -15,7 +15,7 @@ aliases: ["ADR-0003 Next.js, FastAPI e compatibilidade de dados"]
 # ADR-0003 — Next.js, FastAPI e compatibilidade de dados
 
 > [!info] Status
-> **implementado** · área: `arquitetura` · atualizado em 2026-09-06 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[inventario-v4]], [[adr/0001-streamlit-postgresql]]
+> **implementado** · área: `arquitetura` · atualizado em 2026-09-07 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[inventario-v4]], [[adr/0001-streamlit-postgresql]]
 
 ## Contexto
 
@@ -33,6 +33,9 @@ como regra primária da versão 4.
   API como adaptador de entrega, conforme os limites do ADR-0002.
 - Manter PostgreSQL como única fonte de verdade e tratar o formato de backup
   3.x suportado como contrato de entrada versionado.
+- Reconstruir o contrato V3.x a partir do código de schema/migrations, código
+  de restore e backups SQL/Excel reais; não exigir acesso ao banco hospedado
+  para inventário ou caracterização.
 - Evoluir o schema por migrations aditivas/idempotentes; colunas legadas ficam
   disponíveis até existir conversor e retirada formalmente aprovados.
 - Hospedar frontend e API sob a mesma origem, com o ingresso encaminhando
@@ -41,8 +44,9 @@ como regra primária da versão 4.
 - Usar sessão em cookie seguro e revogável; autorização por objeto e temporada
   ocorre nos serviços, não no frontend.
 - Usar ApexCharts por um componente compartilhado no frontend.
-- Registrar aplicação, acesso, segurança e erros em arquivos estruturados com
-  rotação e download administrativo protegido; manter auditoria de domínio no PostgreSQL.
+- Registrar aplicação, acesso, segurança e erros de forma estruturada no
+  PostgreSQL existente, com retenção e exportação administrativa protegida;
+  manter `stdout/stderr` para falhas do próprio banco ou anteriores à conexão.
 - Implementar e validar por área; o rollback operacional usa o último artefato
   estável e o backup compatível, não uma instalação Streamlit paralela.
 - Manter autenticação por convite, sem cadastro público, e criar o primeiro
@@ -58,6 +62,8 @@ como regra primária da versão 4.
   paralelas preservam o contrato atual e permitem validação gradual.
 - Migração big-bang: rejeitada pela superfície de 20 telas, operações sensíveis
   e criticidade de backup.
+- Arquivos persistentes ou object storage para observabilidade: rejeitados nesta
+  fase pelo custo adicional e pelo baixo volume esperado do aplicativo por convite.
 
 ## Consequências
 
@@ -65,15 +71,15 @@ como regra primária da versão 4.
 - Testes de caracterização tornam-se gate de cada área e do cutover.
 - Parte das regras ainda presente em `ui/` terá de migrar para serviços antes de
   receber endpoints.
-- Deploy, health checks, logs persistentes e correlação entre runtimes exigem
+- Deploy, health checks, retenção de logs e correlação entre runtimes exigem
   configuração operacional adicional.
 - Não haverá fallback de interface para Streamlit neste ambiente; a cobertura de
   caracterização e o ensaio de restauração tornam-se gates ainda mais fortes.
 
 ## Critérios de revisão
 
-Revisar antes do deploy se a DigitalOcean não suportar persistência/rotação de
-arquivos na topologia escolhida. Revisar a retirada de
+Revisar se o volume de logs afetar o banco transacional ou tornar object storage
+mais econômico. Revisar a retirada de
 qualquer coluna/formato legado somente após a janela de compatibilidade e um
 conversor de backup aprovado.
 
@@ -83,6 +89,7 @@ conversor de backup aprovado.
 
 ## Changelog
 
+- `1.1` — 2026-09-07 — Formalizadas as fontes do contrato reconstruído V3.x e a independência de acesso ao banco hospedado; logs operacionais usam o PostgreSQL por decisão de custo.
 - `1.0` — 2026-09-06 — Decisão aprovada, incluindo convite, bootstrap Master, política de sessão, logs e compatibilidade integral dos backups V3.x suportados.
 - `0.2` — 2026-09-06 — Aprovadas mesma origem com `/api` e V4 pura sem dependência ou convivência com Streamlit.
 - `0.1` — 2026-09-06 — Decisão arquitetural proposta para a versão 4.
