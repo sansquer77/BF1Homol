@@ -2,8 +2,8 @@
 tipo: spec
 area: analises
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.2
+atualizado: 2026-09-08
 relacionados: ["[[specs/apostas-de-prova]]", "[[specs/resultados-de-provas]]", "[[specs/classificacao]]"]
 tags: [spec, "area/analises", "status/implementado"]
 aliases: ["Análises e dashboard"]
@@ -12,7 +12,7 @@ aliases: ["Análises e dashboard"]
 # Análises e dashboard
 
 > [!info] Status
-> **implementado** · área: `analises` · atualizado em 2026-07-31 · relacionados: [[specs/apostas-de-prova]], [[specs/resultados-de-provas]], [[specs/classificacao]]
+> **implementado** · área: `analises` · atualizado em 2026-09-08 · relacionados: [[specs/apostas-de-prova]], [[specs/resultados-de-provas]], [[specs/classificacao]]
 
 ## Problema
 
@@ -47,10 +47,10 @@ Transformar apostas, resultados e classificação em visualizações operacionai
 
 ## Interface, serviços e dados
 
-- Telas: Monitoramento → Análise de Apostas e Dashboard F1.
-- Serviços: fachadas de análise e leitura dos domínios fonte.
+- Telas: Monitoramento → Análise de Apostas, `/analises` na V4 e Dashboard F1.
+- Serviços: `services/bets_analysis_service.py`, `services/f1_dashboard_service.py` e fachadas de leitura dos domínios fonte.
 - Persistência: somente leitura das tabelas de apostas, resultados, provas, pilotos e usuários.
-- API externa: não aplicável.
+- API V4: `GET /api/v1/analysis/bets?season=YYYY`, com escopo individual para Participante/Inativo e consolidado para Admin/Master, e `GET /api/v1/f1-dashboard?season=YYYY` autenticado para estatísticas oficiais históricas.
 
 ## Critérios de aceite
 
@@ -76,6 +76,8 @@ Transformar apostas, resultados e classificação em visualizações operacionai
 
 ## Changelog
 
+- `1.2` — 2026-09-08 — Dashboard F1 V4 migrado para read model FastAPI, preservando o provedor Jolpica/Ergast da V3, gráficos ApexCharts e estados vazios acessíveis.
+- `1.1` — 2026-09-08 — Análise de Apostas V4 migrada para FastAPI e ApexCharts, com escopo por perfil e marcadores de equipe.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
 ## Relacionados

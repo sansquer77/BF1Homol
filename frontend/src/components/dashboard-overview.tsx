@@ -1,21 +1,65 @@
+"use client";
+
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import { AccessibleChart } from "./accessible-chart";
 import { CalendarIcon, FlagIcon, TrophyIcon } from "./icons";
-import { getTeamMarkerBackground, type TeamName } from "@/lib/team-colors";
-import Image from "next/image";
+import { apiRequest, type Telemetry } from "@/lib/api/client";
 import { TRACK_ASSETS } from "@/lib/track-assets";
 
-const ranking: Array<{ position: number; initials: string; name: string; team: TeamName; points: number; delta: string; current?: boolean }> = [
-  { position: 1, initials: "AM", name: "Ana Martins", team: "Ferrari", points: 486, delta: "+24" },
-  { position: 2, initials: "RC", name: "Rafael Costa", team: "McLaren", points: 471, delta: "+18" },
-  { position: 3, initials: "MS", name: "Marcos Silva", team: "Mercedes", points: 458, delta: "+31", current: true },
-];
+const DEFAULT_SEASON = String(new Date().getFullYear());
+
+function formatPoints(value: number): string {
+  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(value);
+}
+
+function formatRaceDate(date: string, time: string): string {
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(`${date}T${time}:00-03:00`));
+}
+
+function initials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "BF";
+}
+
+function countdown(target?: string): { days: string; hours: string; minutes: string; label: string } {
+  const remaining = target ? Math.max(0, new Date(target).getTime() - Date.now()) : 0;
+  const days = Math.floor(remaining / 86_400_000);
+  const hours = Math.floor((remaining % 86_400_000) / 3_600_000);
+  const minutes = Math.floor((remaining % 3_600_000) / 60_000);
+  return { days: String(days).padStart(2, "0"), hours: String(hours).padStart(2, "0"), minutes: String(minutes).padStart(2, "0"), label: `Faltam ${days} dias, ${hours} horas e ${minutes} minutos` };
+}
 
 export function DashboardOverview() {
+  const [data, setData] = useState<Telemetry | null>(null);
+  const [error, setError] = useState(false);
+  const [clock, setClock] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    apiRequest<Telemetry>(("/api/v1/telemetry?season=" + DEFAULT_SEASON) as `/api/v1/${string}`)
+      .then((snapshot) => { if (active) setData(snapshot); })
+      .catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!data?.next_race) return;
+    const timer = window.setInterval(() => setClock((value) => value + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, [data?.next_race]);
+
+  const remaining = useMemo(() => countdown(data?.next_race?.starts_at), [data?.next_race?.starts_at, clock]);
+  const nextRace = data?.next_race;
+  const track = nextRace?.circuit_id ? TRACK_ASSETS[nextRace.circuit_id] : undefined;
+
+  if (error) return <div className="dashboard"><div className="calendar-state calendar-state--error" role="alert">Não foi possível carregar a Telemetria. Confirme sua autenticação e tente novamente.</div></div>;
+  if (!data) return <div className="dashboard"><div className="calendar-state" role="status">Carregando Telemetria…</div></div>;
+
   return <div className="dashboard">
-    <header className="page-header"><div><p className="eyebrow">Telemetria · Olá, Marcos</p><h1>A corrida começa antes da largada.</h1><p>Acompanhe sua estratégia para o GP do Azerbaijão.</p></div><button className="season-select" type="button" aria-label="Temporada selecionada: 2026"><span>Temporada</span><strong>2026</strong><span aria-hidden="true">⌄</span></button></header>
-    <section className="race-hero" id="calendario" aria-labelledby="next-race-title"><div className="race-hero__glow" aria-hidden="true" /><div className="race-hero__content"><p className="eyebrow"><span className="live-dot" /> Próxima prova · Rodada 7</p><h2 id="next-race-title">GP do Azerbaijão</h2><div className="race-meta"><span><CalendarIcon /> 20 set · 08:00</span><span><FlagIcon /> Baku City Circuit</span></div><div className="countdown" aria-label="Faltam 4 dias, 12 horas e 36 minutos"><span><strong>04</strong><small>dias</small></span><i>:</i><span><strong>12</strong><small>horas</small></span><i>:</i><span><strong>36</strong><small>min</small></span></div><a className="primary-action" href="#apostar">Fazer minha aposta <span aria-hidden="true">→</span></a></div><div className="track-art"><Image src={TRACK_ASSETS.baku.src} alt="Circuito de Baku" fill sizes="(max-width: 760px) 100vw, 42vw" /><small>Baku City Circuit · Azerbaijão</small></div></section>
-    <section className="metric-grid" aria-label="Resumo da temporada"><article className="metric-card"><span className="metric-icon"><TrophyIcon /></span><p>Sua posição</p><strong>3º</strong><small><b>↑ 2</b> desde a última prova</small></article><article className="metric-card"><span className="metric-icon"><FlagIcon /></span><p>Pontuação válida</p><strong>458</strong><small>31 pontos na última prova</small></article><article className="metric-card"><span className="metric-icon"><CalendarIcon /></span><p>Apostas enviadas</p><strong>6/6</strong><small><b>100%</b> de participação</small></article></section>
-    <div className="content-grid"><AccessibleChart /><section className="panel ranking-panel" id="classificacao" aria-labelledby="ranking-title"><div className="panel__heading"><div><p className="eyebrow">Campeonato</p><h2 id="ranking-title">Classificação</h2></div><a className="text-link" href="#classificacao-completa">Ver todos</a></div><ol className="ranking-list">{ranking.map((person) => <li key={person.position} className={person.current ? "ranking-row ranking-row--current" : "ranking-row"}><strong className="position">{person.position}</strong><span className="avatar avatar--small">{person.initials}</span><span className="driver"><strong className="driver__name"><i className="team-marker" style={{ background: getTeamMarkerBackground(person.team) }} aria-label={`Equipe ${person.team}`} title={person.team} />{person.name}</strong><small>{person.current ? "Você" : `+${486 - person.points} do líder`}</small></span><span className="points"><strong>{person.points}</strong><small>{person.delta}</small></span></li>)}</ol></section></div>
-    <footer className="prototype-note"><span>BF1 4.0</span><p>Fundação visual · dados demonstrativos para validação do design system</p></footer>
+    <header className="page-header"><div><p className="eyebrow">Telemetria · Olá, {data.user_name}</p><h1>A corrida começa antes da largada.</h1><p>{nextRace ? `Acompanhe sua estratégia para ${nextRace.name}.` : "Acompanhe seu desempenho na temporada."}</p></div><button className="season-select" type="button" aria-label={`Temporada selecionada: ${data.season}`}><span>Temporada</span><strong>{data.season}</strong><span aria-hidden="true">⌄</span></button></header>
+    {nextRace ? <section className="race-hero" id="calendario" aria-labelledby="next-race-title"><div className="race-hero__glow" aria-hidden="true" /><div className="race-hero__content"><p className="eyebrow"><span className="live-dot" /> Próxima prova · Rodada {nextRace.round}</p><h2 id="next-race-title">{nextRace.name.replace("Grande Prêmio", "GP")}</h2><div className="race-meta"><span><CalendarIcon /> {formatRaceDate(nextRace.date, nextRace.time)}</span><span><FlagIcon /> {nextRace.circuit_id?.replaceAll("_", " ") ?? "Circuito não informado"}</span></div><div className="countdown" aria-label={remaining.label}><span><strong>{remaining.days}</strong><small>dias</small></span><i>:</i><span><strong>{remaining.hours}</strong><small>horas</small></span><i>:</i><span><strong>{remaining.minutes}</strong><small>min</small></span></div><a className="primary-action" href="#apostar">Fazer minha aposta <span aria-hidden="true">→</span></a></div><div className="track-art">{track ? <Image src={track.src} alt={`Circuito de ${nextRace.name}`} fill sizes="(max-width: 760px) 100vw, 42vw" /> : <FlagIcon />}<small>{nextRace.name}</small></div></section> : <section className="calendar-state"><strong>Nenhuma próxima prova cadastrada.</strong><p>O calendário da temporada não possui evento futuro disponível.</p></section>}
+    <section className="metric-grid" aria-label="Resumo da temporada"><article className="metric-card"><span className="metric-icon"><TrophyIcon /></span><p>Sua posição registrada</p><strong>{data.metrics.current_position ? `${data.metrics.current_position}º` : "—"}</strong><small>Última prova com classificação</small></article><article className="metric-card"><span className="metric-icon"><FlagIcon /></span><p>Pontuação acumulada</p><strong>{formatPoints(data.metrics.points)}</strong><small>Pontos materializados na temporada</small></article><article className="metric-card"><span className="metric-icon"><CalendarIcon /></span><p>Apostas na temporada</p><strong>{data.metrics.bets_submitted}/{data.metrics.races_total}</strong><small>Provas com aposta registrada</small></article></section>
+    <div className="content-grid"><AccessibleChart points={data.evolution} /><section className="panel ranking-panel" id="classificacao" aria-labelledby="ranking-title"><div className="panel__heading"><div><p className="eyebrow">Campeonato</p><h2 id="ranking-title">Classificação resumida</h2></div></div>{data.ranking.length ? <ol className="ranking-list">{data.ranking.map((person) => <li key={`${person.position}-${person.name}`} className={person.is_current_user ? "ranking-row ranking-row--current" : "ranking-row"}><strong className="position">{person.position}</strong><span className="avatar avatar--small">{initials(person.name)}</span><span className="driver"><strong>{person.name}</strong><small>{person.is_current_user ? "Você" : "Participante"}</small></span><span className="points"><strong>{formatPoints(person.points)}</strong><small>pts</small></span></li>)}</ol> : <p className="panel-empty">Ainda não há classificação registrada.</p>}</section></div>
+    <footer className="prototype-note"><span>BF1 4.0</span><p>Dados da temporada carregados pela API segura</p></footer>
   </div>;
 }

@@ -19,3 +19,8 @@ export function getTeamMarkerBackground(team: TeamName): string {
     ? colors[0]
     : `linear-gradient(to bottom, ${colors[0]} 0 50%, ${colors[1]} 50% 100%)`;
 }
+
+export function getOptionalTeamMarkerBackground(team?: string | null): string {
+  if (!team || !(team in TEAM_COLORS)) return "#687284";
+  return getTeamMarkerBackground(team as TeamName);
+}

@@ -9,8 +9,12 @@ import { BookIcon, CalendarIcon, ChartIcon, CloseIcon, GridIcon, InfoIcon, MenuI
 const primaryNavigation = [
   { label: "Telemetria", href: "/", icon: GridIcon },
   { label: "Calendário", href: "/calendario", icon: CalendarIcon },
-  { label: "Classificação", href: "/#classificacao", icon: TrophyIcon },
-  { label: "Análises", href: "/#analises", icon: ChartIcon },
+  { label: "Classificação", href: "/classificacao", icon: TrophyIcon },
+  { label: "Análises", href: "/analises", icon: ChartIcon },
+  { label: "Hall da Fama", href: "/hall-da-fama", icon: TrophyIcon },
+  { label: "Dashboard F1", href: "/dashboard-f1", icon: ChartIcon },
+  { label: "Campeonato", href: "/campeonato", icon: TrophyIcon },
+  { label: "Logs", href: "/logs", icon: BookIcon },
   { label: "Regulamento", href: "/regulamento", icon: BookIcon },
   { label: "Sobre", href: "/sobre", icon: InfoIcon },
 ] as const;

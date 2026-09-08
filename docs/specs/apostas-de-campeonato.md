@@ -2,7 +2,7 @@
 tipo: spec
 area: campeonato
 status: implementado
-versao: 1.0
+versao: 1.1
 atualizado: 2026-07-31
 relacionados:
   - "[[02_regras_de_negocio]]"
@@ -59,7 +59,7 @@ e master registram o resultado; inativos não apostam.
 - Telas: `ui/championship_bets.py` e `ui/championship_results.py`.
 - Serviços: `services/championship_service.py` e `services/deadlines.py`.
 - Tabelas: `championship_bets`, `championship_bets_log`, `championship_results`, `regras`, `provas`.
-- API: não aplicável.
+- API V4: `GET /api/v1/championship?season=YYYY`, `POST /api/v1/championship/bet?season=YYYY` e `POST /api/v1/championship/result?season=YYYY`. O resultado oficial é restrito a `admin` e `master`.
 
 ## Critérios de aceite
 
@@ -95,6 +95,7 @@ e master registram o resultado; inativos não apostam.
 
 ## Changelog
 
+- `1.1` — 2026-09-08 — Contratos V4 migrados para Next.js/FastAPI, mantendo deadline fail-closed, histórico e compatibilidade das tabelas `championship_*`.
 - `1.0` — 2026-07-31 — Fluxo de campeonato especificado.
 
 ## Relacionados

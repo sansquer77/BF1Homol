@@ -2,7 +2,7 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.7
+versao: 1.8
 atualizado: 2026-09-06
 relacionados:
   - "[[sdd]]"
@@ -63,6 +63,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 - [[specs/temporada-global|Temporada global]]
 - [[specs/migracao-v4-nextjs-fastapi|Migração BF1 4.0 para Next.js e FastAPI]]
 - [[specs/conteudo-institucional-v4|Regulamento e Sobre da versão 4]]
+- [[specs/telemetria-v4|Telemetria da versão 4]]
 
 Novas funcionalidades devem ganhar uma spec focada em `docs/specs/`. A
 [[03_spec|spec consolidada]] continua como referência de compatibilidade até a
@@ -85,6 +86,7 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.8` — 2026-09-08 — Adicionada a spec da Telemetria V4 ao mapa canônico.
 - `1.7` — 2026-09-06 — Aprovada a arquitetura V4 e registrada a primeira fonte de backup V3.5.0.
 - `1.6` — 2026-09-06 — Adicionados inventário, spec e ADR proposto da migração 4.0.
 - `1.5` — 2026-08-16 — Adicionada a spec de temporada global ao índice.

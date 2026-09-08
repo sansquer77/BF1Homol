@@ -99,8 +99,7 @@ def test_v4_uses_official_identity_telemetry_name_and_accessible_team_palette():
     assert "--red: #e10600" in css
     assert "--success: #00e073" in css
     assert "#dfff3f" not in css.lower()
-    assert "team-marker" in dashboard
-    assert "aria-label={`Equipe ${person.team}`}" in dashboard
+    assert "getTeamMarkerBackground" in palette
 
     expected_colors = {
         "#DC0000", "#FF8700", "#0A1B40", "#00A39A", "#005F41",
@@ -152,3 +151,112 @@ def test_calendar_uses_canonical_circuit_ids_and_vetted_track_sources():
     attribution = FRONTEND / "public/tracks/ATTRIBUTION.md"
     assert attribution.is_file()
     assert "Creative Commons Attribution 4.0" in attribution.read_text(encoding="utf-8")
+
+
+def test_telemetry_has_no_demonstrative_data_and_uses_authenticated_api():
+    dashboard = (FRONTEND / "src/components/dashboard-overview.tsx").read_text(encoding="utf-8")
+    chart = (FRONTEND / "src/components/accessible-chart.tsx").read_text(encoding="utf-8")
+    openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
+
+    assert '"/api/v1/telemetry?season=" + DEFAULT_SEASON' in dashboard
+    assert "data.metrics.current_position" in dashboard
+    assert "data.metrics.bets_submitted" in dashboard
+    assert "TRACK_ASSETS[nextRace.circuit_id]" in dashboard
+    assert "data.evolution" in dashboard
+    assert "data.ranking" in dashboard
+    assert "Ana Martins" not in dashboard
+    assert "GP do Azerbaijão" not in dashboard
+    assert "const points =" not in chart
+    assert "/api/v1/telemetry" in openapi["paths"]
+
+
+def test_phase6_classification_uses_canonical_api_and_formula_columns():
+    view = (FRONTEND / "src/components/classification-view.tsx").read_text(encoding="utf-8")
+    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
+
+    assert 'href: "/classificacao"' in shell
+    assert '"/api/v1/classification?season=" + DEFAULT_SEASON' in view
+    for field in ("total", "champion_bonus", "vice_bonus", "team_bonus", "discard", "valid_total", "difference"):
+        assert f"entry.{field}" in view
+    assert "/api/v1/classification" in openapi["paths"]
+    assert "/api/v1/classification/image" in openapi["paths"]
+    assert "Baixar classificação em PNG" in view
+
+
+def test_phase6_bets_analysis_is_real_scoped_and_accessible():
+    view = (FRONTEND / "src/components/bets-analysis-view.tsx").read_text(encoding="utf-8")
+    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    assert 'href: "/analises"' in shell
+    assert '"/api/v1/analysis/bets?season=" + DEFAULT_SEASON' in view
+    assert 'role="img"' in view
+    assert "<caption" in view
+    assert "getOptionalTeamMarkerBackground" in view
+
+
+def test_phase6_hall_of_fame_has_real_history_chart_and_empty_state():
+    view = (FRONTEND / "src/components/hall-of-fame-view.tsx").read_text(encoding="utf-8")
+    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
+    assert 'href: "/hall-da-fama"' in shell
+    assert 'apiRequest<HallOfFame>("/api/v1/hall-of-fame")' in view
+    assert 'stacked: true' in view
+    assert 'role="img"' in view
+    assert "Nenhuma classificação histórica registrada" in view
+    assert "/api/v1/hall-of-fame" in openapi["paths"]
+
+
+def test_phase6_logs_use_server_scope_pagination_and_master_access():
+    view = (FRONTEND / "src/components/logs-view.tsx").read_text(encoding="utf-8")
+    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
+    assert 'href: "/logs"' in shell
+    assert 'apiRequest<User>("/api/v1/auth/me")' in view
+    assert "/api/v1/logs/bets?" in view
+    assert "/api/v1/logs/access?" in view
+    assert "user_id" not in view
+    assert "pagination.total_pages" in view
+    assert 'user?.perfil === "master"' in view
+    assert "/api/v1/logs/bets" in openapi["paths"]
+    assert "/api/v1/logs/access" in openapi["paths"]
+
+
+def test_phase6_f1_dashboard_uses_v3_provider_contract_and_accessible_apexcharts():
+    view = (FRONTEND / "src/components/f1-dashboard-view.tsx").read_text(encoding="utf-8")
+    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
+    service = (ROOT / "services/f1_dashboard_service.py").read_text(encoding="utf-8")
+    assert 'href: "/dashboard-f1"' in shell
+    assert "/api/v1/f1-dashboard?season=" in view
+    assert 'dynamic(() => import("react-apexcharts")' in view
+    assert 'role="img"' in view
+    assert "Ver dados do gráfico em tabela" in view
+    assert "get_driver_standings" in service
+    assert "get_pit_stop_data" in service
+    assert "/api/v1/f1-dashboard" in openapi["paths"]
+
+
+def test_phase6_championship_preserves_deadline_and_role_boundaries():
+    view = (FRONTEND / "src/components/championship-view.tsx").read_text(encoding="utf-8")
+    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
+    assert 'href: "/campeonato"' in shell
+    assert "/api/v1/championship?season=" in view
+    assert "/api/v1/championship/bet?season=" in view
+    assert "deadline_message" in view
+    assert "disabled={!data.can_bet" in view
+    assert "official_result" in view
+    assert "/api/v1/championship" in openapi["paths"]
+    assert "/api/v1/championship/bet" in openapi["paths"]
+    assert "/api/v1/championship/result" in openapi["paths"]
+
+
+def test_phase7_admin_contract_is_explicitly_versioned_and_server_authorized():
+    openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
+    service = (ROOT / "services/admin_v4_service.py").read_text(encoding="utf-8")
+    routes = (ROOT / "api/routes/admin.py").read_text(encoding="utf-8")
+    for path in ("/api/v1/admin/users", "/api/v1/admin/users/{user_id}", "/api/v1/admin/drivers", "/api/v1/admin/races", "/api/v1/admin/races/{race_id}/result"):
+        assert path in openapi["paths"]
+    assert "authorize_context" in service
+    assert 'frozenset({"master"})' in service
+    assert "positions: dict[str, Any]" in routes

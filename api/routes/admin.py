@@ -1,0 +1,100 @@
+"""Operações administrativas V4; todas revalidam perfil e temporada no serviço."""
+
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from api.dependencies import get_current_context
+from services.access_control import AuthenticatedContext, AuthorizationDenied
+from services.admin_v4_service import create_user, save_result, update_user, upsert_driver, upsert_race
+
+router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class UserCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=120)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=1024)
+    profile: str = Field(pattern=r"^(participante|admin|master|inativo)$")
+    user_status: str = Field(default="ativo", pattern=r"^(ativo|inativo)$")
+
+
+class UserUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    email: EmailStr | None = None
+    profile: str | None = Field(default=None, pattern=r"^(participante|admin|master|inativo)$")
+    user_status: str | None = Field(default=None, pattern=r"^(ativo|inativo)$")
+    must_change_password: bool | None = None
+
+
+class DriverRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=120)
+    team: str = Field(default="", max_length=120)
+    status: str = Field(default="Ativo", max_length=30)
+    number: int = Field(default=0, ge=0, le=99)
+
+
+class RaceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=200)
+    date: str = Field(min_length=8, max_length=30)
+    time: str = Field(default="", max_length=20)
+    type: str = Field(default="Normal", max_length=30)
+    race_status: str = Field(default="Pendente", max_length=30)
+    circuit_id: str | None = Field(default=None, max_length=80)
+
+
+class ResultRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    positions: dict[str, Any]
+    retirements: list[str] = Field(default_factory=list, max_length=100)
+
+
+def _run(action, *args, **kwargs):
+    try:
+        action(*args, **kwargs)
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    return {"status": "ok"}
+
+
+@router.post("/users", status_code=201)
+def create_admin_user(payload: UserCreateRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(create_user, context, name=payload.name, email=str(payload.email), password=payload.password, profile=payload.profile, user_status=payload.user_status)
+
+
+@router.patch("/users/{user_id}")
+def patch_admin_user(user_id: int, payload: UserUpdateRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    fields = {"nome": payload.name, "email": str(payload.email).lower() if payload.email else None, "perfil": payload.profile, "status": payload.user_status, "must_change_password": payload.must_change_password}
+    return _run(update_user, context, user_id, {key: value for key, value in fields.items() if value is not None})
+
+
+@router.put("/drivers/{driver_id}")
+def update_admin_driver(driver_id: int, payload: DriverRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(upsert_driver, context, driver_id, {"nome": payload.name, "equipe": payload.team, "status": payload.status, "numero": payload.number})
+
+
+@router.post("/drivers", status_code=201)
+def create_admin_driver(payload: DriverRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(upsert_driver, context, None, {"nome": payload.name, "equipe": payload.team, "status": payload.status, "numero": payload.number})
+
+
+@router.put("/races/{race_id}")
+def update_admin_race(race_id: int, season: str = Query(pattern=r"^\d{4}$"), payload: RaceRequest = ..., context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(upsert_race, context, race_id, season, {"nome": payload.name, "data": payload.date, "horario_prova": payload.time, "tipo": payload.type, "status": payload.race_status, "circuit_id": payload.circuit_id})
+
+
+@router.post("/races", status_code=201)
+def create_admin_race(season: str = Query(pattern=r"^\d{4}$"), payload: RaceRequest = ..., context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(upsert_race, context, None, season, {"nome": payload.name, "data": payload.date, "horario_prova": payload.time, "tipo": payload.type, "status": payload.race_status, "circuit_id": payload.circuit_id})
+
+
+@router.put("/races/{race_id}/result")
+def update_admin_result(race_id: int, season: str = Query(pattern=r"^\d{4}$"), payload: ResultRequest = ..., context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(save_result, context, race_id, season, payload.positions, payload.retirements)

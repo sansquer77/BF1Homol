@@ -104,17 +104,21 @@ def get_master_user() -> Optional[dict]:
         return dict(row) if row else None
 
 
-def cadastrar_usuario(nome: str, email: str, senha: str, perfil: str = "participante") -> bool:
+def cadastrar_usuario(nome: str, email: str, senha: str, perfil: str = "participante", status: str = "ativo") -> bool:
     try:
         hashed = hash_password(senha)
         with db_connect() as conn:
             cur = conn.cursor()
             cols = get_table_columns(conn, "usuarios")
-            if "faltas" in cols:
+            if "faltas" in cols and "status" in cols:
                 cur.execute(
-                    "INSERT INTO usuarios (nome, email, senha_hash, perfil, faltas) VALUES (%s, %s, %s, %s, %s)",
-                    (nome, email, hashed, perfil, 0),
+                    "INSERT INTO usuarios (nome, email, senha_hash, perfil, status, faltas) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (nome, email, hashed, perfil, status, 0),
                 )
+            elif "status" in cols:
+                cur.execute("INSERT INTO usuarios (nome, email, senha_hash, perfil, status) VALUES (%s, %s, %s, %s, %s)", (nome, email, hashed, perfil, status))
+            elif "faltas" in cols:
+                cur.execute("INSERT INTO usuarios (nome, email, senha_hash, perfil, faltas) VALUES (%s, %s, %s, %s, %s)", (nome, email, hashed, perfil, 0))
             else:
                 cur.execute(
                     "INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (%s, %s, %s, %s)",

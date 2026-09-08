@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 1.2
+versao: 2.1
 atualizado: 2026-09-08
 relacionados:
   - "[[inventario-v4]]"
@@ -143,8 +143,7 @@ operação responsável por deploy, observabilidade e restauração.
 > [!question] Pendências
 > As decisões de produto e arquitetura necessárias ao scaffold foram aprovadas.
 
-- Fase 5: substituir os dados demonstrativos do shell por conteúdo e consultas
-  reais de Sobre, Regulamento, Calendário e Telemetria.
+- Fase 6: migrar acompanhamento, classificação completa e gráficos avançados.
 - A retenção poderá ser ajustada após observar o volume real, sem reduzir os controles de acesso, sanitização e exportação.
 
 ## Fora de escopo
@@ -161,15 +160,23 @@ operação responsável por deploy, observabilidade e restauração.
 - [x] Fase 2 — baseline de 126 testes e 139 subtestes aprovada e congelada por domínio em `tests/characterization_v4.json`. Fecha: critérios 4 e 10 no comportamento legado; autorização HTTP será ampliada na Fase 3.
 - [x] Fase 3 — FastAPI e contratos `/api/v1` implementados com contexto correlacionável por requisição, autenticação por cookie revogável, rotação ativa, proteção de origem/CSRF, mitigação de enumeração e força bruta, autorização opaca por usuário/temporada, bootstrap Master transacional e observabilidade PostgreSQL exportável com reautenticação. Gates de integração aprovados. Fecha: critérios 5–9, 13, 14 e 17–20.
 - [x] Fase 4 — frontend Next.js 16/App Router e TypeScript criado com design system Apex Paddock UI mobile-first, ícone oficial BF1, login exclusivo para convidados, shell responsivo, cliente regenerável pelo OpenAPI versionado e adaptador ApexCharts carregado sob demanda com tabela acessível. O Painel do Participante passa a se chamar Telemetria e pilotos recebem marcadores acessíveis de equipe. Build de produção aprovado; dashboard, login, menu e ausência de overflow validados manualmente em 360 px. Fecha: critérios 11, 12, 21 e 22 na fundação visual.
-- [ ] Fase 5 — migrar conteúdo e consultas simples (Sobre, Regulamento, Calendário e Telemetria). Regulamento, Sobre e Calendário concluídos; permanece Telemetria. Fecha parte dos critérios 4, 10–12.
-- [ ] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Fecha critérios 4, 10 e 12.
-- [ ] Fase 7 — migrar operações administrativas e autorização por objeto. Fecha critérios 4 e 5.
+- [x] Fase 5 — conteúdo e consultas simples migrados: Sobre, Regulamento, Calendário e Telemetria real autenticada, sem dados demonstrativos. Fecha parte dos critérios 4, 10–12.
+- [x] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Classificação, Análise de Apostas, Hall da Fama, Logs, Dashboard F1 e Campeonato concluídos. Fecha critérios 4, 10 e 12.
+- [ ] Fase 7 — migrar operações administrativas e autorização por objeto. Fundação de operações V4 para usuários, pilotos, provas e resultados concluída; UI administrativa completa, regras, financeiro e backup permanecem. Fecha parcialmente critérios 4 e 5.
 - [ ] Fase 8 — validar backup/restauração e recuperação a partir do último artefato estável. Fecha critérios 1–3.
 - [ ] Fase 9 — executar segurança, carga, acessibilidade e experiência mobile. Fecha critérios 5–9, 11–15 e 18–20.
 - [ ] Fase 10 — validar builds puros, publicar a V4 e observar a operação. Fecha critério 16.
 
 ## Changelog
 
+- `2.1` — 2026-09-08 — Fase 7 iniciada com endpoints administrativos versionados, autorização por operação/temporada e payloads sem autoridade derivada do cliente.
+- `2.0` — 2026-09-08 — Fase 6 concluída com módulo de Campeonato V4: apostas, histórico, deadline fail-closed, resultado administrativo e dados reais das tabelas legadas.
+- `1.9` — 2026-09-08 — Dashboard F1 concluído com contrato autenticado, integração oficial histórica compatível com V3, classificação, evolução, delta, voltas rápidas e pit stops.
+- `1.8` — 2026-09-08 — Logs V4 concluídos com leitura paginada, escopo individual derivado da sessão, acessos exclusivos do Master e exportação preservada.
+- `1.7` — 2026-09-08 — Hall da Fama concluído com fonte histórica compatível, campeões sem inferência, estatísticas e gráfico responsivo de pódios.
+- `1.6` — 2026-09-08 — Análise de Apostas concluída com agregação real, escopo por perfil, ApexCharts e tabelas acessíveis; exportação PNG da Classificação restabelecida.
+- `1.5` — 2026-09-08 — Fase 6 iniciada pela Classificação oficial V4, preservando fórmula, bônus, descarte, ordenação e autorização por temporada.
+- `1.4` — 2026-09-08 — Fase 5 concluída com Telemetria autenticada baseada em provas, apostas, posições e participantes reais da temporada.
 - `1.3` — 2026-09-08 — Calendário V4 concluído com consulta autenticada, `circuit_id` canônico da Gestão de Provas e vetores SVG locais versionados com atribuição.
 - `1.2` — 2026-09-08 — Regulamento e Sobre da Fase 5 concluídos; Calendário e Telemetria permanecem como próximos incrementos da fase.
 - `1.1` — 2026-09-08 — Design system Apex Paddock UI adotado com ícone oficial, paleta grafite/vermelha, tipografia própria, novo nome Telemetria e marcadores de equipe acessíveis.

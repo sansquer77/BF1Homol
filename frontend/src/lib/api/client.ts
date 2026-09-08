@@ -4,6 +4,15 @@ export type User = components["schemas"]["UserResponse"];
 export type LoginPayload = components["schemas"]["LoginRequest"];
 export type About = components["schemas"]["AboutResponse"];
 export type Race = components["schemas"]["RaceResponse"];
+export type Telemetry = components["schemas"]["TelemetryResponse"];
+export type Classification = components["schemas"]["ClassificationResponse"];
+export type BetsAnalysis = components["schemas"]["BetsAnalysisResponse"];
+export type HallOfFame = components["schemas"]["HallOfFameResponse"];
+export type BettingLogs = components["schemas"]["BettingLogsResponse"];
+export type AccessLogs = components["schemas"]["AccessLogsResponse"];
+export type F1Dashboard = components["schemas"]["F1DashboardResponse"];
+export type Championship = components["schemas"]["ChampionshipResponse"];
+export type ChampionshipBetRecord = components["schemas"]["ChampionshipBetRecord"];
 export type ApiError = { detail?: string; request_id?: string };
 
 const CSRF_COOKIE = "bf1_csrf";

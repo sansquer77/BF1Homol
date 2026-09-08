@@ -72,6 +72,114 @@ class V4ApiSecurityTests(unittest.TestCase):
         finally:
             app.dependency_overrides.clear()
 
+    def test_telemetry_uses_identity_from_session_and_authorized_season(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(
+            7, "Ana", "participante", "ativo", frozenset({"2026"})
+        )
+        snapshot = {
+            "user_name": "Ana", "season": "2026", "next_race": None,
+            "metrics": {"current_position": None, "points": 0, "bets_submitted": 0, "races_total": 0},
+            "evolution": [], "ranking": [],
+        }
+        try:
+            with patch("api.routes.telemetry.build_telemetry_snapshot", return_value=snapshot) as build, \
+                 patch("db.repo_observability.record_event"):
+                response = self.client.get("/api/v1/telemetry?season=2026")
+            self.assertEqual(response.status_code, 200)
+            build.assert_called_once_with(7, "Ana", "2026")
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_hall_of_fame_requires_authenticated_context(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(
+            7, "Ana", "participante", "ativo", frozenset({"2026"})
+        )
+        empty = {"source": "hall_da_fama", "seasons": [], "entries": [], "top_winners": [], "season_stats": [], "distribution": []}
+        try:
+            with patch("api.routes.hall_of_fame.build_hall_of_fame", return_value=empty), patch("db.repo_observability.record_event"):
+                response = self.client.get("/api/v1/hall-of-fame")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["entries"], [])
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_betting_logs_derive_individual_scope_from_session(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(7, "Ana", "participante", "ativo", frozenset({"2026"}))
+        payload = {"season": "2026", "scope": "individual", "pagination": {"page": 1, "page_size": 50, "total": 0, "total_pages": 1}, "items": []}
+        try:
+            with patch("services.logs_read_service.list_betting_logs", return_value=payload) as read, patch("db.repo_observability.record_event"):
+                response = self.client.get("/api/v1/logs/bets?season=2026")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(read.call_args.kwargs["scope_user_id"], 7)
+            self.assertNotIn("user_id", str(response.request.url))
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_access_logs_are_master_only(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(7, "Ana", "participante", "ativo", frozenset({"2026"}))
+        with patch("db.repo_observability.record_event"):
+            denied = self.client.get("/api/v1/logs/access?start=2026-09-01&end=2026-09-08")
+        self.assertEqual(denied.status_code, 403)
+
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(1, "Master", "master", "ativo", frozenset())
+        payload = {"pagination": {"page": 1, "page_size": 50, "total": 0, "total_pages": 1}, "successes": 0, "failures": 0, "items": []}
+        try:
+            with patch("services.logs_read_service.list_access_logs", return_value=payload), patch("db.repo_observability.record_event"):
+                allowed = self.client.get("/api/v1/logs/access?start=2026-09-01&end=2026-09-08")
+            self.assertEqual(allowed.status_code, 200)
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_f1_dashboard_requires_authentication_but_allows_historical_season(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(7, "Ana", "inativo", "inativo", frozenset())
+        payload = {"season": "1950", "driver_standings": [], "constructor_standings": [], "progression_drivers": [], "progression": [], "qualifying_vs_race": [], "fastest_laps": [], "pit_stops": [], "average_stops": None}
+        try:
+            with patch("api.routes.f1_dashboard.build_f1_dashboard", return_value=payload) as build, patch("db.repo_observability.record_event"):
+                response = self.client.get("/api/v1/f1-dashboard?season=1950")
+            self.assertEqual(response.status_code, 200)
+            build.assert_called_once_with("1950")
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_championship_bet_uses_session_and_rejects_same_driver(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(7, "Ana", "participante", "ativo", frozenset({"2026"}))
+        try:
+            with patch("db.repo_observability.record_event"):
+                response = self.client.post("/api/v1/championship/bet?season=2026", headers={"Origin": "https://bf1.test"}, json={"champion": "Lando Norris", "vice": "Lando Norris", "team": "McLaren"})
+            self.assertEqual(response.status_code, 422)
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_championship_result_is_admin_only(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(7, "Ana", "participante", "ativo", frozenset({"2026"}))
+        try:
+            with patch("db.repo_observability.record_event"):
+                response = self.client.post("/api/v1/championship/result?season=2026", headers={"Origin": "https://bf1.test"}, json={"champion": "Lando Norris", "vice": "Max Verstappen", "team": "McLaren"})
+            self.assertEqual(response.status_code, 403)
+        finally:
+            app.dependency_overrides.clear()
+
     def tearDown(self):
         self.client.cookies.clear()
         from api.main import app

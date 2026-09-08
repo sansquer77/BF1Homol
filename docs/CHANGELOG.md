@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.5
+versao: 1.13
 atualizado: 2026-09-08
 relacionados:
   - "[[sdd]]"
@@ -80,6 +80,14 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
+- `1.13` — 2026-09-08 — Fase 7 iniciada com a fundação administrativa V4; produto publicado permanece 3.5.1.
+- `1.12` — 2026-09-08 — Fase 6 registrada como concluída com Campeonato V4; produto publicado permanece 3.5.1.
+- `1.11` — 2026-09-08 — Dashboard F1 V4 registrado na Fase 6 com dados oficiais e gráficos responsivos; produto publicado permanece 3.5.1.
+- `1.10` — 2026-09-08 — Logs V4 registrados na Fase 6 com escopo por sessão, acesso Master e paginação server-side; produto publicado permanece 3.5.1.
+- `1.9` — 2026-09-08 — Hall da Fama V4 registrado na Fase 6; produto publicado permanece 3.5.1.
+- `1.8` — 2026-09-08 — Análise de Apostas V4 e exportação PNG da Classificação registradas na Fase 6; produto publicado permanece 3.5.1.
+- `1.7` — 2026-09-08 — Registrado o primeiro incremento da Fase 6 com Classificação V4 autenticada; produto publicado permanece 3.5.1.
+- `1.6` — 2026-09-08 — Registrada a conclusão da Fase 5 com Calendário e Telemetria autenticados; produto publicado permanece 3.5.1.
 - `1.5` — 2026-09-08 — Registrada a conclusão de Regulamento e Sobre na Fase 5 da V4; produto publicado permanece 3.5.1.
 - `1.4` — 2026-09-08 — Registrada a revisão visual da fundação V4 com identidade oficial BF1, Apex Paddock UI, Telemetria e cores de equipe; o produto publicado permanece 3.5.1.
 - `1.3` — 2026-09-08 — Registrado o status documental da Fase 4 e a separação dos runtimes Next.js/FastAPI; produto publicado permanece 3.5.1.

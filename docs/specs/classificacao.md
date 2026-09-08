@@ -2,8 +2,8 @@
 tipo: spec
 area: classificacao
 status: implementado
-versao: 1.1
-atualizado: 2026-09-06
+versao: 1.2
+atualizado: 2026-09-08
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -16,7 +16,7 @@ aliases: ["Spec de Classificação"]
 # Classificação
 
 > [!info] Status
-> **implementado** · área: `classificacao` · atualizado em 2026-09-06 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[glossario]], [[adr/0002-limites-de-camadas]]
+> **implementado** · área: `classificacao` · atualizado em 2026-09-08 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[glossario]], [[adr/0002-limites-de-camadas]]
 
 ## Problema
 
@@ -60,10 +60,10 @@ classificação da temporada. Administradores e master também geram imagens.
 
 ## Interface, serviços e dados
 
-- Tela: `ui/classificacao.py`.
-- Serviços: `services/bets_scoring.py`, `services/championship_service.py` e fachadas de leitura.
+- Telas: `ui/classificacao.py` no V3 e `/classificacao` no frontend V4.
+- Serviços: `services/bets_scoring.py`, `services/championship_service.py`, `services/classification_service.py` e fachadas de leitura.
 - Tabelas: `usuarios`, `provas`, `apostas`, `resultados`, `regras`, `championship_bets` e resultados do campeonato.
-- API: não aplicável; o fluxo é entregue diretamente pelo Streamlit.
+- API V4: `GET /api/v1/classification?season=YYYY`, autenticada e autorizada por temporada.
 
 ## Critérios de aceite
 
@@ -98,9 +98,11 @@ classificação da temporada. Administradores e master também geram imagens.
 - [x] Ordenar colunas e usar Total Válido em posição e diferença. Fecha: critérios 3, 5, 6 e 7.
 - [x] Fortalecer testes e atualizar regras documentadas. Fecha: critérios 1 a 7.
 - [x] Limitar o canvas e garantir liberação da figura. Fecha: critérios 8 e 9.
+- [x] Expor a fórmula canônica na API e tabela responsiva V4. Fecha: critérios 1 a 7.
 
 ## Changelog
 
+- `1.2` — 2026-09-08 — Classificação V4 adicionada com Total Válido, bônus, descarte, diferença e exportação PNG limitada calculados no backend.
 - `1.1` — 2026-09-06 — Exportação PNG limitada por memória para evitar reinício do processo e perda da sessão.
 - `1.0` — 2026-07-31 — Spec focada criada e reconciliada com cálculo e testes atuais.
 

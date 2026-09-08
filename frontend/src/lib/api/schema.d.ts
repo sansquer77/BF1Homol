@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/analysis/bets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bets Analysis */
+        get: operations["bets_analysis_api_v1_analysis_bets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -126,6 +143,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/championship": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Championship Snapshot */
+        get: operations["championship_snapshot_api_v1_championship_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/championship/bet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Championship Bet */
+        post: operations["championship_bet_api_v1_championship_bet_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/championship/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Championship Result */
+        post: operations["championship_result_api_v1_championship_result_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Classification */
+        get: operations["classification_api_v1_classification_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classification/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Classification Image */
+        get: operations["classification_image_api_v1_classification_image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content/about": {
         parameters: {
             query?: never;
@@ -135,6 +237,40 @@ export interface paths {
         };
         /** About */
         get: operations["about_api_v1_content_about_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/f1-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** F1 Dashboard */
+        get: operations["f1_dashboard_api_v1_f1_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hall-of-fame": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hall Of Fame */
+        get: operations["hall_of_fame_api_v1_hall_of_fame_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -177,6 +313,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/logs/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Access Logs
+         * @description Consulta exclusiva do Master, com intervalo e paginação limitados.
+         */
+        get: operations["access_logs_api_v1_logs_access_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/logs/bets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Betting Logs
+         * @description Consulta o log consolidado ou somente as apostas do usuário autenticado.
+         */
+        get: operations["betting_logs_api_v1_logs_bets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/logs/export": {
         parameters: {
             query?: never;
@@ -189,6 +365,23 @@ export interface paths {
          * @description Gera JSONL gzip em memória; não aceita nomes ou caminhos do cliente.
          */
         get: operations["export_logs_api_v1_logs_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/telemetry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Telemetry */
+        get: operations["telemetry_api_v1_telemetry_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -229,10 +422,353 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** AccessLogItem */
+        AccessLogItem: {
+            /** Created At */
+            created_at: string;
+            /** Detalhes */
+            detalhes?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Evento */
+            evento?: string | null;
+            /** Id */
+            id: number;
+            /** Ip Address */
+            ip_address?: string | null;
+            /** Nome */
+            nome?: string | null;
+            /** Perfil */
+            perfil?: string | null;
+            /** Sucesso */
+            sucesso?: boolean | null;
+            /** User Id */
+            user_id?: number | null;
+        };
+        /** AccessLogsResponse */
+        AccessLogsResponse: {
+            /** Failures */
+            failures: number;
+            /** Items */
+            items: components["schemas"]["AccessLogItem"][];
+            pagination: components["schemas"]["PaginationResponse"];
+            /** Successes */
+            successes: number;
+        };
+        /** BetsAnalysisResponse */
+        BetsAnalysisResponse: {
+            /** Bet Count */
+            bet_count: number;
+            /** By Driver */
+            by_driver: components["schemas"]["DriverBetAggregate"][];
+            /** Eleventh */
+            eleventh: components["schemas"]["DriverBetAggregate"][];
+            /** Race Count */
+            race_count: number;
+            /** Result Count */
+            result_count: number;
+            /** Scope */
+            scope: string;
+            /** Season */
+            season: string;
+        };
+        /** BettingLogItem */
+        BettingLogItem: {
+            /** Aposta */
+            aposta?: string | null;
+            /** Apostador */
+            apostador?: string | null;
+            /** Automatica */
+            automatica?: number | null;
+            /** Data */
+            data?: string | null;
+            /** Horario */
+            horario?: string | null;
+            /** Id */
+            id: number;
+            /** Ip Address */
+            ip_address?: string | null;
+            /** Nome Prova */
+            nome_prova?: string | null;
+            /** Piloto 11 */
+            piloto_11?: string | null;
+            /** Pilotos */
+            pilotos?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Temporada */
+            temporada?: string | number | null;
+            /** Tipo Aposta */
+            tipo_aposta?: number | null;
+            /** Usuario Id */
+            usuario_id?: number | null;
+        };
+        /** BettingLogsResponse */
+        BettingLogsResponse: {
+            /** Items */
+            items: components["schemas"]["BettingLogItem"][];
+            pagination: components["schemas"]["PaginationResponse"];
+            /** Scope */
+            scope: string;
+            /** Season */
+            season: string;
+        };
+        /** ChampionshipBetRecord */
+        ChampionshipBetRecord: {
+            /** Bet Time */
+            bet_time?: string | null;
+            /** Champion */
+            champion: string;
+            /** Season */
+            season: string | number;
+            /** Team */
+            team: string;
+            /** User Nome */
+            user_nome?: string | null;
+            /** Vice */
+            vice: string;
+        };
+        /** ChampionshipBetRequest */
+        ChampionshipBetRequest: {
+            /** Champion */
+            champion: string;
+            /** Team */
+            team: string;
+            /** Vice */
+            vice: string;
+        };
+        /** ChampionshipResponse */
+        ChampionshipResponse: {
+            /** All Bets */
+            all_bets: components["schemas"]["ChampionshipBetRecord"][];
+            /** Can Bet */
+            can_bet: boolean;
+            current_bet?: components["schemas"]["ChampionshipBetRecord"] | null;
+            /** Deadline */
+            deadline?: string | null;
+            /** Deadline Message */
+            deadline_message: string;
+            /** Drivers */
+            drivers: string[];
+            /** History */
+            history: components["schemas"]["ChampionshipBetRecord"][];
+            official_result?: components["schemas"]["ChampionshipResult"] | null;
+            /** Season */
+            season: string;
+            /** Teams */
+            teams: string[];
+        };
+        /** ChampionshipResult */
+        ChampionshipResult: {
+            /** Champion */
+            champion: string;
+            /** Season */
+            season: string;
+            /** Team */
+            team: string;
+            /** Vice */
+            vice: string;
+        };
+        /** ClassificationEntry */
+        ClassificationEntry: {
+            /** Champion Bonus */
+            champion_bonus: number;
+            /** Championship Hits */
+            championship_hits: number;
+            /** Difference */
+            difference: number;
+            /** Discard */
+            discard: number;
+            /** Eleventh Hits */
+            eleventh_hits: number;
+            /** Participant */
+            participant: string;
+            /** Position */
+            position: number;
+            /** Team Bonus */
+            team_bonus: number;
+            /** Total */
+            total: number;
+            /** Valid Total */
+            valid_total: number;
+            /** Vice Bonus */
+            vice_bonus: number;
+        };
+        /** ClassificationResponse */
+        ClassificationResponse: {
+            /** Discard Active */
+            discard_active: boolean;
+            /** Entries */
+            entries: components["schemas"]["ClassificationEntry"][];
+            /** Season */
+            season: string;
+        };
+        /** DriverBetAggregate */
+        DriverBetAggregate: {
+            /** Bets */
+            bets: number;
+            /**
+             * Chips
+             * @default 0
+             */
+            chips: number;
+            /** Driver */
+            driver: string;
+            /** Team */
+            team?: string | null;
+        };
+        /** F1ConstructorStanding */
+        F1ConstructorStanding: {
+            /** Constructor */
+            constructor: string;
+            /** Nationality */
+            nationality: string;
+            /** Points */
+            points: number;
+            /** Position */
+            position: number;
+            /** Wins */
+            wins: number;
+        };
+        /** F1DashboardResponse */
+        F1DashboardResponse: {
+            /** Average Stops */
+            average_stops?: number | null;
+            /** Constructor Standings */
+            constructor_standings: components["schemas"]["F1ConstructorStanding"][];
+            /** Driver Standings */
+            driver_standings: components["schemas"]["F1DriverStanding"][];
+            /** Fastest Laps */
+            fastest_laps: components["schemas"]["F1FastestLap"][];
+            /** Pit Stops */
+            pit_stops: components["schemas"]["F1PitStop"][];
+            /** Progression */
+            progression: components["schemas"]["F1ProgressionPoint"][];
+            /** Progression Drivers */
+            progression_drivers: string[];
+            /** Qualifying Vs Race */
+            qualifying_vs_race: components["schemas"]["F1QualifyingDelta"][];
+            /** Season */
+            season: string;
+        };
+        /** F1DriverStanding */
+        F1DriverStanding: {
+            /** Constructor */
+            constructor: string;
+            /** Driver */
+            driver: string;
+            /** Nationality */
+            nationality: string;
+            /** Points */
+            points: number;
+            /** Position */
+            position: number;
+            /** Wins */
+            wins: number;
+        };
+        /** F1FastestLap */
+        F1FastestLap: {
+            /** Driver */
+            driver: string;
+            /** Time */
+            time: string;
+        };
+        /** F1PitStop */
+        F1PitStop: {
+            /** Driver */
+            driver: string;
+            /** Lap */
+            lap: number;
+            /** Stop */
+            stop: number;
+            /** Time */
+            time: string;
+        };
+        /** F1ProgressionPoint */
+        F1ProgressionPoint: {
+            /** Points */
+            points: {
+                [key: string]: number;
+            };
+            /** Race */
+            race: string;
+            /** Round */
+            round: number;
+        };
+        /** F1QualifyingDelta */
+        F1QualifyingDelta: {
+            /** Delta */
+            delta: number;
+            /** Driver */
+            driver: string;
+            /** Qualifying */
+            qualifying: number;
+            /** Race */
+            race: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HallDistribution */
+        HallDistribution: {
+            /** Participant */
+            participant: string;
+            /** Positions */
+            positions: components["schemas"]["HallPositionCount"][];
+        };
+        /** HallEntry */
+        HallEntry: {
+            /** Participant */
+            participant: string;
+            /** Points */
+            points: number;
+            /** Position */
+            position: number;
+            /** Season */
+            season: string;
+        };
+        /** HallOfFameResponse */
+        HallOfFameResponse: {
+            /** Distribution */
+            distribution: components["schemas"]["HallDistribution"][];
+            /** Entries */
+            entries: components["schemas"]["HallEntry"][];
+            /** Season Stats */
+            season_stats: components["schemas"]["HallSeasonStat"][];
+            /** Seasons */
+            seasons: string[];
+            /** Source */
+            source: string;
+            /** Top Winners */
+            top_winners: components["schemas"]["HallWinner"][];
+        };
+        /** HallPositionCount */
+        HallPositionCount: {
+            /** Count */
+            count: number;
+            /** Position */
+            position: number;
+        };
+        /** HallSeasonStat */
+        HallSeasonStat: {
+            /** Average Points */
+            average_points?: number | null;
+            /** Best Points */
+            best_points?: number | null;
+            champion?: components["schemas"]["HallEntry"] | null;
+            /** Participants */
+            participants: number;
+            /** Season */
+            season: string;
+        };
+        /** HallWinner */
+        HallWinner: {
+            /** Participant */
+            participant: string;
+            /** Wins */
+            wins: number;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -248,6 +784,17 @@ export interface components {
         MessageResponse: {
             /** Message */
             message: string;
+        };
+        /** PaginationResponse */
+        PaginationResponse: {
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+            /** Total Pages */
+            total_pages: number;
         };
         /** PasswordResetConfirm */
         PasswordResetConfirm: {
@@ -287,6 +834,73 @@ export interface components {
             time?: string | null;
             /** Type */
             type: string;
+        };
+        /** TelemetryEvolutionPoint */
+        TelemetryEvolutionPoint: {
+            /** Cumulative Points */
+            cumulative_points: number;
+            /** Points */
+            points: number;
+            /** Position */
+            position?: number | null;
+            /** Race Id */
+            race_id: number;
+            /** Race Name */
+            race_name: string;
+        };
+        /** TelemetryMetrics */
+        TelemetryMetrics: {
+            /** Bets Submitted */
+            bets_submitted: number;
+            /** Current Position */
+            current_position?: number | null;
+            /** Points */
+            points: number;
+            /** Races Total */
+            races_total: number;
+        };
+        /** TelemetryNextRace */
+        TelemetryNextRace: {
+            /** Circuit Id */
+            circuit_id?: string | null;
+            /** Date */
+            date: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Round */
+            round: number;
+            /** Starts At */
+            starts_at: string;
+            /** Time */
+            time: string;
+            /** Type */
+            type: string;
+        };
+        /** TelemetryRankingEntry */
+        TelemetryRankingEntry: {
+            /** Is Current User */
+            is_current_user: boolean;
+            /** Name */
+            name: string;
+            /** Points */
+            points: number;
+            /** Position */
+            position: number;
+        };
+        /** TelemetryResponse */
+        TelemetryResponse: {
+            /** Evolution */
+            evolution: components["schemas"]["TelemetryEvolutionPoint"][];
+            metrics: components["schemas"]["TelemetryMetrics"];
+            next_race?: components["schemas"]["TelemetryNextRace"] | null;
+            /** Ranking */
+            ranking: components["schemas"]["TelemetryRankingEntry"][];
+            /** Season */
+            season: string;
+            /** User Name */
+            user_name: string;
         };
         /** UserResponse */
         UserResponse: {
@@ -328,6 +942,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    bets_analysis_api_v1_analysis_bets_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BetsAnalysisResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     login_api_v1_auth_login_post: {
         parameters: {
             query?: never;
@@ -525,6 +1170,167 @@ export interface operations {
             };
         };
     };
+    championship_snapshot_api_v1_championship_get: {
+        parameters: {
+            query: {
+                season: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChampionshipResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    championship_bet_api_v1_championship_bet_post: {
+        parameters: {
+            query: {
+                season: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChampionshipBetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChampionshipBetRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    championship_result_api_v1_championship_result_post: {
+        parameters: {
+            query: {
+                season: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChampionshipBetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChampionshipResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    classification_api_v1_classification_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassificationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    classification_image_api_v1_classification_image_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     about_api_v1_content_about_get: {
         parameters: {
             query?: never;
@@ -541,6 +1347,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AboutResponse"];
+                };
+            };
+        };
+    };
+    f1_dashboard_api_v1_f1_dashboard_get: {
+        parameters: {
+            query: {
+                season: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["F1DashboardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hall_of_fame_api_v1_hall_of_fame_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HallOfFameResponse"];
                 };
             };
         };
@@ -585,6 +1442,83 @@ export interface operations {
             };
         };
     };
+    access_logs_api_v1_logs_access_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+                page?: number;
+                page_size?: number;
+                profile?: string | null;
+                event?: string | null;
+                success?: boolean | null;
+                ip_contains?: string | null;
+                user_contains?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    betting_logs_api_v1_logs_bets_get: {
+        parameters: {
+            query: {
+                season: string;
+                page?: number;
+                page_size?: number;
+                bettor?: string | null;
+                bet_type?: number | null;
+                event_date?: string | null;
+                log_status?: string | null;
+                automatic_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BettingLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     export_logs_api_v1_logs_export_get: {
         parameters: {
             query?: {
@@ -606,6 +1540,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    telemetry_api_v1_telemetry_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelemetryResponse"];
                 };
             };
             /** @description Validation Error */

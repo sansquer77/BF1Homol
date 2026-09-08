@@ -2,8 +2,8 @@
 tipo: spec
 area: hall-da-fama
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-09-08
 relacionados: ["[[specs/classificacao]]", "[[specs/controle-de-acesso]]", "[[specs/historico-do-participante]]"]
 tags: [spec, "area/hall-da-fama", "status/implementado"]
 aliases: ["Hall da Fama"]
@@ -12,7 +12,7 @@ aliases: ["Hall da Fama"]
 # Hall da Fama
 
 > [!info] Status
-> **implementado** · área: `hall-da-fama` · atualizado em 2026-07-31 · relacionados: [[specs/classificacao]], [[specs/controle-de-acesso]], [[specs/historico-do-participante]]
+> **implementado** · área: `hall-da-fama` · atualizado em 2026-09-08 · relacionados: [[specs/classificacao]], [[specs/controle-de-acesso]], [[specs/historico-do-participante]]
 
 ## Problema
 
@@ -46,10 +46,10 @@ Preservar e apresentar campeões e colocações históricas de temporadas elegí
 
 ## Interface, serviços e dados
 
-- Tela: Monitoramento → Hall da Fama.
-- Serviço: `services/hall_da_fama_service.py` e controlador da tela.
+- Telas: Monitoramento → Hall da Fama e `/hall-da-fama` na V4.
+- Serviços: `services/hall_da_fama_service.py`, controlador da tela e `services/hall_read_service.py`.
 - Persistência: `posicoes_participantes` e leitura de `usuarios`.
-- API externa: não aplicável.
+- API V4: `GET /api/v1/hall-of-fame`, autenticada e somente leitura.
 
 ## Critérios de aceite
 
@@ -79,9 +79,11 @@ Preservar e apresentar campeões e colocações históricas de temporadas elegí
 
 - [x] Autorizar e validar manutenção histórica. Fecha: critérios 1–3, 6 e 7.
 - [x] Apresentar temporadas e posições. Fecha: critérios 4 e 5.
+- [x] Expor histórico autenticado e gráfico acessível na V4. Fecha: critérios 4 e 5.
 
 ## Changelog
 
+- `1.1` — 2026-09-08 — Hall da Fama V4 migrado com campeões, estatísticas, maiores vencedores e distribuição de pódios em ApexCharts.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
 ## Relacionados

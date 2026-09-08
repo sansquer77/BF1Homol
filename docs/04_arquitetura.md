@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.7
+versao: 4.15
 atualizado: 2026-09-08
 relacionados:
   - "[[01_necessidade]]"
@@ -266,6 +266,14 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.15` — 2026-09-08 — Fundação administrativa V4 adicionada em `api/routes/admin.py` e `services/admin_v4_service.py`, com autorização por operação, perfil e temporada.
+- `4.14` — 2026-09-08 — Módulo de Campeonato V4 adicionado com leitura/escrita autenticada, deadline fail-closed e preservação das tabelas `championship_bets`, `championship_bets_log` e `championship_results`.
+- `4.13` — 2026-09-08 — Dashboard F1 V4 adicionado como read model autenticado, reutilizando `utils.data_utils` e o provedor histórico da V3 sem persistência nova.
+- `4.12` — 2026-09-08 — Logs V4 expostos por read models paginados: apostas respeitam o escopo da identidade autenticada e acessos permanecem exclusivos do Master.
+- `4.11` — 2026-09-08 — Hall da Fama V4 adicionado como read model autenticado, preferindo `hall_da_fama` e preservando fallback legado determinístico.
+- `4.10` — 2026-09-08 — Análise de Apostas V4 isolada em serviço de agregação autorizado e exportação PNG da Classificação movida para backend headless.
+- `4.9` — 2026-09-08 — Classificação V4 separada em serviço canônico, contrato FastAPI e tabela Next.js responsiva.
+- `4.8` — 2026-09-08 — Adicionado snapshot autenticado da Telemetria V4, agregado sobre tabelas compatíveis do V3 e consumido pelo dashboard Next.js.
 - `4.7` — 2026-09-08 — Adicionadas rotas institucionais V4, contrato autenticado de versão e embed Tenor isolado no Regulamento.
 - `4.6` — 2026-09-08 — Registrados o Apex Paddock UI, o ícone oficial, a nomenclatura Telemetria e a paleta centralizada de equipes.
 - `4.5` — 2026-09-08 — Adicionados o runtime Next.js standalone, contrato OpenAPI gerado, ApexCharts compartilhado e manifesto Python exclusivo da V4.

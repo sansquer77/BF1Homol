@@ -29,6 +29,990 @@
         "title": "AboutResponse",
         "type": "object"
       },
+      "AccessLogItem": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "detalhes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detalhes"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evento"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address"
+          },
+          "nome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nome"
+          },
+          "perfil": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Perfil"
+          },
+          "sucesso": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sucesso"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "id",
+          "created_at"
+        ],
+        "title": "AccessLogItem",
+        "type": "object"
+      },
+      "AccessLogsResponse": {
+        "properties": {
+          "failures": {
+            "title": "Failures",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AccessLogItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationResponse"
+          },
+          "successes": {
+            "title": "Successes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pagination",
+          "successes",
+          "failures",
+          "items"
+        ],
+        "title": "AccessLogsResponse",
+        "type": "object"
+      },
+      "BetsAnalysisResponse": {
+        "properties": {
+          "bet_count": {
+            "title": "Bet Count",
+            "type": "integer"
+          },
+          "by_driver": {
+            "items": {
+              "$ref": "#/components/schemas/DriverBetAggregate"
+            },
+            "title": "By Driver",
+            "type": "array"
+          },
+          "eleventh": {
+            "items": {
+              "$ref": "#/components/schemas/DriverBetAggregate"
+            },
+            "title": "Eleventh",
+            "type": "array"
+          },
+          "race_count": {
+            "title": "Race Count",
+            "type": "integer"
+          },
+          "result_count": {
+            "title": "Result Count",
+            "type": "integer"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "scope",
+          "bet_count",
+          "race_count",
+          "result_count",
+          "by_driver",
+          "eleventh"
+        ],
+        "title": "BetsAnalysisResponse",
+        "type": "object"
+      },
+      "BettingLogItem": {
+        "properties": {
+          "aposta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aposta"
+          },
+          "apostador": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apostador"
+          },
+          "automatica": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automatica"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "horario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Horario"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address"
+          },
+          "nome_prova": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nome Prova"
+          },
+          "piloto_11": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Piloto 11"
+          },
+          "pilotos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pilotos"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "temporada": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temporada"
+          },
+          "tipo_aposta": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Aposta"
+          },
+          "usuario_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usuario Id"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "BettingLogItem",
+        "type": "object"
+      },
+      "BettingLogsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BettingLogItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationResponse"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "scope",
+          "pagination",
+          "items"
+        ],
+        "title": "BettingLogsResponse",
+        "type": "object"
+      },
+      "ChampionshipBetRecord": {
+        "properties": {
+          "bet_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bet Time"
+          },
+          "champion": {
+            "title": "Champion",
+            "type": "string"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Season"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          },
+          "user_nome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Nome"
+          },
+          "vice": {
+            "title": "Vice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "champion",
+          "vice",
+          "team",
+          "season"
+        ],
+        "title": "ChampionshipBetRecord",
+        "type": "object"
+      },
+      "ChampionshipBetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "champion": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Champion",
+            "type": "string"
+          },
+          "team": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Team",
+            "type": "string"
+          },
+          "vice": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Vice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "champion",
+          "vice",
+          "team"
+        ],
+        "title": "ChampionshipBetRequest",
+        "type": "object"
+      },
+      "ChampionshipResponse": {
+        "properties": {
+          "all_bets": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionshipBetRecord"
+            },
+            "title": "All Bets",
+            "type": "array"
+          },
+          "can_bet": {
+            "title": "Can Bet",
+            "type": "boolean"
+          },
+          "current_bet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChampionshipBetRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "deadline_message": {
+            "title": "Deadline Message",
+            "type": "string"
+          },
+          "drivers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Drivers",
+            "type": "array"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionshipBetRecord"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "official_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChampionshipResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          },
+          "teams": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Teams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "season",
+          "drivers",
+          "teams",
+          "history",
+          "all_bets",
+          "can_bet",
+          "deadline_message"
+        ],
+        "title": "ChampionshipResponse",
+        "type": "object"
+      },
+      "ChampionshipResult": {
+        "properties": {
+          "champion": {
+            "title": "Champion",
+            "type": "string"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          },
+          "vice": {
+            "title": "Vice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "champion",
+          "vice",
+          "team"
+        ],
+        "title": "ChampionshipResult",
+        "type": "object"
+      },
+      "ClassificationEntry": {
+        "properties": {
+          "champion_bonus": {
+            "title": "Champion Bonus",
+            "type": "number"
+          },
+          "championship_hits": {
+            "title": "Championship Hits",
+            "type": "integer"
+          },
+          "difference": {
+            "title": "Difference",
+            "type": "number"
+          },
+          "discard": {
+            "title": "Discard",
+            "type": "number"
+          },
+          "eleventh_hits": {
+            "title": "Eleventh Hits",
+            "type": "integer"
+          },
+          "participant": {
+            "title": "Participant",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "team_bonus": {
+            "title": "Team Bonus",
+            "type": "number"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "valid_total": {
+            "title": "Valid Total",
+            "type": "number"
+          },
+          "vice_bonus": {
+            "title": "Vice Bonus",
+            "type": "number"
+          }
+        },
+        "required": [
+          "position",
+          "participant",
+          "total",
+          "champion_bonus",
+          "vice_bonus",
+          "team_bonus",
+          "discard",
+          "valid_total",
+          "difference",
+          "eleventh_hits",
+          "championship_hits"
+        ],
+        "title": "ClassificationEntry",
+        "type": "object"
+      },
+      "ClassificationResponse": {
+        "properties": {
+          "discard_active": {
+            "title": "Discard Active",
+            "type": "boolean"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ClassificationEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "discard_active",
+          "entries"
+        ],
+        "title": "ClassificationResponse",
+        "type": "object"
+      },
+      "DriverBetAggregate": {
+        "properties": {
+          "bets": {
+            "title": "Bets",
+            "type": "integer"
+          },
+          "chips": {
+            "default": 0,
+            "title": "Chips",
+            "type": "integer"
+          },
+          "driver": {
+            "title": "Driver",
+            "type": "string"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          }
+        },
+        "required": [
+          "driver",
+          "bets"
+        ],
+        "title": "DriverBetAggregate",
+        "type": "object"
+      },
+      "DriverRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "number": {
+            "default": 0,
+            "maximum": 99.0,
+            "minimum": 0.0,
+            "title": "Number",
+            "type": "integer"
+          },
+          "status": {
+            "default": "Ativo",
+            "maxLength": 30,
+            "title": "Status",
+            "type": "string"
+          },
+          "team": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Team",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "DriverRequest",
+        "type": "object"
+      },
+      "F1ConstructorStanding": {
+        "properties": {
+          "constructor": {
+            "title": "Constructor",
+            "type": "string"
+          },
+          "nationality": {
+            "title": "Nationality",
+            "type": "string"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "wins": {
+            "title": "Wins",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position",
+          "constructor",
+          "points",
+          "wins",
+          "nationality"
+        ],
+        "title": "F1ConstructorStanding",
+        "type": "object"
+      },
+      "F1DashboardResponse": {
+        "properties": {
+          "average_stops": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Stops"
+          },
+          "constructor_standings": {
+            "items": {
+              "$ref": "#/components/schemas/F1ConstructorStanding"
+            },
+            "title": "Constructor Standings",
+            "type": "array"
+          },
+          "driver_standings": {
+            "items": {
+              "$ref": "#/components/schemas/F1DriverStanding"
+            },
+            "title": "Driver Standings",
+            "type": "array"
+          },
+          "fastest_laps": {
+            "items": {
+              "$ref": "#/components/schemas/F1FastestLap"
+            },
+            "title": "Fastest Laps",
+            "type": "array"
+          },
+          "pit_stops": {
+            "items": {
+              "$ref": "#/components/schemas/F1PitStop"
+            },
+            "title": "Pit Stops",
+            "type": "array"
+          },
+          "progression": {
+            "items": {
+              "$ref": "#/components/schemas/F1ProgressionPoint"
+            },
+            "title": "Progression",
+            "type": "array"
+          },
+          "progression_drivers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Progression Drivers",
+            "type": "array"
+          },
+          "qualifying_vs_race": {
+            "items": {
+              "$ref": "#/components/schemas/F1QualifyingDelta"
+            },
+            "title": "Qualifying Vs Race",
+            "type": "array"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "driver_standings",
+          "constructor_standings",
+          "progression_drivers",
+          "progression",
+          "qualifying_vs_race",
+          "fastest_laps",
+          "pit_stops"
+        ],
+        "title": "F1DashboardResponse",
+        "type": "object"
+      },
+      "F1DriverStanding": {
+        "properties": {
+          "constructor": {
+            "title": "Constructor",
+            "type": "string"
+          },
+          "driver": {
+            "title": "Driver",
+            "type": "string"
+          },
+          "nationality": {
+            "title": "Nationality",
+            "type": "string"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "wins": {
+            "title": "Wins",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position",
+          "driver",
+          "points",
+          "wins",
+          "nationality",
+          "constructor"
+        ],
+        "title": "F1DriverStanding",
+        "type": "object"
+      },
+      "F1FastestLap": {
+        "properties": {
+          "driver": {
+            "title": "Driver",
+            "type": "string"
+          },
+          "time": {
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver",
+          "time"
+        ],
+        "title": "F1FastestLap",
+        "type": "object"
+      },
+      "F1PitStop": {
+        "properties": {
+          "driver": {
+            "title": "Driver",
+            "type": "string"
+          },
+          "lap": {
+            "title": "Lap",
+            "type": "integer"
+          },
+          "stop": {
+            "title": "Stop",
+            "type": "integer"
+          },
+          "time": {
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver",
+          "lap",
+          "stop",
+          "time"
+        ],
+        "title": "F1PitStop",
+        "type": "object"
+      },
+      "F1ProgressionPoint": {
+        "properties": {
+          "points": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Points",
+            "type": "object"
+          },
+          "race": {
+            "title": "Race",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "round",
+          "race",
+          "points"
+        ],
+        "title": "F1ProgressionPoint",
+        "type": "object"
+      },
+      "F1QualifyingDelta": {
+        "properties": {
+          "delta": {
+            "title": "Delta",
+            "type": "integer"
+          },
+          "driver": {
+            "title": "Driver",
+            "type": "string"
+          },
+          "qualifying": {
+            "title": "Qualifying",
+            "type": "integer"
+          },
+          "race": {
+            "title": "Race",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "driver",
+          "qualifying",
+          "race",
+          "delta"
+        ],
+        "title": "F1QualifyingDelta",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -40,6 +1024,194 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HallDistribution": {
+        "properties": {
+          "participant": {
+            "title": "Participant",
+            "type": "string"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/HallPositionCount"
+            },
+            "title": "Positions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "participant",
+          "positions"
+        ],
+        "title": "HallDistribution",
+        "type": "object"
+      },
+      "HallEntry": {
+        "properties": {
+          "participant": {
+            "title": "Participant",
+            "type": "string"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "position",
+          "points",
+          "participant"
+        ],
+        "title": "HallEntry",
+        "type": "object"
+      },
+      "HallOfFameResponse": {
+        "properties": {
+          "distribution": {
+            "items": {
+              "$ref": "#/components/schemas/HallDistribution"
+            },
+            "title": "Distribution",
+            "type": "array"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/HallEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "season_stats": {
+            "items": {
+              "$ref": "#/components/schemas/HallSeasonStat"
+            },
+            "title": "Season Stats",
+            "type": "array"
+          },
+          "seasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Seasons",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "top_winners": {
+            "items": {
+              "$ref": "#/components/schemas/HallWinner"
+            },
+            "title": "Top Winners",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source",
+          "seasons",
+          "entries",
+          "top_winners",
+          "season_stats",
+          "distribution"
+        ],
+        "title": "HallOfFameResponse",
+        "type": "object"
+      },
+      "HallPositionCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position",
+          "count"
+        ],
+        "title": "HallPositionCount",
+        "type": "object"
+      },
+      "HallSeasonStat": {
+        "properties": {
+          "average_points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Points"
+          },
+          "best_points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Points"
+          },
+          "champion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HallEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "participants": {
+            "title": "Participants",
+            "type": "integer"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "participants"
+        ],
+        "title": "HallSeasonStat",
+        "type": "object"
+      },
+      "HallWinner": {
+        "properties": {
+          "participant": {
+            "title": "Participant",
+            "type": "string"
+          },
+          "wins": {
+            "title": "Wins",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "participant",
+          "wins"
+        ],
+        "title": "HallWinner",
         "type": "object"
       },
       "LoginRequest": {
@@ -75,6 +1247,34 @@
           "message"
         ],
         "title": "MessageResponse",
+        "type": "object"
+      },
+      "PaginationResponse": {
+        "properties": {
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "page_size",
+          "total",
+          "total_pages"
+        ],
+        "title": "PaginationResponse",
         "type": "object"
       },
       "PasswordResetConfirm": {
@@ -119,6 +1319,59 @@
           "email"
         ],
         "title": "PasswordResetRequest",
+        "type": "object"
+      },
+      "RaceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "circuit_id": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Circuit Id"
+          },
+          "date": {
+            "maxLength": 30,
+            "minLength": 8,
+            "title": "Date",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "race_status": {
+            "default": "Pendente",
+            "maxLength": 30,
+            "title": "Race Status",
+            "type": "string"
+          },
+          "time": {
+            "default": "",
+            "maxLength": 20,
+            "title": "Time",
+            "type": "string"
+          },
+          "type": {
+            "default": "Normal",
+            "maxLength": 30,
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "date"
+        ],
+        "title": "RaceRequest",
         "type": "object"
       },
       "RaceResponse": {
@@ -181,6 +1434,273 @@
         "title": "RaceResponse",
         "type": "object"
       },
+      "ResultRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "positions": {
+            "additionalProperties": true,
+            "title": "Positions",
+            "type": "object"
+          },
+          "retirements": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Retirements",
+            "type": "array"
+          }
+        },
+        "required": [
+          "positions"
+        ],
+        "title": "ResultRequest",
+        "type": "object"
+      },
+      "TelemetryEvolutionPoint": {
+        "properties": {
+          "cumulative_points": {
+            "title": "Cumulative Points",
+            "type": "number"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "race_id": {
+            "title": "Race Id",
+            "type": "integer"
+          },
+          "race_name": {
+            "title": "Race Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "race_id",
+          "race_name",
+          "points",
+          "cumulative_points"
+        ],
+        "title": "TelemetryEvolutionPoint",
+        "type": "object"
+      },
+      "TelemetryMetrics": {
+        "properties": {
+          "bets_submitted": {
+            "title": "Bets Submitted",
+            "type": "integer"
+          },
+          "current_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Position"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "races_total": {
+            "title": "Races Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "points",
+          "bets_submitted",
+          "races_total"
+        ],
+        "title": "TelemetryMetrics",
+        "type": "object"
+      },
+      "TelemetryNextRace": {
+        "properties": {
+          "circuit_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Circuit Id"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "starts_at": {
+            "title": "Starts At",
+            "type": "string"
+          },
+          "time": {
+            "title": "Time",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "round",
+          "date",
+          "time",
+          "starts_at",
+          "type"
+        ],
+        "title": "TelemetryNextRace",
+        "type": "object"
+      },
+      "TelemetryRankingEntry": {
+        "properties": {
+          "is_current_user": {
+            "title": "Is Current User",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position",
+          "name",
+          "points",
+          "is_current_user"
+        ],
+        "title": "TelemetryRankingEntry",
+        "type": "object"
+      },
+      "TelemetryResponse": {
+        "properties": {
+          "evolution": {
+            "items": {
+              "$ref": "#/components/schemas/TelemetryEvolutionPoint"
+            },
+            "title": "Evolution",
+            "type": "array"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/TelemetryMetrics"
+          },
+          "next_race": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TelemetryNextRace"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ranking": {
+            "items": {
+              "$ref": "#/components/schemas/TelemetryRankingEntry"
+            },
+            "title": "Ranking",
+            "type": "array"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          },
+          "user_name": {
+            "title": "User Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_name",
+          "season",
+          "metrics",
+          "evolution",
+          "ranking"
+        ],
+        "title": "TelemetryResponse",
+        "type": "object"
+      },
+      "UserCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "profile": {
+            "pattern": "^(participante|admin|master|inativo)$",
+            "title": "Profile",
+            "type": "string"
+          },
+          "user_status": {
+            "default": "ativo",
+            "pattern": "^(ativo|inativo)$",
+            "title": "User Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password",
+          "profile"
+        ],
+        "title": "UserCreateRequest",
+        "type": "object"
+      },
       "UserResponse": {
         "properties": {
           "email": {
@@ -217,6 +1737,73 @@
           "status"
         ],
         "title": "UserResponse",
+        "type": "object"
+      },
+      "UserUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "must_change_password": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Must Change Password"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "pattern": "^(participante|admin|master|inativo)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile"
+          },
+          "user_status": {
+            "anyOf": [
+              {
+                "pattern": "^(ativo|inativo)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Status"
+          }
+        },
+        "title": "UserUpdateRequest",
         "type": "object"
       },
       "ValidationError": {
@@ -267,6 +1854,398 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/drivers": {
+      "post": {
+        "operationId": "create_admin_driver_api_v1_admin_drivers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Admin Driver",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/drivers/{driver_id}": {
+      "put": {
+        "operationId": "update_admin_driver_api_v1_admin_drivers__driver_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "driver_id",
+            "required": true,
+            "schema": {
+              "title": "Driver Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Admin Driver",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/races": {
+      "post": {
+        "operationId": "create_admin_race_api_v1_admin_races_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Admin Race",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/races/{race_id}": {
+      "put": {
+        "operationId": "update_admin_race_api_v1_admin_races__race_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "race_id",
+            "required": true,
+            "schema": {
+              "title": "Race Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Admin Race",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/races/{race_id}/result": {
+      "put": {
+        "operationId": "update_admin_result_api_v1_admin_races__race_id__result_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "race_id",
+            "required": true,
+            "schema": {
+              "title": "Race Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResultRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Admin Result",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users": {
+      "post": {
+        "operationId": "create_admin_user_api_v1_admin_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Admin User",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "patch": {
+        "operationId": "patch_admin_user_api_v1_admin_users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Admin User",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/analysis/bets": {
+      "get": {
+        "operationId": "bets_analysis_api_v1_analysis_bets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetsAnalysisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bets Analysis",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "login_api_v1_auth_login_post",
@@ -504,6 +2483,237 @@
         ]
       }
     },
+    "/api/v1/championship": {
+      "get": {
+        "operationId": "championship_snapshot_api_v1_championship_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Season",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChampionshipResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Championship Snapshot",
+        "tags": [
+          "championship"
+        ]
+      }
+    },
+    "/api/v1/championship/bet": {
+      "post": {
+        "operationId": "championship_bet_api_v1_championship_bet_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Season",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChampionshipBetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChampionshipBetRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Championship Bet",
+        "tags": [
+          "championship"
+        ]
+      }
+    },
+    "/api/v1/championship/result": {
+      "post": {
+        "operationId": "championship_result_api_v1_championship_result_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Season",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChampionshipBetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChampionshipResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Championship Result",
+        "tags": [
+          "championship"
+        ]
+      }
+    },
+    "/api/v1/classification": {
+      "get": {
+        "operationId": "classification_api_v1_classification_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Classification",
+        "tags": [
+          "classification"
+        ]
+      }
+    },
+    "/api/v1/classification/image": {
+      "get": {
+        "operationId": "classification_image_api_v1_classification_image_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Classification Image",
+        "tags": [
+          "classification"
+        ]
+      }
+    },
     "/api/v1/content/about": {
       "get": {
         "operationId": "about_api_v1_content_about_get",
@@ -522,6 +2732,71 @@
         "summary": "About",
         "tags": [
           "content"
+        ]
+      }
+    },
+    "/api/v1/f1-dashboard": {
+      "get": {
+        "operationId": "f1_dashboard_api_v1_f1_dashboard_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "maximum": 2026,
+              "minimum": 1950,
+              "title": "Season",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1DashboardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "F1 Dashboard",
+        "tags": [
+          "f1-dashboard"
+        ]
+      }
+    },
+    "/api/v1/hall-of-fame": {
+      "get": {
+        "operationId": "hall_of_fame_api_v1_hall_of_fame_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HallOfFameResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Hall Of Fame",
+        "tags": [
+          "hall-of-fame"
         ]
       }
     },
@@ -560,6 +2835,313 @@
         "summary": "Ready",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/logs/access": {
+      "get": {
+        "description": "Consulta exclusiva do Master, com intervalo e paginação limitados.",
+        "operationId": "access_logs_api_v1_logs_access_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "profile",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          },
+          {
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event"
+            }
+          },
+          {
+            "in": "query",
+            "name": "success",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Success"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ip_contains",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ip Contains"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user_contains",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 254,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Contains"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessLogsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Access Logs",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/v1/logs/bets": {
+      "get": {
+        "description": "Consulta o log consolidado ou somente as apostas do usuário autenticado.",
+        "operationId": "betting_logs_api_v1_logs_bets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bettor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bettor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bet_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bet Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "event_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "log_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Log Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "automatic_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Automatic Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BettingLogsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Betting Logs",
+        "tags": [
+          "logs"
         ]
       }
     },
@@ -637,6 +3219,49 @@
         "summary": "Export Logs",
         "tags": [
           "logs"
+        ]
+      }
+    },
+    "/api/v1/telemetry": {
+      "get": {
+        "operationId": "telemetry_api_v1_telemetry_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Telemetry",
+        "tags": [
+          "telemetry"
         ]
       }
     },

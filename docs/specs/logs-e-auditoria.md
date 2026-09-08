@@ -2,7 +2,7 @@
 tipo: spec
 area: auditoria
 status: implementado
-versao: 1.1
+versao: 1.2
 atualizado: 2026-09-08
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/apostas-de-prova]]", "[[04_arquitetura]]"]
 tags: [spec, "area/auditoria", "status/implementado"]
@@ -55,7 +55,9 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 - Telas: Monitoramento → Log de Acessos e Log de Apostas.
 - Serviços/repositórios: controle de acesso, `db/repo_logs.py` e consultas paginadas.
 - Persistência: tabelas de logs de acesso e de apostas.
-- API V4: `GET /api/v1/logs/export`, sem parâmetro de caminho ou nome de arquivo.
+- API V4: `GET /api/v1/logs/bets` com escopo derivado da sessão,
+  `GET /api/v1/logs/access` exclusivo do Master e `GET /api/v1/logs/export`
+  reautenticado, sem parâmetro de caminho ou nome de arquivo.
 
 ## Critérios de aceite
 
@@ -69,7 +71,9 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 
 ## Verificação
 
-- Critérios 1–6 — testes: `tests/test_pagination_integration.py`, `tests/test_proxy_topology.py` e `tests/test_access_matrix.py`.
+- Critérios 1–6 — testes: `tests/test_pagination_integration.py`,
+  `tests/test_logs_read_service_v4.py`, `tests/test_v4_api_security.py`,
+  `tests/test_proxy_topology.py` e `tests/test_access_matrix.py`.
 - Critério 7 — inspeção automatizada/manual dos campos de log e tentativa de autenticação com valor sentinela.
 
 ## Pendências
@@ -87,6 +91,7 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 
 ## Changelog
 
+- `1.2` — 2026-09-08 — Adicionados contratos V4 paginados para log de apostas com escopo de sessão e log de acessos exclusivo do Master.
 - `1.1` — 2026-09-08 — Documentadas observabilidade V4 e exportação administrativa limitada e reautenticada.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
