@@ -2,6 +2,8 @@ import type { components } from "./schema";
 
 export type User = components["schemas"]["UserResponse"];
 export type LoginPayload = components["schemas"]["LoginRequest"];
+export type About = components["schemas"]["AboutResponse"];
+export type Race = components["schemas"]["RaceResponse"];
 export type ApiError = { detail?: string; request_id?: string };
 
 const CSRF_COOKIE = "bf1_csrf";

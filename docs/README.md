@@ -62,6 +62,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 - [[specs/pwa-e-preferencias-do-cliente|PWA e preferências do cliente]]
 - [[specs/temporada-global|Temporada global]]
 - [[specs/migracao-v4-nextjs-fastapi|Migração BF1 4.0 para Next.js e FastAPI]]
+- [[specs/conteudo-institucional-v4|Regulamento e Sobre da versão 4]]
 
 Novas funcionalidades devem ganhar uma spec focada em `docs/specs/`. A
 [[03_spec|spec consolidada]] continua como referência de compatibilidade até a

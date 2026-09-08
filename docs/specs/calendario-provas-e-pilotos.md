@@ -2,8 +2,8 @@
 tipo: spec
 area: calendario
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-09-08
 relacionados: ["[[02_regras_de_negocio]]", "[[specs/deadline-de-apostas]]", "[[specs/resultados-de-provas]]"]
 tags: [spec, "area/calendario", "status/implementado"]
 aliases: ["Calendário, provas e pilotos"]
@@ -12,7 +12,7 @@ aliases: ["Calendário, provas e pilotos"]
 # Calendário, provas e pilotos
 
 > [!info] Status
-> **implementado** · área: `calendario` · atualizado em 2026-07-31 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/resultados-de-provas]]
+> **implementado** · área: `calendario` · atualizado em 2026-09-08 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/resultados-de-provas]]
 
 ## Problema
 
@@ -32,7 +32,7 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 ## Dados
 
 - `pilotos`: nome, equipe, número e indicador de atividade.
-- `provas`: temporada, nome, data, horário, ordem, tipo Normal/Sprint e situação do resultado.
+- `provas`: temporada, nome, `circuit_id` canônico, data, horário, ordem, tipo Normal/Sprint e situação do resultado.
 - Datas operacionais: interpretadas em `America/Sao_Paulo`.
 
 ## Regras
@@ -44,13 +44,15 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 5. A data/hora da prova é a referência do deadline em `America/Sao_Paulo`.
 6. A tela de resultado manual abre na prova atual já alcançada pelo calendário e ainda sem resultado; se não houver, usa fallback explícito.
 7. Escritas invalidam somente caches de calendário, prova ou piloto afetados.
+8. O `circuit_id` usado pela V4 é o identificador canônico mantido pela rotina de atualização de circuitos do V3 (`circuitos_utils.atualizar_base_circuitos`) e associado pela Gestão de Provas; nunca é inferido do nome da corrida.
+9. O desenho da pista é uma representação complementar versionada; data e horário continuam sendo os dados operacionais prioritários e permanecem visíveis mesmo quando não houver vetor compatível.
 
 ## Interface, serviços e dados
 
-- Telas: Calendário; Administração → Provas; Administração → Pilotos.
-- Serviços: `services/admin_operations.py`, calendário e seleção da prova padrão.
+- Telas: Calendário (`/calendario` na V4); Administração → Provas; Administração → Pilotos.
+- Serviços: `services/admin_operations.py`, `api/routes/calendar.py`, calendário e seleção da prova padrão.
 - Persistência: repositórios de provas/pilotos e suas tabelas.
-- API externa: não aplicável.
+- Vetores: SVGs locais em `frontend/public/tracks/`, com atribuição/licença em `ATTRIBUTION.md`.
 
 ## Critérios de aceite
 
@@ -61,10 +63,13 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 5. Dada prova Sprint, quando consultada, então seu tipo permanece disponível aos cálculos dependentes.
 6. Dadas provas passadas sem resultado, quando abrir Atualizar Resultado Manualmente, então a prova atual pendente é pré-selecionada.
 7. Dada data inválida legada, quando listar o calendário, então a tela continua funcional e evidencia dado tratável.
+8. Dada prova com `circuit_id` conhecido, quando abrir a V4, então o vetor correspondente, nome, data e horário são exibidos.
+9. Dado `circuit_id` ausente ou sem vetor, quando abrir a V4, então data e horário continuam disponíveis e a tela usa estado alternativo acessível.
 
 ## Verificação
 
 - Critérios 1, 2, 3, 5–7 — testes: `tests/test_access_matrix.py`, `tests/test_apostas_dataframe_contract.py` e `tests/test_result_default_race.py`.
+- Critérios 8–9 — testes: `tests/test_v4_api_security.py` e `tests/test_v4_frontend_foundation.py`.
 - Critério 4 — verificação manual: inativar piloto com aposta histórica e comparar seletores novo/histórico.
 
 ## Pendências
@@ -79,9 +84,11 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 
 - [x] Autorizar e persistir provas e pilotos. Fecha: critérios 1, 2, 4 e 5.
 - [x] Ordenar calendário e resolver prova padrão. Fecha: critérios 3, 6 e 7.
+- [x] Expor calendário autenticado na API V4 e renderizar vetores locais por `circuit_id` canônico. Fecha: critérios 8 e 9.
 
 ## Changelog
 
+- `1.1` — 2026-09-08 — Calendário V4 autenticado com `circuit_id` canônico e vetores de pista versionados.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
 ## Relacionados

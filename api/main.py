@@ -14,8 +14,9 @@ from fastapi.responses import JSONResponse
 
 from api.config import settings
 from api.request_context import RequestContext, reset_request_context, set_request_context
-from api.routes import auth, logs, users
+from api.routes import auth, calendar, content, logs, users
 from api.security import validate_csrf, validate_origin
+from api.version import API_VERSION
 from app_runtime import bind_runtime, reset_runtime
 from utils.request_utils import select_client_ip
 
@@ -36,7 +37,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="BF1 API",
-    version="4.0.0",
+    version=API_VERSION,
     openapi_url="/api/v1/openapi.json",
     docs_url=None,
     redoc_url=None,
@@ -133,5 +134,7 @@ def ready():
 
 
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(content.router, prefix="/api/v1")
+app.include_router(calendar.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(logs.router, prefix="/api/v1")

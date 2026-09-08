@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 1.1
+versao: 1.2
 atualizado: 2026-09-08
 relacionados:
   - "[[inventario-v4]]"
@@ -161,7 +161,7 @@ operação responsável por deploy, observabilidade e restauração.
 - [x] Fase 2 — baseline de 126 testes e 139 subtestes aprovada e congelada por domínio em `tests/characterization_v4.json`. Fecha: critérios 4 e 10 no comportamento legado; autorização HTTP será ampliada na Fase 3.
 - [x] Fase 3 — FastAPI e contratos `/api/v1` implementados com contexto correlacionável por requisição, autenticação por cookie revogável, rotação ativa, proteção de origem/CSRF, mitigação de enumeração e força bruta, autorização opaca por usuário/temporada, bootstrap Master transacional e observabilidade PostgreSQL exportável com reautenticação. Gates de integração aprovados. Fecha: critérios 5–9, 13, 14 e 17–20.
 - [x] Fase 4 — frontend Next.js 16/App Router e TypeScript criado com design system Apex Paddock UI mobile-first, ícone oficial BF1, login exclusivo para convidados, shell responsivo, cliente regenerável pelo OpenAPI versionado e adaptador ApexCharts carregado sob demanda com tabela acessível. O Painel do Participante passa a se chamar Telemetria e pilotos recebem marcadores acessíveis de equipe. Build de produção aprovado; dashboard, login, menu e ausência de overflow validados manualmente em 360 px. Fecha: critérios 11, 12, 21 e 22 na fundação visual.
-- [ ] Fase 5 — migrar conteúdo e consultas simples (Sobre, Regulamento, Calendário e Telemetria). Fecha parte dos critérios 4, 10–12.
+- [ ] Fase 5 — migrar conteúdo e consultas simples (Sobre, Regulamento, Calendário e Telemetria). Regulamento, Sobre e Calendário concluídos; permanece Telemetria. Fecha parte dos critérios 4, 10–12.
 - [ ] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Fecha critérios 4, 10 e 12.
 - [ ] Fase 7 — migrar operações administrativas e autorização por objeto. Fecha critérios 4 e 5.
 - [ ] Fase 8 — validar backup/restauração e recuperação a partir do último artefato estável. Fecha critérios 1–3.
@@ -170,6 +170,8 @@ operação responsável por deploy, observabilidade e restauração.
 
 ## Changelog
 
+- `1.3` — 2026-09-08 — Calendário V4 concluído com consulta autenticada, `circuit_id` canônico da Gestão de Provas e vetores SVG locais versionados com atribuição.
+- `1.2` — 2026-09-08 — Regulamento e Sobre da Fase 5 concluídos; Calendário e Telemetria permanecem como próximos incrementos da fase.
 - `1.1` — 2026-09-08 — Design system Apex Paddock UI adotado com ícone oficial, paleta grafite/vermelha, tipografia própria, novo nome Telemetria e marcadores de equipe acessíveis.
 - `1.0` — 2026-09-08 — Fase 4 concluída: Next.js responsivo, design system, login, cliente OpenAPI tipado e adaptador ApexCharts acessível aprovados em build e viewport de 360 px.
 - `0.9` — 2026-09-08 — Fase 3 concluída: gates de IDOR, sessão, força bruta, CSRF, bootstrap Master, correlação/erro opaco e exportação administrativa de logs aprovados.

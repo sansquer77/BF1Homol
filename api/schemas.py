@@ -38,3 +38,20 @@ class ErrorResponse(BaseModel):
     detail: str
     request_id: str
 
+
+class AboutResponse(BaseModel):
+    name: str
+    full_name: str
+    version: str
+    architecture: str
+
+
+class RaceResponse(BaseModel):
+    id: int
+    name: str
+    date: str
+    time: str | None = None
+    type: str
+    status: str
+    season: str
+    circuit_id: str | None = None

@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.6
+versao: 4.7
 atualizado: 2026-09-08
 relacionados:
   - "[[01_necessidade]]"
@@ -266,6 +266,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.7` — 2026-09-08 — Adicionadas rotas institucionais V4, contrato autenticado de versão e embed Tenor isolado no Regulamento.
 - `4.6` — 2026-09-08 — Registrados o Apex Paddock UI, o ícone oficial, a nomenclatura Telemetria e a paleta centralizada de equipes.
 - `4.5` — 2026-09-08 — Adicionados o runtime Next.js standalone, contrato OpenAPI gerado, ApexCharts compartilhado e manifesto Python exclusivo da V4.
 - `4.4` — 2026-09-08 — Registrada a fundação FastAPI V4 concluída, incluindo contratos HTTP, segurança, bootstrap e observabilidade PostgreSQL.

@@ -108,3 +108,47 @@ def test_v4_uses_official_identity_telemetry_name_and_accessible_team_palette():
         "#9C9FA2", "#EB0A1E",
     }
     assert expected_colors.issubset(set(palette.split('"')))
+
+
+def test_regulation_and_about_pages_preserve_institutional_contract():
+    regulation = (FRONTEND / "src/app/regulamento/page.tsx").read_text(encoding="utf-8")
+    about = (FRONTEND / "src/app/sobre/page.tsx").read_text(encoding="utf-8")
+    tenor = (FRONTEND / "src/components/tenor-embed.tsx").read_text(encoding="utf-8")
+    about_version = (FRONTEND / "src/components/about-version.tsx").read_text(encoding="utf-8")
+    spec = (ROOT / "docs/specs/conteudo-institucional-v4.md").read_text(encoding="utf-8")
+    css = (FRONTEND / "src/app/globals.css").read_text(encoding="utf-8")
+
+    for marker in ("Regulamento BF1-2026", "Inscrições", "Ausências e penalizações", "Regra de descarte", "Critérios de desempate", "Pagamento e premiação"):
+        assert marker in regulation
+    assert "14649753" in tenor
+    assert "sandbox=" in tenor
+    assert 'loading="lazy"' in tenor
+    assert "iframe" in tenor
+    assert "Next.js, TypeScript e ApexCharts" in about
+    assert '"/api/v1/content/about"' in about_version
+    assert "Versão V4" in about_version
+    assert "sem overflow horizontal" in spec
+    assert ".tenor-frame iframe" in css
+    assert ".about-grid" in css
+
+
+def test_calendar_uses_canonical_circuit_ids_and_vetted_track_sources():
+    calendar = (FRONTEND / "src/components/calendar-view.tsx").read_text(encoding="utf-8")
+    assets = (FRONTEND / "src/lib/track-assets.ts").read_text(encoding="utf-8")
+    page = (FRONTEND / "src/app/calendario/page.tsx").read_text(encoding="utf-8")
+    css = (FRONTEND / "src/app/globals.css").read_text(encoding="utf-8")
+
+    assert '"/api/v1/calendar?season=" + DEFAULT_SEASON' in calendar
+    assert 'alt={"Desenho da pista de " + race.name}' in calendar
+    assert "f1laps/f1-track-vectors" not in calendar
+    assert "julesr0y/f1-circuits-svg" not in calendar
+    assert "julesr0y/f1-circuits-svg" in assets
+    assert "albert_park" in assets
+    assert "red_bull_ring" in assets
+    assert (FRONTEND / "public/tracks/albert_park.svg").is_file()
+    assert (FRONTEND / "public/tracks/baku-1.svg").is_file()
+    assert "race-grid" in css
+    assert "calendar-view" in page
+    attribution = FRONTEND / "public/tracks/ATTRIBUTION.md"
+    assert attribution.is_file()
+    assert "Creative Commons Attribution 4.0" in attribution.read_text(encoding="utf-8")

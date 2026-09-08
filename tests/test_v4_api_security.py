@@ -34,6 +34,44 @@ class V4ApiSecurityTests(unittest.TestCase):
         self.assertEqual(response.json(), {"status": "ok"})
         self.assertTrue(response.headers["x-request-id"])
 
+    def test_about_requires_session_and_returns_canonical_v4_version(self):
+        with patch("db.repo_observability.record_event"):
+            anonymous = self.client.get("/api/v1/content/about")
+        self.assertEqual(anonymous.status_code, 401)
+
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(
+            7, "A", "participante", "ativo", frozenset({"2026"})
+        )
+        try:
+            with patch("db.repo_observability.record_event"):
+                response = self.client.get("/api/v1/content/about")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["version"], "4.0.0")
+            self.assertEqual(response.json()["architecture"], "Next.js + FastAPI + PostgreSQL")
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_calendar_is_season_scoped_and_returns_standard_circuit_ids(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(
+            7, "A", "participante", "ativo", frozenset({"2026"})
+        )
+        try:
+            with patch("db.repo_races.get_provas_df", return_value=__import__("pandas").DataFrame([
+                {"id": 31, "nome": "Grande Prêmio da Austrália", "data": "2026-03-08", "horario_prova": "01:00:00", "tipo": "Normal", "status": "Ativa", "temporada": "2026", "circuit_id": "albert_park"},
+            ])), patch("db.repo_observability.record_event"):
+                response = self.client.get("/api/v1/calendar?season=2026")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()[0]["circuit_id"], "albert_park")
+            self.assertEqual(response.json()[0]["time"], "01:00")
+        finally:
+            app.dependency_overrides.clear()
+
     def tearDown(self):
         self.client.cookies.clear()
         from api.main import app
