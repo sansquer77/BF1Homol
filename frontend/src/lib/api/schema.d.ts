@@ -4,6 +4,178 @@
  */
 
 export interface paths {
+    "/api/v1/admin/drivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Admin Driver */
+        post: operations["create_admin_driver_api_v1_admin_drivers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/drivers/{driver_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Admin Driver */
+        put: operations["update_admin_driver_api_v1_admin_drivers__driver_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/hall-of-fame": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Admin Hall */
+        get: operations["get_admin_hall_api_v1_admin_hall_of_fame_get"];
+        put?: never;
+        /** Create Admin Hall */
+        post: operations["create_admin_hall_api_v1_admin_hall_of_fame_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/hall-of-fame/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Admin Hall */
+        post: operations["bulk_admin_hall_api_v1_admin_hall_of_fame_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/hall-of-fame/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Patch Admin Hall */
+        put: operations["patch_admin_hall_api_v1_admin_hall_of_fame__record_id__put"];
+        post?: never;
+        /** Remove Admin Hall */
+        delete: operations["remove_admin_hall_api_v1_admin_hall_of_fame__record_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/races": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Admin Race */
+        post: operations["create_admin_race_api_v1_admin_races_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/races/{race_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Admin Race */
+        put: operations["update_admin_race_api_v1_admin_races__race_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/races/{race_id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Admin Result */
+        put: operations["update_admin_result_api_v1_admin_races__race_id__result_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Admin User */
+        post: operations["create_admin_user_api_v1_admin_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Admin User */
+        patch: operations["patch_admin_user_api_v1_admin_users__user_id__patch"];
+        trace?: never;
+    };
     "/api/v1/analysis/bets": {
         parameters: {
             query?: never;
@@ -455,6 +627,13 @@ export interface components {
             /** Successes */
             successes: number;
         };
+        /** AdminParticipant */
+        AdminParticipant: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** BetsAnalysisResponse */
         BetsAnalysisResponse: {
             /** Bet Count */
@@ -617,6 +796,26 @@ export interface components {
             /** Team */
             team?: string | null;
         };
+        /** DriverRequest */
+        DriverRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Number
+             * @default 0
+             */
+            number: number;
+            /**
+             * Status
+             * @default Ativo
+             */
+            status: string;
+            /**
+             * Team
+             * @default
+             */
+            team: string;
+        };
         /** F1ConstructorStanding */
         F1ConstructorStanding: {
             /** Constructor */
@@ -710,6 +909,53 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HallAdminRecord */
+        HallAdminRecord: {
+            /** Id */
+            id: number;
+            /** Participant */
+            participant: string;
+            /** Points */
+            points: number;
+            /** Position */
+            position: number;
+            /** Season */
+            season: string;
+            /** User Id */
+            user_id: number;
+        };
+        /** HallAdminResponse */
+        HallAdminResponse: {
+            /** Participants */
+            participants: components["schemas"]["AdminParticipant"][];
+            /** Records */
+            records: components["schemas"]["HallAdminRecord"][];
+        };
+        /** HallAdminUpdateRequest */
+        HallAdminUpdateRequest: {
+            /** Points */
+            points: number;
+            /** Position */
+            position: number;
+            /** Season */
+            season: string;
+        };
+        /** HallAdminWriteRequest */
+        HallAdminWriteRequest: {
+            /** Points */
+            points: number;
+            /** Position */
+            position: number;
+            /** Season */
+            season: string;
+            /** User Id */
+            user_id: number;
+        };
+        /** HallBulkRequest */
+        HallBulkRequest: {
+            /** Records */
+            records: components["schemas"]["HallAdminWriteRequest"][];
         };
         /** HallDistribution */
         HallDistribution: {
@@ -816,6 +1062,30 @@ export interface components {
              */
             email: string;
         };
+        /** RaceRequest */
+        RaceRequest: {
+            /** Circuit Id */
+            circuit_id?: string | null;
+            /** Date */
+            date: string;
+            /** Name */
+            name: string;
+            /**
+             * Race Status
+             * @default Pendente
+             */
+            race_status: string;
+            /**
+             * Time
+             * @default
+             */
+            time: string;
+            /**
+             * Type
+             * @default Normal
+             */
+            type: string;
+        };
         /** RaceResponse */
         RaceResponse: {
             /** Circuit Id */
@@ -834,6 +1104,15 @@ export interface components {
             time?: string | null;
             /** Type */
             type: string;
+        };
+        /** ResultRequest */
+        ResultRequest: {
+            /** Positions */
+            positions: {
+                [key: string]: unknown;
+            };
+            /** Retirements */
+            retirements?: string[];
         };
         /** TelemetryEvolutionPoint */
         TelemetryEvolutionPoint: {
@@ -902,6 +1181,25 @@ export interface components {
             /** User Name */
             user_name: string;
         };
+        /** UserCreateRequest */
+        UserCreateRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Name */
+            name: string;
+            /** Password */
+            password: string;
+            /** Profile */
+            profile: string;
+            /**
+             * User Status
+             * @default ativo
+             */
+            user_status: string;
+        };
         /** UserResponse */
         UserResponse: {
             /** Email */
@@ -919,6 +1217,19 @@ export interface components {
             perfil: string;
             /** Status */
             status: string;
+        };
+        /** UserUpdateRequest */
+        UserUpdateRequest: {
+            /** Email */
+            email?: string | null;
+            /** Must Change Password */
+            must_change_password?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Profile */
+            profile?: string | null;
+            /** User Status */
+            user_status?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -942,6 +1253,414 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    create_admin_driver_api_v1_admin_drivers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_admin_driver_api_v1_admin_drivers__driver_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                driver_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_admin_hall_api_v1_admin_hall_of_fame_get: {
+        parameters: {
+            query?: {
+                season?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HallAdminResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_admin_hall_api_v1_admin_hall_of_fame_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HallAdminWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_admin_hall_api_v1_admin_hall_of_fame_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HallBulkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_admin_hall_api_v1_admin_hall_of_fame__record_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HallAdminUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_admin_hall_api_v1_admin_hall_of_fame__record_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_admin_race_api_v1_admin_races_post: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_admin_race_api_v1_admin_races__race_id__put: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path: {
+                race_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_admin_result_api_v1_admin_races__race_id__result_put: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path: {
+                race_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResultRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_admin_user_api_v1_admin_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_admin_user_api_v1_admin_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     bets_analysis_api_v1_analysis_bets_get: {
         parameters: {
             query: {

@@ -2,7 +2,7 @@
 tipo: spec
 area: hall-da-fama
 status: implementado
-versao: 1.1
+versao: 1.2
 atualizado: 2026-09-08
 relacionados: ["[[specs/classificacao]]", "[[specs/controle-de-acesso]]", "[[specs/historico-do-participante]]"]
 tags: [spec, "area/hall-da-fama", "status/implementado"]
@@ -49,7 +49,7 @@ Preservar e apresentar campeões e colocações históricas de temporadas elegí
 - Telas: Monitoramento → Hall da Fama e `/hall-da-fama` na V4.
 - Serviços: `services/hall_da_fama_service.py`, controlador da tela e `services/hall_read_service.py`.
 - Persistência: `posicoes_participantes` e leitura de `usuarios`.
-- API V4: `GET /api/v1/hall-of-fame`, autenticada e somente leitura.
+- API V4: `GET /api/v1/hall-of-fame`, autenticada e somente leitura; manutenção Master em `/api/v1/admin/hall-of-fame` (CRUD e lote).
 
 ## Critérios de aceite
 
@@ -78,6 +78,11 @@ Preservar e apresentar campeões e colocações históricas de temporadas elegí
 ## Plano de implementação
 
 - [x] Autorizar e validar manutenção histórica. Fecha: critérios 1–3, 6 e 7.
+- [x] Expor gestão Master V4 com CRUD, lote idempotente e invalidação de caches.
+
+## Changelog
+
+- `1.2` — 2026-09-08 — Gestão administrativa V4 do Hall da Fama disponível para Master.
 - [x] Apresentar temporadas e posições. Fecha: critérios 4 e 5.
 - [x] Expor histórico autenticado e gráfico acessível na V4. Fecha: critérios 4 e 5.
 

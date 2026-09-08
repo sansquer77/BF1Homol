@@ -165,6 +165,24 @@
         "title": "AccessLogsResponse",
         "type": "object"
       },
+      "AdminParticipant": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AdminParticipant",
+        "type": "object"
+      },
       "BetsAnalysisResponse": {
         "properties": {
           "bet_count": {
@@ -1024,6 +1042,149 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HallAdminRecord": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "participant": {
+            "title": "Participant",
+            "type": "string"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "participant",
+          "season",
+          "position",
+          "points"
+        ],
+        "title": "HallAdminRecord",
+        "type": "object"
+      },
+      "HallAdminResponse": {
+        "properties": {
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/AdminParticipant"
+            },
+            "title": "Participants",
+            "type": "array"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/HallAdminRecord"
+            },
+            "title": "Records",
+            "type": "array"
+          }
+        },
+        "required": [
+          "records",
+          "participants"
+        ],
+        "title": "HallAdminResponse",
+        "type": "object"
+      },
+      "HallAdminUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "points": {
+            "minimum": 0.0,
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "season": {
+            "pattern": "^\\d{4}$",
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "position",
+          "points"
+        ],
+        "title": "HallAdminUpdateRequest",
+        "type": "object"
+      },
+      "HallAdminWriteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "points": {
+            "minimum": 0.0,
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "season": {
+            "pattern": "^\\d{4}$",
+            "title": "Season",
+            "type": "string"
+          },
+          "user_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "season",
+          "position",
+          "points"
+        ],
+        "title": "HallAdminWriteRequest",
+        "type": "object"
+      },
+      "HallBulkRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/HallAdminWriteRequest"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Records",
+            "type": "array"
+          }
+        },
+        "required": [
+          "records"
+        ],
+        "title": "HallBulkRequest",
         "type": "object"
       },
       "HallDistribution": {
@@ -1938,6 +2099,220 @@
           }
         },
         "summary": "Update Admin Driver",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/hall-of-fame": {
+      "get": {
+        "operationId": "get_admin_hall_api_v1_admin_hall_of_fame_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{4}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Season"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HallAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Admin Hall",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_admin_hall_api_v1_admin_hall_of_fame_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HallAdminWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Admin Hall",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/hall-of-fame/bulk": {
+      "post": {
+        "operationId": "bulk_admin_hall_api_v1_admin_hall_of_fame_bulk_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HallBulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Admin Hall",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/hall-of-fame/{record_id}": {
+      "delete": {
+        "operationId": "remove_admin_hall_api_v1_admin_hall_of_fame__record_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Admin Hall",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "patch_admin_hall_api_v1_admin_hall_of_fame__record_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HallAdminUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Admin Hall",
         "tags": [
           "admin"
         ]

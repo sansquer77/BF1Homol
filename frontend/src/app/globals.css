@@ -422,6 +422,24 @@ details th, details td { padding: 8px; text-align: left; border-bottom: 1px soli
   .bet-card small { grid-column: auto; }
 }
 
+.hall-admin-view { max-width: 1180px; margin: 0 auto; padding: 42px 32px 80px; }
+.hall-admin-form, .hall-admin-list { margin-top: 24px; }
+.hall-admin-fields { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 14px; align-items: end; }
+.hall-admin-fields label { display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
+.hall-admin-fields input, .hall-admin-fields select { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); padding: 11px; }
+.hall-admin-list table { width: 100%; border-collapse: collapse; }
+.hall-admin-list th, .hall-admin-list td { padding: 12px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.table-action { color: var(--accent); background: transparent; border: 0; cursor: pointer; }
+@media (max-width: 820px) { .hall-admin-view { padding: 26px 18px 56px; } .hall-admin-fields { grid-template-columns: 1fr 1fr; } .hall-admin-fields label:first-child, .hall-admin-fields button { grid-column: 1 / -1; } }
+.admin-catalog-view { max-width: 1180px; margin: 0 auto; padding: 42px 32px 80px; }
+.admin-tabs { display: flex; gap: 8px; align-items: end; margin: 24px 0 12px; border-bottom: 1px solid var(--line); }
+.admin-tab { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); padding: 12px 16px; cursor: pointer; }
+.admin-tab--active { color: var(--ink); border-bottom-color: var(--accent); }
+.admin-season { margin-left: auto; display: grid; gap: 5px; font-size: 11px; color: var(--muted); }.admin-season input { width: 90px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.admin-form, .admin-list { margin-top: 20px; }.admin-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: end; }.admin-fields label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }.admin-fields input, .admin-fields select { padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.admin-list table { width: 100%; border-collapse: collapse; }.admin-list th, .admin-list td { text-align: left; padding: 11px; border-bottom: 1px solid var(--line); }
+@media (max-width: 820px) { .admin-catalog-view { padding: 26px 18px 56px; }.admin-fields { grid-template-columns: 1fr 1fr; }.admin-fields label:first-child, .admin-fields button { grid-column: 1 / -1; }.admin-tabs { flex-wrap: wrap; }.admin-season { margin-left: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

@@ -175,6 +175,40 @@ class HallOfFameResponse(BaseModel):
     distribution: list[HallDistribution]
 
 
+class AdminParticipant(BaseModel):
+    id: int
+    name: str
+
+
+class HallAdminWriteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: int = Field(gt=0)
+    season: str = Field(pattern=r"^\d{4}$")
+    position: int = Field(ge=1, le=1000)
+    points: float = Field(ge=0)
+
+
+class HallAdminUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    season: str = Field(pattern=r"^\d{4}$")
+    position: int = Field(ge=1, le=1000)
+    points: float = Field(ge=0)
+
+
+class HallAdminRecord(BaseModel):
+    id: int
+    user_id: int
+    participant: str
+    season: str
+    position: int
+    points: float
+
+
+class HallAdminResponse(BaseModel):
+    records: list[HallAdminRecord]
+    participants: list[AdminParticipant]
+
+
 class PaginationResponse(BaseModel):
     page: int
     page_size: int

@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.13
+versao: 1.14
 atualizado: 2026-09-08
 relacionados:
   - "[[sdd]]"
@@ -80,7 +80,7 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
-- `1.13` — 2026-09-08 — Fase 7 iniciada com a fundação administrativa V4; produto publicado permanece 3.5.1.
+- `1.14` — 2026-09-08 — Fase 7: gestão administrativa V4 do Hall da Fama, usuários, pilotos e provas; produto publicado permanece 3.5.1.
 - `1.12` — 2026-09-08 — Fase 6 registrada como concluída com Campeonato V4; produto publicado permanece 3.5.1.
 - `1.11` — 2026-09-08 — Dashboard F1 V4 registrado na Fase 6 com dados oficiais e gráficos responsivos; produto publicado permanece 3.5.1.
 - `1.10` — 2026-09-08 — Logs V4 registrados na Fase 6 com escopo por sessão, acesso Master e paginação server-side; produto publicado permanece 3.5.1.

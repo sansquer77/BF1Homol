@@ -52,3 +52,30 @@ def save_result(context: AuthenticatedContext, race_id: int, season: str, positi
     _require(context, "resultado.write", frozenset({"admin", "master"}), season=season)
     from services.admin_operations import admin_save_resultado
     admin_save_resultado(race_id, season, positions, retirements)
+
+
+def list_admin_users(context: AuthenticatedContext) -> list[dict[str, Any]]:
+    _require(context, "usuario.read", frozenset({"master"}))
+    from db.db_schema import db_connect
+    with db_connect() as conn:
+        cur = conn.cursor(); cur.execute("SELECT id,nome,email,perfil,status,must_change_password FROM usuarios ORDER BY nome")
+        rows = cur.fetchall(); cur.close()
+    return [{"id": r[0], "name": r[1], "email": r[2], "profile": r[3], "status": r[4], "must_change_password": bool(r[5])} for r in rows]
+
+
+def list_admin_drivers(context: AuthenticatedContext) -> list[dict[str, Any]]:
+    _require(context, "piloto.read", frozenset({"admin", "master"}))
+    from db.db_schema import db_connect
+    with db_connect() as conn:
+        cur = conn.cursor(); cur.execute("SELECT id,nome,equipe,status,numero FROM pilotos ORDER BY nome")
+        rows = cur.fetchall(); cur.close()
+    return [{"id": r[0], "name": r[1], "team": r[2] or "", "status": r[3] or "Ativo", "number": r[4] or 0} for r in rows]
+
+
+def list_admin_races(context: AuthenticatedContext, season: str) -> list[dict[str, Any]]:
+    _require(context, "prova.read", frozenset({"admin", "master"}), season=season)
+    from db.db_schema import db_connect
+    with db_connect() as conn:
+        cur = conn.cursor(); cur.execute("SELECT id,nome,data,horario_prova,tipo,status,circuit_id FROM provas WHERE temporada=%s ORDER BY data, id", (season,))
+        rows = cur.fetchall(); cur.close()
+    return [{"id": r[0], "name": r[1], "date": str(r[2]), "time": str(r[3] or ""), "type": r[4] or "Normal", "race_status": r[5] or "Pendente", "circuit_id": r[6]} for r in rows]

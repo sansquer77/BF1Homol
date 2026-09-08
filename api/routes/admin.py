@@ -7,7 +7,9 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from api.dependencies import get_current_context
 from services.access_control import AuthenticatedContext, AuthorizationDenied
-from services.admin_v4_service import create_user, save_result, update_user, upsert_driver, upsert_race
+from services.admin_v4_service import create_user, list_admin_drivers, list_admin_races, list_admin_users, save_result, update_user, upsert_driver, upsert_race
+from services.hall_admin_v4_service import bulk_save_hall, delete_hall_record, list_hall_admin, save_hall_record, update_hall_record
+from api.schemas import HallAdminResponse, HallAdminUpdateRequest, HallAdminWriteRequest
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -54,6 +56,11 @@ class ResultRequest(BaseModel):
     retirements: list[str] = Field(default_factory=list, max_length=100)
 
 
+class HallBulkRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    records: list[HallAdminWriteRequest] = Field(min_length=1, max_length=500)
+
+
 def _run(action, *args, **kwargs):
     try:
         action(*args, **kwargs)
@@ -64,9 +71,21 @@ def _run(action, *args, **kwargs):
     return {"status": "ok"}
 
 
+def _read(action, *args, **kwargs):
+    try:
+        return action(*args, **kwargs)
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+
+
 @router.post("/users", status_code=201)
 def create_admin_user(payload: UserCreateRequest, context: AuthenticatedContext = Depends(get_current_context)):
     return _run(create_user, context, name=payload.name, email=str(payload.email), password=payload.password, profile=payload.profile, user_status=payload.user_status)
+
+
+@router.get("/users")
+def get_admin_users(context: AuthenticatedContext = Depends(get_current_context)):
+    return _read(list_admin_users, context)
 
 
 @router.patch("/users/{user_id}")
@@ -78,6 +97,11 @@ def patch_admin_user(user_id: int, payload: UserUpdateRequest, context: Authenti
 @router.put("/drivers/{driver_id}")
 def update_admin_driver(driver_id: int, payload: DriverRequest, context: AuthenticatedContext = Depends(get_current_context)):
     return _run(upsert_driver, context, driver_id, {"nome": payload.name, "equipe": payload.team, "status": payload.status, "numero": payload.number})
+
+
+@router.get("/drivers")
+def get_admin_drivers(context: AuthenticatedContext = Depends(get_current_context)):
+    return _read(list_admin_drivers, context)
 
 
 @router.post("/drivers", status_code=201)
@@ -95,6 +119,39 @@ def create_admin_race(season: str = Query(pattern=r"^\d{4}$"), payload: RaceRequ
     return _run(upsert_race, context, None, season, {"nome": payload.name, "data": payload.date, "horario_prova": payload.time, "tipo": payload.type, "status": payload.race_status, "circuit_id": payload.circuit_id})
 
 
+@router.get("/races")
+def get_admin_races(season: str = Query(pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
+    return _read(list_admin_races, context, season)
+
+
 @router.put("/races/{race_id}/result")
 def update_admin_result(race_id: int, season: str = Query(pattern=r"^\d{4}$"), payload: ResultRequest = ..., context: AuthenticatedContext = Depends(get_current_context)):
     return _run(save_result, context, race_id, season, payload.positions, payload.retirements)
+
+
+@router.get("/hall-of-fame", response_model=HallAdminResponse)
+def get_admin_hall(season: str | None = Query(default=None, pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
+    try:
+        return list_hall_admin(context, season)
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+
+
+@router.post("/hall-of-fame", status_code=201)
+def create_admin_hall(payload: HallAdminWriteRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(save_hall_record, context, user_id=payload.user_id, season=payload.season, position=payload.position, points=payload.points)
+
+
+@router.post("/hall-of-fame/bulk", status_code=201)
+def bulk_admin_hall(payload: HallBulkRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(bulk_save_hall, context, [item.model_dump() for item in payload.records])
+
+
+@router.put("/hall-of-fame/{record_id}")
+def patch_admin_hall(record_id: int, payload: HallAdminUpdateRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(update_hall_record, context, record_id, season=payload.season, position=payload.position, points=payload.points)
+
+
+@router.delete("/hall-of-fame/{record_id}")
+def remove_admin_hall(record_id: int, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(delete_hall_record, context, record_id)
