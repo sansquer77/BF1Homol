@@ -175,6 +175,7 @@ operação responsável por deploy, observabilidade e restauração.
 - `2.5` — 2026-09-08 — Gestão Master de regras V4 adicionada com validação dos parâmetros centrais e preservação das tabelas legadas.
 - `2.6` — 2026-09-08 — Segunda etapa de regras concluída: edição, clonagem e associação de regra por temporada.
 - `2.7` — 2026-09-08 — API V4 de backup SQL adicionada com exportação, reautenticação Master e restauração limitada por tamanho.
+- `2.8` — 2026-09-08 — Fase 8 iniciada com endpoint de pré-validação SQL sem alteração do banco.
 - `2.0` — 2026-09-08 — Fase 6 concluída com módulo de Campeonato V4: apostas, histórico, deadline fail-closed, resultado administrativo e dados reais das tabelas legadas.
 - `1.9` — 2026-09-08 — Dashboard F1 concluído com contrato autenticado, integração oficial histórica compatível com V3, classificação, evolução, delta, voltas rápidas e pit stops.
 - `1.8` — 2026-09-08 — Logs V4 concluídos com leitura paginada, escopo individual derivado da sessão, acessos exclusivos do Master e exportação preservada.

@@ -13,6 +13,16 @@ def download_sql(context: AuthenticatedContext=Depends(require_master)):
  from db.backup_utils import _generate_backup_sql_content
  sql,mode=_generate_backup_sql_content(); return Response(sql,media_type="application/sql",headers={"Content-Disposition":'attachment; filename="bf1_backup_v4.sql"',"Cache-Control":"no-store","X-Backup-Mode":mode})
 
+@router.post("/validate/sql")
+async def validate_sql(request: Request, context: AuthenticatedContext=Depends(require_master)):
+ from utils.backup_security import get_backup_limits, validate_sql_content_size
+ raw=await request.body()
+ if len(raw)>get_backup_limits().sql_bytes: raise HTTPException(status_code=413,detail="Arquivo excede o limite permitido.")
+ try: sql=raw.decode("utf-8"); validate_sql_content_size(sql)
+ except Exception as exc: raise HTTPException(status_code=422,detail="Backup SQL inválido ou acima do limite.") from exc
+ upper=sql[:4096].upper(); mode="data-only" if "BF1 POSTGRES DATA-ONLY DUMP" in upper else "full-or-standard"
+ return {"status":"valid","mode":mode,"bytes":len(raw)}
+
 @router.post("/reauthorize")
 def reauthorize(payload:ReauthRequest, context:AuthenticatedContext=Depends(require_master)):
  try:

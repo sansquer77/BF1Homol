@@ -1,0 +1,84 @@
+alerts:
+- rule: DEPLOYMENT_FAILED
+- rule: DOMAIN_FAILED
+databases:
+- engine: PG
+  name: bolaof1
+  version: "18"
+envs:
+- key: JWT_SECRET
+  scope: RUN_AND_BUILD_TIME
+  type: SECRET
+  value: EV[1:/ZFQQABFpCgzZYCVuoBNHAnHmiQPkuyi:XxvAaB3mkbJnEQpak0c1jhZI0IqrDncwpu738fDm8FFZgQyhG7j4eEHjLCkFz0+SY+26QjJB7MywM+IvWub+BvnS34Iu5sA5BacEVItUAlc=]
+- key: USUARIO_MASTER
+  scope: RUN_AND_BUILD_TIME
+  type: SECRET
+  value: EV[1:sAVo4XfBUsEVHG1x/xgPUuu6IrgGYsWC:pNtmXtvORNwDnOFePjBaYtWGlrDd/g==]
+- key: EMAIL_MASTER
+  scope: RUN_AND_BUILD_TIME
+  type: SECRET
+  value: EV[1:uWbMCc3+RUovtZemtLHjEwRwjTLVcl6j:vL5Uym79620xT7XcBJFBRMVFEChUrTCUQI45+63J/XjQWMU7epQy]
+- key: SENHA_MASTER
+  scope: RUN_AND_BUILD_TIME
+  type: SECRET
+  value: EV[1:rfuHmNut0ziZhd/VSK0TF/GjO15wOzfn:h2BHgKuxPoSiQ6CUuL1ZcyUfcDziYI6kpQ==]
+- key: SENHA_EMAIL
+  scope: RUN_AND_BUILD_TIME
+  type: SECRET
+  value: EV[1:UQH9/S7q+0fd/bFVTx6AO4yi50ohDpPB:6o86jvzzepuMrzGVk2vlh9y9Axn5HfbuABDika6Fzv8E+2E=]
+- key: EMAIL_REMETENTE
+  scope: RUN_AND_BUILD_TIME
+  type: SECRET
+  value: EV[1:Q2OJH9snEWmCqdVeCZ0qCz9xHdfp670D:SbWXW4SNxp7RRF4AZMOKI+v9m+Es06WN1iBeaapoWVGneQ==]
+- key: GEMINI_API_KEY
+  scope: RUN_AND_BUILD_TIME
+  type: SECRET
+  value: EV[1:ijlxvU1l8vgawpB/Ms7lz+ERky4r85pR:jU5+f6KBkKh4cK2qkez4IMcZ0HLxfG5SCFaHQ8L+nOWGLHcgaVCa3ZuyPe6pZwzt2r0tTwQo2rV0HH+DD9prUQwrerA+]
+features:
+- buildpack-stack=ubuntu-22
+ingress:
+  rules:
+  - component:
+      name: bf1-frontend
+    match:
+      path:
+        prefix: /
+  - component:
+      name: bf1-api
+    match:
+      path:
+        prefix: /api
+name: bf1homol
+region: nyc
+services:
+- environment_slug: python
+  envs:
+  - key: DATABASE_URL
+    scope: RUN_TIME
+    value: ${bolaof1.DATABASE_URL}
+  github:
+    branch: main
+    deploy_on_push: true
+    repo: sansquer77/BF1Homol
+  http_port: 8000
+  instance_count: 1
+  instance_size_slug: apps-s-1vcpu-0.5gb
+  name: bf1-api
+  run_command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+  source_dir: /
+- environment_slug: node-js
+  envs:
+  - key: BF1_API_ORIGIN
+    scope: RUN_AND_BUILD_TIME
+    value: http://bf1-api:8000
+  github:
+    branch: main
+    deploy_on_push: true
+    repo: sansquer77/BF1Homol
+  http_port: 3000
+  instance_count: 1
+  instance_size_slug: apps-s-1vcpu-0.5gb
+  name: bf1-frontend
+  build_command: cd frontend && pnpm install --frozen-lockfile && pnpm build
+  run_command: cd frontend && pnpm start --hostname 0.0.0.0 --port 3000
+  source_dir: /

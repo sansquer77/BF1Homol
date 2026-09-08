@@ -3564,6 +3564,25 @@
         ]
       }
     },
+    "/api/v1/backup/validate/sql": {
+      "post": {
+        "operationId": "validate_sql_api_v1_backup_validate_sql_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Validate Sql",
+        "tags": [
+          "backup"
+        ]
+      }
+    },
     "/api/v1/calendar": {
       "get": {
         "operationId": "calendar_api_v1_calendar_get",

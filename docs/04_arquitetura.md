@@ -28,6 +28,10 @@ Next.js na apresentação, FastAPI em `api/`, regras reutilizadas de `services/`
 o mesmo PostgreSQL por meio de `db/`. A Fase 3 estabeleceu `/api/v1`, sessão por
 cookie seguro e revogável, autorização opaca por objeto/temporada, contexto
 correlacionável por requisição, bootstrap Master e observabilidade estruturada.
+A configuração `bf1homol-v4.yaml` separa o deploy em dois componentes: `bf1-api`
+(FastAPI/uvicorn) e `bf1-frontend` (Next.js), com `/api` roteado para a API e a
+raiz para o frontend. As variáveis Master/DigitalOcean permanecem com os mesmos
+nomes; `DATABASE_URL` continua vindo do banco PostgreSQL gerenciado.
 A Fase 4 adicionou `frontend/` em Next.js 16/App Router e TypeScript, com saída
 standalone para a DigitalOcean, cliente gerado do OpenAPI e um único adaptador
 React para ApexCharts. `requirements-api.txt` representa apenas FastAPI e o

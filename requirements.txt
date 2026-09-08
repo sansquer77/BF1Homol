@@ -1,7 +1,2 @@
-# Manifesto transitório do serviço V3 ainda publicado na homologação.
-# A V4 instala requirements-api.txt; esta ponte será removida no cutover.
+# Manifesto do backend FastAPI V4.
 -r requirements-api.txt
-
-streamlit>=1.55.0
-streamlit-calendar>=1.4.0
-plotly>=5.18.0
