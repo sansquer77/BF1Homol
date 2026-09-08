@@ -162,8 +162,8 @@ operação responsável por deploy, observabilidade e restauração.
 - [x] Fase 4 — frontend Next.js 16/App Router e TypeScript criado com design system Apex Paddock UI mobile-first, ícone oficial BF1, login exclusivo para convidados, shell responsivo, cliente regenerável pelo OpenAPI versionado e adaptador ApexCharts carregado sob demanda com tabela acessível. O Painel do Participante passa a se chamar Telemetria e pilotos recebem marcadores acessíveis de equipe. Build de produção aprovado; dashboard, login, menu e ausência de overflow validados manualmente em 360 px. Fecha: critérios 11, 12, 21 e 22 na fundação visual.
 - [x] Fase 5 — conteúdo e consultas simples migrados: Sobre, Regulamento, Calendário e Telemetria real autenticada, sem dados demonstrativos. Fecha parte dos critérios 4, 10–12.
 - [x] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Classificação, Análise de Apostas, Hall da Fama, Logs, Dashboard F1 e Campeonato concluídos. Fecha critérios 4, 10 e 12.
-- [ ] Fase 7 — migrar operações administrativas e autorização por objeto. Fundação de operações V4 e telas administrativas de usuários, pilotos, provas e Hall da Fama concluídas; regras, financeiro e backup permanecem. Fecha parcialmente critérios 4 e 5.
-- [ ] Fase 8 — validar backup/restauração e recuperação a partir do último artefato estável. Fecha critérios 1–3.
+- [x] Fase 7 — migrar operações administrativas e autorização por objeto. Operações e telas administrativas V4 concluídas para usuários, pilotos, provas, Hall da Fama, financeiro e regras, incluindo associação por temporada e clonagem.
+- [ ] Fase 8 — validar backup/restauração e recuperação a partir do último artefato estável. API Master de exportação, reautenticação e restore SQL disponível; restauração real em homologação, Excel e fechamento dos critérios 1–3 permanecem para validação operacional.
 - [ ] Fase 9 — executar segurança, carga, acessibilidade e experiência mobile. Fecha critérios 5–9, 11–15 e 18–20.
 - [ ] Fase 10 — validar builds puros, publicar a V4 e observar a operação. Fecha critério 16.
 
@@ -171,6 +171,10 @@ operação responsável por deploy, observabilidade e restauração.
 
 - `2.2` — 2026-09-08 — Gestão Master do Hall da Fama adicionada com CRUD, lote e proteção de autorização.
 - `2.3` — 2026-09-08 — Telas administrativas V4 de usuários, pilotos e provas adicionadas com listagem e inclusão.
+- `2.4` — 2026-09-08 — Financeiro V4 adicionado com taxa por temporada e situação de pagamento por participante.
+- `2.5` — 2026-09-08 — Gestão Master de regras V4 adicionada com validação dos parâmetros centrais e preservação das tabelas legadas.
+- `2.6` — 2026-09-08 — Segunda etapa de regras concluída: edição, clonagem e associação de regra por temporada.
+- `2.7` — 2026-09-08 — API V4 de backup SQL adicionada com exportação, reautenticação Master e restauração limitada por tamanho.
 - `2.0` — 2026-09-08 — Fase 6 concluída com módulo de Campeonato V4: apostas, histórico, deadline fail-closed, resultado administrativo e dados reais das tabelas legadas.
 - `1.9` — 2026-09-08 — Dashboard F1 concluído com contrato autenticado, integração oficial histórica compatível com V3, classificação, evolução, delta, voltas rápidas e pit stops.
 - `1.8` — 2026-09-08 — Logs V4 concluídos com leitura paginada, escopo individual derivado da sessão, acessos exclusivos do Master e exportação preservada.

@@ -208,6 +208,64 @@ class HallAdminResponse(BaseModel):
     records: list[HallAdminRecord]
     participants: list[AdminParticipant]
 
+class FinancialPayment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: int = Field(gt=0)
+    paid: bool
+
+class FinancialWriteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    season: str = Field(pattern=r"^\d{4}$")
+    fee: float = Field(ge=0)
+    payments: list[FinancialPayment] = Field(default_factory=list, max_length=500)
+
+class FinancialParticipant(BaseModel):
+    user_id: int
+    name: str
+    email: str
+    paid: bool
+
+class FinancialResponse(BaseModel):
+    season: str
+    fee: float
+    participants: list[FinancialParticipant]
+
+class RuleWriteRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    nome_regra: str = Field(min_length=1, max_length=120)
+    quantidade_fichas: int = Field(ge=1, le=100)
+    fichas_por_piloto: int = Field(ge=1, le=100)
+    mesma_equipe: bool = False
+    descarte: bool = False
+    pontos_pole: int = Field(ge=0, le=1000)
+    pontos_vr: int = Field(ge=0, le=1000)
+    pontos_posicoes: list[int] = Field(min_length=1, max_length=20)
+    pontos_11_colocado: int = Field(ge=0, le=1000)
+    regra_sprint: bool = False
+    pontos_sprint_pole: int = Field(ge=0, le=1000)
+    pontos_sprint_vr: int = Field(ge=0, le=1000)
+    pontos_sprint_posicoes: list[int] = Field(min_length=1, max_length=20)
+    pontos_dobrada: bool = False
+    bonus_vencedor: int = Field(ge=0, le=1000)
+    bonus_podio_completo: int = Field(ge=0, le=1000)
+    bonus_podio_qualquer: int = Field(ge=0, le=1000)
+    qtd_minima_pilotos: int = Field(ge=1, le=20)
+    penalidade_abandono: bool = False
+    pontos_penalidade: int = Field(ge=0, le=1000)
+    penalidade_auto_percent: int = Field(ge=0, le=100)
+    pontos_campeao: int = Field(ge=0, le=2000)
+    pontos_vice: int = Field(ge=0, le=2000)
+    pontos_equipe: int = Field(ge=0, le=2000)
+
+class RuleAssignmentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    season: str = Field(pattern=r"^\d{4}$")
+    rule_id: int = Field(gt=0)
+
+class RuleCloneRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=120)
+
 
 class PaginationResponse(BaseModel):
     page: int

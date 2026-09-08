@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 
 from api.config import settings
 from api.request_context import RequestContext, reset_request_context, set_request_context
-from api.routes import admin, analysis, auth, calendar, championship, classification, content, f1_dashboard, hall_of_fame, logs, telemetry, users
+from api.routes import admin, analysis, auth, backup, calendar, championship, classification, content, f1_dashboard, hall_of_fame, logs, telemetry, users
 from api.security import validate_csrf, validate_origin
 from api.version import API_VERSION
 from app_runtime import bind_runtime, reset_runtime
@@ -43,6 +43,7 @@ app = FastAPI(
     redoc_url=None,
     lifespan=lifespan,
 )
+app.include_router(backup.router, prefix="/api/v1")
 
 
 def _opaque_error(status_code: int, detail: str, request_id: str) -> JSONResponse:

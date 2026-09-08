@@ -9,6 +9,9 @@ from api.dependencies import get_current_context
 from services.access_control import AuthenticatedContext, AuthorizationDenied
 from services.admin_v4_service import create_user, list_admin_drivers, list_admin_races, list_admin_users, save_result, update_user, upsert_driver, upsert_race
 from services.hall_admin_v4_service import bulk_save_hall, delete_hall_record, list_hall_admin, save_hall_record, update_hall_record
+from services.financial_v4_service import get_financial, save_financial
+from services.rules_admin_v4_service import assign_rule, clone_rule, list_rules, save_rule
+from api.schemas import FinancialResponse, FinancialWriteRequest, RuleAssignmentRequest, RuleCloneRequest, RuleWriteRequest
 from api.schemas import HallAdminResponse, HallAdminUpdateRequest, HallAdminWriteRequest
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -76,6 +79,34 @@ def _read(action, *args, **kwargs):
         return action(*args, **kwargs)
     except AuthorizationDenied as exc:
         raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+
+@router.get("/financial", response_model=FinancialResponse)
+def admin_financial(season: str = Query(pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
+    return _read(get_financial, context, season)
+
+@router.put("/financial")
+def update_admin_financial(payload: FinancialWriteRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(save_financial, context, payload.season, payload.fee, {item.user_id: item.paid for item in payload.payments})
+
+@router.get("/rules")
+def get_admin_rules(context: AuthenticatedContext = Depends(get_current_context)):
+    return _read(list_rules, context)
+
+@router.post("/rules", status_code=201)
+def create_admin_rule(payload: RuleWriteRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(save_rule, context, None, payload.model_dump())
+
+@router.put("/rules/{rule_id}")
+def update_admin_rule(rule_id: int, payload: RuleWriteRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(save_rule, context, rule_id, payload.model_dump())
+
+@router.post("/rules/assign")
+def assign_admin_rule(payload: RuleAssignmentRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(assign_rule, context, payload.season, payload.rule_id)
+
+@router.post("/rules/{rule_id}/clone", status_code=201)
+def clone_admin_rule(rule_id: int, payload: RuleCloneRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(clone_rule, context, rule_id, payload.name)
 
 
 @router.post("/users", status_code=201)

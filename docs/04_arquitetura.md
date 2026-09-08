@@ -266,7 +266,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
-- `4.16` — 2026-09-08 — Gestão Master do Hall da Fama adicionada à API V4, com CRUD, lote idempotente e invalidação de caches; catálogo administrativo V4 cobre usuários, pilotos e provas.
+- `4.16` — 2026-09-08 — Gestão Master do Hall da Fama adicionada à API V4, com CRUD, lote idempotente e invalidação de caches; catálogo administrativo V4 cobre usuários, pilotos, provas e financeiro.
 - `4.14` — 2026-09-08 — Módulo de Campeonato V4 adicionado com leitura/escrita autenticada, deadline fail-closed e preservação das tabelas `championship_bets`, `championship_bets_log` e `championship_results`.
 - `4.13` — 2026-09-08 — Dashboard F1 V4 adicionado como read model autenticado, reutilizando `utils.data_utils` e o provedor histórico da V3 sem persistência nova.
 - `4.12` — 2026-09-08 — Logs V4 expostos por read models paginados: apostas respeitam o escopo da identidade autenticada e acessos permanecem exclusivos do Master.

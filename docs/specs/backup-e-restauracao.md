@@ -78,6 +78,7 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 ## Plano de implementação
 
 - [x] Proteger operação e autorização temporária. Fecha: critérios 2–5.
+- [x] Expor exportação e restore SQL na API V4; validação real em homologação permanece.
 - [x] Validar formatos, limites e atomicidade. Fecha: critérios 1, 6 e 7.
 
 ## Changelog

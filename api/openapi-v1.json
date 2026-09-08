@@ -1031,6 +1031,109 @@
         "title": "F1QualifyingDelta",
         "type": "object"
       },
+      "FinancialParticipant": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "paid": {
+            "title": "Paid",
+            "type": "boolean"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "email",
+          "paid"
+        ],
+        "title": "FinancialParticipant",
+        "type": "object"
+      },
+      "FinancialPayment": {
+        "additionalProperties": false,
+        "properties": {
+          "paid": {
+            "title": "Paid",
+            "type": "boolean"
+          },
+          "user_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "paid"
+        ],
+        "title": "FinancialPayment",
+        "type": "object"
+      },
+      "FinancialResponse": {
+        "properties": {
+          "fee": {
+            "title": "Fee",
+            "type": "number"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialParticipant"
+            },
+            "title": "Participants",
+            "type": "array"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "fee",
+          "participants"
+        ],
+        "title": "FinancialResponse",
+        "type": "object"
+      },
+      "FinancialWriteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "fee": {
+            "minimum": 0.0,
+            "title": "Fee",
+            "type": "number"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/FinancialPayment"
+            },
+            "maxItems": 500,
+            "title": "Payments",
+            "type": "array"
+          },
+          "season": {
+            "pattern": "^\\d{4}$",
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "fee"
+        ],
+        "title": "FinancialWriteRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1595,6 +1698,21 @@
         "title": "RaceResponse",
         "type": "object"
       },
+      "ReauthRequest": {
+        "properties": {
+          "password": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "ReauthRequest",
+        "type": "object"
+      },
       "ResultRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1616,6 +1734,216 @@
           "positions"
         ],
         "title": "ResultRequest",
+        "type": "object"
+      },
+      "RuleAssignmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "rule_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Rule Id",
+            "type": "integer"
+          },
+          "season": {
+            "pattern": "^\\d{4}$",
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "rule_id"
+        ],
+        "title": "RuleAssignmentRequest",
+        "type": "object"
+      },
+      "RuleCloneRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "RuleCloneRequest",
+        "type": "object"
+      },
+      "RuleWriteRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "bonus_podio_completo": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bonus Podio Completo",
+            "type": "integer"
+          },
+          "bonus_podio_qualquer": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bonus Podio Qualquer",
+            "type": "integer"
+          },
+          "bonus_vencedor": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bonus Vencedor",
+            "type": "integer"
+          },
+          "descarte": {
+            "default": false,
+            "title": "Descarte",
+            "type": "boolean"
+          },
+          "fichas_por_piloto": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Fichas Por Piloto",
+            "type": "integer"
+          },
+          "mesma_equipe": {
+            "default": false,
+            "title": "Mesma Equipe",
+            "type": "boolean"
+          },
+          "nome_regra": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Nome Regra",
+            "type": "string"
+          },
+          "penalidade_abandono": {
+            "default": false,
+            "title": "Penalidade Abandono",
+            "type": "boolean"
+          },
+          "penalidade_auto_percent": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Penalidade Auto Percent",
+            "type": "integer"
+          },
+          "pontos_11_colocado": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Pontos 11 Colocado",
+            "type": "integer"
+          },
+          "pontos_campeao": {
+            "maximum": 2000.0,
+            "minimum": 0.0,
+            "title": "Pontos Campeao",
+            "type": "integer"
+          },
+          "pontos_dobrada": {
+            "default": false,
+            "title": "Pontos Dobrada",
+            "type": "boolean"
+          },
+          "pontos_equipe": {
+            "maximum": 2000.0,
+            "minimum": 0.0,
+            "title": "Pontos Equipe",
+            "type": "integer"
+          },
+          "pontos_penalidade": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Pontos Penalidade",
+            "type": "integer"
+          },
+          "pontos_pole": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Pontos Pole",
+            "type": "integer"
+          },
+          "pontos_posicoes": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Pontos Posicoes",
+            "type": "array"
+          },
+          "pontos_sprint_pole": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Pontos Sprint Pole",
+            "type": "integer"
+          },
+          "pontos_sprint_posicoes": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Pontos Sprint Posicoes",
+            "type": "array"
+          },
+          "pontos_sprint_vr": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Pontos Sprint Vr",
+            "type": "integer"
+          },
+          "pontos_vice": {
+            "maximum": 2000.0,
+            "minimum": 0.0,
+            "title": "Pontos Vice",
+            "type": "integer"
+          },
+          "pontos_vr": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Pontos Vr",
+            "type": "integer"
+          },
+          "qtd_minima_pilotos": {
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Qtd Minima Pilotos",
+            "type": "integer"
+          },
+          "quantidade_fichas": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Quantidade Fichas",
+            "type": "integer"
+          },
+          "regra_sprint": {
+            "default": false,
+            "title": "Regra Sprint",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nome_regra",
+          "quantidade_fichas",
+          "fichas_por_piloto",
+          "pontos_pole",
+          "pontos_vr",
+          "pontos_posicoes",
+          "pontos_11_colocado",
+          "pontos_sprint_pole",
+          "pontos_sprint_vr",
+          "pontos_sprint_posicoes",
+          "bonus_vencedor",
+          "bonus_podio_completo",
+          "bonus_podio_qualquer",
+          "qtd_minima_pilotos",
+          "pontos_penalidade",
+          "penalidade_auto_percent",
+          "pontos_campeao",
+          "pontos_vice",
+          "pontos_equipe"
+        ],
+        "title": "RuleWriteRequest",
         "type": "object"
       },
       "TelemetryEvolutionPoint": {
@@ -2016,6 +2344,23 @@
   "openapi": "3.1.0",
   "paths": {
     "/api/v1/admin/drivers": {
+      "get": {
+        "operationId": "get_admin_drivers_api_v1_admin_drivers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Admin Drivers",
+        "tags": [
+          "admin"
+        ]
+      },
       "post": {
         "operationId": "create_admin_driver_api_v1_admin_drivers_post",
         "requestBody": {
@@ -2099,6 +2444,86 @@
           }
         },
         "summary": "Update Admin Driver",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/financial": {
+      "get": {
+        "operationId": "admin_financial_api_v1_admin_financial_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinancialResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Financial",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "update_admin_financial_api_v1_admin_financial_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinancialWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Admin Financial",
         "tags": [
           "admin"
         ]
@@ -2319,6 +2744,45 @@
       }
     },
     "/api/v1/admin/races": {
+      "get": {
+        "operationId": "get_admin_races_api_v1_admin_races_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Admin Races",
+        "tags": [
+          "admin"
+        ]
+      },
       "post": {
         "operationId": "create_admin_race_api_v1_admin_races_post",
         "parameters": [
@@ -2489,7 +2953,219 @@
         ]
       }
     },
+    "/api/v1/admin/rules": {
+      "get": {
+        "operationId": "get_admin_rules_api_v1_admin_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Admin Rules",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_admin_rule_api_v1_admin_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Admin Rule",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/rules/assign": {
+      "post": {
+        "operationId": "assign_admin_rule_api_v1_admin_rules_assign_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleAssignmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assign Admin Rule",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/rules/{rule_id}": {
+      "put": {
+        "operationId": "update_admin_rule_api_v1_admin_rules__rule_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Admin Rule",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/rules/{rule_id}/clone": {
+      "post": {
+        "operationId": "clone_admin_rule_api_v1_admin_rules__rule_id__clone_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleCloneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clone Admin Rule",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/users": {
+      "get": {
+        "operationId": "get_admin_users_api_v1_admin_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Admin Users",
+        "tags": [
+          "admin"
+        ]
+      },
       "post": {
         "operationId": "create_admin_user_api_v1_admin_users_post",
         "requestBody": {
@@ -2808,6 +3484,83 @@
         "summary": "Refresh Session",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/backup/reauthorize": {
+      "post": {
+        "operationId": "reauthorize_api_v1_backup_reauthorize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reauthorize",
+        "tags": [
+          "backup"
+        ]
+      }
+    },
+    "/api/v1/backup/restore/sql": {
+      "post": {
+        "operationId": "restore_sql_api_v1_backup_restore_sql_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Restore Sql",
+        "tags": [
+          "backup"
+        ]
+      }
+    },
+    "/api/v1/backup/sql": {
+      "get": {
+        "operationId": "download_sql_api_v1_backup_sql_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Download Sql",
+        "tags": [
+          "backup"
         ]
       }
     },

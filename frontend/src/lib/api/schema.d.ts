@@ -11,7 +11,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Admin Drivers */
+        get: operations["get_admin_drivers_api_v1_admin_drivers_get"];
         put?: never;
         /** Create Admin Driver */
         post: operations["create_admin_driver_api_v1_admin_drivers_post"];
@@ -31,6 +32,24 @@ export interface paths {
         get?: never;
         /** Update Admin Driver */
         put: operations["update_admin_driver_api_v1_admin_drivers__driver_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/financial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Financial */
+        get: operations["admin_financial_api_v1_admin_financial_get"];
+        /** Update Admin Financial */
+        put: operations["update_admin_financial_api_v1_admin_financial_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -98,7 +117,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Admin Races */
+        get: operations["get_admin_races_api_v1_admin_races_get"];
         put?: never;
         /** Create Admin Race */
         post: operations["create_admin_race_api_v1_admin_races_post"];
@@ -142,7 +162,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/users": {
+    "/api/v1/admin/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Admin Rules */
+        get: operations["get_admin_rules_api_v1_admin_rules_get"];
+        put?: never;
+        /** Create Admin Rule */
+        post: operations["create_admin_rule_api_v1_admin_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/rules/assign": {
         parameters: {
             query?: never;
             header?: never;
@@ -150,6 +188,58 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        put?: never;
+        /** Assign Admin Rule */
+        post: operations["assign_admin_rule_api_v1_admin_rules_assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Admin Rule */
+        put: operations["update_admin_rule_api_v1_admin_rules__rule_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/rules/{rule_id}/clone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clone Admin Rule */
+        post: operations["clone_admin_rule_api_v1_admin_rules__rule_id__clone_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Admin Users */
+        get: operations["get_admin_users_api_v1_admin_users_get"];
         put?: never;
         /** Create Admin User */
         post: operations["create_admin_user_api_v1_admin_users_post"];
@@ -292,6 +382,57 @@ export interface paths {
          * @description Rotaciona a sessão durante atividade autenticada e revoga o JTI anterior.
          */
         post: operations["refresh_session_api_v1_auth_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/reauthorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reauthorize */
+        post: operations["reauthorize_api_v1_backup_reauthorize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/restore/sql": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Sql */
+        post: operations["restore_sql_api_v1_backup_restore_sql_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/sql": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Sql */
+        get: operations["download_sql_api_v1_backup_sql_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -905,6 +1046,42 @@ export interface components {
             /** Race */
             race: number;
         };
+        /** FinancialParticipant */
+        FinancialParticipant: {
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /** Paid */
+            paid: boolean;
+            /** User Id */
+            user_id: number;
+        };
+        /** FinancialPayment */
+        FinancialPayment: {
+            /** Paid */
+            paid: boolean;
+            /** User Id */
+            user_id: number;
+        };
+        /** FinancialResponse */
+        FinancialResponse: {
+            /** Fee */
+            fee: number;
+            /** Participants */
+            participants: components["schemas"]["FinancialParticipant"][];
+            /** Season */
+            season: string;
+        };
+        /** FinancialWriteRequest */
+        FinancialWriteRequest: {
+            /** Fee */
+            fee: number;
+            /** Payments */
+            payments?: components["schemas"]["FinancialPayment"][];
+            /** Season */
+            season: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1105,6 +1282,11 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** ReauthRequest */
+        ReauthRequest: {
+            /** Password */
+            password: string;
+        };
         /** ResultRequest */
         ResultRequest: {
             /** Positions */
@@ -1113,6 +1295,86 @@ export interface components {
             };
             /** Retirements */
             retirements?: string[];
+        };
+        /** RuleAssignmentRequest */
+        RuleAssignmentRequest: {
+            /** Rule Id */
+            rule_id: number;
+            /** Season */
+            season: string;
+        };
+        /** RuleCloneRequest */
+        RuleCloneRequest: {
+            /** Name */
+            name: string;
+        };
+        /** RuleWriteRequest */
+        RuleWriteRequest: {
+            /** Bonus Podio Completo */
+            bonus_podio_completo: number;
+            /** Bonus Podio Qualquer */
+            bonus_podio_qualquer: number;
+            /** Bonus Vencedor */
+            bonus_vencedor: number;
+            /**
+             * Descarte
+             * @default false
+             */
+            descarte: boolean;
+            /** Fichas Por Piloto */
+            fichas_por_piloto: number;
+            /**
+             * Mesma Equipe
+             * @default false
+             */
+            mesma_equipe: boolean;
+            /** Nome Regra */
+            nome_regra: string;
+            /**
+             * Penalidade Abandono
+             * @default false
+             */
+            penalidade_abandono: boolean;
+            /** Penalidade Auto Percent */
+            penalidade_auto_percent: number;
+            /** Pontos 11 Colocado */
+            pontos_11_colocado: number;
+            /** Pontos Campeao */
+            pontos_campeao: number;
+            /**
+             * Pontos Dobrada
+             * @default false
+             */
+            pontos_dobrada: boolean;
+            /** Pontos Equipe */
+            pontos_equipe: number;
+            /** Pontos Penalidade */
+            pontos_penalidade: number;
+            /** Pontos Pole */
+            pontos_pole: number;
+            /** Pontos Posicoes */
+            pontos_posicoes: number[];
+            /** Pontos Sprint Pole */
+            pontos_sprint_pole: number;
+            /** Pontos Sprint Posicoes */
+            pontos_sprint_posicoes: number[];
+            /** Pontos Sprint Vr */
+            pontos_sprint_vr: number;
+            /** Pontos Vice */
+            pontos_vice: number;
+            /** Pontos Vr */
+            pontos_vr: number;
+            /** Qtd Minima Pilotos */
+            qtd_minima_pilotos: number;
+            /** Quantidade Fichas */
+            quantidade_fichas: number;
+            /**
+             * Regra Sprint
+             * @default false
+             */
+            regra_sprint: boolean;
+        } & {
+            [key: string]: unknown;
         };
         /** TelemetryEvolutionPoint */
         TelemetryEvolutionPoint: {
@@ -1253,6 +1515,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_admin_drivers_api_v1_admin_drivers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     create_admin_driver_api_v1_admin_drivers_post: {
         parameters: {
             query?: never;
@@ -1298,6 +1580,70 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DriverRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_financial_api_v1_admin_financial_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinancialResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_admin_financial_api_v1_admin_financial_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinancialWriteRequest"];
             };
         };
         responses: {
@@ -1484,6 +1830,37 @@ export interface operations {
             };
         };
     };
+    get_admin_races_api_v1_admin_races_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_admin_race_api_v1_admin_races_post: {
         parameters: {
             query: {
@@ -1589,6 +1966,182 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_admin_rules_api_v1_admin_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    create_admin_rule_api_v1_admin_rules_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_admin_rule_api_v1_admin_rules_assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_admin_rule_api_v1_admin_rules__rule_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clone_admin_rule_api_v1_admin_rules__rule_id__clone_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleCloneRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_admin_users_api_v1_admin_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -1854,6 +2407,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+        };
+    };
+    reauthorize_api_v1_backup_reauthorize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReauthRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_sql_api_v1_backup_restore_sql_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    download_sql_api_v1_backup_sql_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
