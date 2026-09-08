@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import logging
 
 from utils.security_utils import normalize_email_identifier
+
+logger = logging.getLogger(__name__)
 
 
 def recent_failures(email: str, ip_address: str, *, action: str, max_attempts: int, lockout_seconds: int) -> tuple[int, int, bool]:
@@ -38,6 +41,6 @@ def record_access(*, event: str, success: bool, ip_address: str, user: dict | No
                 (event, success, user.get("id"), user.get("email"), user.get("nome"), user.get("perfil"), ip_address, detail),
             )
             conn.commit()
-    except Exception:
-        pass
-
+    except Exception as exc:
+        # Contingência exigida quando o próprio PostgreSQL não pode registrar.
+        logger.warning("Falha ao registrar auditoria de acesso event=%s: %s", event, type(exc).__name__)

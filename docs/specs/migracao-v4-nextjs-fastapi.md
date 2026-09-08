@@ -2,8 +2,8 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 0.8
-atualizado: 2026-09-07
+versao: 0.9
+atualizado: 2026-09-08
 relacionados:
   - "[[inventario-v4]]"
   - "[[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]"
@@ -15,7 +15,7 @@ aliases: ["Migração BF1 4.0 para Next.js e FastAPI"]
 # Migração BF1 4.0 para Next.js e FastAPI
 
 > [!info] Status
-> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-07 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
+> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-08 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
 
 ## Problema
 
@@ -128,8 +128,8 @@ operação responsável por deploy, observabilidade e restauração.
 > [!question] Pendências
 > As decisões de produto e arquitetura necessárias ao scaffold foram aprovadas.
 
-- Fase 3: completar os testes de integração de sessão, força bruta, CSRF,
-  bootstrap e exportação de observabilidade antes de fechar seus critérios.
+- Fase 4: definir os tokens visuais derivados da marca e implementar o primeiro
+  shell responsivo em Next.js antes de migrar conteúdo funcional.
 - A retenção poderá ser ajustada após observar o volume real, sem reduzir os controles de acesso, sanitização e exportação.
 
 ## Fora de escopo
@@ -144,7 +144,7 @@ operação responsável por deploy, observabilidade e restauração.
 
 - [x] Fase 1 — inventário congelado; fixtures SQL e 21 Excel anonimizadas e versionadas; restores reais aprovados no PostgreSQL 18.6; contrato reconstruído de schema versionado e estável após migrations repetidas. Fecha: critérios 1–3.
 - [x] Fase 2 — baseline de 126 testes e 139 subtestes aprovada e congelada por domínio em `tests/characterization_v4.json`. Fecha: critérios 4 e 10 no comportamento legado; autorização HTTP será ampliada na Fase 3.
-- [ ] Fase 3 — em implementação. Scaffold FastAPI, contratos iniciais `/api/v1`, contexto por requisição, auth, bootstrap Master e observabilidade no PostgreSQL criados; testes direcionados iniciais aprovados, gates de integração ainda pendentes. Fecha: critérios 5–9, 13, 14 e 17–20.
+- [x] Fase 3 — FastAPI e contratos `/api/v1` implementados com contexto correlacionável por requisição, autenticação por cookie revogável, rotação ativa, proteção de origem/CSRF, mitigação de enumeração e força bruta, autorização opaca por usuário/temporada, bootstrap Master transacional e observabilidade PostgreSQL exportável com reautenticação. Gates de integração aprovados. Fecha: critérios 5–9, 13, 14 e 17–20.
 - [ ] Fase 4 — criar Next.js responsivo, design system, cliente tipado e adaptador ApexCharts. Fecha: critérios 11 e 12.
 - [ ] Fase 5 — migrar conteúdo e consultas simples (Sobre, Regulamento, Calendário e Painel). Fecha parte dos critérios 4, 10–12.
 - [ ] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Fecha critérios 4, 10 e 12.
@@ -155,6 +155,7 @@ operação responsável por deploy, observabilidade e restauração.
 
 ## Changelog
 
+- `0.9` — 2026-09-08 — Fase 3 concluída: gates de IDOR, sessão, força bruta, CSRF, bootstrap Master, correlação/erro opaco e exportação administrativa de logs aprovados.
 - `0.8` — 2026-09-07 — Fase 1 concluída: 21 fixtures Excel/3.904 linhas restauradas, contrato de schema reconstruído congelado e duas incompatibilidades do restore corrigidas.
 - `0.7` — 2026-09-07 — Status consolidado: inventário implementado, 21 exportações Excel recebidas, Fase 1 em validação final e Fase 3 em implementação.
 - `0.6` — 2026-09-06 — Observabilidade movida para o PostgreSQL por decisão explícita de custo, com exportação sob demanda e contingência em stdout/stderr.

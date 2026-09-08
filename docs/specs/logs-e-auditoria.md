@@ -2,8 +2,8 @@
 tipo: spec
 area: auditoria
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-09-08
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/apostas-de-prova]]", "[[04_arquitetura]]"]
 tags: [spec, "area/auditoria", "status/implementado"]
 aliases: ["Logs e auditoria"]
@@ -12,7 +12,7 @@ aliases: ["Logs e auditoria"]
 # Logs e auditoria
 
 > [!info] Status
-> **implementado** · área: `auditoria` · atualizado em 2026-07-31 · relacionados: [[specs/controle-de-acesso]], [[specs/apostas-de-prova]], [[04_arquitetura]]
+> **implementado** · área: `auditoria` · atualizado em 2026-09-08 · relacionados: [[specs/controle-de-acesso]], [[specs/apostas-de-prova]], [[04_arquitetura]]
 
 ## Problema
 
@@ -45,13 +45,17 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 5. Senhas, JWTs, segredos e credenciais nunca são persistidos nem exibidos em logs.
 6. A retenção segue configuração operacional; ausência de configuração não autoriza exclusão inesperada.
 7. Horários persistidos são convertidos para o timezone de exibição sem alterar o instante auditado.
+8. A API V4 persiste eventos operacionais correlacionados em `application_logs`;
+   indisponibilidade dessa escrita não derruba a requisição e usa o log do processo como contingência.
+9. Somente Master reautenticado exporta até o limite configurado e por no máximo
+   31 dias, em JSON Lines compactado, com nome produzido exclusivamente pelo servidor.
 
 ## Interface, serviços e dados
 
 - Telas: Monitoramento → Log de Acessos e Log de Apostas.
 - Serviços/repositórios: controle de acesso, `db/repo_logs.py` e consultas paginadas.
 - Persistência: tabelas de logs de acesso e de apostas.
-- API externa: não aplicável.
+- API V4: `GET /api/v1/logs/export`, sem parâmetro de caminho ou nome de arquivo.
 
 ## Critérios de aceite
 
@@ -83,6 +87,7 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 
 ## Changelog
 
+- `1.1` — 2026-09-08 — Documentadas observabilidade V4 e exportação administrativa limitada e reautenticada.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
 ## Relacionados

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -19,6 +20,7 @@ from app_runtime import bind_runtime, reset_runtime
 from utils.request_utils import select_client_ip
 
 logger = logging.getLogger(__name__)
+_SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 
 
 @asynccontextmanager
@@ -46,11 +48,15 @@ def _opaque_error(status_code: int, detail: str, request_id: str) -> JSONRespons
     return JSONResponse(status_code=status_code, content={"detail": detail, "request_id": request_id}, headers={"Cache-Control": "no-store"})
 
 
+def _request_id_from(request: Request) -> str:
+    candidate = (request.headers.get("x-request-id") or "").strip()
+    return candidate if _SAFE_REQUEST_ID.fullmatch(candidate) else uuid.uuid4().hex
+
+
 @app.middleware("http")
 async def request_security_and_context(request: Request, call_next):
     started = time.perf_counter()
-    request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
-    request_id = request_id[:128]
+    request_id = _request_id_from(request)
     request.state.request_id = request_id
     direct_ip = request.client.host if request.client else None
     try:
@@ -81,7 +87,9 @@ async def request_security_and_context(request: Request, call_next):
     except Exception as exc:
         caught = exc
         logger.exception("Unhandled API error request_id=%s", request_id)
-        return _opaque_error(500, "Erro interno. Informe o código da requisição ao suporte.", request_id)
+        response = _opaque_error(500, "Erro interno. Informe o código da requisição ao suporte.", request_id)
+        response.headers["X-Request-ID"] = request_id
+        return response
     finally:
         duration = round((time.perf_counter() - started) * 1000, 3)
         try:

@@ -2,8 +2,8 @@
 tipo: spec
 area: autenticacao
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-09-08
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -16,7 +16,7 @@ aliases: ["Autenticação e Sessão"]
 # Autenticação e sessão
 
 > [!info] Status
-> **implementado** · área: `autenticacao` · atualizado em 2026-07-31 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[specs/controle-de-acesso]], [[07_guia_deploy]]
+> **implementado** · área: `autenticacao` · atualizado em 2026-09-08 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[specs/controle-de-acesso]], [[07_guia_deploy]]
 
 ## Problema
 
@@ -52,13 +52,18 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 5. Troca ou redefinição de senha revoga todas as sessões do usuário.
 6. Falhas de autenticação alimentam rate limiting por email e IP.
 7. O login tradicional funciona sem OIDC; OIDC permanece opcional e desabilitado.
+8. Na API V4, sessão e CSRF usam cookies separados; a sessão é `HttpOnly`, e
+   toda mutação autenticada exige origem permitida e token CSRF coincidente.
+9. `POST /api/v1/auth/refresh` rotaciona o JTI durante atividade e mantém apenas
+   uma sessão ativa por usuário.
 
 ## Interface, serviços e dados
 
 - Tela: `ui/login.py`; roteamento e logout em `main.py`.
 - Serviços: `services/auth_service.py` e `services/access_control.py`.
 - Repositórios/tabelas: `usuarios`, `auth_sessions`, `login_attempts`, `password_reset_tokens`.
-- API: não aplicável; entrega Streamlit.
+- API V4: `/api/v1/auth/login`, `/logout`, `/me`, `/refresh`,
+  `/password-reset` e `/password-reset/confirm`.
 
 ## Critérios de aceite
 
@@ -90,6 +95,7 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 
 ## Changelog
 
+- `1.1` — 2026-09-08 — Documentados os contratos V4 de cookie, CSRF e rotação da sessão ativa.
 - `1.0` — 2026-07-31 — Comportamento atual de autenticação e sessão especificado.
 
 ## Relacionados
@@ -97,4 +103,3 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 - [[02_regras_de_negocio]]
 - [[specs/controle-de-acesso]]
 - [[07_guia_deploy]]
-

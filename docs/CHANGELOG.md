@@ -2,8 +2,8 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.1
-atualizado: 2026-09-07
+versao: 1.2
+atualizado: 2026-09-08
 relacionados:
   - "[[sdd]]"
   - "[[03_spec]]"
@@ -15,7 +15,7 @@ aliases: ["Changelog do produto", "Versões do BF1"]
 # Changelog do produto BF1
 
 > [!info] Status
-> **implementado** · área: `releases` · atualizado em 2026-09-07 · relacionados: [[sdd]], [[03_spec]], [[07_guia_deploy]]
+> **implementado** · área: `releases` · atualizado em 2026-09-08 · relacionados: [[sdd]], [[03_spec]], [[07_guia_deploy]]
 
 Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
@@ -80,6 +80,7 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
+- `1.2` — 2026-09-08 — Registrado o status documental da Fase 3; a fundação V4 ainda não altera a versão do produto publicado.
 - `1.1` — 2026-09-07 — Registrado o patch 3.5.1 de compatibilidade e robustez do restore Excel.
 - `1.0` — 2026-07-31 — Criado o histórico canônico a partir da versão vigente 3.0.5.
 

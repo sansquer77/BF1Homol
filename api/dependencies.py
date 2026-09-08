@@ -49,3 +49,8 @@ def authorize_user_object(target_user_id: int, context: AuthenticatedContext) ->
         # 404 evita confirmar a existência do objeto fora do escopo.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso não encontrado.")
 
+
+def authorize_season_object(target_season: str, context: AuthenticatedContext) -> None:
+    """Nega objetos de temporada fora do escopo sem confirmar sua existência."""
+    if context.perfil not in {"master", "admin"} and str(target_season) not in context.temporadas_autorizadas:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso não encontrado.")

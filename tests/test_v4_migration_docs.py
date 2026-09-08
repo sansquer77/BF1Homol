@@ -105,3 +105,5 @@ def test_v4_records_invite_only_master_bootstrap_and_log_download():
     assert "gerada sob demanda" in spec
     assert "[x] Fase 1" in spec
     assert "21 Excel anonimizadas e versionadas" in spec
+    assert "[x] Fase 3" in spec
+    assert "rotação ativa" in spec

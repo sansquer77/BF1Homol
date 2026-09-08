@@ -66,6 +66,26 @@ def me(context: AuthenticatedContext = Depends(get_current_context)) -> UserResp
     return _user_response(user)
 
 
+@router.post("/refresh", response_model=UserResponse)
+def refresh_session(request: Request, response: Response, context: AuthenticatedContext = Depends(get_current_context)) -> UserResponse:
+    """Rotaciona a sessão durante atividade autenticada e revoga o JTI anterior."""
+    from db.repo_users import get_user_by_id
+    from services.auth_service import generate_token
+
+    user = get_user_by_id(context.user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Autenticação necessária.")
+    token = generate_token(
+        context.user_id,
+        str(user.get("nome") or ""),
+        str(user.get("perfil") or ""),
+        str(user.get("status") or ""),
+    )
+    issue_session_cookies(response, token)
+    record_access(event="session_refreshed", success=True, ip_address=request.state.client_ip or "unknown", user=user)
+    return _user_response(user)
+
+
 @router.post("/password-reset", response_model=MessageResponse)
 def request_password_reset(payload: PasswordResetRequest, request: Request) -> MessageResponse:
     from services.auth_service import redefinir_senha_usuario
@@ -89,4 +109,3 @@ def confirm_password_reset(payload: PasswordResetConfirm) -> MessageResponse:
     if not ok:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token inválido ou expirado.")
     return MessageResponse(message="Senha redefinida com sucesso.")
-

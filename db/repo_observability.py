@@ -13,12 +13,17 @@ logger = logging.getLogger(__name__)
 _SENSITIVE_KEYS = {"password", "senha", "token", "jwt", "authorization", "cookie", "secret"}
 
 
+def _is_sensitive_key(key: object) -> bool:
+    normalized = str(key).lower().replace("-", "_")
+    return any(part in _SENSITIVE_KEYS for part in normalized.split("_"))
+
+
 def sanitize_metadata(value: Any, *, depth: int = 0) -> Any:
     if depth > 4:
         return "[truncated]"
     if isinstance(value, dict):
         return {
-            str(key)[:80]: "[redacted]" if str(key).lower() in _SENSITIVE_KEYS else sanitize_metadata(item, depth=depth + 1)
+            str(key)[:80]: "[redacted]" if _is_sensitive_key(key) else sanitize_metadata(item, depth=depth + 1)
             for key, item in list(value.items())[:50]
         }
     if isinstance(value, (list, tuple)):

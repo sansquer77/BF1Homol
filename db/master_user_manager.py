@@ -9,7 +9,6 @@ import logging
 from typing import Optional, TypedDict
 from db.connection_pool import get_pool
 from db.repo_users import hash_password
-from utils.logging_utils import redact_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -149,9 +148,6 @@ class MasterUserManager:
                 conn.commit()
                 
                 logger.info(f"✓ Usuário Master criado com sucesso (ID: {master_id})")
-                logger.info(f"  Nome: {creds['nome']}")
-                logger.info("  Email: %s", redact_identifier(creds['email']))
-                
                 return True
                 
         except Exception:

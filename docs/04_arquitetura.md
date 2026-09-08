@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.3
-atualizado: 2026-07-31
+versao: 4.4
+atualizado: 2026-09-08
 relacionados:
   - "[[01_necessidade]]"
   - "[[02_regras_de_negocio]]"
@@ -16,11 +16,18 @@ aliases: ["Arquitetura do Sistema"]
 # Arquitetura do Sistema — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-31 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
+> **implementado** · área: `bf1` · atualizado em 2026-09-08 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
 
 ## Visão Geral
 
 O BF1 é uma aplicação web **monolítica stateless** construída com **Streamlit**, conectada a um banco **PostgreSQL** gerenciado, e hospedada na **DigitalOcean App Platform**. A arquitetura é baseada em camadas com separação clara de responsabilidades.
+
+Durante a construção da versão 4, o runtime vigente acima permanece documentado
+como baseline de comportamento. A nova entrega segue o [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados|ADR-0003]]:
+Next.js na apresentação, FastAPI em `api/`, regras reutilizadas de `services/` e
+o mesmo PostgreSQL por meio de `db/`. A Fase 3 estabeleceu `/api/v1`, sessão por
+cookie seguro e revogável, autorização opaca por objeto/temporada, contexto
+correlacionável por requisição, bootstrap Master e observabilidade estruturada.
 
 ---
 
@@ -250,6 +257,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.4` — 2026-09-08 — Registrada a fundação FastAPI V4 concluída, incluindo contratos HTTP, segurança, bootstrap e observabilidade PostgreSQL.
 - `4.3` — 2026-07-31 — Driver PostgreSQL corrigido e decisões vigentes formalizadas em ADRs.
 - `4.2` — 2026-07-20 — Sessões revogáveis, cookie fail-closed, proxy explícito e retenção automática.
 - `4.1` — 2026-07-20 — Autorização em profundidade, serviços administrativos e deadline fail-closed.
