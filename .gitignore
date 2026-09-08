@@ -78,3 +78,4 @@ out/
 *.tsbuildinfo
 .pnpm-store/
 frontend/next-env.d.ts
+bf1homol-v4.yaml

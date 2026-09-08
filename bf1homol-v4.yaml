@@ -79,6 +79,6 @@ services:
   instance_count: 1
   instance_size_slug: apps-s-1vcpu-0.5gb
   name: bf1-frontend
-  build_command: cd frontend && pnpm install --frozen-lockfile && pnpm build
-  run_command: cd frontend && pnpm start --hostname 0.0.0.0 --port 3000
-  source_dir: /
+  build_command: npm install && npm run build
+  run_command: npm run start -- --hostname 0.0.0.0 --port 3000
+  source_dir: /frontend
