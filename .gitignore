@@ -70,3 +70,11 @@ pip-wheel-metadata/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Next.js / Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.pnpm-store/
+frontend/next-env.d.ts

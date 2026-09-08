@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 0.9
+versao: 1.1
 atualizado: 2026-09-08
 relacionados:
   - "[[inventario-v4]]"
@@ -71,6 +71,13 @@ operação responsável por deploy, observabilidade e restauração.
     composição podem mudar quando houver ganho demonstrável de UX.
 21. A interface é mobile-first e busca WCAG 2.2 AA, incluindo teclado, foco,
     contraste e alternativas textuais para visualizações.
+22. A V4 usa o design system **Apex Paddock UI**: superfícies grafite, vermelho
+    de corrida como ação primária, verde apenas para estados positivos/ativos,
+    ícone oficial BF1 e tipografia de telemetria. O antigo “Painel do
+    Participante” é apresentado como **Telemetria**.
+23. Pilotos exibidos em seletores, apostas, resultados e classificações têm
+    marcador de equipe ao lado do nome. A cor complementa — e nunca substitui —
+    o nome textual/acessível da equipe.
 
 ## Metas não funcionais aprovadas
 
@@ -111,6 +118,12 @@ operação responsável por deploy, observabilidade e restauração.
 18. Dado usuário não Master, quando tenta listar ou baixar logs por chamada direta, então recebe acesso negado sem metadados do arquivo.
 19. Dado Master reautenticado, quando baixa um log permitido, então recebe somente o arquivo solicitado, com nome seguro e auditoria da operação.
 20. Dada a tela pública de login, quando acessada, então não existe fluxo de criação de conta e respostas de login/recuperação não enumeram convidados.
+21. Dada uma tela V4 de participante, quando renderizada, então usa o ícone
+    oficial, a navegação “Telemetria” e a hierarquia visual Apex Paddock sem
+    verde como ação primária.
+22. Dado um piloto associado a uma equipe, quando seu nome é apresentado em
+    contexto esportivo, então existe marcador com a paleta da equipe e seu nome
+    continua disponível em texto ou nome acessível.
 
 ## Verificação
 
@@ -122,14 +135,16 @@ operação responsável por deploy, observabilidade e restauração.
 - Critério 17 — integração do bootstrap em banco vazio e reinicializado.
 - Critérios 18–19 — testes de autorização, path traversal, reautenticação, limites e auditoria do download.
 - Critério 20 — teste E2E da tela pública e testes de respostas indistinguíveis.
+- Critérios 21–22 — testes de contrato visual e E2E com inspeção acessível em
+  viewports mobile e desktop.
 
 ## Pendências
 
 > [!question] Pendências
 > As decisões de produto e arquitetura necessárias ao scaffold foram aprovadas.
 
-- Fase 4: definir os tokens visuais derivados da marca e implementar o primeiro
-  shell responsivo em Next.js antes de migrar conteúdo funcional.
+- Fase 5: substituir os dados demonstrativos do shell por conteúdo e consultas
+  reais de Sobre, Regulamento, Calendário e Telemetria.
 - A retenção poderá ser ajustada após observar o volume real, sem reduzir os controles de acesso, sanitização e exportação.
 
 ## Fora de escopo
@@ -145,8 +160,8 @@ operação responsável por deploy, observabilidade e restauração.
 - [x] Fase 1 — inventário congelado; fixtures SQL e 21 Excel anonimizadas e versionadas; restores reais aprovados no PostgreSQL 18.6; contrato reconstruído de schema versionado e estável após migrations repetidas. Fecha: critérios 1–3.
 - [x] Fase 2 — baseline de 126 testes e 139 subtestes aprovada e congelada por domínio em `tests/characterization_v4.json`. Fecha: critérios 4 e 10 no comportamento legado; autorização HTTP será ampliada na Fase 3.
 - [x] Fase 3 — FastAPI e contratos `/api/v1` implementados com contexto correlacionável por requisição, autenticação por cookie revogável, rotação ativa, proteção de origem/CSRF, mitigação de enumeração e força bruta, autorização opaca por usuário/temporada, bootstrap Master transacional e observabilidade PostgreSQL exportável com reautenticação. Gates de integração aprovados. Fecha: critérios 5–9, 13, 14 e 17–20.
-- [ ] Fase 4 — criar Next.js responsivo, design system, cliente tipado e adaptador ApexCharts. Fecha: critérios 11 e 12.
-- [ ] Fase 5 — migrar conteúdo e consultas simples (Sobre, Regulamento, Calendário e Painel). Fecha parte dos critérios 4, 10–12.
+- [x] Fase 4 — frontend Next.js 16/App Router e TypeScript criado com design system Apex Paddock UI mobile-first, ícone oficial BF1, login exclusivo para convidados, shell responsivo, cliente regenerável pelo OpenAPI versionado e adaptador ApexCharts carregado sob demanda com tabela acessível. O Painel do Participante passa a se chamar Telemetria e pilotos recebem marcadores acessíveis de equipe. Build de produção aprovado; dashboard, login, menu e ausência de overflow validados manualmente em 360 px. Fecha: critérios 11, 12, 21 e 22 na fundação visual.
+- [ ] Fase 5 — migrar conteúdo e consultas simples (Sobre, Regulamento, Calendário e Telemetria). Fecha parte dos critérios 4, 10–12.
 - [ ] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Fecha critérios 4, 10 e 12.
 - [ ] Fase 7 — migrar operações administrativas e autorização por objeto. Fecha critérios 4 e 5.
 - [ ] Fase 8 — validar backup/restauração e recuperação a partir do último artefato estável. Fecha critérios 1–3.
@@ -155,6 +170,8 @@ operação responsável por deploy, observabilidade e restauração.
 
 ## Changelog
 
+- `1.1` — 2026-09-08 — Design system Apex Paddock UI adotado com ícone oficial, paleta grafite/vermelha, tipografia própria, novo nome Telemetria e marcadores de equipe acessíveis.
+- `1.0` — 2026-09-08 — Fase 4 concluída: Next.js responsivo, design system, login, cliente OpenAPI tipado e adaptador ApexCharts acessível aprovados em build e viewport de 360 px.
 - `0.9` — 2026-09-08 — Fase 3 concluída: gates de IDOR, sessão, força bruta, CSRF, bootstrap Master, correlação/erro opaco e exportação administrativa de logs aprovados.
 - `0.8` — 2026-09-07 — Fase 1 concluída: 21 fixtures Excel/3.904 linhas restauradas, contrato de schema reconstruído congelado e duas incompatibilidades do restore corrigidas.
 - `0.7` — 2026-09-07 — Status consolidado: inventário implementado, 21 exportações Excel recebidas, Fase 1 em validação final e Fase 3 em implementação.

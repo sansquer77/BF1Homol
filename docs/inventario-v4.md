@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: migracao-v4
 status: implementado
-versao: 0.6
-atualizado: 2026-09-07
+versao: 0.7
+atualizado: 2026-09-08
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
   - "[[04_arquitetura]]"
@@ -15,7 +15,7 @@ aliases: ["Inventário funcional e técnico da versão 4"]
 # Inventário funcional e técnico da versão 4
 
 > [!info] Status
-> **implementado** · área: `migracao-v4` · atualizado em 2026-09-07 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[04_arquitetura]], [[03_spec]]
+> **implementado** · área: `migracao-v4` · atualizado em 2026-09-08 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[04_arquitetura]], [[03_spec]]
 
 ## Objetivo e método
 
@@ -44,7 +44,7 @@ validação e falha; paginação/filtros; exportações; invalidação seletiva 
 | Área atual | Módulo | Perfis | Responsabilidade principal | Onda sugerida |
 |---|---|---|---|---|
 | Login | `ui/login.py` | anônimo | Email/senha, rate limit, recuperação e OIDC opcional. | fundação |
-| Painel do Participante | `ui/painel.py` | todos autenticados | Próxima prova, aposta e histórico individual. | 1 |
+| Painel do Participante | `ui/painel.py` | todos autenticados | Próxima prova, aposta e histórico individual. Na V4, a área é exibida como **Telemetria**. | 1 |
 | Calendário | `ui/calendario.py` | todos autenticados | Provas e horários convertidos para o fuso de exibição. | 1 |
 | Gestão de Usuários | `ui/usuarios.py` | master | Usuários, status, senha e gestão financeira. | 4 |
 | Gestão de Pilotos | `ui/gestao_pilotos.py` | admin/master | Cadastro e manutenção de pilotos. | 3 |
@@ -67,6 +67,10 @@ validação e falha; paginação/filtros; exportações; invalidação seletiva 
 Cada onda é implementada somente depois dos testes de caracterização do domínio
 correspondente. A versão 4 não carrega módulos ou sessão Streamlit. Gráficos da versão 4 usam ApexCharts por um adaptador React único,
 com tabela/resumo textual acessível como alternativa.
+
+“Painel do Participante” permanece como nome histórico da tela V3 e de seu
+módulo Python. Na interface V4, a área e a navegação usam **Telemetria**; essa
+mudança de rótulo não altera permissões, dados nem regras.
 
 ## Serviços Python reutilizáveis
 
@@ -248,6 +252,7 @@ redefine a credencial persistida.
 
 ## Changelog
 
+- `0.7` — 2026-09-08 — Painel do Participante mapeado para Telemetria na V4 e identidade de equipes incorporada ao contrato visual.
 - `0.6` — 2026-09-07 — Restore das 21 fixtures Excel aprovado no PostgreSQL 18.6 e contrato reconstruído de schema congelado.
 - `0.5` — 2026-09-07 — Inventário congelado com quatro fontes canônicas do contrato V3.x e 21 exportações Excel reais recebidas.
 - `0.4` — 2026-09-06 — Restore V3.5.0 validado em PostgreSQL 18.6 e incompatibilidades encontradas documentadas.

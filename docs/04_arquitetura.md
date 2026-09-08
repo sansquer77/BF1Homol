@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.4
+versao: 4.6
 atualizado: 2026-09-08
 relacionados:
   - "[[01_necessidade]]"
@@ -28,6 +28,15 @@ Next.js na apresentação, FastAPI em `api/`, regras reutilizadas de `services/`
 o mesmo PostgreSQL por meio de `db/`. A Fase 3 estabeleceu `/api/v1`, sessão por
 cookie seguro e revogável, autorização opaca por objeto/temporada, contexto
 correlacionável por requisição, bootstrap Master e observabilidade estruturada.
+A Fase 4 adicionou `frontend/` em Next.js 16/App Router e TypeScript, com saída
+standalone para a DigitalOcean, cliente gerado do OpenAPI e um único adaptador
+React para ApexCharts. `requirements-api.txt` representa apenas FastAPI e o
+domínio Python; Streamlit, `streamlit-calendar` e Plotly não integram o runtime
+V4. O `requirements.txt` raiz preserva a homologação V3 somente até o cutover.
+O frontend usa o design system Apex Paddock UI, com o ícone oficial BF1,
+superfícies grafite, vermelho como ação primária e verde reservado a semântica
+positiva. A paleta das equipes fica centralizada no frontend e acompanha o nome
+acessível do piloto; ela é apresentação, não dado mestre do PostgreSQL.
 
 ---
 
@@ -257,6 +266,8 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.6` — 2026-09-08 — Registrados o Apex Paddock UI, o ícone oficial, a nomenclatura Telemetria e a paleta centralizada de equipes.
+- `4.5` — 2026-09-08 — Adicionados o runtime Next.js standalone, contrato OpenAPI gerado, ApexCharts compartilhado e manifesto Python exclusivo da V4.
 - `4.4` — 2026-09-08 — Registrada a fundação FastAPI V4 concluída, incluindo contratos HTTP, segurança, bootstrap e observabilidade PostgreSQL.
 - `4.3` — 2026-07-31 — Driver PostgreSQL corrigido e decisões vigentes formalizadas em ADRs.
 - `4.2` — 2026-07-20 — Sessões revogáveis, cookie fail-closed, proxy explícito e retenção automática.

@@ -1,0 +1,29 @@
+# BF1 4.0 - Backend FastAPI e domínio Python
+# Requer Python >= 3.10 (dict_row, ParamSpec, tomllib e match-case)
+
+# API HTTP
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# PostgreSQL
+psycopg[binary]>=3.2.0
+psycopg-pool>=3.2.0
+
+# Segurança
+bcrypt>=4.1.0
+PyJWT>=2.8.0
+
+# Dados e backups compatíveis
+pandas>=2.2.0
+numpy>=1.26.0
+openpyxl>=3.1.0
+pydantic>=2.9.0
+email-validator>=2.2.0
+
+# Exportações server-side
+matplotlib>=3.8.0
+
+# Integrações
+requests>=2.31.0
+httpx>=0.25.0
+google-genai>=1.0.0

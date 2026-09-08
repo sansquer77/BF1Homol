@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.2
+versao: 1.4
 atualizado: 2026-09-08
 relacionados:
   - "[[sdd]]"
@@ -80,6 +80,8 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
+- `1.4` — 2026-09-08 — Registrada a revisão visual da fundação V4 com identidade oficial BF1, Apex Paddock UI, Telemetria e cores de equipe; o produto publicado permanece 3.5.1.
+- `1.3` — 2026-09-08 — Registrado o status documental da Fase 4 e a separação dos runtimes Next.js/FastAPI; produto publicado permanece 3.5.1.
 - `1.2` — 2026-09-08 — Registrado o status documental da Fase 3; a fundação V4 ainda não altera a versão do produto publicado.
 - `1.1` — 2026-09-07 — Registrado o patch 3.5.1 de compatibilidade e robustez do restore Excel.
 - `1.0` — 2026-07-31 — Criado o histórico canônico a partir da versão vigente 3.0.5.

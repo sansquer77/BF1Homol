@@ -107,3 +107,5 @@ def test_v4_records_invite_only_master_bootstrap_and_log_download():
     assert "21 Excel anonimizadas e versionadas" in spec
     assert "[x] Fase 3" in spec
     assert "rotação ativa" in spec
+    assert "[x] Fase 4" in spec
+    assert "ApexCharts carregado sob demanda" in spec
