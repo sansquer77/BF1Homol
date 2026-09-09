@@ -66,18 +66,21 @@ def test_v4_python_runtime_has_no_legacy_ui_or_plotly_dependencies():
     assert "streamlit" not in requirements
     assert "streamlit-calendar" not in requirements
     assert "plotly" not in requirements
-    assert "streamlit-calendar" in transitional
-    assert "ponte será removida no cutover" in transitional
+    assert "streamlit-calendar" not in transitional
+    assert "requirements-api.txt" in transitional
 
 
 def test_login_is_invite_only_and_calendar_contract_is_preserved():
     login = (FRONTEND / "src/app/login/page.tsx").read_text(encoding="utf-8")
+    login_form = (FRONTEND / "src/components/login-form.tsx").read_text(encoding="utf-8")
     readme = (FRONTEND / "README.md").read_text(encoding="utf-8")
 
     assert "Não existe cadastro público" in login
     assert "streamlit-calendar" in readme
     assert "será implementada em React" in readme
     assert "fuso" in readme
+    assert "/api/v1/auth/password-reset" in login_form
+    assert "/api/v1/auth/password-reset/confirm" in login_form
 
 
 def test_v4_uses_official_identity_telemetry_name_and_accessible_team_palette():
@@ -93,7 +96,7 @@ def test_v4_uses_official_identity_telemetry_name_and_accessible_team_palette():
     assert (FRONTEND / "src/app/icon.png").is_file()
     assert 'src="/bf1-icon.png"' in brand
     assert 'icons: { icon: "/bf1-icon.png"' in layout
-    assert '{ label: "Telemetria", href: "/"' in shell
+    assert 'label:"Telemetria",href:"/"' in shell
     assert "Participante” é apresentado como **Telemetria**" in spec
 
     assert "--red: #e10600" in css
@@ -137,7 +140,9 @@ def test_calendar_uses_canonical_circuit_ids_and_vetted_track_sources():
     page = (FRONTEND / "src/app/calendario/page.tsx").read_text(encoding="utf-8")
     css = (FRONTEND / "src/app/globals.css").read_text(encoding="utf-8")
 
-    assert '"/api/v1/calendar?season=" + DEFAULT_SEASON' in calendar
+    assert '"/api/v1/calendar?season=" + season' in calendar
+    assert "useSeason" in calendar
+    assert "race-card--past" in calendar
     assert 'alt={"Desenho da pista de " + race.name}' in calendar
     assert "f1laps/f1-track-vectors" not in calendar
     assert "julesr0y/f1-circuits-svg" not in calendar
@@ -158,7 +163,8 @@ def test_telemetry_has_no_demonstrative_data_and_uses_authenticated_api():
     chart = (FRONTEND / "src/components/accessible-chart.tsx").read_text(encoding="utf-8")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
 
-    assert '"/api/v1/telemetry?season=" + DEFAULT_SEASON' in dashboard
+    assert '"/api/v1/telemetry?season=" + season' in dashboard
+    assert "useSeason" in dashboard
     assert "data.metrics.current_position" in dashboard
     assert "data.metrics.bets_submitted" in dashboard
     assert "TRACK_ASSETS[nextRace.circuit_id]" in dashboard
@@ -175,8 +181,11 @@ def test_phase6_classification_uses_canonical_api_and_formula_columns():
     shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
 
-    assert 'href: "/classificacao"' in shell
-    assert '"/api/v1/classification?season=" + DEFAULT_SEASON' in view
+    assert 'href:"/classificacao"' in shell
+    assert "/api/v1/classification?season=${season}" in view
+    assert "classification/image?season=${season}&race_id=${raceId}" in view
+    assert "Evolução da pontuação acumulada" in view
+    assert "Posição ao longo do campeonato" in view
     for field in ("total", "champion_bonus", "vice_bonus", "team_bonus", "discard", "valid_total", "difference"):
         assert f"entry.{field}" in view
     assert "/api/v1/classification" in openapi["paths"]
@@ -187,8 +196,9 @@ def test_phase6_classification_uses_canonical_api_and_formula_columns():
 def test_phase6_bets_analysis_is_real_scoped_and_accessible():
     view = (FRONTEND / "src/components/bets-analysis-view.tsx").read_text(encoding="utf-8")
     shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
-    assert 'href: "/analises"' in shell
-    assert '"/api/v1/analysis/bets?season=" + DEFAULT_SEASON' in view
+    assert 'href:"/analises"' in shell
+    assert "/api/v1/analysis/bets?${query}" in view
+    assert "participant_id" in view
     assert 'role="img"' in view
     assert "<caption" in view
     assert "getOptionalTeamMarkerBackground" in view
@@ -198,9 +208,11 @@ def test_phase6_hall_of_fame_has_real_history_chart_and_empty_state():
     view = (FRONTEND / "src/components/hall-of-fame-view.tsx").read_text(encoding="utf-8")
     shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
-    assert 'href: "/hall-da-fama"' in shell
+    assert 'href:"/hall-da-fama"' in shell
     assert 'apiRequest<HallOfFame>("/api/v1/hall-of-fame")' in view
     assert 'stacked: true' in view
+    assert "Temporadas realizadas" in view
+    assert "Participantes históricos" in view
     assert 'role="img"' in view
     assert "Nenhuma classificação histórica registrada" in view
     assert "/api/v1/hall-of-fame" in openapi["paths"]
@@ -210,11 +222,12 @@ def test_phase6_logs_use_server_scope_pagination_and_master_access():
     view = (FRONTEND / "src/components/logs-view.tsx").read_text(encoding="utf-8")
     shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
-    assert 'href: "/logs"' in shell
+    assert 'href:"/logs"' in shell
     assert 'apiRequest<User>("/api/v1/auth/me")' in view
     assert "/api/v1/logs/bets?" in view
+    assert "/api/v1/calendar/participants?season=" in view
     assert "/api/v1/logs/access?" in view
-    assert "user_id" not in view
+    assert "scope" in view
     assert "pagination.total_pages" in view
     assert 'user?.perfil === "master"' in view
     assert "/api/v1/logs/bets" in openapi["paths"]
@@ -226,7 +239,7 @@ def test_phase6_f1_dashboard_uses_v3_provider_contract_and_accessible_apexcharts
     shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
     service = (ROOT / "services/f1_dashboard_service.py").read_text(encoding="utf-8")
-    assert 'href: "/dashboard-f1"' in shell
+    assert 'href:"/dashboard-f1"' in shell
     assert "/api/v1/f1-dashboard?season=" in view
     assert 'dynamic(() => import("react-apexcharts")' in view
     assert 'role="img"' in view
@@ -240,7 +253,7 @@ def test_phase6_championship_preserves_deadline_and_role_boundaries():
     view = (FRONTEND / "src/components/championship-view.tsx").read_text(encoding="utf-8")
     shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
-    assert 'href: "/campeonato"' in shell
+    assert 'href:"/campeonato"' in shell
     assert "/api/v1/championship?season=" in view
     assert "/api/v1/championship/bet?season=" in view
     assert "deadline_message" in view

@@ -2,8 +2,8 @@
 tipo: spec
 area: auditoria
 status: implementado
-versao: 1.2
-atualizado: 2026-09-08
+versao: 1.3
+atualizado: 2026-09-09
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/apostas-de-prova]]", "[[04_arquitetura]]"]
 tags: [spec, "area/auditoria", "status/implementado"]
 aliases: ["Logs e auditoria"]
@@ -91,6 +91,7 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 
 ## Changelog
 
+- `1.3` — 2026-09-09 — Filtro de apostador limitado ao combo de participantes autorizados da temporada global.
 - `1.2` — 2026-09-08 — Adicionados contratos V4 paginados para log de apostas com escopo de sessão e log de acessos exclusivo do Master.
 - `1.1` — 2026-09-08 — Documentadas observabilidade V4 e exportação administrativa limitada e reautenticada.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.

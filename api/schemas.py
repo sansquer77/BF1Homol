@@ -109,14 +109,29 @@ class ClassificationEntry(BaseModel):
     discard: float
     valid_total: float
     difference: float
+    movement: int | None = None
     eleventh_hits: int
     championship_hits: int
+
+
+class ClassificationRaceScore(BaseModel):
+    participant: str
+    points: float
+    cumulative_points: float
+    position: int
+
+
+class ClassificationRace(BaseModel):
+    race_id: int
+    race_name: str
+    scores: list[ClassificationRaceScore]
 
 
 class ClassificationResponse(BaseModel):
     season: str
     discard_active: bool
     entries: list[ClassificationEntry]
+    races: list[ClassificationRace] = []
 
 
 class DriverBetAggregate(BaseModel):
@@ -124,6 +139,11 @@ class DriverBetAggregate(BaseModel):
     team: str | None = None
     bets: int
     chips: int = 0
+
+
+class AnalysisParticipant(BaseModel):
+    id: int
+    name: str
 
 
 class BetsAnalysisResponse(BaseModel):
@@ -134,6 +154,8 @@ class BetsAnalysisResponse(BaseModel):
     result_count: int
     by_driver: list[DriverBetAggregate]
     eleventh: list[DriverBetAggregate]
+    participants: list[AnalysisParticipant] = []
+    selected_participant_id: int | None = None
 
 
 class HallEntry(BaseModel):

@@ -8,14 +8,15 @@ from typing import Any
 import pandas as pd
 
 
-def build_bets_analysis(season: str, *, scope_user_id: int | None) -> dict[str, Any]:
-    from db.repo_bets import get_apostas_df
+def build_bets_analysis(season: str, *, scope_user_id: int | None, include_participants: bool = False) -> dict[str, Any]:
+    from db.repo_bets import get_apostas_df, get_participantes_temporada_df
     from db.repo_races import get_pilotos_df, get_provas_df, get_resultados_df
 
     bets = get_apostas_df(str(season))
     races = get_provas_df(str(season))
     results = get_resultados_df(str(season))
     drivers = get_pilotos_df()
+    users = get_participantes_temporada_df(str(season))
     if not isinstance(bets, pd.DataFrame):
         bets = pd.DataFrame()
     if scope_user_id is not None and not bets.empty and "usuario_id" in bets.columns:
@@ -54,6 +55,16 @@ def build_bets_analysis(season: str, *, scope_user_id: int | None) -> dict[str, 
     ]
     race_count = len(races.index) if isinstance(races, pd.DataFrame) else 0
     result_count = len(results.index) if isinstance(results, pd.DataFrame) else 0
+    participant_options = []
+    if include_participants and isinstance(users, pd.DataFrame) and not users.empty:
+        for row in users.to_dict("records"):
+            try:
+                if str(row.get("perfil") or "").lower() == "master":
+                    continue
+                participant_options.append({"id": int(row["id"]), "name": str(row.get("nome") or "Participante")})
+            except (KeyError, TypeError, ValueError):
+                continue
+        participant_options.sort(key=lambda item: item["name"].casefold())
     return {
         "season": str(season),
         "scope": "individual" if scope_user_id is not None else "all",
@@ -62,6 +73,8 @@ def build_bets_analysis(season: str, *, scope_user_id: int | None) -> dict[str, 
         "result_count": result_count,
         "by_driver": by_driver,
         "eleventh": eleventh,
+        "participants": participant_options,
+        "selected_participant_id": scope_user_id,
     }
 
 

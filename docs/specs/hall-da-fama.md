@@ -2,7 +2,7 @@
 tipo: spec
 area: hall-da-fama
 status: implementado
-versao: 1.3
+versao: 1.4
 atualizado: 2026-09-09
 relacionados: ["[[specs/classificacao]]", "[[specs/controle-de-acesso]]", "[[specs/historico-do-participante]]"]
 tags: [spec, "area/hall-da-fama", "status/implementado"]
@@ -84,6 +84,7 @@ Preservar e apresentar campeões e colocações históricas de temporadas elegí
 
 ## Changelog
 
+- `1.4` — 2026-09-09 — Contadores e distribuição histórica abrangendo todos os participantes, inclusive sem pódio.
 - `1.3` — 2026-09-09 — Listagem administrativa corrigida para o contrato `dict_row` do psycopg 3 usado em produção.
 - `1.2` — 2026-09-08 — Gestão administrativa V4 do Hall da Fama disponível para Master.
 - `1.1` — 2026-09-08 — Hall da Fama V4 migrado com campeões, estatísticas, maiores vencedores e distribuição de pódios em ApexCharts.

@@ -2,8 +2,8 @@
 tipo: spec
 area: calendario
 status: implementado
-versao: 1.1
-atualizado: 2026-09-08
+versao: 1.2
+atualizado: 2026-09-09
 relacionados: ["[[02_regras_de_negocio]]", "[[specs/deadline-de-apostas]]", "[[specs/resultados-de-provas]]"]
 tags: [spec, "area/calendario", "status/implementado"]
 aliases: ["Calendário, provas e pilotos"]
@@ -65,6 +65,7 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 7. Dada data inválida legada, quando listar o calendário, então a tela continua funcional e evidencia dado tratável.
 8. Dada prova com `circuit_id` conhecido, quando abrir a V4, então o vetor correspondente, nome, data e horário são exibidos.
 9. Dado `circuit_id` ausente ou sem vetor, quando abrir a V4, então data e horário continuam disponíveis e a tela usa estado alternativo acessível.
+10. Dado o calendário em andamento, a próxima prova abre a lista e as etapas realizadas seguem ao final, sombreadas e com a rodada original preservada.
 
 ## Verificação
 
@@ -88,6 +89,7 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 
 ## Changelog
 
+- `1.2` — 2026-09-09 — Próxima prova priorizada e etapas realizadas movidas ao final com estado sombreado.
 - `1.1` — 2026-09-08 — Calendário V4 autenticado com `circuit_id` canônico e vetores de pista versionados.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 

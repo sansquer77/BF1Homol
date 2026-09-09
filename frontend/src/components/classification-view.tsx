@@ -1,28 +1,30 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
+import type { ApexOptions } from "apexcharts";
 import { apiRequest, type Classification } from "@/lib/api/client";
+import { useSeason } from "@/lib/season-context";
 
-const DEFAULT_SEASON = String(new Date().getFullYear());
-const number = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false, loading: () => <div className="chart-skeleton" /> });
+const number = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function ClassificationView() {
+  const { season } = useSeason();
   const [data, setData] = useState<Classification | null>(null);
+  const [raceId, setRaceId] = useState("");
   const [error, setError] = useState(false);
-  useEffect(() => {
-    let active = true;
-    apiRequest<Classification>(("/api/v1/classification?season=" + DEFAULT_SEASON) as `/api/v1/${string}`)
-      .then((value) => { if (active) setData(value); })
-      .catch(() => { if (active) setError(true); });
-    return () => { active = false; };
-  }, []);
-
-  return <div className="classification-view">
-    <header className="institutional-hero"><div><p className="eyebrow">Classificação · Temporada {DEFAULT_SEASON}</p><h1>Cada ponto conta.</h1><p>Total geral, bônus de campeonato e descarte reunidos na mesma base oficial.</p></div>{data ? <a className="secondary-action" href={`/api/v1/classification/image?season=${data.season}`}>Baixar classificação em PNG</a> : null}</header>
-    {error ? <div className="calendar-state calendar-state--error" role="alert">Não foi possível carregar a classificação.</div> : null}
-    {!data && !error ? <div className="calendar-state" role="status">Calculando classificação…</div> : null}
-    {data?.discard_active ? <p className="classification-note">O descarte atual é provisório e pode mudar após cada novo resultado.</p> : null}
-    {data && !data.entries.length ? <div className="calendar-state">Nenhuma pontuação disponível nesta temporada.</div> : null}
-    {data?.entries.length ? <div className="table-scroll classification-table-wrap" tabIndex={0}><table className="classification-table"><caption className="sr-only">Classificação geral da temporada {data.season}</caption><thead><tr><th>Pos.</th><th>Participante</th><th>Total geral</th><th>Bônus campeão</th><th>Bônus vice</th><th>Bônus equipe</th>{data.discard_active ? <th>Descarte</th> : null}<th>Total válido</th><th>Diferença</th></tr></thead><tbody>{data.entries.map((entry) => <tr key={entry.participant}><td><strong>{entry.position}</strong></td><td>{entry.participant}</td><td>{number.format(entry.total)}</td><td>{number.format(entry.champion_bonus)}</td><td>{number.format(entry.vice_bonus)}</td><td>{number.format(entry.team_bonus)}</td>{data.discard_active ? <td>−{number.format(entry.discard)}</td> : null}<td className="valid-total">{number.format(entry.valid_total)}</td><td>{entry.position === 1 ? "—" : number.format(entry.difference)}</td></tr>)}</tbody></table></div> : null}
+  useEffect(() => { let active = true; setData(null); setError(false); apiRequest<Classification>(`/api/v1/classification?season=${season}`).then((value) => { if (active) { setData(value); setRaceId(value.races.at(-1)?.race_id.toString() ?? ""); } }).catch(() => { if (active) setError(true); }); return () => { active = false; }; }, [season]);
+  const participants = useMemo(() => data?.entries.map((entry) => entry.participant) ?? [], [data]);
+  const accumulatedOptions: ApexOptions = { chart: { id: "classification-points", toolbar: { show: false }, foreColor: "#8A94A6" }, stroke: { width: 2, curve: "smooth" }, xaxis: { categories: data?.races.map((race) => race.race_name) ?? [] }, grid: { borderColor: "rgba(255,255,255,.08)" }, dataLabels: { enabled: false } };
+  const positionOptions: ApexOptions = { ...accumulatedOptions, chart: { ...accumulatedOptions.chart, id: "classification-positions" }, yaxis: { reversed: true, min: 1, forceNiceScale: true } };
+  const pointsSeries = participants.map((participant) => ({ name: participant, data: data?.races.map((race) => race.scores.find((score) => score.participant === participant)?.cumulative_points ?? 0) ?? [] }));
+  const positionSeries = participants.map((participant) => ({ name: participant, data: data?.races.map((race) => race.scores.find((score) => score.participant === participant)?.position ?? null) ?? [] }));
+  return <div className="classification-view"><header className="institutional-hero"><div><p className="eyebrow">Classificação · Temporada {season}</p><h1>Cada ponto conta.</h1><p>Total geral, bônus de campeonato e descarte reunidos na mesma base oficial.</p></div>{data ? <a className="secondary-action" href={`/api/v1/classification/image?season=${data.season}`}>Baixar classificação em PNG</a> : null}</header>
+    {error ? <div className="calendar-state calendar-state--error" role="alert">Não foi possível carregar a classificação.</div> : null}{!data && !error ? <div className="calendar-state">Calculando classificação…</div> : null}{data?.discard_active ? <p className="classification-note">O descarte atual é provisório e pode mudar após cada novo resultado.</p> : null}
+    {data?.entries.length ? <div className="table-scroll classification-table-wrap"><table className="classification-table"><thead><tr><th>Pos.</th><th>Participante</th><th>Total geral</th><th>Bônus campeão</th><th>Bônus vice</th><th>Bônus equipe</th>{data.discard_active ? <th>Descarte</th> : null}<th>Total válido</th><th>Diferença</th><th>Movimentação</th></tr></thead><tbody>{data.entries.map((entry) => <tr key={entry.participant}><td><strong>{entry.position}</strong></td><td>{entry.participant}</td><td>{number.format(entry.total)}</td><td>{number.format(entry.champion_bonus)}</td><td>{number.format(entry.vice_bonus)}</td><td>{number.format(entry.team_bonus)}</td>{data.discard_active ? <td>−{number.format(entry.discard)}</td> : null}<td className="valid-total">{number.format(entry.valid_total)}</td><td>{entry.position === 1 ? "—" : number.format(entry.difference)}</td><td><Movement value={entry.movement} /></td></tr>)}</tbody></table></div> : null}
+    {data?.races.length ? <><section className="panel classification-race-panel"><div className="panel__heading"><div><p className="eyebrow">Pontuação por prova</p><h2>Comparativo da etapa</h2></div><label>Prova<select value={raceId} onChange={(event) => setRaceId(event.target.value)}>{data.races.map((race) => <option key={race.race_id} value={race.race_id}>{race.race_name}</option>)}</select></label><a className="secondary-action" href={`/api/v1/classification/image?season=${season}&race_id=${raceId}`}>Baixar imagem da prova</a></div><RaceScores data={data} raceId={raceId} /></section><div className="classification-charts"><section className="panel"><h2>Evolução da pontuação acumulada</h2><div role="img" aria-label="Evolução dos pontos por prova"><ApexChart type="line" height={420} options={accumulatedOptions} series={pointsSeries} /></div></section><section className="panel"><h2>Posição ao longo do campeonato</h2><div role="img" aria-label="Posições por prova"><ApexChart type="line" height={420} options={positionOptions} series={positionSeries} /></div></section></div></> : null}
   </div>;
 }
+
+function RaceScores({ data, raceId }: { data: Classification; raceId: string }) { const race = data.races.find((item) => String(item.race_id) === raceId); if (!race) return null; return <div className="table-scroll"><table className="analysis-table"><thead><tr><th>Pos.</th><th>Participante</th><th>Pontos na prova</th><th>Acumulado</th></tr></thead><tbody>{race.scores.map((score) => <tr key={score.participant}><td>{score.position}</td><td>{score.participant}</td><td>{number.format(score.points)}</td><td>{number.format(score.cumulative_points)}</td></tr>)}</tbody></table></div>; }
+function Movement({ value }: { value?: number | null }) { if (value == null) return <span className="movement movement--new">Novo</span>; if (value > 0) return <span className="movement movement--up" aria-label={`Subiu ${value} posições`}>↑ {value}</span>; if (value < 0) return <span className="movement movement--down" aria-label={`Caiu ${Math.abs(value)} posições`}>↓ {Math.abs(value)}</span>; return <span className="movement movement--same">—</span>; }

@@ -31,6 +31,7 @@ def list_betting_logs(
     page: int = 1,
     page_size: int = 50,
     bettor: str | None = None,
+    bettor_id: int | None = None,
     bet_type: int | None = None,
     event_date: date | None = None,
     log_status: str | None = None,
@@ -66,6 +67,9 @@ def list_betting_logs(
         if bettor and scope_user_id is None:
             where.append("LOWER(COALESCE(apostador, '')) LIKE %s")
             params.append(f"%{bettor.strip().lower()}%")
+        if bettor_id is not None and scope_user_id is None and user_col is not None:
+            where.append(f"{user_col} = %s")
+            params.append(int(bettor_id))
         if bet_type is not None:
             where.append("tipo_aposta = %s")
             params.append(int(bet_type))

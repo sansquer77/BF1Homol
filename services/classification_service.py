@@ -15,7 +15,7 @@ from services.rules_service import get_regras_aplicaveis
 from utils.dataframe_contracts import APOSTAS_COLUMNS, PROVAS_COLUMNS, RESULTADOS_COLUMNS, USUARIOS_COLUMNS, with_required_columns
 
 
-_PNG_COLUMN_WIDTHS = (0.07, 0.38, 0.14, 0.13, 0.13, 0.15)
+_PNG_COLUMN_WIDTHS = (0.06, 0.34, 0.12, 0.11, 0.11, 0.14, 0.12)
 
 
 def _classification_logo_path() -> Path | None:
@@ -35,6 +35,14 @@ def calculate_totals(total: float, champion: float, vice: float, team: float, di
         "discard": float(discard),
         "valid_total": float(total) + float(champion) + float(vice) + float(team) - float(discard),
     }
+
+
+def calculate_movement(previous_position: int | None, current_position: int) -> int | None:
+    return None if previous_position is None else int(previous_position) - int(current_position)
+
+
+def _format_points_br(value: float) -> str:
+    return f"{float(value):,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
 
 
 def build_classification(season: str) -> dict[str, Any]:
@@ -87,7 +95,23 @@ def build_classification(season: str) -> dict[str, Any]:
             eleventh_hits[uid] = eleventh_hits.get(uid, 0) + 1
 
     entries = []
-    for row in participants.to_dict("records"):
+    completed_race_ids = [int(race_id) for race_id in races["id"].tolist() if int(race_id) in completed_ids]
+    previous_positions: dict[int, int] = {}
+    if len(completed_race_ids) > 1:
+        previous_ids = set(completed_race_ids[:-1])
+        previous_totals: list[tuple[int, float, int]] = []
+        for order, row in enumerate(participants.to_dict("records")):
+            uid = int(row["id"])
+            previous_bets = completed[(completed["usuario_id"] == uid) & (completed["prova_id"].isin(previous_ids))]
+            previous_total = float(pd.to_numeric(previous_bets["__points"], errors="coerce").fillna(0).sum()) if not previous_bets.empty else 0.0
+            if discard_active and not previous_bets.empty:
+                previous_total -= float(pd.to_numeric(previous_bets["__points"], errors="coerce").min())
+            previous_totals.append((uid, previous_total, order))
+        previous_totals.sort(key=lambda item: (-item[1], item[2]))
+        previous_positions = {uid: position for position, (uid, _, _) in enumerate(previous_totals, start=1)}
+
+    participant_records = participants.to_dict("records")
+    for row in participant_records:
         uid = int(row["id"])
         own = completed[completed["usuario_id"] == uid]
         total = float(pd.to_numeric(own["__points"], errors="coerce").fillna(0).sum()) if not own.empty else 0.0
@@ -103,15 +127,60 @@ def build_classification(season: str) -> dict[str, Any]:
             if championship_bet.get("team") == final_result.get("team"):
                 team_bonus = float(rules.get("pontos_equipe", 80)); championship_hits += 1
         totals = calculate_totals(total, champion_bonus, vice_bonus, team_bonus, discard)
-        entries.append({"participant": str(row["nome"]), "eleventh_hits": eleventh_hits.get(uid, 0), "championship_hits": championship_hits, **totals})
+        entries.append({"user_id": uid, "participant": str(row["nome"]), "eleventh_hits": eleventh_hits.get(uid, 0), "championship_hits": championship_hits, **totals})
 
     entries.sort(key=lambda item: (-item["valid_total"], -item["eleventh_hits"], -item["championship_hits"], item["participant"]))
     previous = None
     for index, entry in enumerate(entries, start=1):
         entry["position"] = index
         entry["difference"] = 0.0 if previous is None else round(previous - entry["valid_total"], 2)
+        prior_position = previous_positions.get(int(entry["user_id"]))
+        entry["movement"] = calculate_movement(prior_position, index)
+        entry.pop("user_id", None)
         previous = entry["valid_total"]
-    return {"season": str(season), "discard_active": discard_active, "entries": entries}
+    race_names = {int(row["id"]): str(row.get("nome") or "Prova") for row in races.to_dict("records")}
+    cumulative = {int(row["id"]): 0.0 for row in participant_records}
+    names = {int(row["id"]): str(row.get("nome") or "Participante") for row in participant_records}
+    race_history: list[dict[str, Any]] = []
+    for race_id in completed_race_ids:
+        points_by_user: dict[int, float] = {}
+        for row in participant_records:
+            uid = int(row["id"])
+            own_race = completed[(completed["usuario_id"] == uid) & (completed["prova_id"] == race_id)]
+            points = float(pd.to_numeric(own_race["__points"], errors="coerce").fillna(0).sum()) if not own_race.empty else 0.0
+            points_by_user[uid] = points
+            cumulative[uid] += points
+        ranking = sorted(cumulative, key=lambda uid: (-cumulative[uid], names[uid]))
+        positions = {uid: index for index, uid in enumerate(ranking, start=1)}
+        race_history.append({
+            "race_id": race_id,
+            "race_name": race_names.get(race_id, f"Prova {race_id}"),
+            "scores": [{
+                "participant": names[uid],
+                "points": round(points_by_user[uid], 2),
+                "cumulative_points": round(cumulative[uid], 2),
+                "position": positions[uid],
+            } for uid in ranking],
+        })
+    return {"season": str(season), "discard_active": discard_active, "entries": entries, "races": race_history}
+
+
+def classification_for_race(snapshot: dict[str, Any], race_id: int) -> dict[str, Any]:
+    race = next((item for item in snapshot.get("races", []) if int(item.get("race_id", -1)) == int(race_id)), None)
+    if race is None:
+        raise ValueError("Prova sem classificação disponível.")
+    entries = [{
+        "position": score["position"],
+        "participant": score["participant"],
+        "total": score["points"],
+        "champion_bonus": 0.0,
+        "vice_bonus": 0.0,
+        "team_bonus": 0.0,
+        "discard": 0.0,
+        "valid_total": score["points"],
+        "movement": None,
+    } for score in sorted(race["scores"], key=lambda item: item["position"])]
+    return {"season": snapshot.get("season"), "title": f'Classificação BF1 · {race["race_name"]}', "entries": entries}
 
 
 def render_classification_png(snapshot: dict[str, Any]) -> BytesIO:
@@ -122,22 +191,31 @@ def render_classification_png(snapshot: dict[str, Any]) -> BytesIO:
     import matplotlib.pyplot as plt
 
     entries = snapshot.get("entries") or []
-    columns = ["Pos.", "Participante", "Total", "Bônus", "Descarte", "Total válido"]
-    rows = [[item["position"], item["participant"], f'{item["total"]:.2f}', f'{item["champion_bonus"] + item["vice_bonus"] + item["team_bonus"]:.2f}', f'{item["discard"]:.2f}', f'{item["valid_total"]:.2f}'] for item in entries]
+    columns = ["Pos.", "Participante", "Total", "Bônus", "Descarte", "Total válido", "Mov."]
+    def movement_label(value: int | None) -> str:
+        if value is None:
+            return "Novo"
+        if value > 0:
+            return f"↑ {value}"
+        if value < 0:
+            return f"↓ {abs(value)}"
+        return "—"
+    rows = [[item["position"], item["participant"], _format_points_br(item["total"]), _format_points_br(item["champion_bonus"] + item["vice_bonus"] + item["team_bonus"]), _format_points_br(item["discard"]), _format_points_br(item["valid_total"]), movement_label(item.get("movement"))] for item in entries]
     height = min(20.0, max(4.8, len(rows) * 0.42 + 2.4))
     width = 14.0
     dpi = max(96, min(130, int((6_100_000 / (width * height)) ** 0.5)))
     figure, axis = plt.subplots(figsize=(width, height), dpi=dpi)
     figure.subplots_adjust(left=0.025, right=0.975, top=0.82, bottom=0.055)
     axis.axis("off")
-    figure.text(0.5, 0.91, f'Classificação BF1 · {snapshot.get("season", "")}', ha="center", va="center", fontsize=20, fontweight="bold")
+    title = snapshot.get("title") or f'Classificação BF1 · {snapshot.get("season", "")}'
+    figure.text(0.5, 0.91, title, ha="center", va="center", fontsize=20, fontweight="bold")
     logo_path = _classification_logo_path()
     if logo_path:
         logo_axis = figure.add_axes((0.025, 0.835, 0.095, 0.13), anchor="NW", zorder=2)
         logo_axis.imshow(mpimg.imread(logo_path))
         logo_axis.axis("off")
     table = axis.table(
-        cellText=rows or [["—", "Sem dados", "0", "0", "0", "0"]],
+        cellText=rows or [["—", "Sem dados", "0", "0", "0", "0", "Novo"]],
         colLabels=columns,
         colWidths=_PNG_COLUMN_WIDTHS,
         bbox=(0, 0, 1, 1),
@@ -167,4 +245,4 @@ def render_classification_png(snapshot: dict[str, Any]) -> BytesIO:
         plt.close(figure)
 
 
-__all__ = ["build_classification", "calculate_totals", "render_classification_png"]
+__all__ = ["build_classification", "calculate_movement", "calculate_totals", "classification_for_race", "render_classification_png"]

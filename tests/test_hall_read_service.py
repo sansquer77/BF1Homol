@@ -15,6 +15,7 @@ def test_hall_groups_seasons_winners_and_distribution_without_fabricating_champi
     assert result["season_stats"][2]["champion"] is None
     ana = next(item for item in result["distribution"] if item["participant"] == "Ana")
     assert ana["positions"] == [{"position": 1, "count": 2}]
+    assert any(item["participant"] == "Caio" for item in result["distribution"])
 
 
 def test_empty_hall_has_stable_contract():

@@ -2,8 +2,8 @@
 tipo: spec
 area: navegacao
 status: implementado
-versao: 1.0
-atualizado: 2026-08-16
+versao: 1.1
+atualizado: 2026-09-09
 relacionados:
   - "[[04_arquitetura]]"
   - "[[specs/menu-e-navegacao]]"
@@ -106,6 +106,7 @@ consultam ou operam dados por temporada.
 
 ## Changelog
 
+- `1.1` — 2026-09-09 — Contexto global V4 aplicado às consultas do bolão; Dashboard F1 histórico permanece independente.
 - `1.0` — 2026-08-16 — Seletor global de temporada na sidebar com fonte
   única `temporada_global`; seletores locais das telas de consulta removidos.
 

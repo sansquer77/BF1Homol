@@ -160,14 +160,33 @@ def get_driver_points_by_race(season: str = 'current') -> pd.DataFrame:
         season: Ano da temporada (ex: '2024', '1950') ou 'current' para temporada atual
     """
     season_val = _resolve_season(season)
-    data = _request_json(f"{BASE_URL}/{season_val}/results.json?limit=2000")
-    if not data:
+    first_page = _request_json(f"{BASE_URL}/{season_val}/results.json?limit=1000&offset=0")
+    if not first_page:
         return _empty_df(['Round', 'Race'])
 
     try:
-        all_races = data['MRData']['RaceTable'].get('Races', [])
+        metadata = first_page['MRData']
+        all_races = list(metadata['RaceTable'].get('Races', []))
+        total = _safe_int(metadata.get('total'))
+        page_limit = max(1, _safe_int(metadata.get('limit'), 1000))
     except (KeyError, TypeError):
         return _empty_df(['Round', 'Race'])
+
+    # Jolpica pode limitar a resposta abaixo do `limit` solicitado. Busca todas
+    # as páginas e combina resultados quando uma corrida cruza a paginação.
+    offset = page_limit
+    while offset < total:
+        page = _request_json(f"{BASE_URL}/{season_val}/results.json?limit={page_limit}&offset={offset}")
+        if not page:
+            break
+        try:
+            page_races = page['MRData']['RaceTable'].get('Races', [])
+        except (KeyError, TypeError):
+            break
+        if not page_races:
+            break
+        all_races.extend(page_races)
+        offset += page_limit
 
     if not all_races:
         return _empty_df(['Round', 'Race'])
@@ -175,14 +194,21 @@ def get_driver_points_by_race(season: str = 'current') -> pd.DataFrame:
     unique_races = {}
     for race in all_races:
         round_num = _safe_int(race.get('round'), default=-1)
-        if round_num > 0 and round_num not in unique_races:
-            unique_races[round_num] = race
+        if round_num <= 0:
+            continue
+        if round_num not in unique_races:
+            unique_races[round_num] = {**race, "Results": list(race.get("Results", []))}
+        else:
+            known = {item.get("Driver", {}).get("driverId") for item in unique_races[round_num].get("Results", [])}
+            unique_races[round_num]["Results"].extend(
+                item for item in race.get("Results", []) if item.get("Driver", {}).get("driverId") not in known
+            )
 
     rounds = sorted(unique_races.keys())
     if not rounds:
         return _empty_df(['Round', 'Race'])
 
-    points_tracker: dict[str, dict[int, int]] = defaultdict(dict)
+    points_tracker: dict[str, dict[int, float]] = defaultdict(dict)
     driver_names: set[str] = set()
 
     for round_num in rounds:
@@ -193,7 +219,10 @@ def get_driver_points_by_race(season: str = 'current') -> pd.DataFrame:
             if not driver_name:
                 continue
             driver_names.add(driver_name)
-            points_tracker[driver_name][round_num] = _safe_int(result.get('points'))
+            try:
+                points_tracker[driver_name][round_num] = float(result.get('points') or 0)
+            except (TypeError, ValueError):
+                points_tracker[driver_name][round_num] = 0.0
 
     output = {
         'Round': rounds,

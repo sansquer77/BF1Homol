@@ -473,6 +473,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/calendar/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Participants
+         * @description Opções autorizadas para filtros; nunca concede acesso por id recebido do cliente.
+         */
+        get: operations["participants_api_v1_calendar_participants_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calendar/seasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Seasons */
+        get: operations["seasons_api_v1_calendar_seasons_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/championship": {
         parameters: {
             query?: never;
@@ -792,6 +829,13 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** AnalysisParticipant */
+        AnalysisParticipant: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** BetsAnalysisResponse */
         BetsAnalysisResponse: {
             /** Bet Count */
@@ -800,6 +844,11 @@ export interface components {
             by_driver: components["schemas"]["DriverBetAggregate"][];
             /** Eleventh */
             eleventh: components["schemas"]["DriverBetAggregate"][];
+            /**
+             * Participants
+             * @default []
+             */
+            participants: components["schemas"]["AnalysisParticipant"][];
             /** Race Count */
             race_count: number;
             /** Result Count */
@@ -808,6 +857,8 @@ export interface components {
             scope: string;
             /** Season */
             season: string;
+            /** Selected Participant Id */
+            selected_participant_id?: number | null;
         };
         /** BettingLogItem */
         BettingLogItem: {
@@ -918,6 +969,8 @@ export interface components {
             discard: number;
             /** Eleventh Hits */
             eleventh_hits: number;
+            /** Movement */
+            movement?: number | null;
             /** Participant */
             participant: string;
             /** Position */
@@ -931,12 +984,37 @@ export interface components {
             /** Vice Bonus */
             vice_bonus: number;
         };
+        /** ClassificationRace */
+        ClassificationRace: {
+            /** Race Id */
+            race_id: number;
+            /** Race Name */
+            race_name: string;
+            /** Scores */
+            scores: components["schemas"]["ClassificationRaceScore"][];
+        };
+        /** ClassificationRaceScore */
+        ClassificationRaceScore: {
+            /** Cumulative Points */
+            cumulative_points: number;
+            /** Participant */
+            participant: string;
+            /** Points */
+            points: number;
+            /** Position */
+            position: number;
+        };
         /** ClassificationResponse */
         ClassificationResponse: {
             /** Discard Active */
             discard_active: boolean;
             /** Entries */
             entries: components["schemas"]["ClassificationEntry"][];
+            /**
+             * Races
+             * @default []
+             */
+            races: components["schemas"]["ClassificationRace"][];
             /** Season */
             season: string;
         };
@@ -2235,6 +2313,7 @@ export interface operations {
         parameters: {
             query: {
                 season: string;
+                participant_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -2552,6 +2631,57 @@ export interface operations {
             };
         };
     };
+    participants_api_v1_calendar_participants_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminParticipant"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    seasons_api_v1_calendar_seasons_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
     championship_snapshot_api_v1_championship_get: {
         parameters: {
             query: {
@@ -2657,6 +2787,7 @@ export interface operations {
         parameters: {
             query: {
                 season: string;
+                race_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -2870,6 +3001,7 @@ export interface operations {
                 page?: number;
                 page_size?: number;
                 bettor?: string | null;
+                bettor_id?: number | null;
                 bet_type?: number | null;
                 event_date?: string | null;
                 log_status?: string | null;

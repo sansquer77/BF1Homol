@@ -183,6 +183,24 @@
         "title": "AdminParticipant",
         "type": "object"
       },
+      "AnalysisParticipant": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AnalysisParticipant",
+        "type": "object"
+      },
       "BetsAnalysisResponse": {
         "properties": {
           "bet_count": {
@@ -203,6 +221,14 @@
             "title": "Eleventh",
             "type": "array"
           },
+          "participants": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AnalysisParticipant"
+            },
+            "title": "Participants",
+            "type": "array"
+          },
           "race_count": {
             "title": "Race Count",
             "type": "integer"
@@ -218,6 +244,17 @@
           "season": {
             "title": "Season",
             "type": "string"
+          },
+          "selected_participant_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Participant Id"
           }
         },
         "required": [
@@ -644,6 +681,17 @@
             "title": "Eleventh Hits",
             "type": "integer"
           },
+          "movement": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Movement"
+          },
           "participant": {
             "title": "Participant",
             "type": "string"
@@ -685,6 +733,60 @@
         "title": "ClassificationEntry",
         "type": "object"
       },
+      "ClassificationRace": {
+        "properties": {
+          "race_id": {
+            "title": "Race Id",
+            "type": "integer"
+          },
+          "race_name": {
+            "title": "Race Name",
+            "type": "string"
+          },
+          "scores": {
+            "items": {
+              "$ref": "#/components/schemas/ClassificationRaceScore"
+            },
+            "title": "Scores",
+            "type": "array"
+          }
+        },
+        "required": [
+          "race_id",
+          "race_name",
+          "scores"
+        ],
+        "title": "ClassificationRace",
+        "type": "object"
+      },
+      "ClassificationRaceScore": {
+        "properties": {
+          "cumulative_points": {
+            "title": "Cumulative Points",
+            "type": "number"
+          },
+          "participant": {
+            "title": "Participant",
+            "type": "string"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "participant",
+          "points",
+          "cumulative_points",
+          "position"
+        ],
+        "title": "ClassificationRaceScore",
+        "type": "object"
+      },
       "ClassificationResponse": {
         "properties": {
           "discard_active": {
@@ -696,6 +798,14 @@
               "$ref": "#/components/schemas/ClassificationEntry"
             },
             "title": "Entries",
+            "type": "array"
+          },
+          "races": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ClassificationRace"
+            },
+            "title": "Races",
             "type": "array"
           },
           "season": {
@@ -3267,6 +3377,23 @@
               "title": "Season",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "participant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Participant Id"
+            }
           }
         ],
         "responses": {
@@ -3630,6 +3757,79 @@
         ]
       }
     },
+    "/api/v1/calendar/participants": {
+      "get": {
+        "description": "Opções autorizadas para filtros; nunca concede acesso por id recebido do cliente.",
+        "operationId": "participants_api_v1_calendar_participants_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminParticipant"
+                  },
+                  "title": "Response Participants Api V1 Calendar Participants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Participants",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/v1/calendar/seasons": {
+      "get": {
+        "operationId": "seasons_api_v1_calendar_seasons_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Seasons Api V1 Calendar Seasons Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Seasons",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
     "/api/v1/championship": {
       "get": {
         "operationId": "championship_snapshot_api_v1_championship_get",
@@ -3794,6 +3994,23 @@
               "pattern": "^\\d{4}$",
               "title": "Season",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "race_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Race Id"
             }
           }
         ],
@@ -4199,6 +4416,23 @@
                 }
               ],
               "title": "Bettor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bettor_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bettor Id"
             }
           },
           {

@@ -6,8 +6,7 @@ import { AccessibleChart } from "./accessible-chart";
 import { CalendarIcon, FlagIcon, TrophyIcon } from "./icons";
 import { apiRequest, type Telemetry } from "@/lib/api/client";
 import { TRACK_ASSETS } from "@/lib/track-assets";
-
-const DEFAULT_SEASON = String(new Date().getFullYear());
+import { useSeason } from "@/lib/season-context";
 
 function formatPoints(value: number): string {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(value);
@@ -30,17 +29,19 @@ function countdown(target?: string): { days: string; hours: string; minutes: str
 }
 
 export function DashboardOverview() {
+  const { season } = useSeason();
   const [data, setData] = useState<Telemetry | null>(null);
   const [error, setError] = useState(false);
   const [clock, setClock] = useState(0);
 
   useEffect(() => {
     let active = true;
-    apiRequest<Telemetry>(("/api/v1/telemetry?season=" + DEFAULT_SEASON) as `/api/v1/${string}`)
+    setData(null); setError(false);
+    apiRequest<Telemetry>(("/api/v1/telemetry?season=" + season) as `/api/v1/${string}`)
       .then((snapshot) => { if (active) setData(snapshot); })
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
-  }, []);
+  }, [season]);
 
   useEffect(() => {
     if (!data?.next_race) return;
@@ -56,7 +57,7 @@ export function DashboardOverview() {
   if (!data) return <div className="dashboard"><div className="calendar-state" role="status">Carregando Telemetria…</div></div>;
 
   return <div className="dashboard">
-    <header className="page-header"><div><p className="eyebrow">Telemetria · Olá, {data.user_name}</p><h1>A corrida começa antes da largada.</h1><p>{nextRace ? `Acompanhe sua estratégia para ${nextRace.name}.` : "Acompanhe seu desempenho na temporada."}</p></div><button className="season-select" type="button" aria-label={`Temporada selecionada: ${data.season}`}><span>Temporada</span><strong>{data.season}</strong><span aria-hidden="true">⌄</span></button></header>
+    <header className="page-header"><div><p className="eyebrow">Telemetria · Olá, {data.user_name}</p><h1>A corrida começa antes da largada.</h1><p>{nextRace ? `Acompanhe sua estratégia para ${nextRace.name}.` : "Acompanhe seu desempenho na temporada."}</p></div><div className="season-select" aria-label={`Temporada selecionada: ${data.season}`}><span>Temporada</span><strong>{data.season}</strong></div></header>
     {nextRace ? <section className="race-hero" id="calendario" aria-labelledby="next-race-title"><div className="race-hero__glow" aria-hidden="true" /><div className="race-hero__content"><p className="eyebrow"><span className="live-dot" /> Próxima prova · Rodada {nextRace.round}</p><h2 id="next-race-title">{nextRace.name.replace("Grande Prêmio", "GP")}</h2><div className="race-meta"><span><CalendarIcon /> {formatRaceDate(nextRace.date, nextRace.time)}</span><span><FlagIcon /> {nextRace.circuit_id?.replaceAll("_", " ") ?? "Circuito não informado"}</span></div><div className="countdown" aria-label={remaining.label}><span><strong>{remaining.days}</strong><small>dias</small></span><i>:</i><span><strong>{remaining.hours}</strong><small>horas</small></span><i>:</i><span><strong>{remaining.minutes}</strong><small>min</small></span></div><a className="primary-action" href="/apostas">Fazer minha aposta <span aria-hidden="true">→</span></a></div><div className="track-art">{track ? <Image src={track.src} alt={`Circuito de ${nextRace.name}`} fill sizes="(max-width: 760px) 100vw, 42vw" /> : <FlagIcon />}<small>{nextRace.name}</small></div></section> : <section className="calendar-state"><strong>Nenhuma próxima prova cadastrada.</strong><p>O calendário da temporada não possui evento futuro disponível.</p></section>}
     <section className="metric-grid" aria-label="Resumo da temporada"><article className="metric-card"><span className="metric-icon"><TrophyIcon /></span><p>Sua posição registrada</p><strong>{data.metrics.current_position ? `${data.metrics.current_position}º` : "—"}</strong><small>Última prova com classificação</small></article><article className="metric-card"><span className="metric-icon"><FlagIcon /></span><p>Pontuação acumulada</p><strong>{formatPoints(data.metrics.points)}</strong><small>Pontos materializados na temporada</small></article><article className="metric-card"><span className="metric-icon"><CalendarIcon /></span><p>Apostas na temporada</p><strong>{data.metrics.bets_submitted}/{data.metrics.races_total}</strong><small>Provas com aposta registrada</small></article></section>
     <div className="content-grid"><AccessibleChart points={data.evolution} /><section className="panel ranking-panel" id="classificacao" aria-labelledby="ranking-title"><div className="panel__heading"><div><p className="eyebrow">Campeonato</p><h2 id="ranking-title">Classificação resumida</h2></div></div>{data.ranking.length ? <ol className="ranking-list">{data.ranking.map((person) => <li key={`${person.position}-${person.name}`} className={person.is_current_user ? "ranking-row ranking-row--current" : "ranking-row"}><strong className="position">{person.position}</strong><span className="avatar avatar--small">{initials(person.name)}</span><span className="driver"><strong>{person.name}</strong><small>{person.is_current_user ? "Você" : "Participante"}</small></span><span className="points"><strong>{formatPoints(person.points)}</strong><small>pts</small></span></li>)}</ol> : <p className="panel-empty">Ainda não há classificação registrada.</p>}</section></div>

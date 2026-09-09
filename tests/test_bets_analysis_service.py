@@ -15,9 +15,17 @@ def test_analysis_limits_participant_and_aggregates_drivers_and_chips():
          patch("db.repo_races.get_pilotos_df", return_value=drivers), \
          patch("db.repo_races.get_provas_df", return_value=pd.DataFrame([{"id": 1}])), \
          patch("db.repo_races.get_resultados_df", return_value=pd.DataFrame()):
-        result = build_bets_analysis("2026", scope_user_id=7)
+        with patch("db.repo_bets.get_participantes_temporada_df", return_value=pd.DataFrame()):
+            result = build_bets_analysis("2026", scope_user_id=7)
 
     assert result["scope"] == "individual"
     assert result["bet_count"] == 1
     assert [(row["driver"], row["chips"]) for row in result["by_driver"]] == [("A", 10), ("B", 5)]
     assert result["eleventh"] == [{"driver": "C", "team": "Mercedes", "bets": 1}]
+
+
+def test_analysis_exposes_participant_options_only_for_consolidated_scope():
+    users = pd.DataFrame([{"id": 2, "nome": "Beto", "perfil": "participante"}, {"id": 1, "nome": "Ana", "perfil": "admin"}, {"id": 9, "nome": "Master", "perfil": "master"}])
+    with patch("db.repo_bets.get_apostas_df", return_value=pd.DataFrame()), patch("db.repo_bets.get_participantes_temporada_df", return_value=users), patch("db.repo_races.get_pilotos_df", return_value=pd.DataFrame()), patch("db.repo_races.get_provas_df", return_value=pd.DataFrame()), patch("db.repo_races.get_resultados_df", return_value=pd.DataFrame()):
+        result = build_bets_analysis("2026", scope_user_id=None, include_participants=True)
+    assert result["participants"] == [{"id": 1, "name": "Ana"}, {"id": 2, "name": "Beto"}]

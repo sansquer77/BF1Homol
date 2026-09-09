@@ -2,8 +2,8 @@
 tipo: spec
 area: autenticacao
 status: implementado
-versao: 1.1
-atualizado: 2026-09-08
+versao: 1.2
+atualizado: 2026-09-09
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -85,8 +85,7 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 
 ## Pendências
 
-- Expor na tela de login V4 o acesso ao fluxo já existente de recuperação e
-  redefinição de senha; implementar após a validação inicial da homologação V4.
+- Nenhuma pendência conhecida.
 
 ## Fora de escopo
 
@@ -96,9 +95,11 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 
 - [x] Registrar o contrato de login e sessão. Fecha: critérios 1 a 7.
 - [x] Mapear segurança, persistência e verificações existentes. Fecha: critérios 2 a 6.
+- [x] Expor recuperação e confirmação de senha na tela de login V4. Fecha: critério 6.
 
 ## Changelog
 
+- `1.2` — 2026-09-09 — Recuperação segura de senha disponibilizada na tela de login V4.
 - `1.1` — 2026-09-08 — Documentados os contratos V4 de cookie, CSRF e rotação da sessão ativa.
 - `1.0` — 2026-07-31 — Comportamento atual de autenticação e sessão especificado.
 

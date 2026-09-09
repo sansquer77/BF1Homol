@@ -2,8 +2,8 @@
 tipo: spec
 area: analises
 status: implementado
-versao: 1.2
-atualizado: 2026-09-08
+versao: 1.3
+atualizado: 2026-09-09
 relacionados: ["[[specs/apostas-de-prova]]", "[[specs/resultados-de-provas]]", "[[specs/classificacao]]"]
 tags: [spec, "area/analises", "status/implementado"]
 aliases: ["Análises e dashboard"]
@@ -44,6 +44,8 @@ Transformar apostas, resultados e classificação em visualizações operacionai
 5. Telas pesadas são carregadas apenas quando selecionadas; reruns não selecionados não executam suas consultas.
 6. Cache usa namespace/tags do domínio e não mantém resultado obsoleto após escrita relacionada.
 7. Visualizações não ampliam o escopo de dados autorizado ao perfil.
+8. Admin e Master podem selecionar um participante da temporada; perfis individuais permanecem limitados ao próprio usuário.
+9. O Dashboard F1 pagina todos os resultados da temporada pesquisada e mantém seletor histórico independente do contexto global do bolão.
 
 ## Interface, serviços e dados
 
@@ -76,6 +78,7 @@ Transformar apostas, resultados e classificação em visualizações operacionai
 
 ## Changelog
 
+- `1.3` — 2026-09-09 — Filtro autorizado de participante e paginação integral da progressão histórica do Dashboard F1.
 - `1.2` — 2026-09-08 — Dashboard F1 V4 migrado para read model FastAPI, preservando o provedor Jolpica/Ergast da V3, gráficos ApexCharts e estados vazios acessíveis.
 - `1.1` — 2026-09-08 — Análise de Apostas V4 migrada para FastAPI e ApexCharts, com escopo por perfil e marcadores de equipe.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.

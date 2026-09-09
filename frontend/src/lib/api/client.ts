@@ -13,6 +13,7 @@ export type AccessLogs = components["schemas"]["AccessLogsResponse"];
 export type F1Dashboard = components["schemas"]["F1DashboardResponse"];
 export type Championship = components["schemas"]["ChampionshipResponse"];
 export type ChampionshipBetRecord = components["schemas"]["ChampionshipBetRecord"];
+export type ParticipantOption = components["schemas"]["AdminParticipant"];
 export type ApiError = { detail?: string; request_id?: string };
 
 const CSRF_COOKIE = "bf1_csrf";

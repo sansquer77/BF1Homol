@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from services.classification_service import build_classification, calculate_totals, render_classification_png
+from services.classification_service import build_classification, calculate_totals, classification_for_race, render_classification_png
 
 
 def test_total_valido_preserves_canonical_formula():
@@ -40,3 +40,8 @@ def test_classification_orders_by_valid_total_and_applies_discard_once():
     assert result["entries"][0]["discard"] == 100
     assert result["entries"][0]["valid_total"] == 0
     assert result["entries"][0]["eleventh_hits"] == 1
+    assert result["races"][0]["race_name"] == "GP A"
+    assert result["races"][0]["scores"][0]["points"] == 100
+    race_snapshot = classification_for_race(result, 10)
+    assert race_snapshot["entries"][0]["participant"] == "Ana"
+    assert render_classification_png(race_snapshot).read(8) == b"\x89PNG\r\n\x1a\n"

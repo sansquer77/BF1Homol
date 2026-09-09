@@ -2,8 +2,8 @@
 tipo: spec
 area: classificacao
 status: implementado
-versao: 1.3
-atualizado: 2026-09-08
+versao: 1.5
+atualizado: 2026-09-09
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -58,6 +58,7 @@ classificação da temporada. Administradores e master também geram imagens.
 8. A renderização de PNG respeita um limite de dimensões e pixels adequado ao container de produção.
 9. Recursos do Matplotlib são liberados tanto no sucesso quanto em falhas de renderização.
 10. O PNG usa o ícone oficial do BF1 no canto superior esquerdo e distribui as colunas conforme o conteúdo, priorizando a leitura integral do participante.
+11. A movimentação compara a posição atual com a classificação acumulada até a penúltima prova realizada: valor positivo indica subida, negativo indica queda, zero permanência e ausência de referência indica novo participante.
 
 ## Interface, serviços e dados
 
@@ -78,6 +79,7 @@ classificação da temporada. Administradores e master também geram imagens.
 8. Dada uma classificação extensa, quando a imagem é preparada, então seu canvas não ultrapassa o orçamento de pixels definido.
 9. Dado um admin ou master autenticado, quando prepara e baixa uma imagem, então permanece na página Classificação com a sessão ativa.
 10. Dado um nome de participante longo, quando o PNG é gerado, então a coluna Participante recebe largura superior às colunas numéricas e o cabeçalho exibe a marca oficial.
+11. Dadas ao menos duas provas realizadas, quando a classificação é carregada, então cada participante exibe ícone e quantidade de posições ganhas ou perdidas em relação à classificação anterior.
 
 ## Verificação
 
@@ -85,6 +87,7 @@ classificação da temporada. Administradores e master também geram imagens.
 - Critério 3 — teste da fórmula e verificação manual da tabela após resultado de campeonato.
 - Critérios 8 e 9 — testes em `tests/test_classificacao_imagem.py` e verificação manual do download no ambiente Streamlit.
 - Critério 10 — teste de proporções em `tests/test_classificacao_imagem.py` e inspeção visual do PNG V4.
+- Critério 11 — teste de caracterização do cálculo em `tests/test_classification_workflow.py` e verificação visual da tabela V4.
 
 ## Pendências
 
@@ -103,9 +106,13 @@ classificação da temporada. Administradores e master também geram imagens.
 - [x] Limitar o canvas e garantir liberação da figura. Fecha: critérios 8 e 9.
 - [x] Expor a fórmula canônica na API e tabela responsiva V4. Fecha: critérios 1 a 7.
 - [x] Aplicar marca oficial e proporções legíveis à exportação PNG V4. Fecha: critério 10.
+- [x] Restaurar movimentação histórica na API, tabela e PNG V4. Fecha: critério 11.
+- [x] Expor pontuação por prova, progressão acumulada, posições e PNG de uma etapa específica na V4.
 
 ## Changelog
 
+- `1.5` — 2026-09-09 — Séries e tabela por prova, gráficos ApexCharts e exportação PNG de etapa específica.
+- `1.4` — 2026-09-09 — Movimentação em relação à penúltima prova restaurada na Classificação V4 com direção, quantidade e estado de novo participante.
 - `1.3` — 2026-09-08 — PNG V4 ajustado com logo oficial, cabeçalho compacto e coluna de participante dimensionada para nomes extensos.
 - `1.2` — 2026-09-08 — Classificação V4 adicionada com Total Válido, bônus, descarte, diferença e exportação PNG limitada calculados no backend.
 - `1.1` — 2026-09-06 — Exportação PNG limitada por memória para evitar reinício do processo e perda da sessão.
