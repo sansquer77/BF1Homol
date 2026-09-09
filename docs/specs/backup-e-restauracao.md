@@ -2,7 +2,7 @@
 tipo: spec
 area: backup
 status: implementado
-versao: 1.1
+versao: 1.2
 atualizado: 2026-09-08
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/autenticacao-e-sessao]]", "[[04_arquitetura]]"]
 tags: [spec, "area/backup", "status/implementado"]
@@ -51,6 +51,7 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 - Serviços: `services/data_access_backup.py`, autorização e validação de restauração.
 - Persistência: adaptadores de backup/restauração em `db/` e banco PostgreSQL.
 - API V4: exportação SQL, pré-validação SQL, reautenticação e restore em `/api/v1/backup`.
+- Na API V4, a autorização curta atravessa as duas requisições HTTP em cookie assinado, `HttpOnly`, `SameSite=Strict`, limitado à rota de backup e vinculado ao `jti` da sessão.
 
 ## Critérios de aceite
 
@@ -86,6 +87,7 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 - `1.1` — 2026-09-08 — Início da Fase 8 com pré-validação SQL pela API V4.
+- `1.2` — 2026-09-08 — Corrigida a persistência segura da reautenticação entre as requisições de autorização e restauração da API V4.
 
 ## Relacionados
 

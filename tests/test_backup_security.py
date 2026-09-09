@@ -1,10 +1,15 @@
 import io
 import sys
+import time
 import types
 import unittest
 import zipfile
+from http.cookies import SimpleCookie
 from pathlib import Path
 from unittest.mock import Mock, patch
+
+from fastapi import Response
+from starlette.requests import Request
 
 from utils.backup_security import (
     BackupLimitExceeded,
@@ -32,6 +37,30 @@ class _Uploaded:
 
 
 class BackupSecurityTests(unittest.TestCase):
+    def test_api_restore_grant_atravessa_requisicoes_e_fica_vinculado_ao_jti(self):
+        from api.security import consume_restore_authorization, issue_restore_authorization_cookie
+
+        response = Response()
+        with patch("services.auth_service._get_jwt_secret", return_value="s" * 32):
+            issue_restore_authorization_cookie(
+                response, user_id=7, session_jti="sessao-atual", expires_at=time.time() + 300
+            )
+        cookies = SimpleCookie()
+        for header in response.headers.getlist("set-cookie"):
+            cookies.load(header)
+        grant = cookies["bf1_restore_authorization"].value
+        request = Request({
+            "type": "http",
+            "method": "POST",
+            "path": "/api/v1/backup/restore/sql",
+            "headers": [(b"cookie", f"bf1_restore_authorization={grant}; bf1_session=session-token".encode())],
+        })
+        with patch("services.auth_service._get_jwt_secret", return_value="s" * 32), patch(
+            "services.auth_service.decode_token",
+            return_value={"user_id": 7, "jti": "sessao-atual"},
+        ):
+            self.assertEqual(consume_restore_authorization(request), (7, "sessao-atual"))
+
     def test_excel_restore_normaliza_booleanos_legados(self):
         self.assertIs(_normalize_excel_typed_value(1, "boolean"), True)
         self.assertIs(_normalize_excel_typed_value(0, "boolean"), False)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -12,6 +13,17 @@ from services.bets_scoring import calcular_pontuacao_lote
 from services.championship_service import get_championship_bets_df, get_final_results
 from services.rules_service import get_regras_aplicaveis
 from utils.dataframe_contracts import APOSTAS_COLUMNS, PROVAS_COLUMNS, RESULTADOS_COLUMNS, USUARIOS_COLUMNS, with_required_columns
+
+
+_PNG_COLUMN_WIDTHS = (0.07, 0.38, 0.14, 0.13, 0.13, 0.15)
+
+
+def _classification_logo_path() -> Path | None:
+    root = Path(__file__).resolve().parents[1]
+    for candidate in (root / "BF1 2.0.png", root / "frontend" / "public" / "bf1-icon.png"):
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def calculate_totals(total: float, champion: float, vice: float, team: float, discard: float) -> dict[str, float]:
@@ -106,6 +118,7 @@ def render_classification_png(snapshot: dict[str, Any]) -> BytesIO:
     """Gera imagem limitada da tabela sem depender da UI Streamlit."""
     import matplotlib
     matplotlib.use("Agg")
+    import matplotlib.image as mpimg
     import matplotlib.pyplot as plt
 
     entries = snapshot.get("entries") or []
@@ -115,19 +128,33 @@ def render_classification_png(snapshot: dict[str, Any]) -> BytesIO:
     width = 14.0
     dpi = max(96, min(130, int((6_100_000 / (width * height)) ** 0.5)))
     figure, axis = plt.subplots(figsize=(width, height), dpi=dpi)
+    figure.subplots_adjust(left=0.025, right=0.975, top=0.82, bottom=0.055)
     axis.axis("off")
-    axis.set_title(f'Classificação BF1 · {snapshot.get("season", "")}', fontsize=18, fontweight="bold", pad=18)
-    table = axis.table(cellText=rows or [["—", "Sem dados", "0", "0", "0", "0"]], colLabels=columns, loc="center", cellLoc="center")
+    figure.text(0.5, 0.91, f'Classificação BF1 · {snapshot.get("season", "")}', ha="center", va="center", fontsize=20, fontweight="bold")
+    logo_path = _classification_logo_path()
+    if logo_path:
+        logo_axis = figure.add_axes((0.025, 0.835, 0.095, 0.13), anchor="NW", zorder=2)
+        logo_axis.imshow(mpimg.imread(logo_path))
+        logo_axis.axis("off")
+    table = axis.table(
+        cellText=rows or [["—", "Sem dados", "0", "0", "0", "0"]],
+        colLabels=columns,
+        colWidths=_PNG_COLUMN_WIDTHS,
+        bbox=(0, 0, 1, 1),
+        cellLoc="center",
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
-    table.scale(1, 1.5)
-    for (row, _), cell in table.get_celld().items():
+    for (row, column), cell in table.get_celld().items():
         cell.set_edgecolor("#333842")
         if row == 0:
             cell.set_facecolor("#E10600")
             cell.set_text_props(color="white", fontweight="bold")
         elif row % 2 == 0:
             cell.set_facecolor("#ECEEF2")
+        if row > 0 and column == 1:
+            cell.set_text_props(ha="left")
+            cell.PAD = 0.035
     buffer = BytesIO()
     try:
         figure.savefig(buffer, format="png", bbox_inches="tight", facecolor="white")

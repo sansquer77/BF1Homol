@@ -2,7 +2,7 @@
 tipo: spec
 area: classificacao
 status: implementado
-versao: 1.2
+versao: 1.3
 atualizado: 2026-09-08
 relacionados:
   - "[[02_regras_de_negocio]]"
@@ -57,6 +57,7 @@ classificação da temporada. Administradores e master também geram imagens.
 7. Sem descarte ativo, a coluna Descarte fica oculta e seu valor matemático é zero.
 8. A renderização de PNG respeita um limite de dimensões e pixels adequado ao container de produção.
 9. Recursos do Matplotlib são liberados tanto no sucesso quanto em falhas de renderização.
+10. O PNG usa o ícone oficial do BF1 no canto superior esquerdo e distribui as colunas conforme o conteúdo, priorizando a leitura integral do participante.
 
 ## Interface, serviços e dados
 
@@ -76,12 +77,14 @@ classificação da temporada. Administradores e master também geram imagens.
 7. Dado descarte inativo, quando a tabela é exibida, então a coluna Descarte não aparece.
 8. Dada uma classificação extensa, quando a imagem é preparada, então seu canvas não ultrapassa o orçamento de pixels definido.
 9. Dado um admin ou master autenticado, quando prepara e baixa uma imagem, então permanece na página Classificação com a sessão ativa.
+10. Dado um nome de participante longo, quando o PNG é gerado, então a coluna Participante recebe largura superior às colunas numéricas e o cabeçalho exibe a marca oficial.
 
 ## Verificação
 
 - Critérios 1, 2, 4, 5, 6 e 7 — testes em `tests/test_classificacao_pontuacao.py` e `tests/test_classification_workflow.py`.
 - Critério 3 — teste da fórmula e verificação manual da tabela após resultado de campeonato.
 - Critérios 8 e 9 — testes em `tests/test_classificacao_imagem.py` e verificação manual do download no ambiente Streamlit.
+- Critério 10 — teste de proporções em `tests/test_classificacao_imagem.py` e inspeção visual do PNG V4.
 
 ## Pendências
 
@@ -99,9 +102,11 @@ classificação da temporada. Administradores e master também geram imagens.
 - [x] Fortalecer testes e atualizar regras documentadas. Fecha: critérios 1 a 7.
 - [x] Limitar o canvas e garantir liberação da figura. Fecha: critérios 8 e 9.
 - [x] Expor a fórmula canônica na API e tabela responsiva V4. Fecha: critérios 1 a 7.
+- [x] Aplicar marca oficial e proporções legíveis à exportação PNG V4. Fecha: critério 10.
 
 ## Changelog
 
+- `1.3` — 2026-09-08 — PNG V4 ajustado com logo oficial, cabeçalho compacto e coluna de participante dimensionada para nomes extensos.
 - `1.2` — 2026-09-08 — Classificação V4 adicionada com Total Válido, bônus, descarte, diferença e exportação PNG limitada calculados no backend.
 - `1.1` — 2026-09-06 — Exportação PNG limitada por memória para evitar reinício do processo e perda da sessão.
 - `1.0` — 2026-07-31 — Spec focada criada e reconciliada com cálculo e testes atuais.

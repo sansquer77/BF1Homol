@@ -28,7 +28,29 @@ def _carregar_layout_imagem():
     return namespace
 
 
+def _carregar_layout_imagem_v4():
+    source = (ROOT / "services" / "classification_service.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    nodes = [
+        node for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "_PNG_COLUMN_WIDTHS" for target in node.targets)
+    ]
+    namespace = {}
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), "services/classification_service.py", "exec"), namespace)
+    return source, namespace
+
+
 class ClassificacaoImagemTests(unittest.TestCase):
+    def test_png_v4_prioriza_participante_e_inclui_logo_oficial(self):
+        source, namespace = _carregar_layout_imagem_v4()
+        widths = namespace["_PNG_COLUMN_WIDTHS"]
+
+        self.assertAlmostEqual(sum(widths), 1.0)
+        self.assertGreater(widths[1], max(widths[2:]))
+        self.assertIn('root / "BF1 2.0.png"', source)
+        self.assertIn("logo_axis.imshow", source)
+
     def test_layout_extenso_respeita_limites_de_canvas(self):
         ns = _carregar_layout_imagem()
         largura, altura, dpi = ns["_calcular_layout_imagem"](
