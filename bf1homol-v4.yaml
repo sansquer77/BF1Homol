@@ -39,15 +39,16 @@ features:
 ingress:
   rules:
   - component:
+      name: bf1-api
+      preserve_path_prefix: true
+    match:
+      path:
+        prefix: /api
+  - component:
       name: bf1-frontend
     match:
       path:
         prefix: /
-  - component:
-      name: bf1-api
-    match:
-      path:
-        prefix: /api
 name: bf1homol
 region: nyc
 services:
@@ -79,6 +80,6 @@ services:
   instance_count: 1
   instance_size_slug: apps-s-1vcpu-0.5gb
   name: bf1-frontend
-  build_command: npm install && npm run build
-  run_command: npm run start -- --hostname 0.0.0.0 --port 3000
+  build_command: npx --yes pnpm@11.19.0 install --frozen-lockfile && npx --yes pnpm@11.19.0 run build && cp -R public .next/standalone/public && cp -R .next/static .next/standalone/.next/static
+  run_command: HOSTNAME=0.0.0.0 PORT=3000 node .next/standalone/server.js
   source_dir: /frontend
