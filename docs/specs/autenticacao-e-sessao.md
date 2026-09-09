@@ -56,6 +56,9 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
    toda mutação autenticada exige origem permitida e token CSRF coincidente.
 9. `POST /api/v1/auth/refresh` rotaciona o JTI durante atividade e mantém apenas
    uma sessão ativa por usuário.
+10. No bootstrap, `USUARIO_MASTER`, `EMAIL_MASTER` e `SENHA_MASTER` são a fonte
+    autoritativa da conta Master; nome, email, status e hash bcrypt são
+    sincronizados sem persistir a senha em texto.
 
 ## Interface, serviços e dados
 
@@ -82,7 +85,8 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 
 ## Pendências
 
-- Nenhuma pendência conhecida.
+- Expor na tela de login V4 o acesso ao fluxo já existente de recuperação e
+  redefinição de senha; implementar após a validação inicial da homologação V4.
 
 ## Fora de escopo
 

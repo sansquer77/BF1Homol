@@ -1,36 +1,4 @@
 "use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
-import { BrandMark } from "./brand-mark";
-import { BookIcon, CalendarIcon, ChartIcon, CloseIcon, GridIcon, InfoIcon, MenuIcon, TrophyIcon } from "./icons";
-
-const primaryNavigation = [
-  { label: "Telemetria", href: "/", icon: GridIcon },
-  { label: "Calendário", href: "/calendario", icon: CalendarIcon },
-  { label: "Classificação", href: "/classificacao", icon: TrophyIcon },
-  { label: "Análises", href: "/analises", icon: ChartIcon },
-  { label: "Hall da Fama", href: "/hall-da-fama", icon: TrophyIcon },
-  { label: "Dashboard F1", href: "/dashboard-f1", icon: ChartIcon },
-  { label: "Campeonato", href: "/campeonato", icon: TrophyIcon },
-  { label: "Logs", href: "/logs", icon: BookIcon },
-  { label: "Regulamento", href: "/regulamento", icon: BookIcon },
-  { label: "Sobre", href: "/sobre", icon: InfoIcon },
-] as const;
-
-export function AppShell({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-  return <div className="app-shell">
-    <a className="skip-link" href="#conteudo">Ir para o conteúdo</a>
-    <header className="mobile-header"><BrandMark compact /><button className="icon-button" type="button" aria-label={open ? "Fechar menu" : "Abrir menu"} aria-expanded={open} onClick={() => setOpen((value) => !value)}>{open ? <CloseIcon /> : <MenuIcon />}</button></header>
-    <button className={open ? "nav-scrim nav-scrim--open" : "nav-scrim"} aria-label="Fechar menu" type="button" onClick={() => setOpen(false)} />
-    <aside className={open ? "sidebar sidebar--open" : "sidebar"} aria-label="Navegação principal">
-      <BrandMark />
-      <nav><p className="eyebrow">Campeonato 2026</p>{primaryNavigation.map(({ label, href, icon: Icon }) => { const active = href === "/" ? pathname === "/" : pathname === href; return <Link key={label} href={href} aria-current={active ? "page" : undefined} className={active ? "nav-link nav-link--active" : "nav-link"} onClick={() => setOpen(false)}><Icon /><span>{label}</span></Link>; })}</nav>
-      <div className="sidebar__footer"><span className="avatar" aria-hidden="true">MS</span><span><strong>Marcos Silva</strong><small>Participante</small></span><Link href="/login" className="text-link">Sair</Link></div>
-    </aside>
-    <main id="conteudo" className="main-content">{children}</main>
-  </div>;
-}
+import Link from "next/link";import{usePathname,useRouter}from"next/navigation";import{useEffect,useState,type ReactNode}from"react";import{apiRequest,type User}from"@/lib/api/client";import{BrandMark}from"./brand-mark";import{BookIcon,CalendarIcon,ChartIcon,CloseIcon,GridIcon,InfoIcon,MenuIcon,TrophyIcon}from"./icons";
+type Item={label:string;href:string;icon:typeof GridIcon;roles?:string[]};const groups:{label:string;items:Item[]}[]=[{label:"Corrida",items:[{label:"Telemetria",href:"/",icon:GridIcon},{label:"Fazer minha aposta",href:"/apostas",icon:TrophyIcon},{label:"Calendário",href:"/calendario",icon:CalendarIcon},{label:"Classificação",href:"/classificacao",icon:TrophyIcon}]},{label:"Status BF1",items:[{label:"Análises",href:"/analises",icon:ChartIcon},{label:"Campeonato",href:"/campeonato",icon:TrophyIcon}]},{label:"História",items:[{label:"Hall da Fama",href:"/hall-da-fama",icon:TrophyIcon},{label:"Dashboard F1",href:"/dashboard-f1",icon:ChartIcon}]},{label:"Informações",items:[{label:"Logs",href:"/logs",icon:BookIcon},{label:"Regulamento",href:"/regulamento",icon:BookIcon},{label:"Sobre",href:"/sobre",icon:InfoIcon}]},{label:"Administração",items:[{label:"Usuários, pilotos e provas",href:"/admin",icon:GridIcon,roles:["admin","master"]},{label:"Regras",href:"/admin/regras",icon:BookIcon,roles:["master"]},{label:"Financeiro",href:"/admin/financeiro",icon:ChartIcon,roles:["master"]},{label:"Hall da Fama",href:"/admin/hall-da-fama",icon:TrophyIcon,roles:["master"]},{label:"Backup e restauração",href:"/admin/backup",icon:BookIcon,roles:["master"]}]}];
+export function AppShell({children}:{children:ReactNode}){const[open,setOpen]=useState(false),[user,setUser]=useState<User|null>(null);const pathname=usePathname(),router=useRouter();useEffect(()=>{let active=true;apiRequest<User>("/api/v1/auth/me").then(v=>{if(active)setUser(v)}).catch(()=>router.replace("/login"));return()=>{active=false}},[router]);async function logout(){try{await apiRequest("/api/v1/auth/logout",{method:"POST"})}finally{router.replace("/login");router.refresh()}}if(!user)return <main className="status-page" aria-busy="true"><BrandMark/><p>Validando sua sessão…</p></main>;const initials=user.nome.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase();return <div className="app-shell"><a className="skip-link" href="#conteudo">Ir para o conteúdo</a><header className="mobile-header"><BrandMark compact/><button type="button" className="icon-button" aria-label={open?"Fechar menu":"Abrir menu"} onClick={()=>setOpen(v=>!v)}>{open?<CloseIcon/>:<MenuIcon/>}</button></header><button type="button" className={open?"nav-scrim nav-scrim--open":"nav-scrim"} aria-label="Fechar menu" onClick={()=>setOpen(false)}/><aside className={open?"sidebar sidebar--open":"sidebar"}><BrandMark/><nav>{groups.map(group=>{const items=group.items.filter(i=>!i.roles||i.roles.includes(user.perfil));return items.length?<section className="nav-group" key={group.label}><p className="eyebrow">{group.label}</p>{items.map(({label,href,icon:Icon})=>{const active=href==="/"?pathname==="/":pathname===href||pathname.startsWith(`${href}/`);return <Link key={`${group.label}-${label}`} href={href} className={active?"nav-link nav-link--active":"nav-link"} onClick={()=>setOpen(false)}><Icon/><span>{label}</span></Link>})}</section>:null})}</nav><div className="sidebar__footer"><span className="avatar">{initials}</span><span><strong>{user.nome}</strong><small>{user.perfil}</small></span><button type="button" className="text-link" onClick={logout}>Sair</button></div></aside><main id="conteudo" className="main-content">{children}</main></div>}

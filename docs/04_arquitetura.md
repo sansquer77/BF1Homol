@@ -32,6 +32,8 @@ A configuração `bf1homol-v4.yaml` separa o deploy em dois componentes: `bf1-ap
 (FastAPI/uvicorn) e `bf1-frontend` (Next.js), com `/api` roteado para a API e a
 raiz para o frontend. As variáveis Master/DigitalOcean permanecem com os mesmos
 nomes; `DATABASE_URL` continua vindo do banco PostgreSQL gerenciado.
+O bootstrap sincroniza a conta Master com essas variáveis a cada inicialização;
+o PostgreSQL armazena somente o hash bcrypt necessário à autenticação.
 A Fase 4 adicionou `frontend/` em Next.js 16/App Router e TypeScript, com saída
 standalone para a DigitalOcean, cliente gerado do OpenAPI e um único adaptador
 React para ApexCharts. `requirements-api.txt` representa apenas FastAPI e o

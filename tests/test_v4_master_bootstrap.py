@@ -10,15 +10,18 @@ from db.master_user_manager import MasterUserManager
 
 
 class MasterBootstrapV4Tests(unittest.TestCase):
-    def test_existing_master_does_not_require_or_reset_environment_credentials(self):
-        with patch.object(MasterUserManager, "_master_exists", return_value=True), \
-             patch.object(MasterUserManager, "_get_credentials") as credentials:
+    def test_existing_master_is_synchronized_from_environment_credentials(self):
+        credentials = {"nome": "Master Env", "email": "master@example.invalid", "senha": "Secret-123", "telegram": None}
+        cursor = MagicMock(); cursor.fetchone.return_value = {"id": 1, "nome": "Antigo", "email": "old@example.invalid", "senha_hash": "old-hash", "status": "Ativo"}
+        conn = MagicMock(); conn.cursor.return_value = cursor
+        context = MagicMock(); context.__enter__.return_value = conn
+        pool = MagicMock(); pool.get_connection.return_value = context
+        with patch.object(MasterUserManager, "_get_credentials", return_value=credentials), patch("db.master_user_manager.get_pool", return_value=pool), patch("db.master_user_manager.check_password", return_value=False), patch("db.master_user_manager.hash_password", return_value="new-hash"):
             self.assertTrue(MasterUserManager._create_master())
-        credentials.assert_not_called()
+        self.assertTrue(any("UPDATE usuarios" in str(call.args[0]) for call in cursor.execute.call_args_list))
 
     def test_empty_database_requires_exact_existing_environment_variables(self):
-        with patch.object(MasterUserManager, "_master_exists", return_value=False), \
-             patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "EMAIL_MASTER, SENHA_MASTER e USUARIO_MASTER"):
                 MasterUserManager._create_master()
 
@@ -48,7 +51,7 @@ class MasterBootstrapV4Tests(unittest.TestCase):
 
     def test_transactional_recheck_prevents_duplicate_master(self):
         cursor = MagicMock()
-        cursor.fetchone.return_value = {"id": 1}
+        cursor.fetchone.return_value = {"id": 1, "nome": "Master", "email": "master@example.invalid", "senha_hash": "existing-hash", "status": "Ativo"}
         conn = MagicMock()
         conn.cursor.return_value = cursor
         connection_context = MagicMock()
@@ -60,6 +63,7 @@ class MasterBootstrapV4Tests(unittest.TestCase):
         with patch.object(MasterUserManager, "_master_exists", return_value=False), \
              patch.object(MasterUserManager, "_get_credentials", return_value=credentials), \
              patch("db.master_user_manager.get_pool", return_value=pool), \
+             patch("db.master_user_manager.check_password", return_value=True), \
              patch("db.master_user_manager.hash_password") as hash_password:
             self.assertTrue(MasterUserManager._create_master())
 

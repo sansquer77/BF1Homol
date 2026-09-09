@@ -1,0 +1,3 @@
+import type { Metadata } from "next";import{AppShell}from"@/components/app-shell";import Link from "next/link";
+export const metadata:Metadata={title:"Fazer minha aposta"};
+export default function BetsPage(){return <AppShell><div className="institutional-page"><header className="institutional-hero"><div><p className="eyebrow">Apostas</p><h1>Formulário de apostas.</h1><p>Esta jornada será conectada às regras e à próxima prova na etapa seguinte da migração.</p></div></header><section className="panel"><h2>Em implantação</h2><p>O acesso já está separado da Telemetria. Até a migração do formulário ser concluída, nenhuma aposta é gravada por esta tela.</p><Link className="secondary-action" href="/">Voltar para Telemetria</Link></section></div></AppShell>}

@@ -8,7 +8,7 @@ import os
 import logging
 from typing import Optional, TypedDict
 from db.connection_pool import get_pool
-from db.repo_users import hash_password
+from db.repo_users import check_password, hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -100,16 +100,12 @@ class MasterUserManager:
         Returns:
             bool: True se criou, False se já existia ou erro
         """
-        # Verificar se já existe
-        if MasterUserManager._master_exists():
-            logger.info("✓ Usuário Master já existe no banco de dados")
-            return True
-
-        # Em banco sem Master, configuração incompleta deve falhar fechada.
+        # As variáveis de ambiente são a fonte autoritativa do Master também
+        # após a criação inicial; o banco persiste somente o hash bcrypt.
         creds = MasterUserManager._get_credentials()
         if not creds:
             raise RuntimeError(
-                "Banco sem usuário Master: EMAIL_MASTER, SENHA_MASTER e USUARIO_MASTER são obrigatórios."
+                "EMAIL_MASTER, SENHA_MASTER e USUARIO_MASTER são obrigatórios para sincronizar o Master."
             )
         
         # Criar Master
@@ -119,9 +115,24 @@ class MasterUserManager:
                 cursor = conn.cursor()
                 # Serializa bootstraps concorrentes do mesmo aplicativo.
                 cursor.execute("SELECT pg_advisory_xact_lock(42463100)")
-                cursor.execute("SELECT 1 FROM usuarios WHERE lower(trim(perfil))='master' LIMIT 1")
-                if cursor.fetchone() is not None:
+                cursor.execute("SELECT id, nome, email, senha_hash, status FROM usuarios WHERE lower(trim(perfil))='master' ORDER BY id LIMIT 1")
+                existing = cursor.fetchone()
+                if existing is not None:
+                    current = dict(existing)
+                    password_matches = check_password(creds['senha'], str(current.get('senha_hash') or ''))
+                    identity_matches = (
+                        str(current.get('nome') or '') == creds['nome']
+                        and str(current.get('email') or '').strip().lower() == creds['email'].strip().lower()
+                        and str(current.get('status') or '').strip().lower() == 'ativo'
+                    )
+                    if not password_matches or not identity_matches:
+                        password_hash = str(current.get('senha_hash') or '') if password_matches else hash_password(creds['senha'])
+                        cursor.execute(
+                            "UPDATE usuarios SET nome=%s, email=%s, senha_hash=%s, perfil='master', status='Ativo' WHERE id=%s",
+                            (creds['nome'], creds['email'].strip().lower(), password_hash, int(current['id'])),
+                        )
                     conn.commit()
+                    logger.info("✓ Usuário Master sincronizado com as variáveis de ambiente")
                     return True
                 
                 # Hash da senha com bcrypt
