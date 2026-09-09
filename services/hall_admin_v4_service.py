@@ -42,12 +42,19 @@ def list_hall_admin(context: AuthenticatedContext, season: str | None = None) ->
         cur = conn.cursor()
         params: tuple[Any, ...] = (season,) if season else ()
         where = "WHERE h.temporada = %s" if season else ""
-        cur.execute(f"""SELECT h.id, h.usuario_id, u.nome, h.temporada, h.posicao_final, h.pontos
+        cur.execute(f"""SELECT h.id, h.usuario_id, u.nome AS participante, h.temporada, h.posicao_final, h.pontos
                         FROM hall_da_fama h JOIN usuarios u ON u.id = h.usuario_id
                         {where} ORDER BY h.temporada DESC, h.posicao_final ASC, h.id ASC""", params)
-        records = [{"id": r[0], "user_id": r[1], "participant": r[2], "season": r[3], "position": r[4], "points": float(r[5] or 0)} for r in cur.fetchall()]
+        records = [{
+            "id": r["id"],
+            "user_id": r["usuario_id"],
+            "participant": r["participante"],
+            "season": r["temporada"],
+            "position": r["posicao_final"],
+            "points": float(r["pontos"] or 0),
+        } for r in cur.fetchall()]
         cur.execute("SELECT id, nome FROM usuarios WHERE LOWER(COALESCE(status, 'ativo')) = 'ativo' ORDER BY nome")
-        participants = [{"id": r[0], "name": r[1]} for r in cur.fetchall()]
+        participants = [{"id": r["id"], "name": r["nome"]} for r in cur.fetchall()]
         cur.close()
     return {"records": records, "participants": participants}
 

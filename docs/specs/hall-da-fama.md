@@ -2,8 +2,8 @@
 tipo: spec
 area: hall-da-fama
 status: implementado
-versao: 1.2
-atualizado: 2026-09-08
+versao: 1.3
+atualizado: 2026-09-09
 relacionados: ["[[specs/classificacao]]", "[[specs/controle-de-acesso]]", "[[specs/historico-do-participante]]"]
 tags: [spec, "area/hall-da-fama", "status/implementado"]
 aliases: ["Hall da Fama"]
@@ -79,15 +79,13 @@ Preservar e apresentar campeões e colocações históricas de temporadas elegí
 
 - [x] Autorizar e validar manutenção histórica. Fecha: critérios 1–3, 6 e 7.
 - [x] Expor gestão Master V4 com CRUD, lote idempotente e invalidação de caches.
-
-## Changelog
-
-- `1.2` — 2026-09-08 — Gestão administrativa V4 do Hall da Fama disponível para Master.
 - [x] Apresentar temporadas e posições. Fecha: critérios 4 e 5.
 - [x] Expor histórico autenticado e gráfico acessível na V4. Fecha: critérios 4 e 5.
 
 ## Changelog
 
+- `1.3` — 2026-09-09 — Listagem administrativa corrigida para o contrato `dict_row` do psycopg 3 usado em produção.
+- `1.2` — 2026-09-08 — Gestão administrativa V4 do Hall da Fama disponível para Master.
 - `1.1` — 2026-09-08 — Hall da Fama V4 migrado com campeões, estatísticas, maiores vencedores e distribuição de pódios em ApexCharts.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 

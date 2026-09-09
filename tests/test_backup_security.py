@@ -258,8 +258,29 @@ class BackupSecurityTests(unittest.TestCase):
         self.assertNotIn("BOOLEAN DEFAULT 0", prepare)
         self.assertIn("DROP CONSTRAINT IF EXISTS pilotos_nome_key", prepare)
         self.assertIn("data_registro TIMESTAMP", prepare)
-        self.assertIn("ALTER TABLE regras ALTER COLUMN temporada DROP NOT NULL", prepare)
+        self.assertIn('for legacy_column in ("temporada", "tipo_prova")', prepare)
+        self.assertIn("if legacy_column in rule_columns", prepare)
         self.assertIn("nome_regra TEXT", prepare)
+
+    def test_preparacao_nao_altera_coluna_legada_ausente(self):
+        from db.backup_utils import _prepare_schema_for_restore
+
+        cursor = Mock()
+        cursor.fetchall.return_value = [{"column_name": "id"}, {"column_name": "nome_regra"}]
+        connection = Mock()
+        connection.cursor.return_value = cursor
+        manager = Mock()
+        manager.__enter__ = Mock(return_value=connection)
+        manager.__exit__ = Mock(return_value=False)
+
+        with patch("db.db_schema.run_migrations"), patch("db.rules_utils.init_rules_table"), patch(
+            "db.backup_utils.db_connect", return_value=manager
+        ):
+            _prepare_schema_for_restore()
+
+        statements = [str(call.args[0]) for call in cursor.execute.call_args_list]
+        self.assertFalse(any("ALTER COLUMN \"temporada\"" in sql for sql in statements))
+        self.assertFalse(any("ALTER COLUMN \"tipo_prova\"" in sql for sql in statements))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 tipo: spec
 area: backup
 status: implementado
-versao: 1.2
+versao: 1.3
 atualizado: 2026-09-08
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/autenticacao-e-sessao]]", "[[04_arquitetura]]"]
 tags: [spec, "area/backup", "status/implementado"]
@@ -44,6 +44,7 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 5. Todos os caminhos de importação aplicam autorização e os mesmos limites antes do processamento intensivo.
 6. ZIPs inseguros, expansão excessiva, schemas inesperados e cargas acima dos limites são recusados sem alteração parcial.
 7. Segredos, conteúdo integral do backup e credenciais não são enviados aos logs.
+8. O preparo do schema aceita tanto a tabela `regras` legada com `temporada`/`tipo_prova` quanto o contrato nomeado V3.5 sem essas colunas.
 
 ## Interface, serviços e dados
 
@@ -88,6 +89,7 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 - `1.1` — 2026-09-08 — Início da Fase 8 com pré-validação SQL pela API V4.
 - `1.2` — 2026-09-08 — Corrigida a persistência segura da reautenticação entre as requisições de autorização e restauração da API V4.
+- `1.3` — 2026-09-09 — Preparo do restore tornado compatível com as duas variantes suportadas da tabela `regras`, corrigindo a falha observada em homologação antes da carga do SQL V3.5.
 
 ## Relacionados
 

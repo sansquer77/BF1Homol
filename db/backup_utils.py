@@ -476,8 +476,18 @@ def _prepare_schema_for_restore() -> None:
         cursor.execute("ALTER TABLE posicoes_participantes ADD COLUMN IF NOT EXISTS data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
         # O bootstrap consolidado antigo ainda cria a primeira versão de
         # `regras`; o dump V3.5 usa o contrato nomeado mais recente.
-        cursor.execute("ALTER TABLE regras ALTER COLUMN temporada DROP NOT NULL")
-        cursor.execute("ALTER TABLE regras ALTER COLUMN tipo_prova DROP NOT NULL")
+        cursor.execute(
+            """SELECT column_name FROM information_schema.columns
+               WHERE table_schema = current_schema() AND table_name = 'regras'"""
+        )
+        rule_columns = {str(row["column_name"]) for row in (cursor.fetchall() or [])}
+        # Há duas variantes V3 suportadas: a inicial possuía estas colunas;
+        # a tabela nomeada mais recente, usada pelo backup V3.5, não possui.
+        for legacy_column in ("temporada", "tipo_prova"):
+            if legacy_column in rule_columns:
+                cursor.execute(
+                    f"ALTER TABLE regras ALTER COLUMN {_quote_identifier(legacy_column)} DROP NOT NULL"
+                )
         for rule_column in (
             "nome_regra TEXT",
             "descarte INTEGER NOT NULL DEFAULT 0",
