@@ -19,7 +19,8 @@ def test_maximum_race_points_comes_from_active_rule():
         "pontos_dobrada": False,
     }
     assert calculate_max_race_points(rules) == 332
-    assert calculate_max_race_points({**rules, "pontos_dobrada": True}) == 664
+    assert calculate_max_race_points({**rules, "pontos_dobrada": True}, "Normal") == 332
+    assert calculate_max_race_points({**rules, "pontos_dobrada": True}, "Sprint") == 664
 
 
 def test_classification_png_is_generated():

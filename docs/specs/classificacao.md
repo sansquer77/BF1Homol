@@ -59,7 +59,7 @@ classificação da temporada. Administradores e master também geram imagens.
 9. Recursos do Matplotlib são liberados tanto no sucesso quanto em falhas de renderização.
 10. O PNG usa o ícone oficial do BF1 no canto superior esquerdo e distribui as colunas conforme o conteúdo, priorizando a leitura integral do participante.
 11. A movimentação compara a posição atual com a classificação acumulada até a penúltima prova realizada: valor positivo indica subida, negativo indica queda, zero permanência e ausência de referência indica novo participante.
-12. O percentual por prova divide os pontos obtidos pelo teto teórico calculado com a regra aplicável ao tipo da etapa: fichas totais, limite por piloto, mínimo de pilotos, tabela de posições, acerto do 11º e pontuação dobrada.
+12. O percentual por prova divide os pontos obtidos pelo teto teórico calculado com a regra aplicável ao tipo da etapa: fichas totais, limite por piloto, mínimo de pilotos, tabela de posições e acerto do 11º. A pontuação dobrada somente integra o teto de etapas Sprint; nunca é aplicada a uma prova Normal.
 
 ## Interface, serviços e dados
 
@@ -115,7 +115,7 @@ classificação da temporada. Administradores e master também geram imagens.
 
 ## Changelog
 
-- `1.6` — 2026-09-10 — Percentual do teto por etapa calculado pelas regras; tipografia, distribuição de colunas, rótulos e legendas ajustados.
+- `1.6` — 2026-09-10 — Percentual do teto por etapa calculado pelas regras, com dobra exclusiva para Sprint; tipografia, distribuição de colunas, rótulos e legendas ajustados.
 - `1.5` — 2026-09-09 — Séries e tabela por prova, gráficos ApexCharts e exportação PNG de etapa específica.
 - `1.4` — 2026-09-09 — Movimentação em relação à penúltima prova restaurada na Classificação V4 com direção, quantidade e estado de novo participante.
 - `1.3` — 2026-09-08 — PNG V4 ajustado com logo oficial, cabeçalho compacto e coluna de participante dimensionada para nomes extensos.

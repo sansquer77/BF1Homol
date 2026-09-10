@@ -659,6 +659,54 @@
         "title": "ChampionshipResult",
         "type": "object"
       },
+      "CircuitRefreshResponse": {
+        "properties": {
+          "circuitos": {
+            "minimum": 0.0,
+            "title": "Circuitos",
+            "type": "integer"
+          },
+          "temporadas": {
+            "minimum": 0.0,
+            "title": "Temporadas",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "temporadas",
+          "circuitos"
+        ],
+        "title": "CircuitRefreshResponse",
+        "type": "object"
+      },
+      "CircuitResponse": {
+        "properties": {
+          "circuit_id": {
+            "title": "Circuit Id",
+            "type": "string"
+          },
+          "circuit_name": {
+            "title": "Circuit Name",
+            "type": "string"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "locality": {
+            "title": "Locality",
+            "type": "string"
+          }
+        },
+        "required": [
+          "circuit_id",
+          "circuit_name",
+          "country",
+          "locality"
+        ],
+        "title": "CircuitResponse",
+        "type": "object"
+      },
       "ClassificationEntry": {
         "properties": {
           "champion_bonus": {
@@ -1710,6 +1758,268 @@
         "title": "PasswordResetRequest",
         "type": "object"
       },
+      "RaceBetAllocation": {
+        "properties": {
+          "chips": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Chips",
+            "type": "integer"
+          },
+          "driver": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Driver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver",
+          "chips"
+        ],
+        "title": "RaceBetAllocation",
+        "type": "object"
+      },
+      "RaceBetCurrent": {
+        "properties": {
+          "allocations": {
+            "items": {
+              "$ref": "#/components/schemas/RaceBetAllocation"
+            },
+            "title": "Allocations",
+            "type": "array"
+          },
+          "eleventh_driver": {
+            "title": "Eleventh Driver",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          }
+        },
+        "required": [
+          "allocations",
+          "eleventh_driver"
+        ],
+        "title": "RaceBetCurrent",
+        "type": "object"
+      },
+      "RaceBetDriver": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "team"
+        ],
+        "title": "RaceBetDriver",
+        "type": "object"
+      },
+      "RaceBetOption": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "deadline_message": {
+            "title": "Deadline Message",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_open": {
+            "title": "Is Open",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "time": {
+            "title": "Time",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "date",
+          "time",
+          "is_open",
+          "deadline_message"
+        ],
+        "title": "RaceBetOption",
+        "type": "object"
+      },
+      "RaceBetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "allocations": {
+            "items": {
+              "$ref": "#/components/schemas/RaceBetAllocation"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Allocations",
+            "type": "array"
+          },
+          "eleventh_driver": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Eleventh Driver",
+            "type": "string"
+          },
+          "race_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Race Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "race_id",
+          "allocations",
+          "eleventh_driver"
+        ],
+        "title": "RaceBetRequest",
+        "type": "object"
+      },
+      "RaceBetResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "race_id": {
+            "title": "Race Id",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "race_id",
+          "message"
+        ],
+        "title": "RaceBetResponse",
+        "type": "object"
+      },
+      "RaceBetRules": {
+        "properties": {
+          "max_chips_per_driver": {
+            "title": "Max Chips Per Driver",
+            "type": "integer"
+          },
+          "minimum_drivers": {
+            "title": "Minimum Drivers",
+            "type": "integer"
+          },
+          "same_team_allowed": {
+            "title": "Same Team Allowed",
+            "type": "boolean"
+          },
+          "total_chips": {
+            "title": "Total Chips",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_chips",
+          "max_chips_per_driver",
+          "minimum_drivers",
+          "same_team_allowed"
+        ],
+        "title": "RaceBetRules",
+        "type": "object"
+      },
+      "RaceBetSnapshot": {
+        "properties": {
+          "current_bet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RaceBetCurrent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drivers": {
+            "items": {
+              "$ref": "#/components/schemas/RaceBetDriver"
+            },
+            "title": "Drivers",
+            "type": "array"
+          },
+          "races": {
+            "items": {
+              "$ref": "#/components/schemas/RaceBetOption"
+            },
+            "title": "Races",
+            "type": "array"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/RaceBetRules"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          },
+          "selected_race": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RaceBetOption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "season",
+          "races",
+          "drivers",
+          "rules"
+        ],
+        "title": "RaceBetSnapshot",
+        "type": "object"
+      },
       "RaceRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2468,6 +2778,74 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/circuits": {
+      "get": {
+        "operationId": "get_admin_circuits_api_v1_admin_circuits_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CircuitResponse"
+                  },
+                  "title": "Response Get Admin Circuits Api V1 Admin Circuits Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Admin Circuits",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/circuits/refresh": {
+      "post": {
+        "operationId": "refresh_circuits_api_v1_admin_circuits_refresh_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CircuitRefreshResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Circuits",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/drivers": {
       "get": {
         "operationId": "get_admin_drivers_api_v1_admin_drivers_get",
@@ -4615,6 +4993,117 @@
         "summary": "Export Logs",
         "tags": [
           "logs"
+        ]
+      }
+    },
+    "/api/v1/race-bets": {
+      "get": {
+        "operationId": "race_bet_snapshot_api_v1_race_bets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "race_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Race Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RaceBetSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Race Bet Snapshot",
+        "tags": [
+          "race-bets"
+        ]
+      },
+      "post": {
+        "operationId": "submit_race_bet_api_v1_race_bets_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaceBetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RaceBetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Race Bet",
+        "tags": [
+          "race-bets"
         ]
       }
     },

@@ -137,6 +137,62 @@ class ClassificationResponse(BaseModel):
     races: list[ClassificationRace] = []
 
 
+class RaceBetDriver(BaseModel):
+    name: str
+    team: str
+
+
+class RaceBetOption(BaseModel):
+    id: int
+    name: str
+    type: str
+    date: str
+    time: str
+    is_open: bool
+    deadline: str | None = None
+    deadline_message: str
+
+
+class RaceBetRules(BaseModel):
+    total_chips: int
+    max_chips_per_driver: int
+    minimum_drivers: int
+    same_team_allowed: bool
+
+
+class RaceBetAllocation(BaseModel):
+    driver: str = Field(min_length=1, max_length=120)
+    chips: int = Field(ge=1, le=100)
+
+
+class RaceBetCurrent(BaseModel):
+    allocations: list[RaceBetAllocation]
+    eleventh_driver: str
+    submitted_at: str | None = None
+
+
+class RaceBetSnapshot(BaseModel):
+    season: str
+    races: list[RaceBetOption]
+    selected_race: RaceBetOption | None = None
+    drivers: list[RaceBetDriver]
+    rules: RaceBetRules
+    current_bet: RaceBetCurrent | None = None
+
+
+class RaceBetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    race_id: int = Field(gt=0)
+    allocations: list[RaceBetAllocation] = Field(min_length=1, max_length=20)
+    eleventh_driver: str = Field(min_length=1, max_length=120)
+
+
+class RaceBetResponse(BaseModel):
+    status: str
+    race_id: int
+    message: str
+
+
 class DriverBetAggregate(BaseModel):
     driver: str
     team: str | None = None

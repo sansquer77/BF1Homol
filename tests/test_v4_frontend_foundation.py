@@ -6,6 +6,10 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 
 
+def compact_source(path: Path) -> str:
+    return "".join(path.read_text(encoding="utf-8").split())
+
+
 def test_frontend_uses_next_app_router_typescript_and_standalone_output():
     package = json.loads((FRONTEND / "package.json").read_text(encoding="utf-8"))
     config = (FRONTEND / "next.config.ts").read_text(encoding="utf-8")
@@ -86,7 +90,7 @@ def test_login_is_invite_only_and_calendar_contract_is_preserved():
 def test_v4_uses_official_identity_telemetry_name_and_accessible_team_palette():
     layout = (FRONTEND / "src/app/layout.tsx").read_text(encoding="utf-8")
     brand = (FRONTEND / "src/components/brand-mark.tsx").read_text(encoding="utf-8")
-    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    shell = compact_source(FRONTEND / "src/components/app-shell.tsx")
     dashboard = (FRONTEND / "src/components/dashboard-overview.tsx").read_text(encoding="utf-8")
     palette = (FRONTEND / "src/lib/team-colors.ts").read_text(encoding="utf-8")
     css = (FRONTEND / "src/app/globals.css").read_text(encoding="utf-8")
@@ -176,9 +180,17 @@ def test_telemetry_has_no_demonstrative_data_and_uses_authenticated_api():
     assert "/api/v1/telemetry" in openapi["paths"]
 
 
+def test_race_management_refreshes_and_selects_api_circuits():
+    source = (FRONTEND / "src/components/admin-catalog-view.tsx").read_text()
+    assert '"/api/v1/admin/circuits"' in source
+    assert '"Atualizar circuitos"' in source
+    assert '<select value={form.circuit_id || ""}' in source
+    assert "circuitLabel(circuit)" in source
+
+
 def test_phase6_classification_uses_canonical_api_and_formula_columns():
     view = (FRONTEND / "src/components/classification-view.tsx").read_text(encoding="utf-8")
-    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    shell = compact_source(FRONTEND / "src/components/app-shell.tsx")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
 
     assert 'href:"/classificacao"' in shell
@@ -195,7 +207,7 @@ def test_phase6_classification_uses_canonical_api_and_formula_columns():
 
 def test_phase6_bets_analysis_is_real_scoped_and_accessible():
     view = (FRONTEND / "src/components/bets-analysis-view.tsx").read_text(encoding="utf-8")
-    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    shell = compact_source(FRONTEND / "src/components/app-shell.tsx")
     assert 'href:"/analises"' in shell
     assert "/api/v1/analysis/bets?${query}" in view
     assert "participant_id" in view
@@ -206,7 +218,7 @@ def test_phase6_bets_analysis_is_real_scoped_and_accessible():
 
 def test_phase6_hall_of_fame_has_real_history_chart_and_empty_state():
     view = (FRONTEND / "src/components/hall-of-fame-view.tsx").read_text(encoding="utf-8")
-    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    shell = compact_source(FRONTEND / "src/components/app-shell.tsx")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
     assert 'href:"/hall-da-fama"' in shell
     assert 'apiRequest<HallOfFame>("/api/v1/hall-of-fame")' in view
@@ -220,7 +232,7 @@ def test_phase6_hall_of_fame_has_real_history_chart_and_empty_state():
 
 def test_phase6_logs_use_server_scope_pagination_and_master_access():
     view = (FRONTEND / "src/components/logs-view.tsx").read_text(encoding="utf-8")
-    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    shell = compact_source(FRONTEND / "src/components/app-shell.tsx")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
     assert 'href:"/logs"' in shell
     assert 'apiRequest<User>("/api/v1/auth/me")' in view
@@ -236,7 +248,7 @@ def test_phase6_logs_use_server_scope_pagination_and_master_access():
 
 def test_phase6_f1_dashboard_uses_v3_provider_contract_and_accessible_apexcharts():
     view = (FRONTEND / "src/components/f1-dashboard-view.tsx").read_text(encoding="utf-8")
-    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    shell = compact_source(FRONTEND / "src/components/app-shell.tsx")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
     service = (ROOT / "services/f1_dashboard_service.py").read_text(encoding="utf-8")
     assert 'href:"/dashboard-f1"' in shell
@@ -251,7 +263,7 @@ def test_phase6_f1_dashboard_uses_v3_provider_contract_and_accessible_apexcharts
 
 def test_phase6_championship_preserves_deadline_and_role_boundaries():
     view = (FRONTEND / "src/components/championship-view.tsx").read_text(encoding="utf-8")
-    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    shell = compact_source(FRONTEND / "src/components/app-shell.tsx")
     openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
     assert 'href:"/campeonato"' in shell
     assert "/api/v1/championship?season=" in view
@@ -262,6 +274,18 @@ def test_phase6_championship_preserves_deadline_and_role_boundaries():
     assert "/api/v1/championship" in openapi["paths"]
     assert "/api/v1/championship/bet" in openapi["paths"]
     assert "/api/v1/championship/result" in openapi["paths"]
+
+
+def test_race_bet_form_and_collapsible_navigation_are_connected():
+    form = (FRONTEND / "src/components/race-bet-form.tsx").read_text(encoding="utf-8")
+    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
+    assert "/api/v1/race-bets" in form
+    assert "eleventh_driver" in form
+    assert "max_chips_per_driver" in form
+    assert 'aria-expanded={isExpanded}' in shell
+    assert 'aria-current={active ? "page" : undefined}' in shell
+    assert "/api/v1/race-bets" in openapi["paths"]
 
 
 def test_phase7_admin_contract_is_explicitly_versioned_and_server_authorized():

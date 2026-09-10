@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/v1/admin/circuits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Admin Circuits */
+        get: operations["get_admin_circuits_api_v1_admin_circuits_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/circuits/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh Circuits */
+        post: operations["refresh_circuits_api_v1_admin_circuits_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/drivers": {
         parameters: {
             query?: never;
@@ -740,6 +774,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/race-bets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Race Bet Snapshot */
+        get: operations["race_bet_snapshot_api_v1_race_bets_get"];
+        put?: never;
+        /** Submit Race Bet */
+        post: operations["submit_race_bet_api_v1_race_bets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/telemetry": {
         parameters: {
             query?: never;
@@ -956,6 +1008,24 @@ export interface components {
             team: string;
             /** Vice */
             vice: string;
+        };
+        /** CircuitRefreshResponse */
+        CircuitRefreshResponse: {
+            /** Circuitos */
+            circuitos: number;
+            /** Temporadas */
+            temporadas: number;
+        };
+        /** CircuitResponse */
+        CircuitResponse: {
+            /** Circuit Id */
+            circuit_id: string;
+            /** Circuit Name */
+            circuit_name: string;
+            /** Country */
+            country: string;
+            /** Locality */
+            locality: string;
         };
         /** ClassificationEntry */
         ClassificationEntry: {
@@ -1340,6 +1410,89 @@ export interface components {
              */
             email: string;
         };
+        /** RaceBetAllocation */
+        RaceBetAllocation: {
+            /** Chips */
+            chips: number;
+            /** Driver */
+            driver: string;
+        };
+        /** RaceBetCurrent */
+        RaceBetCurrent: {
+            /** Allocations */
+            allocations: components["schemas"]["RaceBetAllocation"][];
+            /** Eleventh Driver */
+            eleventh_driver: string;
+            /** Submitted At */
+            submitted_at?: string | null;
+        };
+        /** RaceBetDriver */
+        RaceBetDriver: {
+            /** Name */
+            name: string;
+            /** Team */
+            team: string;
+        };
+        /** RaceBetOption */
+        RaceBetOption: {
+            /** Date */
+            date: string;
+            /** Deadline */
+            deadline?: string | null;
+            /** Deadline Message */
+            deadline_message: string;
+            /** Id */
+            id: number;
+            /** Is Open */
+            is_open: boolean;
+            /** Name */
+            name: string;
+            /** Time */
+            time: string;
+            /** Type */
+            type: string;
+        };
+        /** RaceBetRequest */
+        RaceBetRequest: {
+            /** Allocations */
+            allocations: components["schemas"]["RaceBetAllocation"][];
+            /** Eleventh Driver */
+            eleventh_driver: string;
+            /** Race Id */
+            race_id: number;
+        };
+        /** RaceBetResponse */
+        RaceBetResponse: {
+            /** Message */
+            message: string;
+            /** Race Id */
+            race_id: number;
+            /** Status */
+            status: string;
+        };
+        /** RaceBetRules */
+        RaceBetRules: {
+            /** Max Chips Per Driver */
+            max_chips_per_driver: number;
+            /** Minimum Drivers */
+            minimum_drivers: number;
+            /** Same Team Allowed */
+            same_team_allowed: boolean;
+            /** Total Chips */
+            total_chips: number;
+        };
+        /** RaceBetSnapshot */
+        RaceBetSnapshot: {
+            current_bet?: components["schemas"]["RaceBetCurrent"] | null;
+            /** Drivers */
+            drivers: components["schemas"]["RaceBetDriver"][];
+            /** Races */
+            races: components["schemas"]["RaceBetOption"][];
+            rules: components["schemas"]["RaceBetRules"];
+            /** Season */
+            season: string;
+            selected_race?: components["schemas"]["RaceBetOption"] | null;
+        };
         /** RaceRequest */
         RaceRequest: {
             /** Circuit Id */
@@ -1616,6 +1769,57 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_admin_circuits_api_v1_admin_circuits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CircuitResponse"][];
+                };
+            };
+        };
+    };
+    refresh_circuits_api_v1_admin_circuits_refresh_post: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CircuitRefreshResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_admin_drivers_api_v1_admin_drivers_get: {
         parameters: {
             query?: never;
@@ -3060,6 +3264,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    race_bet_snapshot_api_v1_race_bets_get: {
+        parameters: {
+            query: {
+                season: string;
+                race_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RaceBetSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_race_bet_api_v1_race_bets_post: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RaceBetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RaceBetResponse"];
                 };
             };
             /** @description Validation Error */

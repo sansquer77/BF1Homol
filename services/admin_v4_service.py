@@ -79,3 +79,35 @@ def list_admin_races(context: AuthenticatedContext, season: str) -> list[dict[st
         cur = conn.cursor(); cur.execute("SELECT id,nome,data,horario_prova,tipo,status,circuit_id FROM provas WHERE temporada=%s ORDER BY data, id", (season,))
         rows = cur.fetchall(); cur.close()
     return [{"id": r["id"], "name": r["nome"], "date": str(r["data"]), "time": str(r["horario_prova"] or ""), "type": r["tipo"] or "Normal", "race_status": r["status"] or "Pendente", "circuit_id": r["circuit_id"]} for r in rows]
+
+
+def list_admin_circuits(context: AuthenticatedContext) -> list[dict[str, Any]]:
+    """Lista a base canônica usada no vínculo de provas da V4."""
+    _require(context, "circuito.read", frozenset({"admin", "master"}))
+    from db.circuitos_utils import get_circuitos_df
+
+    records = get_circuitos_df().to_dict(orient="records")
+    return [
+        {
+            "circuit_id": str(row.get("circuit_id") or ""),
+            "circuit_name": str(row.get("circuit_name") or row.get("circuit_id") or ""),
+            "country": str(row.get("country") or ""),
+            "locality": str(row.get("locality") or ""),
+        }
+        for row in records
+        if row.get("circuit_id")
+    ]
+
+
+def refresh_admin_circuits(context: AuthenticatedContext, season: str) -> dict[str, int]:
+    """Replica a atualização V3, mantendo IDs Jolpica/Ergast padronizados."""
+    _require(context, "circuito.write", frozenset({"admin", "master"}), season=season)
+    from db.circuitos_utils import atualizar_base_circuitos, get_temporadas_existentes_provas
+
+    seasons = set(get_temporadas_existentes_provas())
+    seasons.add(season)
+    seasons.add(str(int(season) - 1))
+    stats = atualizar_base_circuitos(sorted(seasons))
+    if stats.get("temporadas", 0) == 0:
+        raise ValueError("A API de circuitos não respondeu para as temporadas consultadas.")
+    return stats

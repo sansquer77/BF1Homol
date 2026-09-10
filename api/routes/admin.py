@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from api.dependencies import get_current_context
 from services.access_control import AuthenticatedContext, AuthorizationDenied
-from services.admin_v4_service import create_user, list_admin_drivers, list_admin_races, list_admin_users, save_result, update_user, upsert_driver, upsert_race
+from services.admin_v4_service import create_user, list_admin_circuits, list_admin_drivers, list_admin_races, list_admin_users, refresh_admin_circuits, save_result, update_user, upsert_driver, upsert_race
 from services.hall_admin_v4_service import bulk_save_hall, delete_hall_record, list_hall_admin, save_hall_record, update_hall_record
 from services.financial_v4_service import get_financial, save_financial
 from services.rules_admin_v4_service import assign_rule, clone_rule, list_rules, save_rule
@@ -51,6 +51,18 @@ class RaceRequest(BaseModel):
     type: str = Field(default="Normal", max_length=30)
     race_status: str = Field(default="Pendente", max_length=30)
     circuit_id: str | None = Field(default=None, max_length=80)
+
+
+class CircuitResponse(BaseModel):
+    circuit_id: str
+    circuit_name: str
+    country: str
+    locality: str
+
+
+class CircuitRefreshResponse(BaseModel):
+    temporadas: int = Field(ge=0)
+    circuitos: int = Field(ge=0)
 
 
 class ResultRequest(BaseModel):
@@ -153,6 +165,21 @@ def create_admin_race(season: str = Query(pattern=r"^\d{4}$"), payload: RaceRequ
 @router.get("/races")
 def get_admin_races(season: str = Query(pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
     return _read(list_admin_races, context, season)
+
+
+@router.get("/circuits", response_model=list[CircuitResponse])
+def get_admin_circuits(context: AuthenticatedContext = Depends(get_current_context)):
+    return _read(list_admin_circuits, context)
+
+
+@router.post("/circuits/refresh", response_model=CircuitRefreshResponse)
+def refresh_circuits(season: str = Query(pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
+    try:
+        return refresh_admin_circuits(context, season)
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.put("/races/{race_id}/result")

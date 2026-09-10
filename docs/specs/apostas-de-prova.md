@@ -2,8 +2,8 @@
 tipo: spec
 area: apostas
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-09-10
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[specs/deadline-de-apostas]]"
@@ -16,7 +16,7 @@ aliases: ["Apostas de Prova"]
 # Apostas de prova
 
 > [!info] Status
-> **implementado** · área: `apostas` · atualizado em 2026-07-31 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/pontuacao-de-provas]], [[specs/apostas-automaticas]]
+> **implementado** · área: `apostas` · atualizado em 2026-09-10 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/pontuacao-de-provas]], [[specs/apostas-automaticas]]
 
 ## Problema
 
@@ -56,10 +56,10 @@ explicitamente autorizadas.
 
 ## Interface, serviços e dados
 
-- Tela: `ui/painel.py` e gestão administrativa.
-- Serviços: `services/bets_rules.py` e `services/bets_write.py`.
+- Telas: `ui/painel.py` no V3 e `/apostas` no frontend V4.
+- Serviços: `services/bets_rules.py`, `services/bets_write.py` e `services/race_bets_v4_service.py`.
 - Tabelas: `apostas`, `log_apostas`, `provas`, `pilotos`, `regras`.
-- API: não aplicável.
+- API V4: `GET /api/v1/race-bets` e `POST /api/v1/race-bets`; a identidade vem exclusivamente da sessão.
 
 ## Critérios de aceite
 
@@ -71,12 +71,14 @@ explicitamente autorizadas.
 6. Dado piloto desconhecido ou inativo, quando enviado, então a aposta é rejeitada.
 7. Dado prazo encerrado, quando enviada, então nenhuma escrita ocorre.
 8. Dado envio confirmado, quando a tela continua, então cache e feedback refletem a nova aposta.
+9. Dado um formulário V4, quando prova ou regra muda, então totais, limites, pilotos e deadline são relidos do backend antes do envio.
 
 ## Verificação
 
 - Critérios 2 a 7 — `tests/test_bets_rules_extended.py`.
 - Critério 8 — `tests/test_apostas_dataframe_contract.py` e `tests/test_performance_optimizations.py`.
 - Critério 1 — verificação de integração do fluxo de envio.
+- Critérios 1–9 na V4 — `tests/test_race_bets_v4.py` e testes de API/segurança.
 
 ## Pendências
 
@@ -90,9 +92,11 @@ explicitamente autorizadas.
 
 - [x] Consolidar composição, persistência e auditoria. Fecha: critérios 1 a 8.
 - [x] Relacionar validações e contratos de UI. Fecha: critérios 2 a 8.
+- [x] Expor formulário responsivo e endpoints V4 usando identidade da sessão, regras e escrita legadas. Fecha: critérios 1 a 9.
 
 ## Changelog
 
+- `1.1` — 2026-09-10 — Formulário de apostas V4 conectado a provas, pilotos, regras, deadline e persistência legada.
 - `1.0` — 2026-07-31 — Fluxo de aposta de prova especificado.
 
 ## Relacionados
@@ -100,4 +104,3 @@ explicitamente autorizadas.
 - [[specs/deadline-de-apostas]]
 - [[specs/pontuacao-de-provas]]
 - [[specs/apostas-automaticas]]
-

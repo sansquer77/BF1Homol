@@ -1,22 +1,89 @@
 "use client";
+
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ApiRequestError, apiRequest, type User as Identity } from "@/lib/api/client";
 
 type Tab = "users" | "drivers" | "races";
 type User = { id: number; name: string; email: string; profile: string; status: string };
 type Driver = { id: number; name: string; team: string; status: string; number: number };
-type Race = { id: number; name: string; date: string; time: string; race_status: string };
+type Race = { id: number; name: string; date: string; time: string; race_status: string; circuit_id: string | null };
+type Circuit = { circuit_id: string; circuit_name: string; country: string; locality: string };
 type Item = User | Driver | Race;
 
+function circuitLabel(circuit: Circuit) {
+  const place = [circuit.locality, circuit.country].filter(Boolean).join(", ");
+  return `${circuit.circuit_name}${place ? ` (${place})` : ""} — ${circuit.circuit_id}`;
+}
+
 export function AdminCatalogView() {
-  const [identity, setIdentity] = useState<Identity | null>(null); const [tab, setTab] = useState<Tab>("drivers"); const [items, setItems] = useState<Item[]>([]); const [error, setError] = useState(""); const [season, setSeason] = useState(String(new Date().getFullYear())); const [form, setForm] = useState<Record<string, string>>({});
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [tab, setTab] = useState<Tab>("drivers");
+  const [items, setItems] = useState<Item[]>([]);
+  const [circuits, setCircuits] = useState<Circuit[]>([]);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [refreshingCircuits, setRefreshingCircuits] = useState(false);
+  const [season, setSeason] = useState(String(new Date().getFullYear()));
+  const [form, setForm] = useState<Record<string, string>>({});
+
   const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
-  const load = useCallback(() => { if (!identity) return; const path = tab === "users" ? "/api/v1/admin/users" : tab === "drivers" ? "/api/v1/admin/drivers" : `/api/v1/admin/races?season=${season}`; setError(""); apiRequest<Item[]>(path as `/api/v1/${string}`).then(setItems).catch((reason) => setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não tem permissão para este cadastro." : "O servidor não conseguiu carregar os registros administrativos.")); }, [identity, season, tab]);
-  useEffect(() => { apiRequest<Identity>("/api/v1/auth/me").then((user) => { setIdentity(user); setTab(user.perfil === "master" ? "users" : "drivers"); }).catch(() => setError("Não foi possível validar sua sessão.")); }, []);
+  const load = useCallback(() => {
+    if (!identity) return;
+    const path = tab === "users" ? "/api/v1/admin/users" : tab === "drivers" ? "/api/v1/admin/drivers" : `/api/v1/admin/races?season=${season}`;
+    setError("");
+    apiRequest<Item[]>(path as `/api/v1/${string}`).then(setItems).catch((reason) => setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não tem permissão para este cadastro." : "O servidor não conseguiu carregar os registros administrativos."));
+  }, [identity, season, tab]);
+  const loadCircuits = useCallback(() => {
+    if (!identity || tab !== "races") return;
+    apiRequest<Circuit[]>("/api/v1/admin/circuits").then(setCircuits).catch((reason) => setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não permite consultar os circuitos." : "Não foi possível carregar a base de circuitos."));
+  }, [identity, tab]);
+
+  useEffect(() => {
+    apiRequest<Identity>("/api/v1/auth/me").then((user) => {
+      setIdentity(user);
+      setTab(user.perfil === "master" ? "users" : "drivers");
+    }).catch(() => setError("Não foi possível validar sua sessão."));
+  }, []);
   useEffect(() => { load(); }, [load]);
-  async function submit(event: FormEvent) { event.preventDefault(); setError(""); try { if (tab === "users") await apiRequest("/api/v1/admin/users", { method: "POST", body: JSON.stringify({ name: form.name, email: form.email, password: form.password, profile: form.profile || "participante", user_status: "ativo" }) }); else if (tab === "drivers") await apiRequest("/api/v1/admin/drivers", { method: "POST", body: JSON.stringify({ name: form.name, team: form.team || "", status: "Ativo", number: Number(form.number || 0) }) }); else await apiRequest(`/api/v1/admin/races?season=${season}`, { method: "POST", body: JSON.stringify({ name: form.name, date: form.date, time: form.time || "", type: "Normal", race_status: "Pendente", circuit_id: form.circuit_id || null }) }); setForm({}); load(); } catch (reason) { setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não permite esta alteração." : "Não foi possível salvar o registro."); } }
+  useEffect(() => { loadCircuits(); }, [loadCircuits]);
+
+  async function refreshCircuits() {
+    setError(""); setNotice(""); setRefreshingCircuits(true);
+    try {
+      const stats = await apiRequest<{ temporadas: number; circuitos: number }>(`/api/v1/admin/circuits/refresh?season=${season}`, { method: "POST" });
+      await apiRequest<Circuit[]>("/api/v1/admin/circuits").then(setCircuits);
+      setNotice(`Base atualizada: ${stats.circuitos} circuitos de ${stats.temporadas} temporada(s).`);
+    } catch (reason) {
+      setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não permite atualizar os circuitos." : "Não foi possível atualizar a base de circuitos pela API.");
+    } finally { setRefreshingCircuits(false); }
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setError(""); setNotice("");
+    try {
+      if (tab === "users") await apiRequest("/api/v1/admin/users", { method: "POST", body: JSON.stringify({ name: form.name, email: form.email, password: form.password, profile: form.profile || "participante", user_status: "ativo" }) });
+      else if (tab === "drivers") await apiRequest("/api/v1/admin/drivers", { method: "POST", body: JSON.stringify({ name: form.name, team: form.team || "", status: "Ativo", number: Number(form.number || 0) }) });
+      else await apiRequest(`/api/v1/admin/races?season=${season}`, { method: "POST", body: JSON.stringify({ name: form.name, date: form.date, time: form.time || "", type: "Normal", race_status: "Pendente", circuit_id: form.circuit_id || null }) });
+      setForm({}); load(); setNotice("Registro salvo.");
+    } catch (reason) { setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não permite esta alteração." : "Não foi possível salvar o registro."); }
+  }
+
   const tabs: [Tab, string][] = identity?.perfil === "master" ? [["users", "Usuários"], ["drivers", "Pilotos"], ["races", "Provas"]] : [["drivers", "Pilotos"], ["races", "Provas"]];
-  return <div className="admin-catalog-view"><header className="institutional-hero"><p className="eyebrow">Administração</p><h1>Cadastros do campeonato.</h1><p>Gerencie os cadastros autorizados para seu perfil.</p></header><div className="admin-tabs" role="tablist">{tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "admin-tab admin-tab--active" : "admin-tab"} onClick={() => setTab(key)}>{label}</button>)}{tab === "races" ? <label className="admin-season">Temporada<input value={season} onChange={(event) => setSeason(event.target.value)} /></label> : null}</div>{error ? <div className="calendar-state calendar-state--error">{error}</div> : null}
-    <section className="panel admin-form"><h2>{tab === "users" ? "Convidar usuário" : tab === "drivers" ? "Adicionar piloto" : "Adicionar prova"}</h2><form className="admin-fields" onSubmit={submit}><label>Nome<input required value={form.name || ""} onChange={(event) => set("name", event.target.value)} /></label>{tab === "users" ? <><label>Email<input required type="email" value={form.email || ""} onChange={(event) => set("email", event.target.value)} /></label><label>Senha<input required minLength={8} type="password" value={form.password || ""} onChange={(event) => set("password", event.target.value)} /></label><label>Perfil<select value={form.profile || "participante"} onChange={(event) => set("profile", event.target.value)}><option>participante</option><option>admin</option><option>master</option></select></label></> : tab === "drivers" ? <><label>Equipe<input value={form.team || ""} onChange={(event) => set("team", event.target.value)} /></label><label>Número<input type="number" value={form.number || ""} onChange={(event) => set("number", event.target.value)} /></label></> : <><label>Data<input required type="date" value={form.date || ""} onChange={(event) => set("date", event.target.value)} /></label><label>Horário<input type="time" value={form.time || ""} onChange={(event) => set("time", event.target.value)} /></label><label>Circuito<input value={form.circuit_id || ""} onChange={(event) => set("circuit_id", event.target.value)} /></label></>}<button className="primary-action">Salvar</button></form></section>
-    <section className="panel admin-list"><h2>Registros <small>{items.length} itens</small></h2><div className="table-scroll"><table><tbody>{items.map((item) => tab === "users" ? <tr key={item.id}><td>{(item as User).name}</td><td>{(item as User).email}</td><td>{(item as User).profile}</td><td>{(item as User).status}</td></tr> : tab === "drivers" ? <tr key={item.id}><td>{(item as Driver).name}</td><td>{(item as Driver).team}</td><td>{(item as Driver).number}</td><td>{(item as Driver).status}</td></tr> : <tr key={item.id}><td>{(item as Race).name}</td><td>{(item as Race).date}</td><td>{(item as Race).time}</td><td>{(item as Race).race_status}</td></tr>)}</tbody></table></div></section></div>;
+  const selectedCircuitIsLegacy = Boolean(form.circuit_id && !circuits.some((circuit) => circuit.circuit_id === form.circuit_id));
+
+  return <div className="admin-catalog-view">
+    <header className="institutional-hero"><p className="eyebrow">Administração</p><h1>Cadastros do campeonato.</h1><p>Gerencie os cadastros autorizados para seu perfil.</p></header>
+    <div className="admin-tabs" role="tablist">
+      {tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "admin-tab admin-tab--active" : "admin-tab"} onClick={() => setTab(key)}>{label}</button>)}
+      {tab === "races" ? <><label className="admin-season">Temporada<input inputMode="numeric" pattern="[0-9]{4}" value={season} onChange={(event) => setSeason(event.target.value)} /></label><button type="button" className="admin-tab" disabled={refreshingCircuits || !/^\d{4}$/.test(season)} onClick={refreshCircuits}>{refreshingCircuits ? "Atualizando…" : "Atualizar circuitos"}</button></> : null}
+    </div>
+    {error ? <div className="calendar-state calendar-state--error" role="alert">{error}</div> : null}
+    {notice ? <div className="calendar-state" role="status">{notice}</div> : null}
+    <section className="panel admin-form"><h2>{tab === "users" ? "Convidar usuário" : tab === "drivers" ? "Adicionar piloto" : "Adicionar prova"}</h2><form className="admin-fields" onSubmit={submit}>
+      <label>Nome<input required value={form.name || ""} onChange={(event) => set("name", event.target.value)} /></label>
+      {tab === "users" ? <><label>Email<input required type="email" value={form.email || ""} onChange={(event) => set("email", event.target.value)} /></label><label>Senha<input required minLength={8} type="password" value={form.password || ""} onChange={(event) => set("password", event.target.value)} /></label><label>Perfil<select value={form.profile || "participante"} onChange={(event) => set("profile", event.target.value)}><option>participante</option><option>admin</option><option>master</option></select></label></> : tab === "drivers" ? <><label>Equipe<input value={form.team || ""} onChange={(event) => set("team", event.target.value)} /></label><label>Número<input type="number" value={form.number || ""} onChange={(event) => set("number", event.target.value)} /></label></> : <><label>Data<input required type="date" value={form.date || ""} onChange={(event) => set("date", event.target.value)} /></label><label>Horário<input type="time" value={form.time || ""} onChange={(event) => set("time", event.target.value)} /></label><label>Circuito<select value={form.circuit_id || ""} onChange={(event) => set("circuit_id", event.target.value)}><option value="">Sem vínculo</option>{selectedCircuitIsLegacy ? <option value={form.circuit_id}>Circuito legado — {form.circuit_id}</option> : null}{circuits.map((circuit) => <option key={circuit.circuit_id} value={circuit.circuit_id}>{circuitLabel(circuit)}</option>)}</select></label></>}
+      <button className="primary-action">Salvar</button>
+    </form></section>
+    <section className="panel admin-list"><h2>Registros <small>{items.length} itens</small></h2><div className="table-scroll"><table><tbody>{items.map((item) => tab === "users" ? <tr key={item.id}><td>{(item as User).name}</td><td>{(item as User).email}</td><td>{(item as User).profile}</td><td>{(item as User).status}</td></tr> : tab === "drivers" ? <tr key={item.id}><td>{(item as Driver).name}</td><td>{(item as Driver).team}</td><td>{(item as Driver).number}</td><td>{(item as Driver).status}</td></tr> : <tr key={item.id}><td>{(item as Race).name}</td><td>{(item as Race).date}</td><td>{(item as Race).time}</td><td>{(item as Race).race_status}</td><td>{(item as Race).circuit_id || "Sem vínculo"}</td></tr>)}</tbody></table></div></section>
+  </div>;
 }

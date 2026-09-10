@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 3.1
+versao: 3.3
 atualizado: 2026-09-10
 relacionados:
   - "[[inventario-v4]]"
@@ -164,12 +164,14 @@ operação responsável por deploy, observabilidade e restauração.
 - [x] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Classificação, Análise de Apostas, Hall da Fama, Logs, Dashboard F1 e Campeonato concluídos. Fecha critérios 4, 10 e 12.
 - [x] Fase 7 — migrar operações administrativas e autorização por objeto. Operações e telas administrativas V4 concluídas para usuários, pilotos, provas, Hall da Fama, financeiro e regras, incluindo associação por temporada e clonagem.
 - [ ] Fase 8 — validar backup/restauração e recuperação a partir do último artefato estável. API Master de exportação, reautenticação e restore SQL disponível; restauração real em homologação, Excel e fechamento dos critérios 1–3 permanecem para validação operacional.
-- [ ] Fechar jornadas V4 identificadas na primeira validação de homologação: formulário de apostas por prova, gestão explícita de equipes, atualização de resultados pela interface e recuperação de senha no login.
+- [ ] Fechar jornadas V4 identificadas na primeira validação de homologação: gestão explícita de equipes, atualização de resultados pela interface e recuperação de senha no login. O formulário de apostas por prova está concluído.
 - [ ] Fase 9 — executar segurança, carga, acessibilidade e experiência mobile. Fecha critérios 5–9, 11–15 e 18–20.
 - [ ] Fase 10 — validar builds puros, publicar a V4 e observar a operação. Fecha critério 16.
 
 ## Changelog
 
+- `3.3` — 2026-09-10 — Gestão de Provas V4 passou a atualizar a base canônica Jolpica/Ergast pela API autorizada e selecionar circuitos por combo.
+- `3.2` — 2026-09-10 — Formulário V4 de apostas por prova concluído e grupos do menu lateral tornados recolhíveis e acessíveis.
 - `3.1` — 2026-09-10 — Telemetria e Classificação refinadas com nomes compactos de etapas, gráficos sem colisão, tabelas legíveis e percentual do teto calculado pelas regras vigentes.
 - `3.0` — 2026-09-09 — Corrigida compatibilidade das consultas administrativas de usuários, pilotos, provas e financeiro com `dict_row`; mensagens V4 agora distinguem acesso negado de falha interna nas telas ajustadas.
 - `2.2` — 2026-09-08 — Gestão Master do Hall da Fama adicionada com CRUD, lote e proteção de autorização.

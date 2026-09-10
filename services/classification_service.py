@@ -41,7 +41,7 @@ def calculate_movement(previous_position: int | None, current_position: int) -> 
     return None if previous_position is None else int(previous_position) - int(current_position)
 
 
-def calculate_max_race_points(rules: dict[str, Any]) -> float:
+def calculate_max_race_points(rules: dict[str, Any], race_type: str = "Normal") -> float:
     """Calcula o teto teórico de uma aposta válida conforme a regra vigente."""
     points_table = [max(0.0, float(value or 0)) for value in rules.get("pontos_posicoes", [])]
     total_chips = max(0, int(rules.get("quantidade_fichas", 0) or 0))
@@ -62,7 +62,9 @@ def calculate_max_race_points(rules: dict[str, Any]) -> float:
         return 0.0
     maximum = sum(chips * points for chips, points in zip(allocations, eligible))
     maximum += max(0.0, float(rules.get("pontos_11_colocado", 0) or 0))
-    if rules.get("pontos_dobrada"):
+    # spec: classificacao v1.6 — critério 12
+    # `pontos_dobrada` pertence à regra Sprint; nunca dobra uma prova Normal.
+    if str(race_type).strip().casefold() == "sprint" and rules.get("pontos_dobrada"):
         maximum *= 2
     return round(maximum, 2)
 
@@ -171,7 +173,8 @@ def build_classification(season: str) -> dict[str, Any]:
     names = {int(row["id"]): str(row.get("nome") or "Participante") for row in participant_records}
     race_history: list[dict[str, Any]] = []
     for race_id in completed_race_ids:
-        maximum_points = calculate_max_race_points(get_regras_aplicaveis(str(season), race_types.get(race_id, "Normal")))
+        race_type = race_types.get(race_id, "Normal")
+        maximum_points = calculate_max_race_points(get_regras_aplicaveis(str(season), race_type), race_type)
         points_by_user: dict[int, float] = {}
         for row in participant_records:
             uid = int(row["id"])
