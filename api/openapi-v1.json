@@ -735,12 +735,20 @@
       },
       "ClassificationRace": {
         "properties": {
+          "maximum_points": {
+            "title": "Maximum Points",
+            "type": "number"
+          },
           "race_id": {
             "title": "Race Id",
             "type": "integer"
           },
           "race_name": {
             "title": "Race Name",
+            "type": "string"
+          },
+          "race_type": {
+            "title": "Race Type",
             "type": "string"
           },
           "scores": {
@@ -754,6 +762,8 @@
         "required": [
           "race_id",
           "race_name",
+          "race_type",
+          "maximum_points",
           "scores"
         ],
         "title": "ClassificationRace",
@@ -763,6 +773,10 @@
         "properties": {
           "cumulative_points": {
             "title": "Cumulative Points",
+            "type": "number"
+          },
+          "maximum_percentage": {
+            "title": "Maximum Percentage",
             "type": "number"
           },
           "participant": {
@@ -781,6 +795,7 @@
         "required": [
           "participant",
           "points",
+          "maximum_percentage",
           "cumulative_points",
           "position"
         ],

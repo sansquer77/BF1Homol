@@ -117,6 +117,7 @@ class ClassificationEntry(BaseModel):
 class ClassificationRaceScore(BaseModel):
     participant: str
     points: float
+    maximum_percentage: float
     cumulative_points: float
     position: int
 
@@ -124,6 +125,8 @@ class ClassificationRaceScore(BaseModel):
 class ClassificationRace(BaseModel):
     race_id: int
     race_name: str
+    race_type: str
+    maximum_points: float
     scores: list[ClassificationRaceScore]
 
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { apiRequest } from "@/lib/api/client";
+import { ApiRequestError, apiRequest } from "@/lib/api/client";
 
 type Participant = { id: number; name: string };
 type RecordItem = { id: number; user_id: number; participant: string; season: string; position: number; points: number };
@@ -12,7 +12,7 @@ export function HallAdminView() {
   const [form, setForm] = useState({ user_id: "", season: String(new Date().getFullYear()), position: "1", points: "0" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  function load() { apiRequest<Payload>("/api/v1/admin/hall-of-fame").then(setData).catch(() => setError("Acesso restrito ao Master ou serviço indisponível.")); }
+  function load() { apiRequest<Payload>("/api/v1/admin/hall-of-fame").then((value) => { setError(""); setData(value); }).catch((reason) => setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não tem permissão para administrar o Hall da Fama." : "O servidor não conseguiu carregar a gestão do Hall da Fama.")); }
   useEffect(load, []);
   async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await apiRequest("/api/v1/admin/hall-of-fame", { method: "POST", body: JSON.stringify({ user_id: Number(form.user_id), season: form.season, position: Number(form.position), points: Number(form.points) }) }); load(); } catch { setError("Não foi possível salvar o registro."); } finally { setBusy(false); } }
   async function remove(id: number) { if (!window.confirm("Remover esta colocação histórica?")) return; try { await apiRequest(`/api/v1/admin/hall-of-fame/${id}`, { method: "DELETE" }); load(); } catch { setError("Não foi possível remover o registro."); } }

@@ -2,8 +2,8 @@
 tipo: spec
 area: telemetria-v4
 status: implementado
-versao: 1.0
-atualizado: 2026-09-08
+versao: 1.1
+atualizado: 2026-09-10
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
   - "[[specs/calendario-provas-e-pilotos]]"
@@ -15,7 +15,7 @@ aliases: ["Telemetria V4"]
 # Telemetria V4
 
 > [!info] Status
-> **implementado** · área: `telemetria-v4` · atualizado em 2026-09-08 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[specs/calendario-provas-e-pilotos]], [[specs/classificacao]]
+> **implementado** · área: `telemetria-v4` · atualizado em 2026-09-10 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[specs/calendario-provas-e-pilotos]], [[specs/classificacao]]
 
 ## Problema
 
@@ -49,6 +49,8 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 6. A classificação resumida soma os pontos materializados e não expõe email ou outro dado privado.
 7. Ausência de prova, aposta ou posição gera estado vazio válido, nunca dados fictícios.
 8. O vetor da próxima pista usa o `circuit_id` canônico da Gestão de Provas.
+9. O gráfico acumulado não apresenta variação percentual entre etapas, pois essa medida cresce mecanicamente e não representa desempenho relativo.
+10. Rótulos de prova no eixo horizontal omitem o prefixo “Grande Prêmio” sem alterar o nome acessível ou a tabela de dados.
 
 ## Interface, serviços e dados
 
@@ -66,6 +68,7 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 5. Dado cliente que tente temporada não autorizada, então a API responde sem revelar dados.
 6. Dado conjunto vazio, então a tela apresenta zeros ou estado informativo sem conteúdo demonstrativo.
 7. Dado viewport de 360 px, então os componentes permanecem legíveis e sem rolagem horizontal.
+8. Dado o gráfico de evolução, então ele exibe os pontos acumulados sem percentual decorativo e usa nomes compactos de etapa no eixo X.
 
 ## Verificação
 
@@ -91,6 +94,7 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 
 ## Changelog
 
+- `1.1` — 2026-09-10 — Removido percentual sem significado da evolução e compactados os nomes das etapas no eixo X.
 - `1.0` — 2026-09-08 — Snapshot autenticado e frontend com dados reais implementados.
 - `0.1` — 2026-09-08 — Contrato inicial da Telemetria V4.
 

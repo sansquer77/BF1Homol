@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from services.access_control import AuthenticatedContext, AuthorizationDenied, authorize_context
+from services.access_control import AuthenticatedContext, authorize_context
 
 
 def _require(context: AuthenticatedContext, operation: str, roles: frozenset[str], season: str | None = None) -> None:
@@ -60,7 +60,7 @@ def list_admin_users(context: AuthenticatedContext) -> list[dict[str, Any]]:
     with db_connect() as conn:
         cur = conn.cursor(); cur.execute("SELECT id,nome,email,perfil,status,must_change_password FROM usuarios ORDER BY nome")
         rows = cur.fetchall(); cur.close()
-    return [{"id": r[0], "name": r[1], "email": r[2], "profile": r[3], "status": r[4], "must_change_password": bool(r[5])} for r in rows]
+    return [{"id": r["id"], "name": r["nome"], "email": r["email"], "profile": r["perfil"], "status": r["status"], "must_change_password": bool(r["must_change_password"])} for r in rows]
 
 
 def list_admin_drivers(context: AuthenticatedContext) -> list[dict[str, Any]]:
@@ -69,7 +69,7 @@ def list_admin_drivers(context: AuthenticatedContext) -> list[dict[str, Any]]:
     with db_connect() as conn:
         cur = conn.cursor(); cur.execute("SELECT id,nome,equipe,status,numero FROM pilotos ORDER BY nome")
         rows = cur.fetchall(); cur.close()
-    return [{"id": r[0], "name": r[1], "team": r[2] or "", "status": r[3] or "Ativo", "number": r[4] or 0} for r in rows]
+    return [{"id": r["id"], "name": r["nome"], "team": r["equipe"] or "", "status": r["status"] or "Ativo", "number": r["numero"] or 0} for r in rows]
 
 
 def list_admin_races(context: AuthenticatedContext, season: str) -> list[dict[str, Any]]:
@@ -78,4 +78,4 @@ def list_admin_races(context: AuthenticatedContext, season: str) -> list[dict[st
     with db_connect() as conn:
         cur = conn.cursor(); cur.execute("SELECT id,nome,data,horario_prova,tipo,status,circuit_id FROM provas WHERE temporada=%s ORDER BY data, id", (season,))
         rows = cur.fetchall(); cur.close()
-    return [{"id": r[0], "name": r[1], "date": str(r[2]), "time": str(r[3] or ""), "type": r[4] or "Normal", "race_status": r[5] or "Pendente", "circuit_id": r[6]} for r in rows]
+    return [{"id": r["id"], "name": r["nome"], "date": str(r["data"]), "time": str(r["horario_prova"] or ""), "type": r["tipo"] or "Normal", "race_status": r["status"] or "Pendente", "circuit_id": r["circuit_id"]} for r in rows]

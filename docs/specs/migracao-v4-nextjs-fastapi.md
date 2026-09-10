@@ -2,8 +2,8 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 2.2
-atualizado: 2026-09-08
+versao: 3.1
+atualizado: 2026-09-10
 relacionados:
   - "[[inventario-v4]]"
   - "[[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]"
@@ -15,7 +15,7 @@ aliases: ["Migração BF1 4.0 para Next.js e FastAPI"]
 # Migração BF1 4.0 para Next.js e FastAPI
 
 > [!info] Status
-> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-08 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
+> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-10 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
 
 ## Problema
 
@@ -170,6 +170,8 @@ operação responsável por deploy, observabilidade e restauração.
 
 ## Changelog
 
+- `3.1` — 2026-09-10 — Telemetria e Classificação refinadas com nomes compactos de etapas, gráficos sem colisão, tabelas legíveis e percentual do teto calculado pelas regras vigentes.
+- `3.0` — 2026-09-09 — Corrigida compatibilidade das consultas administrativas de usuários, pilotos, provas e financeiro com `dict_row`; mensagens V4 agora distinguem acesso negado de falha interna nas telas ajustadas.
 - `2.2` — 2026-09-08 — Gestão Master do Hall da Fama adicionada com CRUD, lote e proteção de autorização.
 - `2.3` — 2026-09-08 — Telas administrativas V4 de usuários, pilotos e provas adicionadas com listagem e inclusão.
 - `2.4` — 2026-09-08 — Financeiro V4 adicionado com taxa por temporada e situação de pagamento por participante.

@@ -2,8 +2,8 @@
 tipo: spec
 area: classificacao
 status: implementado
-versao: 1.5
-atualizado: 2026-09-09
+versao: 1.6
+atualizado: 2026-09-10
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -16,7 +16,7 @@ aliases: ["Spec de Classificação"]
 # Classificação
 
 > [!info] Status
-> **implementado** · área: `classificacao` · atualizado em 2026-09-08 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[glossario]], [[adr/0002-limites-de-camadas]]
+> **implementado** · área: `classificacao` · atualizado em 2026-09-10 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[glossario]], [[adr/0002-limites-de-camadas]]
 
 ## Problema
 
@@ -59,6 +59,7 @@ classificação da temporada. Administradores e master também geram imagens.
 9. Recursos do Matplotlib são liberados tanto no sucesso quanto em falhas de renderização.
 10. O PNG usa o ícone oficial do BF1 no canto superior esquerdo e distribui as colunas conforme o conteúdo, priorizando a leitura integral do participante.
 11. A movimentação compara a posição atual com a classificação acumulada até a penúltima prova realizada: valor positivo indica subida, negativo indica queda, zero permanência e ausência de referência indica novo participante.
+12. O percentual por prova divide os pontos obtidos pelo teto teórico calculado com a regra aplicável ao tipo da etapa: fichas totais, limite por piloto, mínimo de pilotos, tabela de posições, acerto do 11º e pontuação dobrada.
 
 ## Interface, serviços e dados
 
@@ -80,6 +81,8 @@ classificação da temporada. Administradores e master também geram imagens.
 9. Dado um admin ou master autenticado, quando prepara e baixa uma imagem, então permanece na página Classificação com a sessão ativa.
 10. Dado um nome de participante longo, quando o PNG é gerado, então a coluna Participante recebe largura superior às colunas numéricas e o cabeçalho exibe a marca oficial.
 11. Dadas ao menos duas provas realizadas, quando a classificação é carregada, então cada participante exibe ícone e quantidade de posições ganhas ou perdidas em relação à classificação anterior.
+12. Dada uma prova Normal ou Sprint, quando a pontuação por prova é exibida, então cada participante mostra o percentual do teto derivado da regra vigente, sem constante fixa no frontend.
+13. Dados gráficos com muitas etapas, então nomes compactos e legenda superior evitam colisão entre rótulos do eixo X e legenda.
 
 ## Verificação
 
@@ -108,9 +111,11 @@ classificação da temporada. Administradores e master também geram imagens.
 - [x] Aplicar marca oficial e proporções legíveis à exportação PNG V4. Fecha: critério 10.
 - [x] Restaurar movimentação histórica na API, tabela e PNG V4. Fecha: critério 11.
 - [x] Expor pontuação por prova, progressão acumulada, posições e PNG de uma etapa específica na V4.
+- [x] Calcular teto e percentual por etapa a partir das regras vigentes e ajustar legibilidade de tabelas e gráficos. Fecha: critérios 12 e 13.
 
 ## Changelog
 
+- `1.6` — 2026-09-10 — Percentual do teto por etapa calculado pelas regras; tipografia, distribuição de colunas, rótulos e legendas ajustados.
 - `1.5` — 2026-09-09 — Séries e tabela por prova, gráficos ApexCharts e exportação PNG de etapa específica.
 - `1.4` — 2026-09-09 — Movimentação em relação à penúltima prova restaurada na Classificação V4 com direção, quantidade e estado de novo participante.
 - `1.3` — 2026-09-08 — PNG V4 ajustado com logo oficial, cabeçalho compacto e coluna de participante dimensionada para nomes extensos.

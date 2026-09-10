@@ -41,6 +41,32 @@ def calculate_movement(previous_position: int | None, current_position: int) -> 
     return None if previous_position is None else int(previous_position) - int(current_position)
 
 
+def calculate_max_race_points(rules: dict[str, Any]) -> float:
+    """Calcula o teto teórico de uma aposta válida conforme a regra vigente."""
+    points_table = [max(0.0, float(value or 0)) for value in rules.get("pontos_posicoes", [])]
+    total_chips = max(0, int(rules.get("quantidade_fichas", 0) or 0))
+    per_driver = max(1, int(rules.get("fichas_por_piloto", total_chips or 1) or 1))
+    minimum_drivers = max(1, int(rules.get("qtd_minima_pilotos", rules.get("min_pilotos", 1)) or 1))
+    eligible = sorted(points_table, reverse=True)
+    if not eligible or total_chips < minimum_drivers or len(eligible) < minimum_drivers:
+        return 0.0
+    allocations = [1 if index < minimum_drivers else 0 for index in range(len(eligible))]
+    remaining = total_chips - minimum_drivers
+    for index in range(len(eligible)):
+        extra = min(remaining, per_driver - allocations[index])
+        allocations[index] += extra
+        remaining -= extra
+        if remaining == 0:
+            break
+    if remaining:
+        return 0.0
+    maximum = sum(chips * points for chips, points in zip(allocations, eligible))
+    maximum += max(0.0, float(rules.get("pontos_11_colocado", 0) or 0))
+    if rules.get("pontos_dobrada"):
+        maximum *= 2
+    return round(maximum, 2)
+
+
 def _format_points_br(value: float) -> str:
     return f"{float(value):,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
 
@@ -138,11 +164,14 @@ def build_classification(season: str) -> dict[str, Any]:
         entry["movement"] = calculate_movement(prior_position, index)
         entry.pop("user_id", None)
         previous = entry["valid_total"]
-    race_names = {int(row["id"]): str(row.get("nome") or "Prova") for row in races.to_dict("records")}
+    race_records = races.to_dict("records")
+    race_names = {int(row["id"]): str(row.get("nome") or "Prova") for row in race_records}
+    race_types = {int(row["id"]): str(row.get("tipo") or "Normal") for row in race_records}
     cumulative = {int(row["id"]): 0.0 for row in participant_records}
     names = {int(row["id"]): str(row.get("nome") or "Participante") for row in participant_records}
     race_history: list[dict[str, Any]] = []
     for race_id in completed_race_ids:
+        maximum_points = calculate_max_race_points(get_regras_aplicaveis(str(season), race_types.get(race_id, "Normal")))
         points_by_user: dict[int, float] = {}
         for row in participant_records:
             uid = int(row["id"])
@@ -155,9 +184,12 @@ def build_classification(season: str) -> dict[str, Any]:
         race_history.append({
             "race_id": race_id,
             "race_name": race_names.get(race_id, f"Prova {race_id}"),
+            "race_type": race_types.get(race_id, "Normal"),
+            "maximum_points": maximum_points,
             "scores": [{
                 "participant": names[uid],
                 "points": round(points_by_user[uid], 2),
+                "maximum_percentage": round(points_by_user[uid] / maximum_points * 100, 2) if maximum_points else 0.0,
                 "cumulative_points": round(cumulative[uid], 2),
                 "position": positions[uid],
             } for uid in ranking],
@@ -245,4 +277,4 @@ def render_classification_png(snapshot: dict[str, Any]) -> BytesIO:
         plt.close(figure)
 
 
-__all__ = ["build_classification", "calculate_movement", "calculate_totals", "classification_for_race", "render_classification_png"]
+__all__ = ["build_classification", "calculate_max_race_points", "calculate_movement", "calculate_totals", "classification_for_race", "render_classification_png"]

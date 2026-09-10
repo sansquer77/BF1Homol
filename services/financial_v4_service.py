@@ -10,8 +10,8 @@ def get_financial(context: AuthenticatedContext, season: str) -> dict[str, Any]:
     _master(context, season)
     from db.db_schema import db_connect
     with db_connect() as conn:
-        cur=conn.cursor(); cur.execute("SELECT valor_taxa FROM financeiro_config_temporada WHERE temporada=%s",(season,)); fee=cur.fetchone(); cur.execute("""SELECT u.id,u.nome,u.email,COALESCE(f.pago,0) FROM usuarios u LEFT JOIN financeiro_participantes f ON f.usuario_id=u.id AND f.temporada=%s WHERE LOWER(COALESCE(u.status,'ativo'))='ativo' ORDER BY u.nome""",(season,)); rows=cur.fetchall(); cur.close()
-    return {"season":season,"fee":float(fee[0]) if fee else 0.0,"participants":[{"user_id":r[0],"name":r[1],"email":r[2],"paid":bool(r[3])} for r in rows]}
+        cur=conn.cursor(); cur.execute("SELECT valor_taxa FROM financeiro_config_temporada WHERE temporada=%s",(season,)); fee=cur.fetchone(); cur.execute("""SELECT u.id,u.nome,u.email,COALESCE(f.pago,FALSE) AS pago FROM usuarios u LEFT JOIN financeiro_participantes f ON f.usuario_id=u.id AND f.temporada=%s WHERE LOWER(COALESCE(u.status,'ativo'))='ativo' ORDER BY u.nome""",(season,)); rows=cur.fetchall(); cur.close()
+    return {"season":season,"fee":float(fee["valor_taxa"]) if fee else 0.0,"participants":[{"user_id":r["id"],"name":r["nome"],"email":r["email"],"paid":bool(r["pago"])} for r in rows]}
 
 def save_financial(context: AuthenticatedContext, season: str, fee: float, payments: dict[int,bool]) -> None:
     _master(context, season)

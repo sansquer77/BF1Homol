@@ -2,8 +2,8 @@
 tipo: spec
 area: usuarios
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-09-09
 relacionados: ["[[02_regras_de_negocio]]", "[[specs/autenticacao-e-sessao]]", "[[specs/controle-de-acesso]]"]
 tags: [spec, "area/usuarios", "status/implementado"]
 aliases: ["Gestão de usuários"]
@@ -12,7 +12,7 @@ aliases: ["Gestão de usuários"]
 # Gestão de usuários
 
 > [!info] Status
-> **implementado** · área: `usuarios` · atualizado em 2026-07-31 · relacionados: [[02_regras_de_negocio]], [[specs/autenticacao-e-sessao]], [[specs/controle-de-acesso]]
+> **implementado** · área: `usuarios` · atualizado em 2026-09-09 · relacionados: [[02_regras_de_negocio]], [[specs/autenticacao-e-sessao]], [[specs/controle-de-acesso]]
 
 ## Problema
 
@@ -65,6 +65,7 @@ Permitir que o perfil Master administre contas, credenciais, perfis e participa�
 ## Verificação
 
 - Critérios 1–4 e 6 — testes: `tests/test_access_matrix.py`, `tests/test_permissions_extended.py`, `tests/test_security_utils.py` e `tests/test_performance_optimizations.py`.
+- Listagens administrativas V4 com linhas nomeadas do psycopg 3 — `tests/test_admin_v4_dict_rows.py`.
 - Critérios 5 e 7 — verificação manual: alterar status em duas temporadas e provocar email duplicado, confirmando histórico e ausência de gravação parcial.
 
 ## Pendências
@@ -82,6 +83,7 @@ Permitir que o perfil Master administre contas, credenciais, perfis e participa�
 
 ## Changelog
 
+- `1.1` — 2026-09-09 — Compatibilidade da listagem V4 com `dict_row` do PostgreSQL e distinção entre negação de acesso e falha do servidor.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
 ## Relacionados

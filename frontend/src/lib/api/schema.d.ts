@@ -986,10 +986,14 @@ export interface components {
         };
         /** ClassificationRace */
         ClassificationRace: {
+            /** Maximum Points */
+            maximum_points: number;
             /** Race Id */
             race_id: number;
             /** Race Name */
             race_name: string;
+            /** Race Type */
+            race_type: string;
             /** Scores */
             scores: components["schemas"]["ClassificationRaceScore"][];
         };
@@ -997,6 +1001,8 @@ export interface components {
         ClassificationRaceScore: {
             /** Cumulative Points */
             cumulative_points: number;
+            /** Maximum Percentage */
+            maximum_percentage: number;
             /** Participant */
             participant: string;
             /** Points */

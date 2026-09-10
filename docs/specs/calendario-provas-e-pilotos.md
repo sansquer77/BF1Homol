@@ -2,7 +2,7 @@
 tipo: spec
 area: calendario
 status: implementado
-versao: 1.2
+versao: 1.3
 atualizado: 2026-09-09
 relacionados: ["[[02_regras_de_negocio]]", "[[specs/deadline-de-apostas]]", "[[specs/resultados-de-provas]]"]
 tags: [spec, "area/calendario", "status/implementado"]
@@ -70,6 +70,7 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 ## Verificação
 
 - Critérios 1, 2, 3, 5–7 — testes: `tests/test_access_matrix.py`, `tests/test_apostas_dataframe_contract.py` e `tests/test_result_default_race.py`.
+- Listagens administrativas de pilotos e provas com linhas nomeadas do psycopg 3 — `tests/test_admin_v4_dict_rows.py`.
 - Critérios 8–9 — testes: `tests/test_v4_api_security.py` e `tests/test_v4_frontend_foundation.py`.
 - Critério 4 — verificação manual: inativar piloto com aposta histórica e comparar seletores novo/histórico.
 
@@ -89,6 +90,7 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 
 ## Changelog
 
+- `1.3` — 2026-09-09 — Corrigida leitura das listagens administrativas V4 restauradas no PostgreSQL com `dict_row`.
 - `1.2` — 2026-09-09 — Próxima prova priorizada e etapas realizadas movidas ao final com estado sombreado.
 - `1.1` — 2026-09-08 — Calendário V4 autenticado com `circuit_id` canônico e vetores de pista versionados.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
