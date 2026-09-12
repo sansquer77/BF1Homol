@@ -4,11 +4,12 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ApiRequestError, apiRequest, type User as Identity } from "@/lib/api/client";
 
 type Tab = "users" | "drivers" | "races";
-type User = { id: number; name: string; email: string; profile: string; status: string };
+type User = { id: number; name: string; email: string; profile: string; status: string; must_change_password: boolean };
 type Driver = { id: number; name: string; team: string; status: string; number: number };
-type Race = { id: number; name: string; date: string; time: string; race_status: string; circuit_id: string | null };
+type Race = { id: number; name: string; date: string; time: string; type: string; race_status: string; circuit_id: string | null };
 type Circuit = { circuit_id: string; circuit_name: string; country: string; locality: string };
 type Item = User | Driver | Race;
+type FormState = Record<string, string | boolean>;
 
 function circuitLabel(circuit: Circuit) {
   const place = [circuit.locality, circuit.country].filter(Boolean).join(", ");
@@ -24,15 +25,21 @@ export function AdminCatalogView() {
   const [notice, setNotice] = useState("");
   const [refreshingCircuits, setRefreshingCircuits] = useState(false);
   const [season, setSeason] = useState(String(new Date().getFullYear()));
-  const [form, setForm] = useState<Record<string, string>>({});
+  const [form, setForm] = useState<FormState>({});
+  const [editingId, setEditingId] = useState<number | null>(null);
 
-  const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const canEdit = identity?.perfil === "master";
+  const value = (key: string) => String(form[key] ?? "");
+  const set = (key: string, next: string | boolean) => setForm((current) => ({ ...current, [key]: next }));
+  const cancelEdit = () => { setEditingId(null); setForm({}); setError(""); };
+
   const load = useCallback(() => {
     if (!identity) return;
     const path = tab === "users" ? "/api/v1/admin/users" : tab === "drivers" ? "/api/v1/admin/drivers" : `/api/v1/admin/races?season=${season}`;
     setError("");
     apiRequest<Item[]>(path as `/api/v1/${string}`).then(setItems).catch((reason) => setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não tem permissão para este cadastro." : "O servidor não conseguiu carregar os registros administrativos."));
   }, [identity, season, tab]);
+
   const loadCircuits = useCallback(() => {
     if (!identity || tab !== "races") return;
     apiRequest<Circuit[]>("/api/v1/admin/circuits").then(setCircuits).catch((reason) => setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não permite consultar os circuitos." : "Não foi possível carregar a base de circuitos."));
@@ -47,11 +54,29 @@ export function AdminCatalogView() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadCircuits(); }, [loadCircuits]);
 
+  function selectTab(next: Tab) { setTab(next); setEditingId(null); setForm({}); setNotice(""); }
+
+  function startEdit(item: Item) {
+    if (!canEdit) return;
+    setEditingId(item.id); setError(""); setNotice("");
+    if (tab === "users") {
+      const user = item as User;
+      setForm({ name: user.name, email: user.email, profile: user.profile, status: user.status, must_change_password: user.must_change_password });
+    } else if (tab === "drivers") {
+      const driver = item as Driver;
+      setForm({ name: driver.name, team: driver.team, number: String(driver.number), status: driver.status });
+    } else {
+      const race = item as Race;
+      setForm({ name: race.name, date: race.date.slice(0, 10), time: race.time.slice(0, 5), type: race.type, status: race.race_status, circuit_id: race.circuit_id ?? "" });
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function refreshCircuits() {
     setError(""); setNotice(""); setRefreshingCircuits(true);
     try {
       const stats = await apiRequest<{ temporadas: number; circuitos: number }>(`/api/v1/admin/circuits/refresh?season=${season}`, { method: "POST" });
-      await apiRequest<Circuit[]>("/api/v1/admin/circuits").then(setCircuits);
+      setCircuits(await apiRequest<Circuit[]>("/api/v1/admin/circuits"));
       setNotice(`Base atualizada: ${stats.circuitos} circuitos de ${stats.temporadas} temporada(s).`);
     } catch (reason) {
       setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não permite atualizar os circuitos." : "Não foi possível atualizar a base de circuitos pela API.");
@@ -61,29 +86,43 @@ export function AdminCatalogView() {
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(""); setNotice("");
     try {
-      if (tab === "users") await apiRequest("/api/v1/admin/users", { method: "POST", body: JSON.stringify({ name: form.name, email: form.email, password: form.password, profile: form.profile || "participante", user_status: "ativo" }) });
-      else if (tab === "drivers") await apiRequest("/api/v1/admin/drivers", { method: "POST", body: JSON.stringify({ name: form.name, team: form.team || "", status: "Ativo", number: Number(form.number || 0) }) });
-      else await apiRequest(`/api/v1/admin/races?season=${season}`, { method: "POST", body: JSON.stringify({ name: form.name, date: form.date, time: form.time || "", type: "Normal", race_status: "Pendente", circuit_id: form.circuit_id || null }) });
-      setForm({}); load(); setNotice("Registro salvo.");
-    } catch (reason) { setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não permite esta alteração." : "Não foi possível salvar o registro."); }
+      if (tab === "users") {
+        if (editingId !== null) {
+          await apiRequest(`/api/v1/admin/users/${editingId}`, { method: "PATCH", body: JSON.stringify({ name: value("name"), email: value("email"), profile: value("profile") || "participante", user_status: value("status") || "ativo", must_change_password: Boolean(form.must_change_password) }) });
+        } else {
+          await apiRequest("/api/v1/admin/users", { method: "POST", body: JSON.stringify({ name: value("name"), email: value("email"), password: value("password"), profile: value("profile") || "participante", user_status: value("status") || "ativo" }) });
+        }
+      } else if (tab === "drivers") {
+        const path = editingId === null ? "/api/v1/admin/drivers" : `/api/v1/admin/drivers/${editingId}`;
+        await apiRequest(path as `/api/v1/${string}`, { method: editingId === null ? "POST" : "PUT", body: JSON.stringify({ name: value("name"), team: value("team"), status: value("status") || "Ativo", number: Number(value("number") || 0) }) });
+      } else {
+        const path = editingId === null ? `/api/v1/admin/races?season=${season}` : `/api/v1/admin/races/${editingId}?season=${season}`;
+        await apiRequest(path as `/api/v1/${string}`, { method: editingId === null ? "POST" : "PUT", body: JSON.stringify({ name: value("name"), date: value("date"), time: value("time"), type: value("type") || "Normal", race_status: value("status") || "Pendente", circuit_id: value("circuit_id") || null }) });
+      }
+      const edited = editingId !== null;
+      setEditingId(null); setForm({}); load(); setNotice(edited ? "Registro atualizado." : "Registro salvo.");
+    } catch (reason) {
+      setError(reason instanceof ApiRequestError && reason.status === 403 ? "A edição é exclusiva do usuário Master." : "Não foi possível salvar o registro.");
+    }
   }
 
-  const tabs: [Tab, string][] = identity?.perfil === "master" ? [["users", "Usuários"], ["drivers", "Pilotos"], ["races", "Provas"]] : [["drivers", "Pilotos"], ["races", "Provas"]];
-  const selectedCircuitIsLegacy = Boolean(form.circuit_id && !circuits.some((circuit) => circuit.circuit_id === form.circuit_id));
+  const tabs: [Tab, string][] = canEdit ? [["users", "Usuários"], ["drivers", "Pilotos"], ["races", "Provas"]] : [["drivers", "Pilotos"], ["races", "Provas"]];
+  const selectedCircuitIsLegacy = Boolean(value("circuit_id") && !circuits.some((circuit) => circuit.circuit_id === value("circuit_id")));
+  const title = editingId !== null ? `Editar ${tab === "users" ? "usuário" : tab === "drivers" ? "piloto" : "prova"}` : tab === "users" ? "Convidar usuário" : tab === "drivers" ? "Adicionar piloto" : "Adicionar prova";
 
   return <div className="admin-catalog-view">
-    <header className="institutional-hero"><p className="eyebrow">Administração</p><h1>Cadastros do campeonato.</h1><p>Gerencie os cadastros autorizados para seu perfil.</p></header>
+    <header className="institutional-hero"><p className="eyebrow">Administração</p><h1>Cadastros do campeonato.</h1><p>Novos registros seguem as permissões vigentes; editar registros existentes é exclusivo do Master.</p></header>
     <div className="admin-tabs" role="tablist">
-      {tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "admin-tab admin-tab--active" : "admin-tab"} onClick={() => setTab(key)}>{label}</button>)}
-      {tab === "races" ? <><label className="admin-season">Temporada<input inputMode="numeric" pattern="[0-9]{4}" value={season} onChange={(event) => setSeason(event.target.value)} /></label><button type="button" className="admin-tab" disabled={refreshingCircuits || !/^\d{4}$/.test(season)} onClick={refreshCircuits}>{refreshingCircuits ? "Atualizando…" : "Atualizar circuitos"}</button></> : null}
+      {tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "admin-tab admin-tab--active" : "admin-tab"} onClick={() => selectTab(key)}>{label}</button>)}
+      {tab === "races" ? <><label className="admin-season">Temporada<input inputMode="numeric" pattern="[0-9]{4}" value={season} onChange={(event) => { setSeason(event.target.value); cancelEdit(); }} /></label><button type="button" className="admin-tab" disabled={refreshingCircuits || !/^\d{4}$/.test(season)} onClick={refreshCircuits}>{refreshingCircuits ? "Atualizando…" : "Atualizar circuitos"}</button></> : null}
     </div>
     {error ? <div className="calendar-state calendar-state--error" role="alert">{error}</div> : null}
     {notice ? <div className="calendar-state" role="status">{notice}</div> : null}
-    <section className="panel admin-form"><h2>{tab === "users" ? "Convidar usuário" : tab === "drivers" ? "Adicionar piloto" : "Adicionar prova"}</h2><form className="admin-fields" onSubmit={submit}>
-      <label>Nome<input required value={form.name || ""} onChange={(event) => set("name", event.target.value)} /></label>
-      {tab === "users" ? <><label>Email<input required type="email" value={form.email || ""} onChange={(event) => set("email", event.target.value)} /></label><label>Senha<input required minLength={8} type="password" value={form.password || ""} onChange={(event) => set("password", event.target.value)} /></label><label>Perfil<select value={form.profile || "participante"} onChange={(event) => set("profile", event.target.value)}><option>participante</option><option>admin</option><option>master</option></select></label></> : tab === "drivers" ? <><label>Equipe<input value={form.team || ""} onChange={(event) => set("team", event.target.value)} /></label><label>Número<input type="number" value={form.number || ""} onChange={(event) => set("number", event.target.value)} /></label></> : <><label>Data<input required type="date" value={form.date || ""} onChange={(event) => set("date", event.target.value)} /></label><label>Horário<input type="time" value={form.time || ""} onChange={(event) => set("time", event.target.value)} /></label><label>Circuito<select value={form.circuit_id || ""} onChange={(event) => set("circuit_id", event.target.value)}><option value="">Sem vínculo</option>{selectedCircuitIsLegacy ? <option value={form.circuit_id}>Circuito legado — {form.circuit_id}</option> : null}{circuits.map((circuit) => <option key={circuit.circuit_id} value={circuit.circuit_id}>{circuitLabel(circuit)}</option>)}</select></label></>}
-      <button className="primary-action">Salvar</button>
+    <section className="panel admin-form"><div className="panel__heading"><h2>{title}</h2>{editingId !== null ? <button type="button" className="table-action" onClick={cancelEdit}>Cancelar edição</button> : null}</div><form className="admin-fields" onSubmit={submit}>
+      <label>Nome<input required value={value("name")} onChange={(event) => set("name", event.target.value)} /></label>
+      {tab === "users" ? <><label>Email<input required type="email" value={value("email")} onChange={(event) => set("email", event.target.value)} /></label>{editingId === null ? <label>Senha temporária<input required minLength={8} type="password" value={value("password")} onChange={(event) => set("password", event.target.value)} /></label> : null}<label>Perfil<select value={value("profile") || "participante"} onChange={(event) => set("profile", event.target.value)}><option value="participante">participante</option><option value="admin">admin</option><option value="master">master</option><option value="inativo">inativo</option></select></label><label>Status<select value={value("status") || "ativo"} onChange={(event) => set("status", event.target.value)}><option value="ativo">ativo</option><option value="inativo">inativo</option></select></label>{editingId !== null ? <label className="check-field"><input type="checkbox" checked={Boolean(form.must_change_password)} onChange={(event) => set("must_change_password", event.target.checked)} />Exigir troca de senha</label> : null}</> : tab === "drivers" ? <><label>Equipe<input value={value("team")} onChange={(event) => set("team", event.target.value)} /></label><label>Número<input type="number" min="0" max="99" value={value("number")} onChange={(event) => set("number", event.target.value)} /></label><label>Status<select value={value("status") || "Ativo"} onChange={(event) => set("status", event.target.value)}><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select></label></> : <><label>Data<input required type="date" value={value("date")} onChange={(event) => set("date", event.target.value)} /></label><label>Horário<input type="time" value={value("time")} onChange={(event) => set("time", event.target.value)} /></label><label>Tipo<select value={value("type") || "Normal"} onChange={(event) => set("type", event.target.value)}><option value="Normal">Normal</option><option value="Sprint">Sprint</option></select></label><label>Status<select value={value("status") || "Pendente"} onChange={(event) => set("status", event.target.value)}><option value="Pendente">Pendente</option><option value="Ativa">Ativa</option><option value="Encerrada">Encerrada</option></select></label><label>Circuito<select value={value("circuit_id")} onChange={(event) => set("circuit_id", event.target.value)}><option value="">Sem vínculo</option>{selectedCircuitIsLegacy ? <option value={value("circuit_id")}>Circuito legado — {value("circuit_id")}</option> : null}{circuits.map((circuit) => <option key={circuit.circuit_id} value={circuit.circuit_id}>{circuitLabel(circuit)}</option>)}</select></label></>}
+      <button className="primary-action">{editingId !== null ? "Salvar alterações" : "Salvar"}</button>
     </form></section>
-    <section className="panel admin-list"><h2>Registros <small>{items.length} itens</small></h2><div className="table-scroll"><table><tbody>{items.map((item) => tab === "users" ? <tr key={item.id}><td>{(item as User).name}</td><td>{(item as User).email}</td><td>{(item as User).profile}</td><td>{(item as User).status}</td></tr> : tab === "drivers" ? <tr key={item.id}><td>{(item as Driver).name}</td><td>{(item as Driver).team}</td><td>{(item as Driver).number}</td><td>{(item as Driver).status}</td></tr> : <tr key={item.id}><td>{(item as Race).name}</td><td>{(item as Race).date}</td><td>{(item as Race).time}</td><td>{(item as Race).race_status}</td><td>{(item as Race).circuit_id || "Sem vínculo"}</td></tr>)}</tbody></table></div></section>
+    <section className="panel admin-list"><h2>Registros <small>{items.length} itens</small></h2><div className="table-scroll"><table><thead><tr><th>Nome</th>{tab === "users" ? <><th>Email</th><th>Perfil</th><th>Status</th></> : tab === "drivers" ? <><th>Equipe</th><th>Número</th><th>Status</th></> : <><th>Data</th><th>Horário</th><th>Tipo</th><th>Status</th><th>Circuito</th></>}{canEdit ? <th>Ações</th> : null}</tr></thead><tbody>{items.map((item) => tab === "users" ? <tr key={item.id}><td>{(item as User).name}</td><td>{(item as User).email}</td><td>{(item as User).profile}</td><td>{(item as User).status}</td>{canEdit ? <td><button type="button" className="table-action" onClick={() => startEdit(item)}>Editar</button></td> : null}</tr> : tab === "drivers" ? <tr key={item.id}><td>{(item as Driver).name}</td><td>{(item as Driver).team}</td><td>{(item as Driver).number}</td><td>{(item as Driver).status}</td>{canEdit ? <td><button type="button" className="table-action" onClick={() => startEdit(item)}>Editar</button></td> : null}</tr> : <tr key={item.id}><td>{(item as Race).name}</td><td>{(item as Race).date}</td><td>{(item as Race).time}</td><td>{(item as Race).type}</td><td>{(item as Race).race_status}</td><td>{(item as Race).circuit_id || "Sem vínculo"}</td>{canEdit ? <td><button type="button" className="table-action" onClick={() => startEdit(item)}>Editar</button></td> : null}</tr>)}</tbody></table></div></section>
   </div>;
 }

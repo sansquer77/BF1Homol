@@ -3,12 +3,15 @@ import sys
 import types
 from unittest.mock import MagicMock, patch
 
-from services.access_control import AuthenticatedContext
-from services.admin_v4_service import list_admin_drivers, list_admin_races, list_admin_users
+import pytest
+
+from services.access_control import AuthenticatedContext, AuthorizationDenied
+from services.admin_v4_service import list_admin_drivers, list_admin_races, list_admin_users, update_user, upsert_driver, upsert_race
 from services.financial_v4_service import get_financial
 
 
 MASTER = AuthenticatedContext(1, "Master", "master", "ativo", frozenset())
+ADMIN = AuthenticatedContext(2, "Admin", "admin", "ativo", frozenset({"2026"}))
 
 
 @contextmanager
@@ -39,6 +42,29 @@ def test_admin_catalog_reads_psycopg_dict_rows():
         connect = MagicMock(return_value=connection_with(rows))
         with patch.dict(sys.modules, database_modules(connect)):
             assert action(MASTER, *args)[0][field] == expected
+
+
+def test_only_master_can_edit_users_drivers_and_races():
+    with pytest.raises(AuthorizationDenied):
+        update_user(ADMIN, 7, {"nome": "Novo nome"})
+    with pytest.raises(AuthorizationDenied):
+        upsert_driver(ADMIN, 8, {"nome": "Piloto"})
+    with pytest.raises(AuthorizationDenied):
+        upsert_race(ADMIN, 9, "2026", {"nome": "Prova"})
+
+
+def test_master_edit_calls_existing_repositories():
+    users = types.ModuleType("db.repo_users"); users.update_usuario = MagicMock(return_value=True)
+    races = types.ModuleType("db.repo_races")
+    races.update_piloto = MagicMock(return_value=True); races.add_piloto = MagicMock()
+    races.update_prova = MagicMock(return_value=True); races.add_prova = MagicMock()
+    with patch.dict(sys.modules, {"db.repo_users": users, "db.repo_races": races}):
+        update_user(MASTER, 7, {"nome": "Ana", "email": "ana@example.com"})
+        upsert_driver(MASTER, 8, {"nome": "Lando", "equipe": "McLaren", "status": "Ativo", "numero": 4})
+        upsert_race(MASTER, 9, "2026", {"nome": "GP", "data": "2026-01-01", "horario_prova": "10:00", "tipo": "Normal", "status": "Pendente"})
+    users.update_usuario.assert_called_once_with(7, nome="Ana", email="ana@example.com")
+    races.update_piloto.assert_called_once()
+    races.update_prova.assert_called_once()
 
 
 def test_financial_reads_psycopg_dict_rows():

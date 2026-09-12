@@ -27,7 +27,8 @@ def update_user(context: AuthenticatedContext, user_id: int, fields: dict[str, A
 
 
 def upsert_driver(context: AuthenticatedContext, driver_id: int | None, fields: dict[str, Any]) -> None:
-    _require(context, "piloto.write", frozenset({"admin", "master"}))
+    roles = frozenset({"master"}) if driver_id is not None else frozenset({"admin", "master"})
+    _require(context, "piloto.write", roles)
     from db.repo_races import add_piloto, update_piloto
     clean = {key: value for key, value in fields.items() if key in {"nome", "equipe", "status", "numero"}}
     ok = update_piloto(int(driver_id), **clean) if driver_id is not None else add_piloto(clean.get("nome", ""), equipe=clean.get("equipe", ""), status=clean.get("status", "Ativo"), numero=int(clean.get("numero") or 0))
@@ -36,7 +37,8 @@ def upsert_driver(context: AuthenticatedContext, driver_id: int | None, fields: 
 
 
 def upsert_race(context: AuthenticatedContext, race_id: int | None, season: str, fields: dict[str, Any]) -> None:
-    _require(context, "prova.write", frozenset({"admin", "master"}), season=season)
+    roles = frozenset({"master"}) if race_id is not None else frozenset({"admin", "master"})
+    _require(context, "prova.write", roles, season=season)
     from db.repo_races import add_prova, update_prova
     clean = {key: value for key, value in fields.items() if key in {"nome", "data", "horario_prova", "tipo", "status", "circuit_id"}}
     if race_id is None:

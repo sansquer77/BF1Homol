@@ -184,7 +184,7 @@ def test_race_management_refreshes_and_selects_api_circuits():
     source = (FRONTEND / "src/components/admin-catalog-view.tsx").read_text()
     assert '"/api/v1/admin/circuits"' in source
     assert '"Atualizar circuitos"' in source
-    assert '<select value={form.circuit_id || ""}' in source
+    assert '<select value={value("circuit_id")}' in source
     assert "circuitLabel(circuit)" in source
 
 
@@ -302,3 +302,14 @@ def test_phase7_admin_contract_is_explicitly_versioned_and_server_authorized():
     assert "authorize_context" in service
     assert 'frozenset({"master"})' in service
     assert "positions: dict[str, Any]" in routes
+
+
+def test_master_can_edit_users_drivers_and_races_in_v4_catalog():
+    view = (FRONTEND / "src/components/admin-catalog-view.tsx").read_text(encoding="utf-8")
+    service = (ROOT / "services/admin_v4_service.py").read_text(encoding="utf-8")
+    assert "editingId" in view
+    assert 'method: "PATCH"' in view
+    assert 'method: editingId === null ? "POST" : "PUT"' in view
+    assert "A edição é exclusiva do usuário Master." in view
+    assert 'frozenset({"master"}) if driver_id is not None' in service
+    assert 'frozenset({"master"}) if race_id is not None' in service

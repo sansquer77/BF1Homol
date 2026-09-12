@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 3.6
+versao: 3.7
 atualizado: 2026-09-12
 relacionados:
   - "[[inventario-v4]]"
@@ -167,7 +167,7 @@ controles de acesso, sanitização ou exportação.
 - [x] Fase 4 — frontend Next.js 16/App Router e TypeScript criado com design system Apex Paddock UI mobile-first, ícone oficial BF1, login exclusivo para convidados, shell responsivo, cliente regenerável pelo OpenAPI versionado e adaptador ApexCharts carregado sob demanda com tabela acessível. O Painel do Participante passa a se chamar Telemetria e pilotos recebem marcadores acessíveis de equipe. Build de produção aprovado; dashboard, login, menu e ausência de overflow validados manualmente em 360 px. Fecha: critérios 11, 12, 21 e 22 na fundação visual.
 - [x] Fase 5 — conteúdo e consultas simples migrados: Sobre, Regulamento, Calendário e Telemetria real autenticada, sem dados demonstrativos. Fecha parte dos critérios 4, 10–12.
 - [x] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Classificação, Análise de Apostas, Hall da Fama, Logs, Dashboard F1 e Campeonato concluídos. Fecha critérios 4, 10 e 12.
-- [x] Fase 7 — migrar operações administrativas e autorização por objeto. Operações e telas administrativas V4 concluídas para usuários, pilotos, provas, Hall da Fama, financeiro e regras, incluindo associação por temporada e clonagem.
+- [x] Fase 7 — migrar operações administrativas e autorização por objeto. Operações e telas administrativas V4 concluídas para usuários, pilotos, provas, Hall da Fama, financeiro e regras, incluindo edição exclusiva do Master, associação por temporada e clonagem.
 - [x] Fase 8 — backup/restauração SQL e Excel disponíveis e confirmados funcionais em homologação, com pré-validação, reautenticação e limites preservados.
 - [ ] Fechar jornadas V4 identificadas na validação de homologação: gestão explícita de equipes e atualização de resultados pela interface. Recuperação de senha e formulário de apostas por prova estão concluídos.
 - [ ] Fase 9 — executar segurança, carga, acessibilidade e experiência mobile. Fecha critérios 5–9, 11–15 e 18–20.
@@ -175,6 +175,7 @@ controles de acesso, sanitização ou exportação.
 
 ## Changelog
 
+- `3.7` — 2026-09-12 — Edição V4 de usuários, pilotos e provas adicionada com autorização exclusiva do Master.
 - `3.6` — 2026-09-12 — Fase 8 encerrada após confirmação operacional do backup/restore Excel em homologação.
 - `3.5` — 2026-09-12 — Status reconciliado com o código: Fases 1–7 concluídas; testes operacionais Excel da Fase 8 em andamento; pendências residuais e Fases 9–10 reorganizadas.
 - `3.4` — 2026-09-12 — Backup/restore Excel V4 implantado por tabela; Fase 8 aguarda round-trip real em homologação para fechamento.

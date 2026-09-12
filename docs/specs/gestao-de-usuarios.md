@@ -2,8 +2,8 @@
 tipo: spec
 area: usuarios
 status: implementado
-versao: 1.1
-atualizado: 2026-09-09
+versao: 1.2
+atualizado: 2026-09-12
 relacionados: ["[[02_regras_de_negocio]]", "[[specs/autenticacao-e-sessao]]", "[[specs/controle-de-acesso]]"]
 tags: [spec, "area/usuarios", "status/implementado"]
 aliases: ["Gestão de usuários"]
@@ -12,7 +12,7 @@ aliases: ["Gestão de usuários"]
 # Gestão de usuários
 
 > [!info] Status
-> **implementado** · área: `usuarios` · atualizado em 2026-09-09 · relacionados: [[02_regras_de_negocio]], [[specs/autenticacao-e-sessao]], [[specs/controle-de-acesso]]
+> **implementado** · área: `usuarios` · atualizado em 2026-09-12 · relacionados: [[02_regras_de_negocio]], [[specs/autenticacao-e-sessao]], [[specs/controle-de-acesso]]
 
 ## Problema
 
@@ -44,6 +44,8 @@ Permitir que o perfil Master administre contas, credenciais, perfis e participa�
 5. Perfil e status usam apenas os valores reconhecidos pelo controle de acesso.
 6. A ativação ou inativação por temporada preserva dados e histórico existentes.
 7. Usuário inativo não ganha acesso de escrita; sua leitura histórica segue [[specs/controle-de-acesso]].
+8. A edição de usuário existente é exclusiva do Master e permite nome, email,
+   perfil, status e exigência de troca de senha; não expõe o hash nem a senha atual.
 
 ## Interface, serviços e dados
 
@@ -61,6 +63,7 @@ Permitir que o perfil Master administre contas, credenciais, perfis e participa�
 5. Dada mudança de status por temporada, quando salva, então o histórico anterior permanece consultável.
 6. Dado usuário inativo, quando acessar o app, então apenas os recursos históricos autorizados ficam disponíveis.
 7. Dada falha de validação, quando salvar, então nenhuma alteração parcial é persistida.
+8. Dado perfil diferente de Master, quando chamar a edição diretamente, então a operação é negada.
 
 ## Verificação
 
@@ -80,9 +83,11 @@ Permitir que o perfil Master administre contas, credenciais, perfis e participa�
 
 - [x] Proteger operações administrativas e persistir usuários. Fecha: critérios 1–3 e 7.
 - [x] Integrar credenciais, sessões e status por temporada. Fecha: critérios 4–6.
+- [x] Expor edição V4 exclusiva do Master. Fecha: critérios 2, 7 e 8.
 
 ## Changelog
 
+- `1.2` — 2026-09-12 — Edição de usuários V4 especificada como exclusiva do Master.
 - `1.1` — 2026-09-09 — Compatibilidade da listagem V4 com `dict_row` do PostgreSQL e distinção entre negação de acesso e falha do servidor.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
