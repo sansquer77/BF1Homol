@@ -1342,6 +1342,52 @@
         "title": "FinancialPayment",
         "type": "object"
       },
+      "FinancialPrizes": {
+        "properties": {
+          "administration": {
+            "title": "Administration",
+            "type": "number"
+          },
+          "runner_up": {
+            "title": "Runner Up",
+            "type": "number"
+          },
+          "third": {
+            "title": "Third",
+            "type": "number"
+          },
+          "winner": {
+            "title": "Winner",
+            "type": "number"
+          }
+        },
+        "required": [
+          "winner",
+          "runner_up",
+          "third",
+          "administration"
+        ],
+        "title": "FinancialPrizes",
+        "type": "object"
+      },
+      "FinancialReminderResponse": {
+        "properties": {
+          "recipients": {
+            "title": "Recipients",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "recipients"
+        ],
+        "title": "FinancialReminderResponse",
+        "type": "object"
+      },
       "FinancialResponse": {
         "properties": {
           "fee": {
@@ -1355,17 +1401,63 @@
             "title": "Participants",
             "type": "array"
           },
+          "prizes": {
+            "$ref": "#/components/schemas/FinancialPrizes"
+          },
           "season": {
             "title": "Season",
             "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/FinancialSummary"
           }
         },
         "required": [
           "season",
           "fee",
-          "participants"
+          "participants",
+          "summary",
+          "prizes"
         ],
         "title": "FinancialResponse",
+        "type": "object"
+      },
+      "FinancialSummary": {
+        "properties": {
+          "collected": {
+            "title": "Collected",
+            "type": "number"
+          },
+          "outstanding": {
+            "title": "Outstanding",
+            "type": "number"
+          },
+          "paid_total": {
+            "title": "Paid Total",
+            "type": "integer"
+          },
+          "participants_total": {
+            "title": "Participants Total",
+            "type": "integer"
+          },
+          "pending_total": {
+            "title": "Pending Total",
+            "type": "integer"
+          },
+          "total_due": {
+            "title": "Total Due",
+            "type": "number"
+          }
+        },
+        "required": [
+          "participants_total",
+          "paid_total",
+          "pending_total",
+          "collected",
+          "outstanding",
+          "total_due"
+        ],
+        "title": "FinancialSummary",
         "type": "object"
       },
       "FinancialWriteRequest": {
@@ -2584,6 +2676,16 @@
           "type": {
             "title": "Type",
             "type": "string"
+          },
+          "weather": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TelemetryWeather"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -2672,6 +2774,107 @@
           "ranking"
         ],
         "title": "TelemetryResponse",
+        "type": "object"
+      },
+      "TelemetryWeather": {
+        "properties": {
+          "apparent_temperature_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apparent Temperature C"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "forecast_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast At"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "precipitation_probability": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precipitation Probability"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "temperature_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature C"
+          },
+          "wind_speed_kmh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Speed Kmh"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "TelemetryWeather",
         "type": "object"
       },
       "UserCreateRequest": {
@@ -3117,6 +3320,49 @@
           }
         },
         "summary": "Update Admin Financial",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/financial/reminder": {
+      "post": {
+        "operationId": "remind_admin_financial_api_v1_admin_financial_reminder_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinancialReminderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remind Admin Financial",
         "tags": [
           "admin"
         ]

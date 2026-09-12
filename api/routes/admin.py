@@ -9,9 +9,9 @@ from api.dependencies import get_current_context
 from services.access_control import AuthenticatedContext, AuthorizationDenied
 from services.admin_v4_service import create_user, list_admin_circuits, list_admin_drivers, list_admin_races, list_admin_users, refresh_admin_circuits, save_result, update_user, upsert_driver, upsert_race
 from services.hall_admin_v4_service import bulk_save_hall, delete_hall_record, list_hall_admin, save_hall_record, update_hall_record
-from services.financial_v4_service import get_financial, save_financial
+from services.financial_v4_service import get_financial, save_financial, send_financial_reminder
 from services.rules_admin_v4_service import assign_rule, clone_rule, list_rules, save_rule
-from api.schemas import FinancialResponse, FinancialWriteRequest, RuleAssignmentRequest, RuleCloneRequest, RuleWriteRequest
+from api.schemas import FinancialReminderResponse, FinancialResponse, FinancialWriteRequest, RuleAssignmentRequest, RuleCloneRequest, RuleWriteRequest
 from api.schemas import HallAdminResponse, HallAdminUpdateRequest, HallAdminWriteRequest
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -99,6 +99,16 @@ def admin_financial(season: str = Query(pattern=r"^\d{4}$"), context: Authentica
 @router.put("/financial")
 def update_admin_financial(payload: FinancialWriteRequest, context: AuthenticatedContext = Depends(get_current_context)):
     return _run(save_financial, context, payload.season, payload.fee, {item.user_id: item.paid for item in payload.payments})
+
+@router.post("/financial/reminder", response_model=FinancialReminderResponse)
+def remind_admin_financial(season: str = Query(pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
+    try:
+        recipients = send_financial_reminder(context, season)
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"status": "ok", "recipients": recipients}
 
 @router.get("/rules")
 def get_admin_rules(context: AuthenticatedContext = Depends(get_current_context)):

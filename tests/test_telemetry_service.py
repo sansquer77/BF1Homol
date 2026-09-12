@@ -24,7 +24,8 @@ def test_snapshot_uses_authenticated_user_and_materialized_v3_data():
     with patch("db.repo_races.get_provas_df", return_value=races), \
          patch("db.repo_bets.get_apostas_df", return_value=bets), \
          patch("db.repo_bets.get_posicoes_participantes_df", return_value=positions), \
-         patch("db.repo_bets.get_participantes_temporada_df", return_value=users):
+         patch("db.repo_bets.get_participantes_temporada_df", return_value=users), \
+         patch("db.circuitos_utils.get_circuit_coordinates", return_value=None):
         snapshot = build_telemetry_snapshot(
             7, "Ana", "2026", now=datetime(2026, 9, 8, tzinfo=ZoneInfo("America/Sao_Paulo"))
         )
@@ -32,6 +33,7 @@ def test_snapshot_uses_authenticated_user_and_materialized_v3_data():
     assert snapshot["user_name"] == "Ana"
     assert snapshot["next_race"]["id"] == 20
     assert snapshot["next_race"]["circuit_id"] == "baku"
+    assert snapshot["next_race"]["weather"]["available"] is False
     assert snapshot["metrics"] == {"current_position": 2, "points": 18.0, "bets_submitted": 1, "races_total": 2}
     assert snapshot["evolution"][0]["cumulative_points"] == 18.0
     assert snapshot["ranking"][0]["name"] == "Beto"

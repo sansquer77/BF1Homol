@@ -35,6 +35,11 @@ def ensure_circuitos_f1_table() -> None:
         )
         c.execute("CREATE INDEX IF NOT EXISTS idx_circuitos_f1_country ON circuitos_f1(country)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_circuitos_f1_locality ON circuitos_f1(locality)")
+        columns = get_table_columns(conn, "circuitos_f1")
+        if "latitude" not in columns:
+            c.execute("ALTER TABLE circuitos_f1 ADD COLUMN latitude DOUBLE PRECISION")
+        if "longitude" not in columns:
+            c.execute("ALTER TABLE circuitos_f1 ADD COLUMN longitude DOUBLE PRECISION")
         conn.commit()
 
 
@@ -67,6 +72,11 @@ def _extract_circuit_entries_from_season(data: dict) -> dict[str, dict]:
         circuit_name = str(circuit.get("circuitName", "")).strip() or race_name or circuit_id
         locality = str(location.get("locality", "")).strip() or None
         country = str(location.get("country", "")).strip() or None
+        try:
+            latitude = float(location.get("lat"))
+            longitude = float(location.get("long"))
+        except (TypeError, ValueError):
+            latitude = longitude = None
 
         aliases = {
             race_name,
@@ -82,6 +92,8 @@ def _extract_circuit_entries_from_season(data: dict) -> dict[str, dict]:
                 "circuit_name": circuit_name,
                 "country": country,
                 "locality": locality,
+                "latitude": latitude,
+                "longitude": longitude,
                 "aliases": aliases_clean,
             }
         else:
@@ -95,6 +107,10 @@ def _extract_circuit_entries_from_season(data: dict) -> dict[str, dict]:
                 existing["country"] = country
             if not existing.get("locality") and locality:
                 existing["locality"] = locality
+            if existing.get("latitude") is None and latitude is not None:
+                existing["latitude"] = latitude
+            if existing.get("longitude") is None and longitude is not None:
+                existing["longitude"] = longitude
 
     return out
 
@@ -144,6 +160,10 @@ def atualizar_base_circuitos(seasons: Iterable[str]) -> dict[str, int]:
                     old["country"] = item["country"]
                 if not old.get("locality") and item.get("locality"):
                     old["locality"] = item["locality"]
+                if old.get("latitude") is None and item.get("latitude") is not None:
+                    old["latitude"] = item["latitude"]
+                if old.get("longitude") is None and item.get("longitude") is not None:
+                    old["longitude"] = item["longitude"]
 
     if not merged:
         return {"temporadas": processed, "circuitos": 0}
@@ -153,12 +173,14 @@ def atualizar_base_circuitos(seasons: Iterable[str]) -> dict[str, int]:
         for circuit_id, item in merged.items():
             c.execute(
                 """
-                INSERT INTO circuitos_f1 (circuit_id, circuit_name, country, locality, aliases, atualizado_em)
-                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                INSERT INTO circuitos_f1 (circuit_id, circuit_name, country, locality, latitude, longitude, aliases, atualizado_em)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                 ON CONFLICT(circuit_id) DO UPDATE SET
                     circuit_name = excluded.circuit_name,
                     country = excluded.country,
                     locality = excluded.locality,
+                    latitude = excluded.latitude,
+                    longitude = excluded.longitude,
                     aliases = excluded.aliases,
                     atualizado_em = CURRENT_TIMESTAMP
                 """,
@@ -167,6 +189,8 @@ def atualizar_base_circuitos(seasons: Iterable[str]) -> dict[str, int]:
                     str(item.get("circuit_name") or circuit_id),
                     item.get("country"),
                     item.get("locality"),
+                    item.get("latitude"),
+                    item.get("longitude"),
                     json.dumps(item.get("aliases", []), ensure_ascii=False),
                 ),
             )
@@ -186,7 +210,7 @@ def get_circuitos_df():
         c = conn.cursor()
         c.execute(
             """
-            SELECT circuit_id, circuit_name, country, locality, aliases, atualizado_em
+            SELECT circuit_id, circuit_name, country, locality, latitude, longitude, aliases, atualizado_em
             FROM circuitos_f1
             ORDER BY circuit_name ASC
             """
@@ -194,6 +218,22 @@ def get_circuitos_df():
         rows = c.fetchall()
         records = [dict(r) for r in rows]
         return pd.DataFrame(records)
+
+
+def get_circuit_coordinates(circuit_id: str) -> tuple[float, float] | None:
+    """Retorna coordenadas persistidas sem consultar serviços externos."""
+    ensure_circuitos_f1_table()
+    with db_connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT latitude, longitude FROM circuitos_f1 WHERE circuit_id = %s",
+            (str(circuit_id),),
+        )
+        row = cur.fetchone()
+        cur.close()
+    if not row or row.get("latitude") is None or row.get("longitude") is None:
+        return None
+    return float(row["latitude"]), float(row["longitude"])
 
 
 def get_temporadas_existentes_provas() -> list[str]:

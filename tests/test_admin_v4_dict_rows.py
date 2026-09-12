@@ -4,6 +4,7 @@ import types
 from unittest.mock import MagicMock, patch
 
 import pytest
+import pandas as pd
 
 from services.access_control import AuthenticatedContext, AuthorizationDenied
 from services.admin_v4_service import list_admin_drivers, list_admin_races, list_admin_users, update_user, upsert_driver, upsert_race
@@ -70,12 +71,17 @@ def test_master_edit_calls_existing_repositories():
 def test_financial_reads_psycopg_dict_rows():
     cursor = MagicMock()
     cursor.fetchone.return_value = {"valor_taxa": 200}
-    cursor.fetchall.return_value = [{"id": 2, "nome": "Ana", "email": "a@example.com", "pago": True}]
+    cursor.fetchall.return_value = [{"usuario_id": 2, "pago": True}]
     connection = MagicMock(); connection.cursor.return_value = cursor
     @contextmanager
     def connect():
         yield connection
-    with patch.dict(sys.modules, database_modules(connect)):
+    modules = database_modules(connect)
+    bets = types.ModuleType("db.repo_bets")
+    bets.get_participantes_temporada_df = MagicMock(return_value=pd.DataFrame([{"id": 2, "nome": "Ana", "email": "a@example.com", "perfil": "participante"}]))
+    modules["db.repo_bets"] = bets
+    with patch.dict(sys.modules, modules):
         result = get_financial(MASTER, "2026")
     assert result["fee"] == 200.0
     assert result["participants"] == [{"user_id": 2, "name": "Ana", "email": "a@example.com", "paid": True}]
+    assert result["summary"]["collected"] == 200.0

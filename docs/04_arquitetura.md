@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.18
+versao: 4.19
 atualizado: 2026-09-12
 relacionados:
   - "[[01_necessidade]]"
@@ -181,6 +181,10 @@ regras
 
 temporadas_regras
   temporada (PK), regra_id → regras
+
+circuitos_f1
+  circuit_id (PK), circuit_name, country, locality,
+  latitude, longitude, aliases, atualizado_em
 ```
 
 > [!warning] Normalização de chaves em `posicoes`
@@ -225,6 +229,14 @@ temporadas_regras
   requisição; caches usam `utils/ttl_cache.py` e a API chama os serviços existentes.
 - **Backup**: widgets são fornecidos pela camada chamadora por injeção, enquanto validação, geração e restauração continuam nas camadas internas.
 - **Justificativa**: permite testar o domínio sem navegador ou protocolo de entrega.
+
+### 8. Previsão meteorológica da Telemetria
+- A sincronização Jolpica persiste coordenadas opcionais em `circuitos_f1`; as
+  colunas são incrementais e backups V3.x sem esses campos continuam restauráveis.
+- `services/weather_service.py` consulta Open-Meteo somente no backend, com
+  timeout de 6 segundos, cache em memória de 30 minutos e janela máxima de 16 dias.
+- Falhas do provedor produzem um estado indisponível no contrato e nunca
+  impedem a renderização da Telemetria.
 
 ---
 
@@ -280,6 +292,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.19` — 2026-09-12 — Coordenadas opcionais de circuitos e previsão Open-Meteo isolada no backend da Telemetria.
 - `4.18` — 2026-09-12 — Visão, decisões, infraestrutura e segurança reconciliadas com o runtime V4; Streamlit rotulado como baseline V3.
 - `4.17` — 2026-09-12 — Backup/restore Excel V4 exposto por tabela com limites, pré-validação e autorização curta vinculada à sessão Master.
 - `4.16` — 2026-09-08 — Gestão Master do Hall da Fama adicionada à API V4, com CRUD, lote idempotente e invalidação de caches; catálogo administrativo V4 cobre usuários, pilotos, provas e financeiro.

@@ -65,6 +65,18 @@ def build_telemetry_snapshot(
                 "circuit_id": str(row.get("circuit_id")) if row.get("circuit_id") else None,
             }
 
+    if next_race is not None:
+        from db.circuitos_utils import get_circuit_coordinates
+        from services.weather_service import get_race_weather
+        try:
+            coordinates = get_circuit_coordinates(next_race["circuit_id"]) if next_race["circuit_id"] else None
+        except Exception:
+            coordinates = None
+        if coordinates:
+            next_race["weather"] = get_race_weather(coordinates[0], coordinates[1], datetime.fromisoformat(next_race["starts_at"]), now=now_sp)
+        else:
+            next_race["weather"] = {"available": False, "reason": "Coordenadas do circuito ainda não disponíveis."}
+
     position_rows = []
     for row in _records(positions):
         try:

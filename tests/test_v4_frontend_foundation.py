@@ -174,6 +174,10 @@ def test_telemetry_has_no_demonstrative_data_and_uses_authenticated_api():
     assert "TRACK_ASSETS[nextRace.circuit_id]" in dashboard
     assert "data.evolution" in dashboard
     assert "data.ranking" in dashboard
+    assert "nextRace.weather?.available" in dashboard
+    assert "Previsão para a largada" in dashboard
+    assert (FRONTEND / "public/weather/meteocons/rain.svg").is_file()
+    assert (FRONTEND / "public/weather/meteocons/LICENSE").is_file()
     assert "Ana Martins" not in dashboard
     assert "GP do Azerbaijão" not in dashboard
     assert "const points =" not in chart

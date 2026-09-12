@@ -2,7 +2,7 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.10
+versao: 1.11
 atualizado: 2026-09-12
 relacionados:
   - "[[sdd]]"
@@ -70,6 +70,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 - [[specs/migracao-v4-nextjs-fastapi|Migração BF1 4.0 para Next.js e FastAPI]]
 - [[specs/conteudo-institucional-v4|Regulamento e Sobre da versão 4]]
 - [[specs/telemetria-v4|Telemetria da versão 4]]
+- [[specs/financeiro-da-temporada|Gestão financeira da temporada]]
 
 Novas funcionalidades devem ganhar uma spec focada em `docs/specs/`. A
 [[03_spec|spec consolidada]] continua como referência de compatibilidade até a
@@ -92,6 +93,7 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.11` — 2026-09-12 — Adicionada a spec da gestão financeira da temporada.
 - `1.10` — 2026-09-12 — Fase 8 marcada como concluída após confirmação operacional do fluxo Excel.
 - `1.9` — 2026-09-12 — Adicionado status consolidado da migração V4 e gate operacional do restore Excel.
 - `1.8` — 2026-09-08 — Adicionada a spec da Telemetria V4 ao mapa canônico.

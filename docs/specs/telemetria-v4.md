@@ -2,7 +2,7 @@
 tipo: spec
 area: telemetria-v4
 status: implementado
-versao: 1.2
+versao: 1.3
 atualizado: 2026-09-10
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
@@ -38,6 +38,8 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 - `apostas`: quantidade enviada pelo usuário na temporada.
 - `posicoes_participantes`: pontos e posições por prova.
 - `usuarios`: nomes públicos da classificação resumida.
+- `circuitos_f1`: latitude e longitude opcionais sincronizadas da Jolpica.
+- Open-Meteo: previsão horária para a coordenada e o horário da próxima prova.
 
 ## Regras
 
@@ -51,13 +53,17 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 8. O vetor da próxima pista usa o `circuit_id` canônico da Gestão de Provas.
 9. O gráfico acumulado não apresenta variação percentual entre etapas, pois essa medida cresce mecanicamente e não representa desempenho relativo.
 10. Rótulos de prova no eixo horizontal omitem o prefixo “Grande Prêmio” sem alterar o nome acessível ou a tabela de dados.
+11. A previsão usa o horário mais próximo da largada no fuso canônico `America/Sao_Paulo` e informa temperatura, sensação, chuva, vento e condição WMO.
+12. A ausência de coordenadas, falha externa ou prova fora da janela máxima de 16 dias gera estado indisponível sem impedir o restante da Telemetria.
+13. A consulta meteorológica ocorre no backend com timeout curto e cache temporário; o navegador não consulta o provedor diretamente.
 
 ## Interface, serviços e dados
 
 - Tela: `/`, apresentada como Telemetria.
 - API: `GET /api/v1/telemetry?season=YYYY`.
 - Serviço: `services/telemetry_service.py`.
-- Tabelas: `provas`, `apostas`, `posicoes_participantes`, `usuarios`.
+- Tabelas: `provas`, `apostas`, `posicoes_participantes`, `usuarios`, `circuitos_f1`.
+- Provedor meteorológico: Open-Meteo, sem credencial, consultado somente quando a prova está na janela de previsão.
 
 ## Critérios de aceite
 
@@ -69,10 +75,12 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 6. Dado conjunto vazio, então a tela apresenta zeros ou estado informativo sem conteúdo demonstrativo.
 7. Dado viewport de 360 px, então os componentes permanecem legíveis e sem rolagem horizontal.
 8. Dado o gráfico de evolução, então ele exibe os pontos acumulados sem percentual decorativo e usa nomes compactos de etapa no eixo X.
+9. Dada próxima prova dentro de 16 dias e circuito com coordenadas, então a previsão do horário da largada aparece com ícone e valores meteorológicos.
+10. Dada previsão indisponível, então a prova e os demais dados continuam visíveis e a interface explica a indisponibilidade.
 
 ## Verificação
 
-- Critérios 1–6 — testes em `tests/test_telemetry_service.py`, `tests/test_v4_api_security.py` e `tests/test_v4_frontend_foundation.py`.
+- Critérios 1–6, 9 e 10 — testes em `tests/test_telemetry_service.py`, `tests/test_weather_service.py`, `tests/test_v4_api_security.py` e `tests/test_v4_frontend_foundation.py`.
 - Critério 7 — build Next.js e verificação visual mobile.
 
 ## Pendências
@@ -92,9 +100,11 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 - [x] Expor snapshot autenticado e caracterizar agregações. Fecha: critérios 1–6.
 - [x] Integrar frontend responsivo e remover todos os dados demonstrativos. Fecha: critérios 1–4, 6 e 7.
 - [x] Atualizar contrato OpenAPI e status da Fase 5. Fecha: critérios 1 e 5.
+- [x] Integrar coordenadas Jolpica, previsão Open-Meteo e Meteocons locais. Fecha: critérios 9 e 10.
 
 ## Changelog
 
+- `1.3` — 2026-09-12 — Previsão meteorológica da próxima prova adicionada com janela, cache, fallback e ícones Meteocons.
 - `1.2` — 2026-09-12 — Removida pendência já concluída pela Fase 6 e esclarecidas as fronteiras com Classificação e Análises.
 - `1.1` — 2026-09-10 — Removido percentual sem significado da evolução e compactados os nomes das etapas no eixo X.
 - `1.0` — 2026-09-08 — Snapshot autenticado e frontend com dados reais implementados.

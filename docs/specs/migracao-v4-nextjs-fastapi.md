@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 3.7
+versao: 3.9
 atualizado: 2026-09-12
 relacionados:
   - "[[inventario-v4]]"
@@ -175,6 +175,8 @@ controles de acesso, sanitização ou exportação.
 
 ## Changelog
 
+- `3.9` — 2026-09-12 — Telemetria enriquecida com previsão meteorológica contextual da próxima prova.
+- `3.8` — 2026-09-12 — Gestão financeira V4 concluída com histórico da temporada, resumos, premiação e lembrete seguro aos pendentes.
 - `3.7` — 2026-09-12 — Edição V4 de usuários, pilotos e provas adicionada com autorização exclusiva do Master.
 - `3.6` — 2026-09-12 — Fase 8 encerrada após confirmação operacional do backup/restore Excel em homologação.
 - `3.5` — 2026-09-12 — Status reconciliado com o código: Fases 1–7 concluídas; testes operacionais Excel da Fase 8 em andamento; pendências residuais e Fases 9–10 reorganizadas.

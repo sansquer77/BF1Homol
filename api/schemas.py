@@ -57,6 +57,18 @@ class RaceResponse(BaseModel):
     circuit_id: str | None = None
 
 
+class TelemetryWeather(BaseModel):
+    available: bool
+    reason: str | None = None
+    forecast_at: str | None = None
+    condition: str | None = None
+    icon: str | None = None
+    temperature_c: float | None = None
+    apparent_temperature_c: float | None = None
+    precipitation_probability: int | None = None
+    wind_speed_kmh: float | None = None
+
+
 class TelemetryNextRace(BaseModel):
     id: int
     name: str
@@ -66,6 +78,7 @@ class TelemetryNextRace(BaseModel):
     starts_at: str
     type: str
     circuit_id: str | None = None
+    weather: TelemetryWeather | None = None
 
 
 class TelemetryMetrics(BaseModel):
@@ -306,10 +319,30 @@ class FinancialParticipant(BaseModel):
     email: str
     paid: bool
 
+class FinancialSummary(BaseModel):
+    participants_total: int
+    paid_total: int
+    pending_total: int
+    collected: float
+    outstanding: float
+    total_due: float
+
+class FinancialPrizes(BaseModel):
+    winner: float
+    runner_up: float
+    third: float
+    administration: float
+
 class FinancialResponse(BaseModel):
     season: str
     fee: float
     participants: list[FinancialParticipant]
+    summary: FinancialSummary
+    prizes: FinancialPrizes
+
+class FinancialReminderResponse(BaseModel):
+    status: str
+    recipients: int
 
 class RuleWriteRequest(BaseModel):
     model_config = ConfigDict(extra="allow")

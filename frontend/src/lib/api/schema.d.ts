@@ -91,6 +91,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/financial/reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remind Admin Financial */
+        post: operations["remind_admin_financial_api_v1_admin_financial_reminder_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/hall-of-fame": {
         parameters: {
             query?: never;
@@ -1335,14 +1352,49 @@ export interface components {
             /** User Id */
             user_id: number;
         };
+        /** FinancialPrizes */
+        FinancialPrizes: {
+            /** Administration */
+            administration: number;
+            /** Runner Up */
+            runner_up: number;
+            /** Third */
+            third: number;
+            /** Winner */
+            winner: number;
+        };
+        /** FinancialReminderResponse */
+        FinancialReminderResponse: {
+            /** Recipients */
+            recipients: number;
+            /** Status */
+            status: string;
+        };
         /** FinancialResponse */
         FinancialResponse: {
             /** Fee */
             fee: number;
             /** Participants */
             participants: components["schemas"]["FinancialParticipant"][];
+            prizes: components["schemas"]["FinancialPrizes"];
             /** Season */
             season: string;
+            summary: components["schemas"]["FinancialSummary"];
+        };
+        /** FinancialSummary */
+        FinancialSummary: {
+            /** Collected */
+            collected: number;
+            /** Outstanding */
+            outstanding: number;
+            /** Paid Total */
+            paid_total: number;
+            /** Participants Total */
+            participants_total: number;
+            /** Pending Total */
+            pending_total: number;
+            /** Total Due */
+            total_due: number;
         };
         /** FinancialWriteRequest */
         FinancialWriteRequest: {
@@ -1772,6 +1824,7 @@ export interface components {
             time: string;
             /** Type */
             type: string;
+            weather?: components["schemas"]["TelemetryWeather"] | null;
         };
         /** TelemetryRankingEntry */
         TelemetryRankingEntry: {
@@ -1796,6 +1849,27 @@ export interface components {
             season: string;
             /** User Name */
             user_name: string;
+        };
+        /** TelemetryWeather */
+        TelemetryWeather: {
+            /** Apparent Temperature C */
+            apparent_temperature_c?: number | null;
+            /** Available */
+            available: boolean;
+            /** Condition */
+            condition?: string | null;
+            /** Forecast At */
+            forecast_at?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Precipitation Probability */
+            precipitation_probability?: number | null;
+            /** Reason */
+            reason?: string | null;
+            /** Temperature C */
+            temperature_c?: number | null;
+            /** Wind Speed Kmh */
+            wind_speed_kmh?: number | null;
         };
         /** UserCreateRequest */
         UserCreateRequest: {
@@ -2059,6 +2133,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remind_admin_financial_api_v1_admin_financial_reminder_post: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinancialReminderResponse"];
                 };
             };
             /** @description Validation Error */
