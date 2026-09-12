@@ -2,7 +2,7 @@
 tipo: spec
 area: backup
 status: implementado
-versao: 1.4
+versao: 1.6
 atualizado: 2026-09-12
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/autenticacao-e-sessao]]", "[[04_arquitetura]]"]
 tags: [spec, "area/backup", "status/implementado"]
@@ -76,7 +76,7 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 
 ## Pendências
 
-- Executar em homologação o round-trip das 21 fixtures Excel V3.x e comparar as contagens/valores resultantes antes de encerrar a Fase 8.
+- Nenhuma pendência conhecida no fluxo de backup/restore SQL e Excel.
 
 ## Fora de escopo
 
@@ -89,9 +89,13 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 - [x] Pré-validar tamanho, UTF-8 e tipo de dump antes da restauração.
 - [x] Validar formatos, limites e atomicidade. Fecha: critérios 1, 6 e 7.
 - [x] Expor listagem, exportação, pré-validação e restauração Excel por tabela na API e tela V4. Fecha implementação dos critérios 8 e 9; validação real permanece em homologação.
+- [x] Round-trip Excel confirmado funcional em homologação pelo mantenedor.
+  Fecha a revisão dos critérios 1, 8 e 9.
 
 ## Changelog
 
+- `1.6` — 2026-09-12 — Backup e restore Excel confirmados funcionais em homologação; revisão operacional concluída.
+- `1.5` — 2026-09-12 — Status alterado para revisão enquanto os testes reais de exportação/restauração Excel estão em andamento; gate operacional explicitado.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 - `1.1` — 2026-09-08 — Início da Fase 8 com pré-validação SQL pela API V4.
 - `1.2` — 2026-09-08 — Corrigida a persistência segura da reautenticação entre as requisições de autorização e restauração da API V4.

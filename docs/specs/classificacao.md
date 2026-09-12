@@ -2,8 +2,8 @@
 tipo: spec
 area: classificacao
 status: implementado
-versao: 1.6
-atualizado: 2026-09-10
+versao: 1.7
+atualizado: 2026-09-12
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -16,7 +16,7 @@ aliases: ["Spec de Classificação"]
 # Classificação
 
 > [!info] Status
-> **implementado** · área: `classificacao` · atualizado em 2026-09-10 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[glossario]], [[adr/0002-limites-de-camadas]]
+> **implementado** · área: `classificacao` · atualizado em 2026-09-12 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[glossario]], [[adr/0002-limites-de-camadas]]
 
 ## Problema
 
@@ -66,7 +66,9 @@ classificação da temporada. Administradores e master também geram imagens.
 - Telas: `ui/classificacao.py` no V3 e `/classificacao` no frontend V4.
 - Serviços: `services/bets_scoring.py`, `services/championship_service.py`, `services/classification_service.py` e fachadas de leitura.
 - Tabelas: `usuarios`, `provas`, `apostas`, `resultados`, `regras`, `championship_bets` e resultados do campeonato.
-- API V4: `GET /api/v1/classification?season=YYYY`, autenticada e autorizada por temporada.
+- API V4: `GET /api/v1/classification?season=YYYY` e
+  `GET /api/v1/classification/image?season=YYYY&race_id=ID`, autenticadas e
+  autorizadas por temporada; `race_id` é opcional para a imagem geral.
 
 ## Critérios de aceite
 
@@ -115,6 +117,7 @@ classificação da temporada. Administradores e master também geram imagens.
 
 ## Changelog
 
+- `1.7` — 2026-09-12 — Corrigido o contrato da imagem para declarar `race_id` opcional e coberto o download por prova na API V4.
 - `1.6` — 2026-09-10 — Percentual do teto por etapa calculado pelas regras, com dobra exclusiva para Sprint; tipografia, distribuição de colunas, rótulos e legendas ajustados.
 - `1.5` — 2026-09-09 — Séries e tabela por prova, gráficos ApexCharts e exportação PNG de etapa específica.
 - `1.4` — 2026-09-09 — Movimentação em relação à penúltima prova restaurada na Classificação V4 com direção, quantidade e estado de novo participante.

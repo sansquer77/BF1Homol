@@ -2,8 +2,8 @@
 tipo: spec
 area: apostas
 status: implementado
-versao: 1.1
-atualizado: 2026-09-10
+versao: 1.2
+atualizado: 2026-09-12
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[specs/deadline-de-apostas]]"
@@ -16,7 +16,7 @@ aliases: ["Apostas de Prova"]
 # Apostas de prova
 
 > [!info] Status
-> **implementado** · área: `apostas` · atualizado em 2026-09-10 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/pontuacao-de-provas]], [[specs/apostas-automaticas]]
+> **implementado** · área: `apostas` · atualizado em 2026-09-12 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/pontuacao-de-provas]], [[specs/apostas-automaticas]]
 
 ## Problema
 
@@ -72,13 +72,16 @@ explicitamente autorizadas.
 7. Dado prazo encerrado, quando enviada, então nenhuma escrita ocorre.
 8. Dado envio confirmado, quando a tela continua, então cache e feedback refletem a nova aposta.
 9. Dado um formulário V4, quando prova ou regra muda, então totais, limites, pilotos e deadline são relidos do backend antes do envio.
+10. Dada uma distribuição acima do total ou do máximo por piloto, quando o
+    usuário edita a aposta, então a linha e o resumo correspondentes ficam em
+    estado visual vermelho e acessível antes do envio.
 
 ## Verificação
 
 - Critérios 2 a 7 — `tests/test_bets_rules_extended.py`.
 - Critério 8 — `tests/test_apostas_dataframe_contract.py` e `tests/test_performance_optimizations.py`.
 - Critério 1 — verificação de integração do fluxo de envio.
-- Critérios 1–9 na V4 — `tests/test_race_bets_v4.py` e testes de API/segurança.
+- Critérios 1–10 na V4 — `tests/test_race_bets_v4.py`, contrato estático do frontend e testes de API/segurança.
 
 ## Pendências
 
@@ -93,9 +96,11 @@ explicitamente autorizadas.
 - [x] Consolidar composição, persistência e auditoria. Fecha: critérios 1 a 8.
 - [x] Relacionar validações e contratos de UI. Fecha: critérios 2 a 8.
 - [x] Expor formulário responsivo e endpoints V4 usando identidade da sessão, regras e escrita legadas. Fecha: critérios 1 a 9.
+- [x] Sinalizar visualmente total e piloto acima dos limites vigentes. Fecha: critério 10.
 
 ## Changelog
 
+- `1.2` — 2026-09-12 — Formulário passa a destacar em vermelho pilotos e total de fichas acima dos limites da regra.
 - `1.1` — 2026-09-10 — Formulário de apostas V4 conectado a provas, pilotos, regras, deadline e persistência legada.
 - `1.0` — 2026-07-31 — Fluxo de aposta de prova especificado.
 

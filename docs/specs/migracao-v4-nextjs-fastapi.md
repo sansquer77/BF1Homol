@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 3.4
+versao: 3.6
 atualizado: 2026-09-12
 relacionados:
   - "[[inventario-v4]]"
@@ -15,7 +15,7 @@ aliases: ["Migração BF1 4.0 para Next.js e FastAPI"]
 # Migração BF1 4.0 para Next.js e FastAPI
 
 > [!info] Status
-> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-10 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
+> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-12 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
 
 ## Problema
 
@@ -143,8 +143,13 @@ operação responsável por deploy, observabilidade e restauração.
 > [!question] Pendências
 > As decisões de produto e arquitetura necessárias ao scaffold foram aprovadas.
 
-- Fase 6: migrar acompanhamento, classificação completa e gráficos avançados.
-- A retenção poderá ser ajustada após observar o volume real, sem reduzir os controles de acesso, sanitização e exportação.
+1. Fechar duas jornadas administrativas residuais da V4: gestão explícita de
+   equipes e atualização de resultados de provas pela interface.
+2. Executar a Fase 9: segurança, carga, acessibilidade e experiência mobile.
+3. Executar a Fase 10: builds limpos, publicação/cutover, observação e ensaio de rollback.
+
+A retenção de logs poderá ser calibrada após observar o volume real, sem reduzir
+controles de acesso, sanitização ou exportação.
 
 ## Fora de escopo
 
@@ -163,13 +168,15 @@ operação responsável por deploy, observabilidade e restauração.
 - [x] Fase 5 — conteúdo e consultas simples migrados: Sobre, Regulamento, Calendário e Telemetria real autenticada, sem dados demonstrativos. Fecha parte dos critérios 4, 10–12.
 - [x] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Classificação, Análise de Apostas, Hall da Fama, Logs, Dashboard F1 e Campeonato concluídos. Fecha critérios 4, 10 e 12.
 - [x] Fase 7 — migrar operações administrativas e autorização por objeto. Operações e telas administrativas V4 concluídas para usuários, pilotos, provas, Hall da Fama, financeiro e regras, incluindo associação por temporada e clonagem.
-- [ ] Fase 8 — validar backup/restauração e recuperação a partir do último artefato estável. APIs e telas Master de exportação, pré-validação, reautenticação e restore SQL/Excel estão disponíveis; o restore SQL real foi aprovado e o round-trip Excel permanece para validação operacional em homologação.
-- [ ] Fechar jornadas V4 identificadas na primeira validação de homologação: gestão explícita de equipes, atualização de resultados pela interface e recuperação de senha no login. O formulário de apostas por prova está concluído.
+- [x] Fase 8 — backup/restauração SQL e Excel disponíveis e confirmados funcionais em homologação, com pré-validação, reautenticação e limites preservados.
+- [ ] Fechar jornadas V4 identificadas na validação de homologação: gestão explícita de equipes e atualização de resultados pela interface. Recuperação de senha e formulário de apostas por prova estão concluídos.
 - [ ] Fase 9 — executar segurança, carga, acessibilidade e experiência mobile. Fecha critérios 5–9, 11–15 e 18–20.
 - [ ] Fase 10 — validar builds puros, publicar a V4 e observar a operação. Fecha critério 16.
 
 ## Changelog
 
+- `3.6` — 2026-09-12 — Fase 8 encerrada após confirmação operacional do backup/restore Excel em homologação.
+- `3.5` — 2026-09-12 — Status reconciliado com o código: Fases 1–7 concluídas; testes operacionais Excel da Fase 8 em andamento; pendências residuais e Fases 9–10 reorganizadas.
 - `3.4` — 2026-09-12 — Backup/restore Excel V4 implantado por tabela; Fase 8 aguarda round-trip real em homologação para fechamento.
 - `3.3` — 2026-09-10 — Gestão de Provas V4 passou a atualizar a base canônica Jolpica/Ergast pela API autorizada e selecionar circuitos por combo.
 - `3.2` — 2026-09-10 — Formulário V4 de apostas por prova concluído e grupos do menu lateral tornados recolhíveis e acessíveis.

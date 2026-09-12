@@ -2,8 +2,8 @@
 tipo: spec
 area: autenticacao
 status: implementado
-versao: 1.2
-atualizado: 2026-09-09
+versao: 1.3
+atualizado: 2026-09-12
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -16,7 +16,7 @@ aliases: ["Autenticação e Sessão"]
 # Autenticação e sessão
 
 > [!info] Status
-> **implementado** · área: `autenticacao` · atualizado em 2026-09-08 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[specs/controle-de-acesso]], [[07_guia_deploy]]
+> **implementado** · área: `autenticacao` · atualizado em 2026-09-12 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[specs/controle-de-acesso]], [[07_guia_deploy]]
 
 ## Problema
 
@@ -48,7 +48,7 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 1. `JWT_SECRET` é obrigatório e possui no mínimo 32 bytes recomendados.
 2. Novo login revoga JTIs ativos anteriores do usuário.
 3. JWT só é aceito quando JTI, usuário, versão e expiração permanecem válidos.
-4. Logout revoga o token atual e limpa o estado Streamlit.
+4. Logout revoga o token atual e remove os cookies de sessão e CSRF da V4.
 5. Troca ou redefinição de senha revoga todas as sessões do usuário.
 6. Falhas de autenticação alimentam rate limiting por email e IP.
 7. O login tradicional funciona sem OIDC; OIDC permanece opcional e desabilitado.
@@ -62,7 +62,7 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 
 ## Interface, serviços e dados
 
-- Tela: `ui/login.py`; roteamento e logout em `main.py`.
+- Tela V4: `frontend/src/app/login`; o fluxo Streamlit permanece apenas como baseline V3.
 - Serviços: `services/auth_service.py` e `services/access_control.py`.
 - Repositórios/tabelas: `usuarios`, `auth_sessions`, `login_attempts`, `password_reset_tokens`.
 - API V4: `/api/v1/auth/login`, `/logout`, `/me`, `/refresh`,
@@ -99,6 +99,7 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 
 ## Changelog
 
+- `1.3` — 2026-09-12 — Interface e logout alinhados ao runtime Next.js/FastAPI; Streamlit identificado apenas como baseline V3.
 - `1.2` — 2026-09-09 — Recuperação segura de senha disponibilizada na tela de login V4.
 - `1.1` — 2026-09-08 — Documentados os contratos V4 de cookie, CSRF e rotação da sessão ativa.
 - `1.0` — 2026-07-31 — Comportamento atual de autenticação e sessão especificado.

@@ -72,6 +72,34 @@ class V4ApiSecurityTests(unittest.TestCase):
         finally:
             app.dependency_overrides.clear()
 
+    def test_classification_image_accepts_optional_race_id(self):
+        from io import BytesIO
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(
+            7, "Ana", "participante", "ativo", frozenset({"2026"})
+        )
+        snapshot = {"season": "2026", "entries": [], "races": [{"race_id": 31}]}
+        race_snapshot = {"season": "2026", "title": "GP", "entries": []}
+        try:
+            with patch("api.routes.classification.build_classification", return_value=snapshot), \
+                 patch("api.routes.classification.classification_for_race", return_value=race_snapshot) as by_race, \
+                 patch("api.routes.classification.render_classification_png", side_effect=[BytesIO(b"\x89PNG\r\n\x1a\n"), BytesIO(b"\x89PNG\r\n\x1a\n")]), \
+                 patch("db.repo_observability.record_event"):
+                general = self.client.get("/api/v1/classification/image?season=2026")
+                response = self.client.get("/api/v1/classification/image?season=2026&race_id=31")
+            self.assertEqual(general.status_code, 200)
+            self.assertEqual(general.headers["content-type"], "image/png")
+            self.assertIn("classificacao-2026.png", general.headers["content-disposition"])
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers["content-type"], "image/png")
+            self.assertIn("prova-31.png", response.headers["content-disposition"])
+            by_race.assert_called_once_with(snapshot, 31)
+        finally:
+            app.dependency_overrides.clear()
+
     def test_telemetry_uses_identity_from_session_and_authorized_season(self):
         from api.dependencies import get_current_context
         from api.main import app

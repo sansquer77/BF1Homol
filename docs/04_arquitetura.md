@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.17
+versao: 4.18
 atualizado: 2026-09-12
 relacionados:
   - "[[01_necessidade]]"
@@ -16,14 +16,16 @@ aliases: ["Arquitetura do Sistema"]
 # Arquitetura do Sistema — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-09-08 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
+> **implementado** · área: `bf1` · atualizado em 2026-09-12 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
 
 ## Visão Geral
 
-O BF1 é uma aplicação web **monolítica stateless** construída com **Streamlit**, conectada a um banco **PostgreSQL** gerenciado, e hospedada na **DigitalOcean App Platform**. A arquitetura é baseada em camadas com separação clara de responsabilidades.
+O runtime V4 em homologação usa **Next.js/TypeScript** na apresentação e
+**FastAPI/Python** na API, conectado ao mesmo **PostgreSQL** gerenciado e
+hospedado na **DigitalOcean App Platform**. O monólito Streamlit 3.x permanece
+no repositório somente como baseline de comportamento e compatibilidade.
 
-Durante a construção da versão 4, o runtime vigente acima permanece documentado
-como baseline de comportamento. A nova entrega segue o [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados|ADR-0003]]:
+A entrega segue o [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados|ADR-0003]]:
 Next.js na apresentação, FastAPI em `api/`, regras reutilizadas de `services/` e
 o mesmo PostgreSQL por meio de `db/`. A Fase 3 estabeleceu `/api/v1`, sessão por
 cookie seguro e revogável, autorização opaca por objeto/temporada, contexto
@@ -49,7 +51,7 @@ vinculada à sessão. O Excel preserva o contrato V3.x de uma planilha `data` po
 
 ---
 
-## Diagrama de Camadas
+## Diagrama legado V3 (baseline de compatibilidade)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -93,7 +95,7 @@ vinculada à sessão. O Excel preserva o contrato V3.x de uma planilha `data` po
 
 ---
 
-## Estrutura de Diretórios
+## Estrutura legada V3
 
 ```
 BF1/
@@ -189,18 +191,17 @@ temporadas_regras
 
 ## Decisões Arquiteturais
 
-### 1. Streamlit como Framework Full-Stack
-- **Decisão**: usar Streamlit em vez de Flask/FastAPI + frontend separado.
-- **Justificativa**: equipe pequena, ciclo de desenvolvimento rápido, interface adequada para dashboards e formulários.
-- **Trade-off**: limitações de UX avançado são contornadas com CSS customizado (Liquid Glass) e injeção de JavaScript via `st.markdown(unsafe_allow_html=True)`.
+### 1. Next.js e FastAPI
+- **Decisão vigente**: apresentação Next.js/App Router e API FastAPI versionada.
+- **Baseline**: Streamlit permanece somente para caracterização da V3.x.
 
-### 2. JWT e sessão Streamlit
-- **Decisão**: autenticação por JWT HS256 assinado com `JWT_SECRET`, com expiração de 120 minutos.
-- **Implementação atual**: o roteador valida o JWT revogável em `st.session_state`. Quando OIDC está habilitado, uma identidade já validada pelo cookie nativo do Streamlit reidrata esse JWT para um usuário previamente cadastrado.
+### 2. JWT e sessão HTTP
+- **Decisão**: JWT HS256 revogável em cookie `Secure` e `HttpOnly`, com CSRF
+  separado, rotação e revalidação no servidor.
 
 ### 3. Pool de Conexões PostgreSQL
 - **Decisão**: `connection_pool.py` gerencia um pool de conexões com `psycopg` 3 e `psycopg-pool`.
-- **Justificativa**: Streamlit rerenderiza o script inteiro a cada interação; sem pool, cada interação abriria uma nova conexão ao banco.
+- **Justificativa**: limitar conexões concorrentes e reutilizá-las entre requisições da API.
 
 ### 4. Migrations Incrementais e Idempotentes
 - **Decisão**: `migrations.py` executa DDL incremental no bootstrap da aplicação.
@@ -208,7 +209,8 @@ temporadas_regras
 - **Risco mitigado**: todas as migrations verificam a existência da coluna/tabela antes de aplicar.
 
 ### 5. Separação em Camadas
-- `ui/` → apenas renderização Streamlit, sem lógica de negócio.
+- `frontend/` → apresentação e estado de interface, sem acesso direto ao banco.
+- `api/` → validação, autorização, orquestração e serialização HTTP.
 - `services/` → toda lógica de negócio e scoring.
 - `db/` → acesso a dados, sem lógica de negócio.
 - `utils/` → funções puras e transversais (sem dependência de DB ou UI).
@@ -217,11 +219,12 @@ temporadas_regras
 - Todas as comparações de data/hora usam `America/Sao_Paulo` via `zoneinfo`.
 - `now_sao_paulo()` é a função canônica para obter o tempo atual.
 
-### 7. Camadas internas sem dependência de Streamlit
+### 7. Camadas internas independentes da entrega
 - **Decisão**: `services/`, `db/` e `utils/` não importam Streamlit nem componentes Streamlit.
-- **Implementação**: `main.py` vincula sessão e metadados da requisição ao contexto neutro de `app_runtime.py`; caches de leitura usam o TTL cache de `utils/ttl_cache.py`; a integração OIDC permanece em `ui/oidc_auth.py`.
+- **Implementação V4**: FastAPI vincula identidade e metadados ao contexto de
+  requisição; caches usam `utils/ttl_cache.py` e a API chama os serviços existentes.
 - **Backup**: widgets são fornecidos pela camada chamadora por injeção, enquanto validação, geração e restauração continuam nas camadas internas.
-- **Justificativa**: permite testar e futuramente expor as regras por outra camada de entrega sem simular o ciclo de rerun do Streamlit.
+- **Justificativa**: permite testar o domínio sem navegador ou protocolo de entrega.
 
 ---
 
@@ -229,13 +232,15 @@ temporadas_regras
 
 | Componente            | Serviço DO | Observações |
 |-----------------------|---------------------------------|------------------------------------------|
-| Aplicação             | App Platform (Web Service)      | Container gerenciado, deploy via GitHub  |
+| Frontend              | App Platform (`bf1-frontend`)   | Next.js standalone, porta 3000           |
+| API                   | App Platform (`bf1-api`)        | FastAPI/Uvicorn, porta 8000              |
 | Banco de Dados        | Managed PostgreSQL              | Backups automáticos, SSL obrigatório     |
-| Variáveis de Ambiente | App Platform Env Vars           | `DATABASE_URL`, `JWT_SECRET`, `MASTER_*` |
+| Variáveis de Ambiente | App Platform Env Vars           | `DATABASE_URL`, `JWT_SECRET` e variáveis Master existentes |
 | CI/CD                 | Auto-deploy no push para `main` | Sem pipeline adicional necessário        |
 | Runtime Python        | >= 3.10 (preferencialmente 3.13)| ParamSpec, tomllib e dict_row do psycopg 3 são utilizados |
 
-A configuração do Streamlit em `.streamlit/config.toml` mantém `enableCORS` e `enableXsrfProtection` explicitamente ativos, além de desabilitar o envio de estatísticas de uso (`gatherUsageStats = false`).
+O ingresso encaminha `/api/*` à API preservando o prefixo e as demais rotas ao
+frontend. A configuração versionada está em `bf1homol-v4.yaml`.
 
 ### Variáveis de Ambiente Obrigatórias
 
@@ -254,7 +259,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 - Todo valor dinâmico inserido em HTML usa `escape_html_text` ou `escape_html_attr`, conforme o contexto.
 - Valores inseridos em JavaScript são produzidos exclusivamente por `serialize_js_value`.
 - `render_trusted_html` é o único sink permitido para HTML/JavaScript; chamadas diretas com `unsafe_allow_html` ou `unsafe_allow_javascript` são bloqueadas por teste estático.
-- Elementos usados apenas para apresentação devem priorizar componentes nativos do Streamlit.
+- Elementos interativos do frontend devem preservar semântica, teclado, foco e contraste.
 - Restaurações SQL e importações Excel ficam bloqueadas por padrão. A liberação exige que o master confirme novamente sua senha atual; a autorização é curta, vinculada ao `user_id` e ao `jti` da sessão revalidada e expira em 10 minutos por padrão (`BACKUP_REAUTH_TTL_SECONDS`, limitado entre 60 e 1800 segundos).
 - A reautenticação na UI não substitui a autorização em profundidade: cada caminho de escrita revalida a operação `backup.write` e a autorização temporária na camada de serviço/banco.
 - Uploads de backup possuem limites globais e específicos de bytes; Excel também limita tamanho descompactado, membros ZIP, linhas, colunas e células antes de qualquer mutação.
@@ -262,7 +267,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 - **Senhas**: bcrypt com salt automático (nunca texto claro).
 - **Tokens**: JWT HS256 com expiração fixa de 120 minutos no código atual.
 - **Sessões**: `auth_sessions` registra `jti`, usuário, versão, emissão, expiração e revogação.
-- **Cookie**: componentes JavaScript de cookie foram removidos. A persistência opcional usa `st.login`/`st.user`/`st.logout`, com cookie de identidade gerenciado pelo Streamlit e configuração OIDC em `[auth]`. O login por senha continua válido, mas restrito à sessão WebSocket.
+- **Cookie**: sessão `HttpOnly`, `Secure` em produção e `SameSite=Lax`; CSRF em cookie separado e validação de origem nas mutações.
 - **Proxy**: headers de IP só são confiados com `TRUSTED_PROXY_MODE` e topologia explícita; o padrão `direct` ignora headers.
 - **Retenção**: o bootstrap remove tentativas, logs, tokens expirados e sessões antigas conforme configuração.
 - **Autorização em profundidade**: `access_control.py` revalida o usuário e centraliza matrizes de páginas/operações.
@@ -275,6 +280,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.18` — 2026-09-12 — Visão, decisões, infraestrutura e segurança reconciliadas com o runtime V4; Streamlit rotulado como baseline V3.
 - `4.17` — 2026-09-12 — Backup/restore Excel V4 exposto por tabela com limites, pré-validação e autorização curta vinculada à sessão Master.
 - `4.16` — 2026-09-08 — Gestão Master do Hall da Fama adicionada à API V4, com CRUD, lote idempotente e invalidação de caches; catálogo administrativo V4 cobre usuários, pilotos, provas e financeiro.
 - `4.14` — 2026-09-08 — Módulo de Campeonato V4 adicionado com leitura/escrita autenticada, deadline fail-closed e preservação das tabelas `championship_bets`, `championship_bets_log` e `championship_results`.

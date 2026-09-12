@@ -2,8 +2,8 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.8
-atualizado: 2026-09-06
+versao: 1.10
+atualizado: 2026-09-12
 relacionados:
   - "[[sdd]]"
   - "[[01_necessidade]]"
@@ -16,10 +16,16 @@ aliases: ["Documentação BF1", "Map of Content"]
 # Documentação BF1
 
 > [!info] Status
-> **implementado** · área: `meta` · atualizado em 2026-09-06 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
+> **implementado** · área: `meta` · atualizado em 2026-09-12 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
 
 Este é o ponto de entrada da documentação do BF1. O vault é compatível com
 Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
+
+## Estado atual da migração V4
+
+- Fases 1–8 concluídas; backup/restore SQL e Excel confirmados em homologação.
+- Pendências funcionais: gestão explícita de equipes e atualização de resultados pela V4.
+- Fases 9 e 10 pendentes: segurança/carga/acessibilidade/mobile e cutover/observação.
 
 ## Comece aqui
 
@@ -86,6 +92,8 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.10` — 2026-09-12 — Fase 8 marcada como concluída após confirmação operacional do fluxo Excel.
+- `1.9` — 2026-09-12 — Adicionado status consolidado da migração V4 e gate operacional do restore Excel.
 - `1.8` — 2026-09-08 — Adicionada a spec da Telemetria V4 ao mapa canônico.
 - `1.7` — 2026-09-06 — Aprovada a arquitetura V4 e registrada a primeira fonte de backup V3.5.0.
 - `1.6` — 2026-09-06 — Adicionados inventário, spec e ADR proposto da migração 4.0.

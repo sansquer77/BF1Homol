@@ -2,7 +2,7 @@
 tipo: spec
 area: telemetria-v4
 status: implementado
-versao: 1.1
+versao: 1.2
 atualizado: 2026-09-10
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
@@ -80,11 +80,12 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 > [!question] Pendências
 > Nenhuma pendência bloqueante para o resumo da Fase 5.
 
-- Bônus, descarte e classificação geral completa entram na Fase 6.
+- Nenhuma pendência conhecida na Telemetria; bônus, descarte e classificação
+  geral são responsabilidades do módulo Classificação já migrado na Fase 6.
 
 ## Fora de escopo
 
-- Formulário de aposta, classificação completa e análises avançadas.
+- Formulário de aposta, classificação completa e análises, tratados por specs próprias.
 
 ## Plano de implementação
 
@@ -94,6 +95,7 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 
 ## Changelog
 
+- `1.2` — 2026-09-12 — Removida pendência já concluída pela Fase 6 e esclarecidas as fronteiras com Classificação e Análises.
 - `1.1` — 2026-09-10 — Removido percentual sem significado da evolução e compactados os nomes das etapas no eixo X.
 - `1.0` — 2026-09-08 — Snapshot autenticado e frontend com dados reais implementados.
 - `0.1` — 2026-09-08 — Contrato inicial da Telemetria V4.

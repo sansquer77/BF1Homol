@@ -3242,6 +3242,7 @@ export interface operations {
         parameters: {
             query: {
                 season: string;
+                race_id?: number | null;
             };
             header?: never;
             path?: never;

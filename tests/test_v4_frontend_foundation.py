@@ -283,6 +283,11 @@ def test_race_bet_form_and_collapsible_navigation_are_connected():
     assert "/api/v1/race-bets" in form
     assert "eleventh_driver" in form
     assert "max_chips_per_driver" in form
+    assert "bet-allocation--invalid" in form
+    assert "totalOverLimit" in form
+    assert 'aria-invalid={overLimit}' in form
+    assert "eleventhConflicts" in form
+    assert "O piloto do 11º não pode estar entre os apostados." in form
     assert 'aria-expanded={isExpanded}' in shell
     assert 'aria-current={active ? "page" : undefined}' in shell
     assert "/api/v1/race-bets" in openapi["paths"]

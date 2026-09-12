@@ -43,3 +43,15 @@ def test_submission_rejects_duplicate_team_before_write():
         else:
             raise AssertionError("Aposta inválida deveria ser recusada")
     save.assert_not_called()
+
+
+def test_submission_rejects_eleventh_driver_also_in_allocations():
+    snapshot = {"selected_race": {"id": 10, "name": "GP Teste", "type": "Normal", "is_open": True}, "drivers": [{"name": "A", "team": "Ferrari"}, {"name": "B", "team": "McLaren"}, {"name": "C", "team": "Alpine"}]}
+    with patch("services.race_bets_v4_service.build_race_bet_snapshot", return_value=snapshot), patch("services.race_bets_v4_service.get_regras_aplicaveis", return_value=RULES), patch("services.bets_write.salvar_aposta") as save:
+        try:
+            place_race_bet("2026", 10, [{"driver": "A", "chips": 2}, {"driver": "B", "chips": 1}], "A", CONTEXT)
+        except ValueError as exc:
+            assert "regras vigentes" in str(exc)
+        else:
+            raise AssertionError("Piloto do 11º também apostado deveria ser recusado")
+    save.assert_not_called()

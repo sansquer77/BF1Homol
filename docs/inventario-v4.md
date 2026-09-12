@@ -2,20 +2,20 @@
 tipo: arquitetura
 area: migracao-v4
 status: implementado
-versao: 0.7
-atualizado: 2026-09-08
+versao: 0.8
+atualizado: 2026-09-12
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
   - "[[04_arquitetura]]"
   - "[[03_spec]]"
-tags: [arquitetura, "area/migracao-v4", "status/em-revisao"]
+tags: [arquitetura, "area/migracao-v4", "status/implementado"]
 aliases: ["Inventário funcional e técnico da versão 4"]
 ---
 
 # Inventário funcional e técnico da versão 4
 
 > [!info] Status
-> **implementado** · área: `migracao-v4` · atualizado em 2026-09-08 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[04_arquitetura]], [[03_spec]]
+> **implementado** · área: `migracao-v4` · atualizado em 2026-09-12 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[04_arquitetura]], [[03_spec]]
 
 ## Objetivo e método
 
@@ -241,17 +241,18 @@ redefine a credencial persistida.
 
 ## Riscos e lacunas encontradas
 
-- Existem regras/cálculos ainda em módulos `ui/` (notadamente classificação e
-  análise); precisam ganhar serviços antes de virarem endpoints.
-- A gestão financeira cria schema a partir do serviço e ainda possui helpers na
-  UI; a fronteira deve ser consolidada antes da migração dessa área.
+- Classificação, análise e financeiro já possuem contratos FastAPI e telas V4;
+  o código Streamlit correspondente permanece apenas como baseline V3.
+- A gestão explícita de equipes e a atualização de resultados pela interface
+  V4 continuam como lacunas funcionais identificadas em homologação.
 - O log operacional em banco deve coexistir com `access_logs` e `log_apostas`;
   nenhum deles substitui a auditoria de domínio do outro.
-- A mesma origem, a ausência de Streamlit e logs no PostgreSQL estão aprovados;
-  ainda é preciso fechar a política de rollback por artefato/backup.
+- A mesma origem, a ausência de Streamlit no runtime V4 e logs no PostgreSQL
+  estão aprovados; ainda é preciso fechar o gate Excel e ensaiar rollback.
 
 ## Changelog
 
+- `0.8` — 2026-09-12 — Riscos reconciliados com os módulos V4 já migrados e lacunas residuais/operacionais atuais.
 - `0.7` — 2026-09-08 — Painel do Participante mapeado para Telemetria na V4 e identidade de equipes incorporada ao contrato visual.
 - `0.6` — 2026-09-07 — Restore das 21 fixtures Excel aprovado no PostgreSQL 18.6 e contrato reconstruído de schema congelado.
 - `0.5` — 2026-09-07 — Inventário congelado com quatro fontes canônicas do contrato V3.x e 21 exportações Excel reais recebidas.

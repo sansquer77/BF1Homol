@@ -4687,6 +4687,23 @@
               "title": "Season",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "race_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Race Id"
+            }
           }
         ],
         "responses": {

@@ -24,6 +24,7 @@ def classification(
 @router.get("/image", response_class=StreamingResponse)
 def classification_image(
     season: str = Query(pattern=r"^\d{4}$"),
+    race_id: int | None = Query(default=None, gt=0),
     context: AuthenticatedContext = Depends(get_current_context),
 ):
     authorize_season_object(season, context)

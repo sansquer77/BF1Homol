@@ -1,180 +1,85 @@
 ---
 tipo: metodologia
 area: bf1
-status: implementado
-versao: 4.2
-atualizado: 2026-07-20
-relacionados:
-  - "[[04_arquitetura]]"
-  - "[[06_modulos_tecnicos]]"
-tags: [metodologia, "area/bf1", "status/implementado"]
+status: em-revisao
+versao: 5.1
+atualizado: 2026-09-12
+relacionados: ["[[04_arquitetura]]", "[[06_modulos_tecnicos]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
+tags: [metodologia, "area/bf1", "status/em-revisao"]
 aliases: ["Guia de Deploy e Operações"]
 ---
 
-# Guia de Deploy e Operações — BF1
+# Guia de Deploy e Operações — BF1 V4
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-20 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]]
+> **em-revisao** · área: `bf1` · atualizado em 2026-09-12 · configuração de homologação ativa; cutover ainda pendente.
 
----
+## Topologia DigitalOcean
 
-## Visão Geral
+`bf1homol-v4.yaml` é a referência versionada. A mesma origem pública encaminha:
 
-O BF1 é hospedado na **DigitalOcean App Platform** com deploy automático via push para a branch `main` do repositório GitHub. O banco de dados é um **PostgreSQL Gerenciado** na DigitalOcean. Não há pipeline de CI/CD externo — o próprio push aciona o rebuild do container.
-
----
-
-## Pré-Requisitos
-
-- Conta na DigitalOcean com App Platform ativada
-- Repositório GitHub conectado à App Platform
-- Banco PostgreSQL Gerenciado criado na DigitalOcean
-- Python compatível com as dependências de `requirements.txt` (o repositório não fixa atualmente uma versão em `.python-version`)
-
----
-
-## Variáveis de Ambiente (App Platform)
-
-Configure as variáveis abaixo no painel da App Platform → **Settings → Environment Variables**:
-
-| Variável | Obrigatória | Descrição |
+| Rota | Componente | Build/runtime |
 |---|---|---|
-| `DATABASE_URL` | ✅ | Connection string completa do PostgreSQL (`postgresql://user:pass@host:port/dbname?sslmode=require`) |
-| `JWT_SECRET` | ✅ | Segredo aleatório com no mínimo 32 bytes para assinar tokens JWT |
-| `EMAIL_MASTER` | ✅ | Email do usuário master criado no primeiro boot |
-| `SENHA_MASTER` | ✅ | Senha inicial do usuário master (será hashada com bcrypt) |
-| `USUARIO_MASTER` | ✅ | Nome de exibição do usuário master |
-| `OIDC_AUTH_ENABLED` | Não | `true` habilita persistência segura depois de configurar `[auth]` em `.streamlit/secrets.toml` |
-| `TRUSTED_PROXY_MODE` | ✅ | `direct`, `xff` ou `x-real-ip`; padrão seguro `direct` |
-| `TRUSTED_PROXY_HOPS` | se `xff` | Saltos confiáveis contados da direita do XFF |
-| `LOGIN_ATTEMPTS_RETENTION_DAYS` | Não | Retenção das tentativas; padrão 30 dias |
-| `ACCESS_LOGS_RETENTION_DAYS` | Não | Retenção da auditoria; padrão 90 dias |
-| `RESET_TOKENS_RETENTION_DAYS` | Não | Retenção após expiração; padrão 7 dias |
-| `AUTH_SESSIONS_RETENTION_DAYS` | Não | Retenção de sessões expiradas/revogadas; padrão 30 dias |
-| `EMAIL_REMETENTE` | ⚠️ | Conta Gmail remetente; necessária para envio de e-mails |
-| `SENHA_EMAIL` | ⚠️ | Senha de app da conta remetente (`SENHA_REMETENTE` é aceita como alternativa) |
-| `EMAIL_ADMIN` | ⚠️ | Endereço administrativo usado pelos fluxos de e-mail |
-| `GEMINI_API_KEY` | ⚠️ | Habilita geração e análises de aposta pelo SDK oficial Google Gen AI; sem ela o sistema usa fallback local |
-| `GEMINI_MODEL` | Não | Modelo Gemini; padrão estável `gemini-3.5-flash` |
+| `/api/*` | `bf1-api` | raiz; `requirements-api.txt`; `uvicorn api.main:app --host 0.0.0.0 --port 8000` |
+| `/*` | `bf1-frontend` | `/frontend`; build pnpm; servidor standalone Next na porta 3000 |
 
-> ⚠️ **Nunca** commitar valores de variáveis de ambiente no repositório. O `.gitignore` já exclui arquivos `.env`.
+Ambos usam instância de 0,5 GB na homologação e compartilham o PostgreSQL 18
+gerenciado. O ingresso preserva o prefixo `/api`. A V4 não inicia Streamlit.
 
----
+## Configuração obrigatória
 
-## Primeiro Deploy
+- `DATABASE_URL`, `JWT_SECRET`, `EMAIL_MASTER`, `SENHA_MASTER` e `USUARIO_MASTER`.
+- `ALLOWED_ORIGINS` com as origens HTTPS públicas exatas.
+- Cookies seguros em ambiente público e limites de backup/restore conforme a spec.
+- Credenciais de email somente quando a recuperação de senha for usada.
 
-1. **Fork/clone** o repositório para sua conta GitHub.
-2. No painel da DigitalOcean, crie um novo **App** apontando para o repositório.
-3. Selecione a branch `main` como branch de produção.
-4. Configure o **Run Command** como:
-   ```
-   streamlit run main.py --server.port $PORT --server.address 0.0.0.0
-   ```
-5. Defina todas as variáveis de ambiente obrigatórias.
-6. Faça o deploy. Na inicialização, `bootstrap_app()` executará:
-   - `run_migrations()` — cria/atualiza todas as tabelas
-   - `MasterUserManager.create_master_user()` — cria o usuário master se não existir
-7. Acesse a URL gerada pela App Platform e faça login com as credenciais do master.
+Os nomes das variáveis Master são os mesmos da implantação 3.x. O bootstrap
+sincroniza a conta Master sem registrar a senha em texto. Segredos ficam no App
+Platform e nunca no YAML ou repositório.
 
----
+## Build e inicialização
 
-## Deploys Subsequentes
+1. A API instala `requirements-api.txt`, inicia Uvicorn e executa o bootstrap
+   idempotente de schema/Master.
+2. O frontend usa o lockfile com pnpm, executa o build Next e publica a saída
+   standalone. O comando de runtime não repassa um `--` extra ao `next start`.
+3. Os health checks devem aprovar API e frontend antes de expor a revisão.
+4. Antes do cutover, executar suíte Python, geração/verificação OpenAPI,
+   typecheck e build de produção do frontend.
 
-Qualquer push para a branch `main` aciona automaticamente um novo deploy. O processo é:
+## Banco, backup e restauração
 
-1. DigitalOcean detecta o push e inicia rebuild do container
-2. Dependências do `requirements.txt` são instaladas
-3. Container inicia com `streamlit run main.py`
-4. `bootstrap_app()` executa migrations incrementais (idempotentes — seguro executar múltiplas vezes)
-5. Aplicação fica disponível na URL pública
+- PostgreSQL é a fonte de verdade; migrations são aditivas e idempotentes.
+- SQL exporta/restaura o dump compatível.
+- Excel mantém o contrato V3.x: **um arquivo `.xlsx` por tabela**, planilha
+  `data`, e cabeçalhos compatíveis com as colunas PostgreSQL.
+- Restore exige Master, pré-validação, reautenticação curta e limites
+  fail-closed. SQL e Excel foram confirmados funcionais em homologação.
+- O backup local após cada corrida permanece uma decisão operacional de custo.
 
----
+## Logs e monitoramento
 
-## Banco de Dados
+Aplicação, acesso, segurança e erros são estruturados no PostgreSQL. Falhas
+anteriores à conexão usam `stdout/stderr`, visíveis nos Runtime Logs da
+DigitalOcean. O Master pode exportar logs por endpoint limitado e reautenticado.
 
-### Conexão
-O pool de conexões (`db/connection_pool.py`) gerencia automaticamente as conexões com `psycopg-pool`. SSL é obrigatório na string de conexão (`sslmode=require`).
+## Checklist de promoção
 
-### Migrations
-As migrations são aplicadas automaticamente no bootstrap. São **incrementais e idempotentes** — verificam a existência da coluna/tabela antes de aplicar. Não é necessário nenhum comando manual após deploy.
+- [x] Round-trip Excel aprovado em homologação.
+- [ ] Gestão de equipes e atualização de resultados disponíveis na V4.
+- [ ] Testes de segurança, carga, acessibilidade e mobile aprovados.
+- [ ] Restore SQL/Excel e rollback ensaiados a partir do artefato estável.
+- [ ] Builds limpos e health checks dos dois componentes aprovados.
+- [ ] Métricas e logs observados após a promoção.
 
-### Backup
-Backups podem ser realizados via interface do sistema (perfil `master`) ou diretamente pelo painel da DigitalOcean (backups automáticos do PostgreSQL Gerenciado).
+## Changelog
 
-Tipos de backup disponíveis via interface:
-- **Excel** (`.xlsx`) — exporta todas as tabelas em abas separadas
-- **SQL Dump** — dump SQL completo para restauração
+- `5.1` — 2026-09-12 — Checklist atualizado com backup/restore Excel funcional em homologação.
+- `5.0` — 2026-09-12 — Guia reescrito para a topologia Next.js/FastAPI em dois componentes e contrato Excel por tabela.
+- `4.2` — 2026-07-20 — Operação do runtime Streamlit V3 documentada.
 
----
-
-## Monitoramento e Logs
-
-- **Logs de aplicação**: disponíveis no painel da App Platform → **Runtime Logs**
-- **Logs de acesso ao sistema**: acessíveis via menu **Log de Acessos** (perfil `master`)
-- **Logs de apostas**: acessíveis via menu **Log de Apostas** (perfis `admin` e `master`)
-
-O nível de log padrão é `INFO`. O formato é:
-```
-%(asctime)s - %(name)s - %(levelname)s - %(message)s
-```
-
----
-
-## Configuração PWA (Progressive Web App)
-
-O BF1 suporta instalação como PWA em dispositivos móveis e desktop.
-
-- **Manifest**: `static/manifest.json` — define nome, ícones e cores do app
-- **Apple Touch Icon**: `static/apple-touch-icon-180.png` — ícone para iOS
-- **Ícones PWA**: `static/icon-192.png`, `static/icon-512.png`
-
-Para ativar no iOS: abrir o app no Safari → "Compartilhar" → "Adicionar à Tela de Início".
-
----
-
-## Configuração de Timezone
-
-O sistema armazena todos os horários em **`America/Sao_Paulo`** no banco de dados. A conversão para o timezone do usuário é feita na camada de exibição.
-
-- Detecção automática via JavaScript no browser (`Intl.DateTimeFormat().resolvedOptions().timeZone`)
-- Seletor manual disponível no menu lateral (sidebar)
-- Timezones suportados incluem todas as regiões brasileiras, EUA, Europa e principais fusos internacionais
-
----
-
-## Segurança em Produção
-
-- **HTTPS**: garantido pela App Platform da DigitalOcean (TLS automático)
-- **Senhas**: bcrypt com salt automático — nunca armazenadas em texto claro
-- **JWT**: HS256 com expiração de 120 minutos e assinatura via `JWT_SECRET`
-- **Rate Limiting**: aplicado na autenticação para mitigar força bruta
-- **Autorização em profundidade**: páginas usam `PAGE_ACCESS`; escritas sensíveis revalidam contexto e usam `OPERATION_ACCESS` na camada de serviço.
-- **Sessão**: o roteador valida o JWT revogável no `session_state`. O componente client-side de cookies não oferece `HttpOnly`, portanto não é usado para persistência autenticada; uma recarga completa exige novo login.
-- **CSRF/CORS**: `server.enableXsrfProtection` e `server.enableCORS` permanecem habilitados. Não desative CORS para eliminar avisos, pois o Streamlit o reativa quando XSRF está ativo.
-- **Domínio público**: em deploy com domínio personalizado, configure `browser.serverAddress` e, quando necessário, `server.corsAllowedOrigins` com as origens HTTPS públicas exatas.
-
----
-
-## Troubleshooting Comum
-
-| Problema | Causa provável | Solução |
-|---|---|---|
-| App não inicia | `DATABASE_URL` inválida ou banco inacessível | Verificar string de conexão e regras de firewall do banco |
-| Usuário master não criado | `MASTER_*` env vars não configuradas | Configurar variáveis e reiniciar o app |
-| Reset de senha não funciona | E-mail não configurado | Configurar `EMAIL_REMETENTE` e `SENHA_EMAIL`/`SENHA_REMETENTE` |
-| Erro de migration | Schema incompatível após rollback manual | Verificar logs; migrations são idempotentes mas não fazem rollback automático |
-| PWA não instala | `manifest.json` não acessível | Verificar se a pasta `static/` está corretamente incluída no deploy |
-| Timezone incorreto no calendário | JS bloqueado pelo browser | Usar o seletor manual de timezone no menu lateral |
-
-### Changelog
-
-- `4.2` — 2026-07-20 — Configuração de cookie/proxy, retenção e alinhamento explícito de CORS com XSRF.
-- `4.1` — 2026-07-20 — Operação documentada com matrizes centralizadas e autorização no serviço.
-- `4.0` — 2026-07-19 — Pré-requisitos, variáveis reais e descrição de sessão atualizados.
-- `3.6` — 2026-05-12 — Ajustada a seção de troubleshoot e variáveis de ambiente da v3.6.
-- `3.5` — — Versão base.
-
-### Relacionados
+## Relacionados
 
 - [[04_arquitetura]]
 - [[06_modulos_tecnicos]]
+- [[specs/migracao-v4-nextjs-fastapi]]
