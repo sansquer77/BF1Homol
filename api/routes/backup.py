@@ -7,6 +7,48 @@ from services.access_control import AuthenticatedContext
 
 router=APIRouter(prefix="/backup",tags=["backup"])
 class ReauthRequest(BaseModel): password:str=Field(min_length=1,max_length=1024)
+class ExcelValidationResponse(BaseModel):
+ status:str
+ table:str
+ rows:int=Field(ge=0)
+ columns:int=Field(ge=0)
+ compatible_columns:list[str]
+ bytes:int=Field(ge=0)
+class ExcelRestoreResponse(BaseModel):
+ status:str
+ table:str
+ rows:int=Field(ge=0)
+ columns:int=Field(ge=0)
+ normalized_cells:int=Field(ge=0)
+ mode:str
+ filename:str
+
+EXCEL_MEDIA_TYPE="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+@router.get("/excel/tables", response_model=list[str])
+def excel_tables(context: AuthenticatedContext=Depends(require_master)):
+ from db.backup_excel import list_excel_backup_tables
+ return list_excel_backup_tables()
+
+@router.get("/excel/{table_name}")
+def download_excel(table_name:str, context: AuthenticatedContext=Depends(require_master)):
+ try:
+  from db.backup_excel import export_table_excel
+  content=export_table_excel(table_name)
+ except ValueError as exc: raise HTTPException(status_code=404,detail="Tabela indisponível para exportação.") from exc
+ return Response(content,media_type=EXCEL_MEDIA_TYPE,headers={"Content-Disposition":f'attachment; filename="{table_name}_backup_v4.xlsx"',"Cache-Control":"no-store"})
+
+@router.post("/validate/excel/{table_name}",response_model=ExcelValidationResponse)
+async def validate_excel(table_name:str, request:Request, context:AuthenticatedContext=Depends(require_master)):
+ from utils.backup_security import BackupLimitExceeded, get_backup_limits
+ raw=await request.body()
+ if len(raw)>get_backup_limits().excel_bytes: raise HTTPException(status_code=413,detail="Arquivo excede o limite permitido.")
+ try:
+  from db.backup_excel import validate_table_excel
+  metadata=validate_table_excel(raw,table_name)
+  return {"status":"valid",**metadata,"bytes":len(raw)}
+ except BackupLimitExceeded as exc: raise HTTPException(status_code=413,detail=str(exc)) from exc
+ except Exception as exc: raise HTTPException(status_code=422,detail="Backup Excel inválido ou incompatível com a tabela.") from exc
 
 @router.get("/sql")
 def download_sql(context: AuthenticatedContext=Depends(require_master)):
@@ -56,3 +98,22 @@ async def restore_sql(request: Request, response:FastAPIResponse, context:Authen
  except Exception as exc: raise HTTPException(status_code=422,detail="Backup inválido ou incompatível.") from exc
  clear_restore_authorization_cookie(response)
  return {"status":"ok","filename":request.headers.get("x-file-name","backup.sql")}
+
+@router.post("/restore/excel/{table_name}",response_model=ExcelRestoreResponse)
+async def restore_excel(table_name:str, request:Request, response:FastAPIResponse, context:AuthenticatedContext=Depends(require_master)):
+ from utils.backup_security import BackupLimitExceeded, get_backup_limits
+ raw=await request.body()
+ if len(raw)>get_backup_limits().excel_bytes: raise HTTPException(status_code=413,detail="Arquivo excede o limite permitido.")
+ try:
+  from api.security import clear_restore_authorization_cookie, consume_restore_authorization
+  from utils.backup_security import grant_restore_authorization
+  user_id,jti=consume_restore_authorization(request)
+  grant_restore_authorization(user_id=user_id,jti=jti)
+  from db.backup_excel import restore_table_excel
+  result=restore_table_excel(raw,table_name,validate_fks=True)
+ except PermissionError as exc: raise HTTPException(status_code=403,detail="Reautenticação necessária.") from exc
+ except HTTPException: raise
+ except BackupLimitExceeded as exc: raise HTTPException(status_code=413,detail=str(exc)) from exc
+ except Exception as exc: raise HTTPException(status_code=422,detail="Backup Excel inválido ou incompatível com a tabela.") from exc
+ clear_restore_authorization_cookie(response)
+ return {**result,"filename":request.headers.get("x-file-name",f"{table_name}.xlsx")}

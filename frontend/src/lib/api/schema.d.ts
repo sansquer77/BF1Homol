@@ -422,6 +422,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backup/excel/tables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Excel Tables */
+        get: operations["excel_tables_api_v1_backup_excel_tables_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/excel/{table_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Excel */
+        get: operations["download_excel_api_v1_backup_excel__table_name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/backup/reauthorize": {
         parameters: {
             query?: never;
@@ -433,6 +467,23 @@ export interface paths {
         put?: never;
         /** Reauthorize */
         post: operations["reauthorize_api_v1_backup_reauthorize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/restore/excel/{table_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Excel */
+        post: operations["restore_excel_api_v1_backup_restore_excel__table_name__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -467,6 +518,23 @@ export interface paths {
         get: operations["download_sql_api_v1_backup_sql_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/validate/excel/{table_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate Excel */
+        post: operations["validate_excel_api_v1_backup_validate_excel__table_name__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1127,6 +1195,38 @@ export interface components {
              * @default
              */
             team: string;
+        };
+        /** ExcelRestoreResponse */
+        ExcelRestoreResponse: {
+            /** Columns */
+            columns: number;
+            /** Filename */
+            filename: string;
+            /** Mode */
+            mode: string;
+            /** Normalized Cells */
+            normalized_cells: number;
+            /** Rows */
+            rows: number;
+            /** Status */
+            status: string;
+            /** Table */
+            table: string;
+        };
+        /** ExcelValidationResponse */
+        ExcelValidationResponse: {
+            /** Bytes */
+            bytes: number;
+            /** Columns */
+            columns: number;
+            /** Compatible Columns */
+            compatible_columns: string[];
+            /** Rows */
+            rows: number;
+            /** Status */
+            status: string;
+            /** Table */
+            table: string;
         };
         /** F1ConstructorStanding */
         F1ConstructorStanding: {
@@ -2717,6 +2817,57 @@ export interface operations {
             };
         };
     };
+    excel_tables_api_v1_backup_excel_tables_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    download_excel_api_v1_backup_excel__table_name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                table_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reauthorize_api_v1_backup_reauthorize_post: {
         parameters: {
             query?: never;
@@ -2737,6 +2888,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_excel_api_v1_backup_restore_excel__table_name__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                table_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExcelRestoreResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2786,6 +2968,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    validate_excel_api_v1_backup_validate_excel__table_name__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                table_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExcelValidationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

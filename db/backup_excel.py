@@ -97,7 +97,7 @@ def _prepare_dataframe_for_excel(df: pd.DataFrame) -> pd.DataFrame:
 	safe_df = df.copy()
 	for col in safe_df.columns:
 		series = safe_df[col]
-		if pd.api.types.is_datetime64tz_dtype(series.dtype):
+		if isinstance(series.dtype, pd.DatetimeTZDtype):
 			safe_df[col] = series.dt.tz_convert("UTC").dt.tz_localize(None)
 			continue
 
@@ -165,6 +165,164 @@ def _apply_excel_datetime_format(
 				cell.number_format = number_format
 
 
+def list_excel_backup_tables() -> list[str]:
+	"""Retorna somente tabelas reais do schema atual, em ordem estável."""
+	return _list_tables()
+
+
+def _require_excel_table(table_name: str) -> str:
+	selected = str(table_name or "").strip()
+	if selected not in set(list_excel_backup_tables()):
+		raise ValueError("Tabela de backup Excel inválida ou indisponível.")
+	return selected
+
+
+def export_table_excel(table_name: str) -> bytes:
+	"""Gera o mesmo arquivo por tabela usado pela V3, sem dependência de UI."""
+	selected = _require_excel_table(table_name)
+	with db_connect() as conn:
+		col_types = _get_table_column_types(conn, selected)
+		c = conn.cursor()
+		c.execute(f"SELECT * FROM {_quote_identifier(selected)}")
+		rows = c.fetchall() or []
+		col_names = [desc[0] for desc in c.description] if c.description else []
+
+	df = pd.DataFrame([list(r.values()) for r in rows] if rows else [], columns=col_names)
+	df_excel = _prepare_dataframe_for_excel(df)
+	buffer = io.BytesIO()
+	with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+		df_excel.to_excel(writer, index=False, sheet_name="data")
+		_apply_excel_datetime_format(writer, "data", df_excel, col_types)
+	return buffer.getvalue()
+
+
+def validate_table_excel(content: bytes, table_name: str) -> dict[str, Any]:
+	"""Valida estrutura e compatibilidade sem alterar o PostgreSQL."""
+	selected = _require_excel_table(table_name)
+	limits = get_backup_limits()
+	if not content:
+		raise BackupLimitExceeded("Backup Excel vazio não é permitido.")
+	if len(content) > limits.excel_bytes:
+		raise BackupLimitExceeded(
+			f"Backup Excel excede o limite de {limits.excel_bytes // (1024 * 1024)} MB."
+		)
+	validate_excel_archive(content)
+	df = pd.read_excel(io.BytesIO(content), nrows=limits.excel_rows + 1)
+	validate_excel_dimensions(len(df.index), len(df.columns))
+	df.columns = [str(col).strip() for col in df.columns]
+	db_cols = _table_columns(selected)
+	use_cols = [column for column in df.columns if column in db_cols]
+	if not use_cols:
+		raise ValueError("Nenhuma coluna compatível foi encontrada no backup Excel.")
+	with db_connect() as conn:
+		required_cols = _get_required_columns_for_insert(conn, selected)
+	missing_required = [column for column in required_cols if column not in use_cols]
+	if missing_required:
+		raise ValueError(
+			"Backup Excel não contém colunas obrigatórias da tabela: "
+			+ ", ".join(missing_required)
+		)
+	return {
+		"table": selected,
+		"rows": len(df.index),
+		"columns": len(use_cols),
+		"compatible_columns": use_cols,
+	}
+
+
+def restore_table_excel(content: bytes, table_name: str, *, validate_fks: bool = True) -> dict[str, Any]:
+	"""Restaura uma tabela Excel V3 após autorização curta do Master."""
+	require_restore_authorized()
+	metadata = validate_table_excel(content, table_name)
+	_prepare_schema_for_restore()
+	selected = str(metadata["table"])
+	limits = get_backup_limits()
+	df = pd.read_excel(io.BytesIO(content), nrows=limits.excel_rows + 1)
+	df.columns = [str(col).strip() for col in df.columns]
+	use_cols = list(metadata["compatible_columns"])
+
+	with db_connect() as conn:
+		col_types = _get_table_column_types(conn, selected)
+		required_cols = _get_required_columns_for_insert(conn, selected)
+		payload = df[use_cols].astype(object)
+		rows: list[tuple[Any, ...]] = []
+		normalized_cells = 0
+		for row in payload.itertuples(index=False, name=None):
+			normalized_row: list[Any] = []
+			for idx, value in enumerate(row):
+				column = use_cols[idx]
+				base_value = None if pd.isna(value) else value
+				typed_value = _normalize_excel_typed_value(base_value, col_types.get(column.lower(), ""))
+				if typed_value is not base_value:
+					normalized_cells += 1
+				normalized_row.append(typed_value)
+			rows.append(tuple(normalized_row))
+
+		col_idx = {column: idx for idx, column in enumerate(use_cols)}
+		for required in required_cols:
+			idx = col_idx.get(required)
+			if idx is None:
+				continue
+			for row_number, row in enumerate(rows, start=2):
+				if row[idx] is None:
+					raise ValueError(
+						f"Coluna obrigatória '{required}' vazia na linha Excel {row_number}."
+					)
+
+		if validate_fks:
+			fk_errors = _prevalidate_fk_values(conn, selected, use_cols, rows)
+			if fk_errors:
+				raise ValueError("Backup Excel contém chaves estrangeiras inválidas: " + "; ".join(fk_errors))
+
+		c = conn.cursor()
+		col_sql = ", ".join(_quote_identifier(column) for column in use_cols)
+		placeholders = ", ".join(["%s"] * len(use_cols))
+		is_fk_parent = selected.lower() in {table.lower() for table in _get_tables_with_fk_children(conn)}
+		mode = "replace"
+		if is_fk_parent:
+			pk_cols = _get_pk_columns(conn, selected)
+			if not pk_cols:
+				raise ValueError("Tabela referenciada não possui chave primária para UPSERT seguro.")
+			pk_set = {column.lower() for column in pk_cols}
+			update_cols = [column for column in use_cols if column.lower() not in pk_set]
+			conflict_target = ", ".join(_quote_identifier(column) for column in pk_cols)
+			if update_cols:
+				update_clause = ", ".join(
+					f"{_quote_identifier(column)} = EXCLUDED.{_quote_identifier(column)}"
+					for column in update_cols
+				)
+				statement = f"INSERT INTO {_quote_identifier(selected)} ({col_sql}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO UPDATE SET {update_clause}"
+			else:
+				statement = f"INSERT INTO {_quote_identifier(selected)} ({col_sql}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO NOTHING"
+			c.executemany(statement, rows)
+			mode = "upsert"
+		else:
+			c.execute(f"TRUNCATE TABLE {_quote_identifier(selected)} RESTART IDENTITY CASCADE")
+			if rows:
+				c.executemany(
+					f"INSERT INTO {_quote_identifier(selected)} ({col_sql}) VALUES ({placeholders})",
+					rows,
+				)
+
+		for column in _get_serial_columns(conn, selected):
+			quoted_table = _quote_identifier(selected)
+			quoted_column = _quote_identifier(column)
+			c.execute(
+				f"SELECT setval(pg_get_serial_sequence(%s, %s), COALESCE((SELECT MAX({quoted_column}) FROM {quoted_table}), 1), true)",
+				(selected, column),
+			)
+		conn.commit()
+
+	return {
+		"status": "ok",
+		"table": selected,
+		"rows": len(rows),
+		"columns": len(use_cols),
+		"normalized_cells": normalized_cells,
+		"mode": mode,
+	}
+
+
 def download_tabela(presenter) -> None:
 	tables = _list_tables()
 	if not tables:
@@ -175,25 +333,11 @@ def download_tabela(presenter) -> None:
 	if not selected:
 		return
 
-	with db_connect() as conn:
-		col_types = _get_table_column_types(conn, selected)
-		c = conn.cursor()
-		c.execute(f"SELECT * FROM {_quote_identifier(selected)}")
-		rows = c.fetchall() or []
-		col_names = [desc[0] for desc in c.description] if c.description else []
-
-	df = pd.DataFrame([list(r.values()) for r in rows] if rows else [], columns=col_names)
-	df_excel = _prepare_dataframe_for_excel(df)
-
-	buffer = io.BytesIO()
-	with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-		df_excel.to_excel(writer, index=False, sheet_name="data")
-		_apply_excel_datetime_format(writer, "data", df_excel, col_types)
-	buffer.seek(0)
+	content = export_table_excel(selected)
 
 	presenter.download_button(
 		label=f"Download table {selected} (.xlsx)",
-		data=buffer.getvalue(),
+		data=content,
 		file_name=f"{selected}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
 		mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 		on_click="ignore",
@@ -385,4 +529,11 @@ def upload_tabela(presenter) -> None:
 
 		presenter.success(f"Table {selected} imported successfully.")
 
-__all__ = ["download_tabela", "upload_tabela"]
+__all__ = [
+	"download_tabela",
+	"export_table_excel",
+	"list_excel_backup_tables",
+	"restore_table_excel",
+	"upload_tabela",
+	"validate_table_excel",
+]

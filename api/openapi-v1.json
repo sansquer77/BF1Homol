@@ -953,6 +953,96 @@
         "title": "DriverRequest",
         "type": "object"
       },
+      "ExcelRestoreResponse": {
+        "properties": {
+          "columns": {
+            "minimum": 0.0,
+            "title": "Columns",
+            "type": "integer"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "normalized_cells": {
+            "minimum": 0.0,
+            "title": "Normalized Cells",
+            "type": "integer"
+          },
+          "rows": {
+            "minimum": 0.0,
+            "title": "Rows",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "table",
+          "rows",
+          "columns",
+          "normalized_cells",
+          "mode",
+          "filename"
+        ],
+        "title": "ExcelRestoreResponse",
+        "type": "object"
+      },
+      "ExcelValidationResponse": {
+        "properties": {
+          "bytes": {
+            "minimum": 0.0,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "columns": {
+            "minimum": 0.0,
+            "title": "Columns",
+            "type": "integer"
+          },
+          "compatible_columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Compatible Columns",
+            "type": "array"
+          },
+          "rows": {
+            "minimum": 0.0,
+            "title": "Rows",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "table",
+          "rows",
+          "columns",
+          "compatible_columns",
+          "bytes"
+        ],
+        "title": "ExcelValidationResponse",
+        "type": "object"
+      },
       "F1ConstructorStanding": {
         "properties": {
           "constructor": {
@@ -4007,6 +4097,71 @@
         ]
       }
     },
+    "/api/v1/backup/excel/tables": {
+      "get": {
+        "operationId": "excel_tables_api_v1_backup_excel_tables_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Excel Tables Api V1 Backup Excel Tables Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Excel Tables",
+        "tags": [
+          "backup"
+        ]
+      }
+    },
+    "/api/v1/backup/excel/{table_name}": {
+      "get": {
+        "operationId": "download_excel_api_v1_backup_excel__table_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "table_name",
+            "required": true,
+            "schema": {
+              "title": "Table Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Excel",
+        "tags": [
+          "backup"
+        ]
+      }
+    },
     "/api/v1/backup/reauthorize": {
       "post": {
         "operationId": "reauthorize_api_v1_backup_reauthorize_post",
@@ -4046,6 +4201,48 @@
         ]
       }
     },
+    "/api/v1/backup/restore/excel/{table_name}": {
+      "post": {
+        "operationId": "restore_excel_api_v1_backup_restore_excel__table_name__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "table_name",
+            "required": true,
+            "schema": {
+              "title": "Table Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExcelRestoreResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Excel",
+        "tags": [
+          "backup"
+        ]
+      }
+    },
     "/api/v1/backup/restore/sql": {
       "post": {
         "operationId": "restore_sql_api_v1_backup_restore_sql_post",
@@ -4079,6 +4276,48 @@
           }
         },
         "summary": "Download Sql",
+        "tags": [
+          "backup"
+        ]
+      }
+    },
+    "/api/v1/backup/validate/excel/{table_name}": {
+      "post": {
+        "operationId": "validate_excel_api_v1_backup_validate_excel__table_name__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "table_name",
+            "required": true,
+            "schema": {
+              "title": "Table Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExcelValidationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Excel",
         "tags": [
           "backup"
         ]

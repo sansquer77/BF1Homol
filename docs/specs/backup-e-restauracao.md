@@ -2,8 +2,8 @@
 tipo: spec
 area: backup
 status: implementado
-versao: 1.3
-atualizado: 2026-09-08
+versao: 1.4
+atualizado: 2026-09-12
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/autenticacao-e-sessao]]", "[[04_arquitetura]]"]
 tags: [spec, "area/backup", "status/implementado"]
 aliases: ["Backup e restauração"]
@@ -12,7 +12,7 @@ aliases: ["Backup e restauração"]
 # Backup e restauração
 
 > [!info] Status
-> **implementado** · área: `backup` · atualizado em 2026-07-31 · relacionados: [[specs/controle-de-acesso]], [[specs/autenticacao-e-sessao]], [[04_arquitetura]]
+> **implementado** · área: `backup` · atualizado em 2026-09-12 · relacionados: [[specs/controle-de-acesso]], [[specs/autenticacao-e-sessao]], [[04_arquitetura]]
 
 ## Problema
 
@@ -45,13 +45,16 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 6. ZIPs inseguros, expansão excessiva, schemas inesperados e cargas acima dos limites são recusados sem alteração parcial.
 7. Segredos, conteúdo integral do backup e credenciais não são enviados aos logs.
 8. O preparo do schema aceita tanto a tabela `regras` legada com `temporada`/`tipo_prova` quanto o contrato nomeado V3.5 sem essas colunas.
+9. O contrato Excel permanece um arquivo `.xlsx` por tabela, com planilha `data` e cabeçalhos correspondentes às colunas PostgreSQL, compatível com as exportações V3.x.
+10. A tabela de destino é escolhida da lista retornada pelo servidor; nomes arbitrários, colunas obrigatórias ausentes e arquivos destinados a outra tabela são recusados.
+11. Tabelas referenciadas por FK usam UPSERT pela chave primária e preservam linhas ausentes do Excel; tabelas sem filhos podem ser substituídas de forma transacional.
 
 ## Interface, serviços e dados
 
 - Tela: Administração → Backup e Restauração.
 - Serviços: `services/data_access_backup.py`, autorização e validação de restauração.
 - Persistência: adaptadores de backup/restauração em `db/` e banco PostgreSQL.
-- API V4: exportação SQL, pré-validação SQL, reautenticação e restore em `/api/v1/backup`.
+- API V4: exportação, pré-validação e restore SQL/Excel, além de reautenticação, em `/api/v1/backup`.
 - Na API V4, a autorização curta atravessa as duas requisições HTTP em cookie assinado, `HttpOnly`, `SameSite=Strict`, limitado à rota de backup e vinculado ao `jti` da sessão.
 
 ## Critérios de aceite
@@ -63,15 +66,17 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 5. Dada autorização vencida, reutilizada fora do vínculo ou adulterada, quando restaurar, então a operação é recusada.
 6. Dado arquivo acima de qualquer limite ou ZIP inseguro, quando validar, então nenhum dado é aplicado.
 7. Dado arquivo estruturalmente inválido, quando restaurar, então o banco permanece consistente e o erro é informado sem segredo.
+8. Dado arquivo Excel V3.x e a tabela correspondente, quando pré-validar, então tamanho, ZIP, dimensões, colunas obrigatórias e compatibilidade são verificados sem escrita.
+9. Dada reautenticação válida após a pré-validação, quando restaurar Excel, então tipos PostgreSQL, FKs e sequences são tratados e a quantidade de linhas importadas é informada.
 
 ## Verificação
 
-- Critérios 2–7 — testes automatizados em `tests/test_backup_security.py`.
+- Critérios 2–9 — testes automatizados em `tests/test_backup_security.py` e `tests/test_backup_excel_v4.py`.
 - Critério 1 — verificação manual: exportar Excel/SQL em ambiente de homologação e conferir abertura, tabelas esperadas e ausência de segredos.
 
 ## Pendências
 
-- Nenhuma pendência conhecida.
+- Executar em homologação o round-trip das 21 fixtures Excel V3.x e comparar as contagens/valores resultantes antes de encerrar a Fase 8.
 
 ## Fora de escopo
 
@@ -83,6 +88,7 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 - [x] Expor exportação e restore SQL na API V4; validação real em homologação permanece.
 - [x] Pré-validar tamanho, UTF-8 e tipo de dump antes da restauração.
 - [x] Validar formatos, limites e atomicidade. Fecha: critérios 1, 6 e 7.
+- [x] Expor listagem, exportação, pré-validação e restauração Excel por tabela na API e tela V4. Fecha implementação dos critérios 8 e 9; validação real permanece em homologação.
 
 ## Changelog
 
@@ -90,6 +96,7 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 - `1.1` — 2026-09-08 — Início da Fase 8 com pré-validação SQL pela API V4.
 - `1.2` — 2026-09-08 — Corrigida a persistência segura da reautenticação entre as requisições de autorização e restauração da API V4.
 - `1.3` — 2026-09-09 — Preparo do restore tornado compatível com as duas variantes suportadas da tabela `regras`, corrigindo a falha observada em homologação antes da carga do SQL V3.5.
+- `1.4` — 2026-09-12 — Fluxo Excel V4 implementado por tabela, com exportação, pré-validação, reautenticação, restore seguro e compatibilidade V3.x.
 
 ## Relacionados
 

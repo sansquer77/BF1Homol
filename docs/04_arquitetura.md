@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.16
-atualizado: 2026-09-08
+versao: 4.17
+atualizado: 2026-09-12
 relacionados:
   - "[[01_necessidade]]"
   - "[[02_regras_de_negocio]]"
@@ -43,6 +43,9 @@ O frontend usa o design system Apex Paddock UI, com o ícone oficial BF1,
 superfícies grafite, vermelho como ação primária e verde reservado a semântica
 positiva. A paleta das equipes fica centralizada no frontend e acompanha o nome
 acessível do piloto; ela é apresentação, não dado mestre do PostgreSQL.
+O fluxo V4 de continuidade expõe backups SQL e Excel por tabela em `/api/v1/backup`;
+ambos exigem Master, e restores usam pré-validação seguida de reautenticação curta
+vinculada à sessão. O Excel preserva o contrato V3.x de uma planilha `data` por tabela.
 
 ---
 
@@ -272,6 +275,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.17` — 2026-09-12 — Backup/restore Excel V4 exposto por tabela com limites, pré-validação e autorização curta vinculada à sessão Master.
 - `4.16` — 2026-09-08 — Gestão Master do Hall da Fama adicionada à API V4, com CRUD, lote idempotente e invalidação de caches; catálogo administrativo V4 cobre usuários, pilotos, provas e financeiro.
 - `4.14` — 2026-09-08 — Módulo de Campeonato V4 adicionado com leitura/escrita autenticada, deadline fail-closed e preservação das tabelas `championship_bets`, `championship_bets_log` e `championship_results`.
 - `4.13` — 2026-09-08 — Dashboard F1 V4 adicionado como read model autenticado, reutilizando `utils.data_utils` e o provedor histórico da V3 sem persistência nova.
