@@ -126,6 +126,7 @@ def _order_tables_for_dump(tables: list[str]) -> list[str]:
         "usuarios",
         "temporadas",
         "circuitos_f1",
+        "equipes",
         "pilotos",
         "provas",
         # Dependentes de provas

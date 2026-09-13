@@ -57,6 +57,7 @@ PAGE_ACCESS: dict[str, frozenset[str]] = {
 
 OPERATION_ACCESS: dict[str, frozenset[str]] = {
     "piloto.write": frozenset({"admin", "master"}),
+    "equipe.write": frozenset({"master"}),
     "prova.write": frozenset({"admin", "master"}),
     "resultado.write": frozenset({"admin", "master"}),
     "resultado_campeonato.write": frozenset({"admin", "master"}),

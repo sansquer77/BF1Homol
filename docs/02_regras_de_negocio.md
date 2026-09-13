@@ -2,8 +2,8 @@
 tipo: produto
 area: bf1
 status: implementado
-versao: 4.3
-atualizado: 2026-07-31
+versao: 4.4
+atualizado: 2026-09-12
 relacionados:
   - "[[01_necessidade]]"
   - "[[03_spec]]"
@@ -51,6 +51,10 @@ Para cada prova, a aposta deve obedecer às regras da temporada/tipo-prova (`reg
 - O piloto do **11º lugar** (`piloto_11`) deve ser diferente dos demais pilotos apostados.
 - Não é permitido repetir o mesmo piloto na lista.
 - Todos os pilotos informados devem estar cadastrados como ativos no sistema.
+- Novos vínculos de piloto usam o catálogo de equipes da V4; o nome permanece
+  materializado em `pilotos.equipe` para que backups e regras V3.x continuem compatíveis.
+- Somente o Master cria ou edita equipes. Renomear uma equipe atualiza
+  atomicamente o nome dos pilotos vinculados.
 
 ## RN-004 — Fórmula de Pontuação
 
@@ -154,6 +158,7 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 
 ### Changelog
 
+- `4.4` — 2026-09-12 — Catálogo de equipes formalizado sem alterar o contrato legado de pilotos.
 - `4.3` — 2026-07-31 — Fórmula de Total Geral, bônus, descarte e Total Válido explicitada e ligada à spec focada.
 - `4.2` — 2026-07-20 — Cookie seguro, revogação de sessões, proxy explícito e retenção de dados de segurança.
 - `4.1` — 2026-07-20 — Deadline de campeonato fail-closed e autorização obrigatória nas operações sensíveis.

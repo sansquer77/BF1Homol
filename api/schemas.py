@@ -344,6 +344,59 @@ class FinancialReminderResponse(BaseModel):
     status: str
     recipients: int
 
+
+class AdminTeam(BaseModel):
+    id: int
+    name: str
+    primary_color: str
+    secondary_color: str | None = None
+    status: str
+
+
+class TeamWriteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=120)
+    primary_color: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+    secondary_color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    status: str = Field(default="Ativa", pattern=r"^(Ativa|Inativa)$")
+
+
+class ResultDriverOption(BaseModel):
+    id: int
+    name: str
+    team: str
+
+
+class ResultRaceEntry(BaseModel):
+    id: int
+    name: str
+    date: str
+    time: str
+    type: str
+    has_result: bool
+    positions: dict[str, str]
+    retirements: list[str]
+
+
+class ResultManagementResponse(BaseModel):
+    season: str
+    selected_race_id: int | None = None
+    drivers: list[ResultDriverOption]
+    races: list[ResultRaceEntry]
+
+
+class ResultNotificationSummary(BaseModel):
+    sent: int
+    failed: int
+    skipped: int
+    warning: str | None = None
+
+
+class ResultProcessResponse(BaseModel):
+    status: str
+    race_id: int
+    notifications: ResultNotificationSummary
+
 class RuleWriteRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
     nome_regra: str = Field(min_length=1, max_length=120)

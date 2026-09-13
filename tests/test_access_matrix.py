@@ -19,7 +19,7 @@ EXPECTED_PAGES = {
     "Backup dos Bancos de Dados", "Regulamento", "Sobre",
 }
 EXPECTED_OPERATIONS = {
-    "piloto.write", "prova.write", "resultado.write",
+    "piloto.write", "equipe.write", "prova.write", "resultado.write",
     "resultado_campeonato.write", "usuario.write", "regra.write",
     "hall_da_fama.write", "backup.write", "aposta_admin.write",
 }

@@ -2,7 +2,7 @@
 tipo: spec
 area: calendario
 status: implementado
-versao: 1.5
+versao: 1.6
 atualizado: 2026-09-12
 relacionados: ["[[02_regras_de_negocio]]", "[[specs/deadline-de-apostas]]", "[[specs/resultados-de-provas]]"]
 tags: [spec, "area/calendario", "status/implementado"]
@@ -32,6 +32,8 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 ## Dados
 
 - `pilotos`: nome, equipe, número e indicador de atividade.
+- `equipes`: catálogo V4 complementar com nome, até duas cores e status; o nome
+  continua materializado em `pilotos.equipe` para compatibilidade V3.x.
 - `provas`: temporada, nome, `circuit_id` canônico, data, horário, ordem, tipo Normal/Sprint e situação do resultado.
 - Datas operacionais: interpretadas em `America/Sao_Paulo`.
 
@@ -50,10 +52,17 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 11. O vínculo de circuito é escolhido da base canônica retornada pela API; valores legados desconhecidos permanecem legíveis até serem corrigidos.
 12. A edição de piloto ou prova existente é exclusiva do Master; Admin pode
     consultar e mantém apenas as operações explicitamente autorizadas fora desse fluxo.
+13. A gestão explícita de equipes é exclusiva do Master; Admin pode consultar o catálogo.
+14. Criar ou editar equipe não remove histórico; renomear sincroniza
+    `pilotos.equipe` na mesma transação e preserva os demais contratos legados.
+15. Ao restaurar backup V3.x sem `equipes`, a migração idempotente recria o
+    catálogo a partir dos nomes distintos presentes em `pilotos`.
+16. A paleta autenticada de equipes abastece as marcações visuais da V4; se a
+    consulta falhar, as cores padrão locais preservam a legibilidade.
 
 ## Interface, serviços e dados
 
-- Telas: Calendário (`/calendario` na V4); Administração → Provas; Administração → Pilotos.
+- Telas: Calendário (`/calendario` na V4); Administração → Provas, Pilotos e Equipes.
 - Serviços: `services/admin_operations.py`, `api/routes/calendar.py`, calendário e seleção da prova padrão.
 - Persistência: repositórios de provas/pilotos e suas tabelas.
 - Vetores: SVGs locais em `frontend/public/tracks/`, com atribuição/licença em `ATTRIBUTION.md`.
@@ -74,6 +83,12 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 12. Dado um perfil sem permissão, quando consultar ou atualizar a base administrativa de circuitos, então a API responde com acesso negado sem executar a sincronização.
 13. Dado Admin, quando chamar diretamente a edição de piloto ou prova, então a
     API nega; dado Master e dados válidos, a alteração aparece após recarregar.
+14. Dado backup V3.x restaurado, quando as migrações executam, então cada equipe
+    distinta dos pilotos fica disponível no catálogo sem alterar o schema legado.
+15. Dado Master, quando renomear uma equipe, então o catálogo e todos os pilotos
+    vinculados passam a usar o novo nome atomicamente.
+16. Dada uma cor alterada pelo Master, quando a paleta autenticada for recarregada,
+    então as marcações da equipe usam a nova cor sem alterar apostas históricas.
 
 ## Verificação
 
@@ -81,6 +96,7 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 - Listagens administrativas de pilotos e provas com linhas nomeadas do psycopg 3 — `tests/test_admin_v4_dict_rows.py`.
 - Critérios 8–9 — testes: `tests/test_v4_api_security.py` e `tests/test_v4_frontend_foundation.py`.
 - Critérios 11–12 — testes: `tests/test_admin_v4_circuits.py` e `tests/test_v4_frontend_foundation.py`.
+- Critérios 14–16 — testes: `tests/test_teams_v4.py` e `tests/test_v4_frontend_foundation.py`.
 - Critério 4 — verificação manual: inativar piloto com aposta histórica e comparar seletores novo/histórico.
 
 ## Pendências
@@ -98,9 +114,11 @@ Manter o calendário da temporada e o cadastro de pilotos que alimentam apostas,
 - [x] Expor calendário autenticado na API V4 e renderizar vetores locais por `circuit_id` canônico. Fecha: critérios 8 e 9.
 - [x] Expor atualização/listagem administrativa e substituir o identificador livre por seletor canônico. Fecha: critérios 11 e 12.
 - [x] Expor edição V4 de piloto e prova exclusivamente ao Master. Fecha: critério 13.
+- [x] Implantar catálogo explícito e gestão Master de equipes. Fecha: critérios 14 e 15.
 
 ## Changelog
 
+- `1.6` — 2026-09-12 — Gestão explícita de equipes adicionada sem romper `pilotos.equipe` ou backups V3.x.
 - `1.5` — 2026-09-12 — Edição de pilotos e provas V4 especificada como exclusiva do Master.
 - `1.4` — 2026-09-10 — Gestão de Provas V4 passou a atualizar a base Jolpica/Ergast e selecionar circuitos canônicos pela API.
 - `1.3` — 2026-09-09 — Corrigida leitura das listagens administrativas V4 restauradas no PostgreSQL com `dict_row`.

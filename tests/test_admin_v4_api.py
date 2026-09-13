@@ -27,7 +27,7 @@ def test_admin_result_route_allows_admin_only_after_service_authorization():
     app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(2, "Admin", "admin", "ativo", frozenset())
     try:
         client = TestClient(app, raise_server_exceptions=False)
-        with patch("api.routes.admin.save_result", side_effect=__import__("services.access_control", fromlist=["AuthorizationDenied"]).AuthorizationDenied("allowed")) as save, patch("db.repo_observability.record_event"):
+        with patch("api.routes.admin.save_and_process_result", side_effect=__import__("services.access_control", fromlist=["AuthorizationDenied"]).AuthorizationDenied("allowed")) as save, patch("db.repo_observability.record_event"):
             response = client.put("/api/v1/admin/races/3/result?season=2026", headers={"Origin": "https://bf1.test"}, json={"positions": {"1": "Lando Norris"}, "retirements": []})
         assert response.status_code == 403
         save.assert_called_once()

@@ -7,11 +7,12 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from api.dependencies import get_current_context
 from services.access_control import AuthenticatedContext, AuthorizationDenied
-from services.admin_v4_service import create_user, list_admin_circuits, list_admin_drivers, list_admin_races, list_admin_users, refresh_admin_circuits, save_result, update_user, upsert_driver, upsert_race
+from services.admin_v4_service import create_user, list_admin_circuits, list_admin_drivers, list_admin_races, list_admin_teams, list_admin_users, refresh_admin_circuits, update_user, upsert_driver, upsert_race, upsert_team
 from services.hall_admin_v4_service import bulk_save_hall, delete_hall_record, list_hall_admin, save_hall_record, update_hall_record
 from services.financial_v4_service import get_financial, save_financial, send_financial_reminder
 from services.rules_admin_v4_service import assign_rule, clone_rule, list_rules, save_rule
-from api.schemas import FinancialReminderResponse, FinancialResponse, FinancialWriteRequest, RuleAssignmentRequest, RuleCloneRequest, RuleWriteRequest
+from services.results_admin_v4_service import get_result_management, save_and_process_result
+from api.schemas import AdminTeam, FinancialReminderResponse, FinancialResponse, FinancialWriteRequest, ResultManagementResponse, ResultProcessResponse, RuleAssignmentRequest, RuleCloneRequest, RuleWriteRequest, TeamWriteRequest
 from api.schemas import HallAdminResponse, HallAdminUpdateRequest, HallAdminWriteRequest
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -162,6 +163,21 @@ def create_admin_driver(payload: DriverRequest, context: AuthenticatedContext = 
     return _run(upsert_driver, context, None, {"nome": payload.name, "equipe": payload.team, "status": payload.status, "numero": payload.number})
 
 
+@router.get("/teams", response_model=list[AdminTeam])
+def get_admin_teams(context: AuthenticatedContext = Depends(get_current_context)):
+    return _read(list_admin_teams, context)
+
+
+@router.post("/teams", status_code=201)
+def create_admin_team(payload: TeamWriteRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(upsert_team, context, None, payload.model_dump())
+
+
+@router.put("/teams/{team_id}")
+def update_admin_team(team_id: int, payload: TeamWriteRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(upsert_team, context, team_id, payload.model_dump())
+
+
 @router.put("/races/{race_id}")
 def update_admin_race(race_id: int, season: str = Query(pattern=r"^\d{4}$"), payload: RaceRequest = ..., context: AuthenticatedContext = Depends(get_current_context)):
     return _run(upsert_race, context, race_id, season, {"nome": payload.name, "data": payload.date, "horario_prova": payload.time, "tipo": payload.type, "status": payload.race_status, "circuit_id": payload.circuit_id})
@@ -192,9 +208,19 @@ def refresh_circuits(season: str = Query(pattern=r"^\d{4}$"), context: Authentic
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.put("/races/{race_id}/result")
+@router.get("/results", response_model=ResultManagementResponse)
+def get_admin_results(season: str = Query(pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
+    return _read(get_result_management, context, season)
+
+
+@router.put("/races/{race_id}/result", response_model=ResultProcessResponse)
 def update_admin_result(race_id: int, season: str = Query(pattern=r"^\d{4}$"), payload: ResultRequest = ..., context: AuthenticatedContext = Depends(get_current_context)):
-    return _run(save_result, context, race_id, season, payload.positions, payload.retirements)
+    try:
+        return save_and_process_result(context, race_id, season, payload.positions, payload.retirements)
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/hall-of-fame", response_model=HallAdminResponse)

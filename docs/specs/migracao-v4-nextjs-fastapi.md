@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 3.9
+versao: 4.0
 atualizado: 2026-09-12
 relacionados:
   - "[[inventario-v4]]"
@@ -169,12 +169,13 @@ controles de acesso, sanitização ou exportação.
 - [x] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Classificação, Análise de Apostas, Hall da Fama, Logs, Dashboard F1 e Campeonato concluídos. Fecha critérios 4, 10 e 12.
 - [x] Fase 7 — migrar operações administrativas e autorização por objeto. Operações e telas administrativas V4 concluídas para usuários, pilotos, provas, Hall da Fama, financeiro e regras, incluindo edição exclusiva do Master, associação por temporada e clonagem.
 - [x] Fase 8 — backup/restauração SQL e Excel disponíveis e confirmados funcionais em homologação, com pré-validação, reautenticação e limites preservados.
-- [ ] Fechar jornadas V4 identificadas na validação de homologação: gestão explícita de equipes e atualização de resultados pela interface. Recuperação de senha e formulário de apostas por prova estão concluídos.
+- [x] Fechar jornadas V4 identificadas na validação de homologação: gestão explícita de equipes e atualização/processamento de resultados pela interface. Recuperação de senha e formulário de apostas por prova também estão concluídos.
 - [ ] Fase 9 — executar segurança, carga, acessibilidade e experiência mobile. Fecha critérios 5–9, 11–15 e 18–20.
 - [ ] Fase 10 — validar builds puros, publicar a V4 e observar a operação. Fecha critério 16.
 
 ## Changelog
 
+- `4.0` — 2026-09-12 — Lacunas funcionais encerradas com gestão explícita de equipes e processamento completo de resultados na V4.
 - `3.9` — 2026-09-12 — Telemetria enriquecida com previsão meteorológica contextual da próxima prova.
 - `3.8` — 2026-09-12 — Gestão financeira V4 concluída com histórico da temporada, resumos, premiação e lembrete seguro aos pendentes.
 - `3.7` — 2026-09-12 — Edição V4 de usuários, pilotos e provas adicionada com autorização exclusiva do Master.

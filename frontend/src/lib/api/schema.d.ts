@@ -213,6 +213,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Admin Results */
+        get: operations["get_admin_results_api_v1_admin_results_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/rules": {
         parameters: {
             query?: never;
@@ -276,6 +293,41 @@ export interface paths {
         put?: never;
         /** Clone Admin Rule */
         post: operations["clone_admin_rule_api_v1_admin_rules__rule_id__clone_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Admin Teams */
+        get: operations["get_admin_teams_api_v1_admin_teams_get"];
+        put?: never;
+        /** Create Admin Team */
+        post: operations["create_admin_team_api_v1_admin_teams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/teams/{team_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Admin Team */
+        put: operations["update_admin_team_api_v1_admin_teams__team_id__put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -965,6 +1017,19 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+        };
+        /** AdminTeam */
+        AdminTeam: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Primary Color */
+            primary_color: string;
+            /** Secondary Color */
+            secondary_color?: string | null;
+            /** Status */
+            status: string;
         };
         /** AnalysisParticipant */
         AnalysisParticipant: {
@@ -1693,6 +1758,66 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** ResultDriverOption */
+        ResultDriverOption: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Team */
+            team: string;
+        };
+        /** ResultManagementResponse */
+        ResultManagementResponse: {
+            /** Drivers */
+            drivers: components["schemas"]["ResultDriverOption"][];
+            /** Races */
+            races: components["schemas"]["ResultRaceEntry"][];
+            /** Season */
+            season: string;
+            /** Selected Race Id */
+            selected_race_id?: number | null;
+        };
+        /** ResultNotificationSummary */
+        ResultNotificationSummary: {
+            /** Failed */
+            failed: number;
+            /** Sent */
+            sent: number;
+            /** Skipped */
+            skipped: number;
+            /** Warning */
+            warning?: string | null;
+        };
+        /** ResultProcessResponse */
+        ResultProcessResponse: {
+            notifications: components["schemas"]["ResultNotificationSummary"];
+            /** Race Id */
+            race_id: number;
+            /** Status */
+            status: string;
+        };
+        /** ResultRaceEntry */
+        ResultRaceEntry: {
+            /** Date */
+            date: string;
+            /** Has Result */
+            has_result: boolean;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Positions */
+            positions: {
+                [key: string]: string;
+            };
+            /** Retirements */
+            retirements: string[];
+            /** Time */
+            time: string;
+            /** Type */
+            type: string;
+        };
         /** ResultRequest */
         ResultRequest: {
             /** Positions */
@@ -1781,6 +1906,20 @@ export interface components {
             regra_sprint: boolean;
         } & {
             [key: string]: unknown;
+        };
+        /** TeamWriteRequest */
+        TeamWriteRequest: {
+            /** Name */
+            name: string;
+            /** Primary Color */
+            primary_color: string;
+            /** Secondary Color */
+            secondary_color?: string | null;
+            /**
+             * Status
+             * @default Ativa
+             */
+            status: string;
         };
         /** TelemetryEvolutionPoint */
         TelemetryEvolutionPoint: {
@@ -2466,7 +2605,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResultProcessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_admin_results_api_v1_admin_results_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultManagementResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2618,6 +2788,94 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_admin_teams_api_v1_admin_teams_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTeam"][];
+                };
+            };
+        };
+    };
+    create_admin_team_api_v1_admin_teams_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_admin_team_api_v1_admin_teams__team_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -183,6 +183,45 @@
         "title": "AdminParticipant",
         "type": "object"
       },
+      "AdminTeam": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "primary_color": {
+            "title": "Primary Color",
+            "type": "string"
+          },
+          "secondary_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Color"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "primary_color",
+          "status"
+        ],
+        "title": "AdminTeam",
+        "type": "object"
+      },
       "AnalysisParticipant": {
         "properties": {
           "id": {
@@ -2330,6 +2369,179 @@
         "title": "ReauthRequest",
         "type": "object"
       },
+      "ResultDriverOption": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "team"
+        ],
+        "title": "ResultDriverOption",
+        "type": "object"
+      },
+      "ResultManagementResponse": {
+        "properties": {
+          "drivers": {
+            "items": {
+              "$ref": "#/components/schemas/ResultDriverOption"
+            },
+            "title": "Drivers",
+            "type": "array"
+          },
+          "races": {
+            "items": {
+              "$ref": "#/components/schemas/ResultRaceEntry"
+            },
+            "title": "Races",
+            "type": "array"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          },
+          "selected_race_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Race Id"
+          }
+        },
+        "required": [
+          "season",
+          "drivers",
+          "races"
+        ],
+        "title": "ResultManagementResponse",
+        "type": "object"
+      },
+      "ResultNotificationSummary": {
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "integer"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning"
+          }
+        },
+        "required": [
+          "sent",
+          "failed",
+          "skipped"
+        ],
+        "title": "ResultNotificationSummary",
+        "type": "object"
+      },
+      "ResultProcessResponse": {
+        "properties": {
+          "notifications": {
+            "$ref": "#/components/schemas/ResultNotificationSummary"
+          },
+          "race_id": {
+            "title": "Race Id",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "race_id",
+          "notifications"
+        ],
+        "title": "ResultProcessResponse",
+        "type": "object"
+      },
+      "ResultRaceEntry": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "has_result": {
+            "title": "Has Result",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "positions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Positions",
+            "type": "object"
+          },
+          "retirements": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Retirements",
+            "type": "array"
+          },
+          "time": {
+            "title": "Time",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "date",
+          "time",
+          "type",
+          "has_result",
+          "positions",
+          "retirements"
+        ],
+        "title": "ResultRaceEntry",
+        "type": "object"
+      },
       "ResultRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2561,6 +2773,46 @@
           "pontos_equipe"
         ],
         "title": "RuleWriteRequest",
+        "type": "object"
+      },
+      "TeamWriteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "primary_color": {
+            "pattern": "^#[0-9A-Fa-f]{6}$",
+            "title": "Primary Color",
+            "type": "string"
+          },
+          "secondary_color": {
+            "anyOf": [
+              {
+                "pattern": "^#[0-9A-Fa-f]{6}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Color"
+          },
+          "status": {
+            "default": "Ativa",
+            "pattern": "^(Ativa|Inativa)$",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "primary_color"
+        ],
+        "title": "TeamWriteRequest",
         "type": "object"
       },
       "TelemetryEvolutionPoint": {
@@ -3770,7 +4022,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResultProcessResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3787,6 +4041,49 @@
           }
         },
         "summary": "Update Admin Result",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/results": {
+      "get": {
+        "operationId": "get_admin_results_api_v1_admin_results_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultManagementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Admin Results",
         "tags": [
           "admin"
         ]
@@ -3982,6 +4279,118 @@
           }
         },
         "summary": "Clone Admin Rule",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/teams": {
+      "get": {
+        "operationId": "get_admin_teams_api_v1_admin_teams_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminTeam"
+                  },
+                  "title": "Response Get Admin Teams Api V1 Admin Teams Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Admin Teams",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_admin_team_api_v1_admin_teams_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Admin Team",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/teams/{team_id}": {
+      "put": {
+        "operationId": "update_admin_team_api_v1_admin_teams__team_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Admin Team",
         "tags": [
           "admin"
         ]
@@ -5606,6 +6015,31 @@
         "summary": "Submit Race Bet",
         "tags": [
           "race-bets"
+        ]
+      }
+    },
+    "/api/v1/teams": {
+      "get": {
+        "operationId": "teams_api_v1_teams_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminTeam"
+                  },
+                  "title": "Response Teams Api V1 Teams Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Teams",
+        "tags": [
+          "teams"
         ]
       }
     },

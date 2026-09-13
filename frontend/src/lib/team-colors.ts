@@ -13,6 +13,13 @@ export const TEAM_COLORS = {
 
 export type TeamName = keyof typeof TEAM_COLORS;
 
+type ManagedTeamColor = { name: string; primary_color: string; secondary_color: string | null };
+let managedColors = new Map<string, readonly string[]>();
+
+export function setManagedTeamColors(teams: ManagedTeamColor[]): void {
+  managedColors = new Map(teams.map((team) => [team.name.toLocaleLowerCase("pt-BR"), [team.primary_color, ...(team.secondary_color ? [team.secondary_color] : [])]]));
+}
+
 export function getTeamMarkerBackground(team: TeamName): string {
   const colors: readonly string[] = TEAM_COLORS[team];
   return colors.length === 1
@@ -21,6 +28,9 @@ export function getTeamMarkerBackground(team: TeamName): string {
 }
 
 export function getOptionalTeamMarkerBackground(team?: string | null): string {
-  if (!team || !(team in TEAM_COLORS)) return "#687284";
+  if (!team) return "#687284";
+  const managed = managedColors.get(team.toLocaleLowerCase("pt-BR"));
+  if (managed) return managed.length === 1 ? managed[0] : `linear-gradient(to bottom, ${managed[0]} 0 50%, ${managed[1]} 50% 100%)`;
+  if (!(team in TEAM_COLORS)) return "#687284";
   return getTeamMarkerBackground(team as TeamName);
 }

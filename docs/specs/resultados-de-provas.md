@@ -2,8 +2,8 @@
 tipo: spec
 area: resultados
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-09-12
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[specs/pontuacao-de-provas]]"
@@ -16,7 +16,7 @@ aliases: ["Resultados de Provas"]
 # Resultados de provas
 
 > [!info] Status
-> **implementado** · área: `resultados` · atualizado em 2026-07-31 · relacionados: [[02_regras_de_negocio]], [[specs/pontuacao-de-provas]], [[specs/classificacao]], [[specs/controle-de-acesso]]
+> **implementado** · área: `resultados` · atualizado em 2026-09-12 · relacionados: [[02_regras_de_negocio]], [[specs/pontuacao-de-provas]], [[specs/classificacao]], [[specs/controle-de-acesso]]
 
 ## Problema
 
@@ -50,13 +50,18 @@ Admin e master registram resultados; demais perfis apenas consomem os efeitos.
 5. Escolha manual é preservada até troca de temporada ou salvamento.
 6. Resultado salvo invalida caches de resultados, histórico e classificação.
 7. Falha de email não desfaz um resultado já persistido.
+8. A API valida que a prova pertence à temporada autorizada e que posições e
+   abandonos referenciam pilotos ativos antes de qualquer escrita.
+9. O processamento persiste o resultado legado, recalcula todas as posições da
+   temporada e só então tenta as notificações.
 
 ## Interface, serviços e dados
 
-- Tela: `ui/gestao_resultados.py`.
+- Telas: `ui/gestao_resultados.py` na V3 e `/admin/resultados` na V4.
 - Serviços: `services/admin_operations.py`, `services/results_service.py`, `services/bets_scoring.py` e `services/result_notification_service.py`.
 - Tabelas: `resultados`, `provas`, `pilotos`, `apostas`, `posicoes_participantes`.
-- API: não aplicável.
+- API: `GET /api/v1/admin/results?season=YYYY` e
+  `PUT /api/v1/admin/races/{id}/result?season=YYYY`.
 
 ## Critérios de aceite
 
@@ -67,11 +72,16 @@ Admin e master registram resultados; demais perfis apenas consomem os efeitos.
 5. Dado salvamento válido, quando concluído, então pontuação e classificação são recalculadas.
 6. Dado perfil não autorizado, quando tenta salvar, então a operação é negada.
 7. Dada falha de notificação, quando o resultado já foi salvo, então o operador recebe aviso sem rollback.
+8. Dado resultado existente, quando a prova é selecionada, então posições e abandonos são pré-preenchidos para edição.
+9. Dada prova de outra temporada, piloto inativo/desconhecido ou posições duplicadas, então a API rejeita sem recalcular.
+10. Dado resultado válido pela V4, então a resposta confirma persistência,
+    recálculo e estatísticas de notificação, e a próxima prova pendente é sugerida.
 
 ## Verificação
 
 - Critérios 1 a 4 — `tests/test_result_default_race.py`.
-- Critérios 5 e 6 — `tests/test_classification_workflow.py`, `tests/test_access_matrix.py` e `tests/test_admin_ui_has_no_writes.py`.
+- Critérios 5, 6 e 8–10 — `tests/test_results_admin_v4_service.py`,
+  `tests/test_classification_workflow.py`, `tests/test_access_matrix.py` e `tests/test_admin_ui_has_no_writes.py`.
 - Critério 7 — verificação de integração do envio de email.
 
 ## Pendências
@@ -86,9 +96,11 @@ Admin e master registram resultados; demais perfis apenas consomem os efeitos.
 
 - [x] Documentar seleção, persistência e recálculo. Fecha: critérios 1 a 6.
 - [x] Registrar tratamento de notificação parcial. Fecha: critério 7.
+- [x] Expor leitura, edição e processamento completo na V4. Fecha: critérios 8–10.
 
 ## Changelog
 
+- `1.1` — 2026-09-12 — Interface e API V4 passam a validar, pré-carregar, salvar, recalcular e notificar resultados.
 - `1.0` — 2026-07-31 — Fluxo atual de resultados especificado.
 
 ## Relacionados
@@ -96,4 +108,3 @@ Admin e master registram resultados; demais perfis apenas consomem os efeitos.
 - [[specs/pontuacao-de-provas]]
 - [[specs/classificacao]]
 - [[specs/controle-de-acesso]]
-

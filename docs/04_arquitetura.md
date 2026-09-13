@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.19
+versao: 4.20
 atualizado: 2026-09-12
 relacionados:
   - "[[01_necessidade]]"
@@ -185,6 +185,10 @@ temporadas_regras
 circuitos_f1
   circuit_id (PK), circuit_name, country, locality,
   latitude, longitude, aliases, atualizado_em
+
+equipes
+  id, nome (único), cor_primaria, cor_secundaria, status,
+  criado_em, atualizado_em
 ```
 
 > [!warning] Normalização de chaves em `posicoes`
@@ -292,6 +296,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.20` — 2026-09-12 — Catálogo complementar de equipes e pipeline V4 de resultados com persistência legada e recálculo.
 - `4.19` — 2026-09-12 — Coordenadas opcionais de circuitos e previsão Open-Meteo isolada no backend da Telemetria.
 - `4.18` — 2026-09-12 — Visão, decisões, infraestrutura e segurança reconciliadas com o runtime V4; Streamlit rotulado como baseline V3.
 - `4.17` — 2026-09-12 — Backup/restore Excel V4 exposto por tabela com limites, pré-validação e autorização curta vinculada à sessão Master.

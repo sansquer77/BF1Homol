@@ -192,6 +192,21 @@ def test_race_management_refreshes_and_selects_api_circuits():
     assert "circuitLabel(circuit)" in source
 
 
+def test_v4_has_explicit_team_management_and_processed_results_journey():
+    catalog = (FRONTEND / "src/components/admin-catalog-view.tsx").read_text(encoding="utf-8")
+    results = (FRONTEND / "src/components/results-admin-view.tsx").read_text(encoding="utf-8")
+    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    assert '"teams", "Equipes"' in catalog
+    assert '"/api/v1/admin/teams"' in catalog
+    assert "primary_color" in catalog and "secondary_color" in catalog
+    assert '"/api/v1/admin/results?season="' not in results  # template literal keeps the selected season explicit
+    assert "/api/v1/admin/results?season=${season}" in results
+    assert "Salvar e processar resultado" in results
+    assert "Atualizar e recalcular" in results
+    assert 'href: "/admin/resultados"' in shell
+    assert (FRONTEND / "src/app/admin/resultados/page.tsx").is_file()
+
+
 def test_phase6_classification_uses_canonical_api_and_formula_columns():
     view = (FRONTEND / "src/components/classification-view.tsx").read_text(encoding="utf-8")
     shell = compact_source(FRONTEND / "src/components/app-shell.tsx")

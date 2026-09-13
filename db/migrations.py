@@ -5,6 +5,7 @@ import logging
 import os
 
 from db.circuitos_utils import ensure_circuitos_f1_table, ensure_provas_circuit_id_column
+from db.equipes_utils import ensure_equipes_table
 from db.connection_pool import get_pool
 from db.db_config import INDICES
 from db.db_schema import get_table_columns, init_db, table_exists
@@ -481,6 +482,7 @@ def run_migrations() -> None:
         try:
             create_missing_tables_if_needed()
             ensure_circuitos_f1_table()
+            ensure_equipes_table()
             ensure_provas_circuit_id_column()
             add_temporada_columns_if_missing()
             add_abandono_column_if_missing()

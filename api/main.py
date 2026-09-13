@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 
 from api.config import settings
 from api.request_context import RequestContext, reset_request_context, set_request_context
-from api.routes import admin, analysis, auth, backup, calendar, championship, classification, content, f1_dashboard, hall_of_fame, logs, race_bets, telemetry, users
+from api.routes import admin, analysis, auth, backup, calendar, championship, classification, content, f1_dashboard, hall_of_fame, logs, race_bets, teams, telemetry, users
 from api.security import validate_csrf, validate_origin
 from api.version import API_VERSION
 from app_runtime import bind_runtime, reset_runtime
@@ -137,6 +137,7 @@ def ready():
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(content.router, prefix="/api/v1")
 app.include_router(calendar.router, prefix="/api/v1")
+app.include_router(teams.router, prefix="/api/v1")
 app.include_router(telemetry.router, prefix="/api/v1")
 app.include_router(classification.router, prefix="/api/v1")
 app.include_router(race_bets.router, prefix="/api/v1")

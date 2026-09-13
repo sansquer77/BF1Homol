@@ -59,7 +59,8 @@ def test_master_edit_calls_existing_repositories():
     races = types.ModuleType("db.repo_races")
     races.update_piloto = MagicMock(return_value=True); races.add_piloto = MagicMock()
     races.update_prova = MagicMock(return_value=True); races.add_prova = MagicMock()
-    with patch.dict(sys.modules, {"db.repo_users": users, "db.repo_races": races}):
+    teams = types.ModuleType("db.equipes_utils"); teams.team_name_exists = MagicMock(return_value=True)
+    with patch.dict(sys.modules, {"db.repo_users": users, "db.repo_races": races, "db.equipes_utils": teams}):
         update_user(MASTER, 7, {"nome": "Ana", "email": "ana@example.com"})
         upsert_driver(MASTER, 8, {"nome": "Lando", "equipe": "McLaren", "status": "Ativo", "numero": 4})
         upsert_race(MASTER, 9, "2026", {"nome": "GP", "data": "2026-01-01", "horario_prova": "10:00", "tipo": "Normal", "status": "Pendente"})

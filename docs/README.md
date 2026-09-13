@@ -2,7 +2,7 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.11
+versao: 1.12
 atualizado: 2026-09-12
 relacionados:
   - "[[sdd]]"
@@ -24,7 +24,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 ## Estado atual da migração V4
 
 - Fases 1–8 concluídas; backup/restore SQL e Excel confirmados em homologação.
-- Pendências funcionais: gestão explícita de equipes e atualização de resultados pela V4.
+- Jornadas funcionais V4 concluídas, incluindo equipes e processamento de resultados.
 - Fases 9 e 10 pendentes: segurança/carga/acessibilidade/mobile e cutover/observação.
 
 ## Comece aqui
@@ -93,6 +93,7 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.12` — 2026-09-12 — Pendências funcionais de equipes e resultados encerradas; migração segue para validação não funcional.
 - `1.11` — 2026-09-12 — Adicionada a spec da gestão financeira da temporada.
 - `1.10` — 2026-09-12 — Fase 8 marcada como concluída após confirmação operacional do fluxo Excel.
 - `1.9` — 2026-09-12 — Adicionado status consolidado da migração V4 e gate operacional do restore Excel.

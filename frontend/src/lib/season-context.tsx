@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { apiRequest } from "@/lib/api/client";
+import { TeamPaletteProvider } from "@/lib/team-palette-context";
 
 type SeasonContextValue = { season: string; seasons: string[]; setSeason: (value: string) => void };
 const SeasonContext = createContext<SeasonContextValue | null>(null);
@@ -20,7 +21,7 @@ export function SeasonProvider({ children }: { children: ReactNode }) {
   }, []);
   const setSeason = (value: string) => { setSeasonState(value); window.localStorage.setItem("bf1-season", value); };
   const value = useMemo(() => ({ season, seasons, setSeason }), [season, seasons]);
-  return <SeasonContext.Provider value={value}>{children}</SeasonContext.Provider>;
+  return <TeamPaletteProvider><SeasonContext.Provider value={value}>{children}</SeasonContext.Provider></TeamPaletteProvider>;
 }
 
 export function useSeason() {

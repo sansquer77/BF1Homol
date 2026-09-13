@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { apiRequest, type User } from "@/lib/api/client";
 import { SeasonProvider, SeasonSelector } from "@/lib/season-context";
 import { BrandMark } from "./brand-mark";
-import { BookIcon, CalendarIcon, ChartIcon, CloseIcon, GridIcon, InfoIcon, MenuIcon, TrophyIcon } from "./icons";
+import { BookIcon, CalendarIcon, ChartIcon, CloseIcon, FlagIcon, GridIcon, InfoIcon, MenuIcon, TrophyIcon } from "./icons";
 
 type Item = { label: string; href: string; icon: typeof GridIcon; roles?: string[] };
 type Group = { label: string; items: Item[] };
@@ -15,7 +15,7 @@ const groups: Group[] = [
   { label: "Status BF1", items: [{ label: "Análises", href: "/analises", icon: ChartIcon }, { label: "Campeonato", href: "/campeonato", icon: TrophyIcon }] },
   { label: "História", items: [{ label: "Hall da Fama", href: "/hall-da-fama", icon: TrophyIcon }, { label: "Dashboard F1", href: "/dashboard-f1", icon: ChartIcon }] },
   { label: "Informações", items: [{ label: "Logs", href: "/logs", icon: BookIcon }, { label: "Regulamento", href: "/regulamento", icon: BookIcon }, { label: "Sobre", href: "/sobre", icon: InfoIcon }] },
-  { label: "Administração", items: [{ label: "Usuários, pilotos e provas", href: "/admin", icon: GridIcon, roles: ["admin", "master"] }, { label: "Regras", href: "/admin/regras", icon: BookIcon, roles: ["master"] }, { label: "Financeiro", href: "/admin/financeiro", icon: ChartIcon, roles: ["master"] }, { label: "Hall da Fama", href: "/admin/hall-da-fama", icon: TrophyIcon, roles: ["master"] }, { label: "Backup e restauração", href: "/admin/backup", icon: BookIcon, roles: ["master"] }] },
+  { label: "Administração", items: [{ label: "Cadastros", href: "/admin", icon: GridIcon, roles: ["admin", "master"] }, { label: "Resultados", href: "/admin/resultados", icon: FlagIcon, roles: ["admin", "master"] }, { label: "Regras", href: "/admin/regras", icon: BookIcon, roles: ["master"] }, { label: "Financeiro", href: "/admin/financeiro", icon: ChartIcon, roles: ["master"] }, { label: "Hall da Fama", href: "/admin/hall-da-fama", icon: TrophyIcon, roles: ["master"] }, { label: "Backup e restauração", href: "/admin/backup", icon: BookIcon, roles: ["master"] }] },
 ];
 
 function itemIsActive(pathname: string, href: string): boolean {

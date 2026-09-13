@@ -31,9 +31,42 @@ def upsert_driver(context: AuthenticatedContext, driver_id: int | None, fields: 
     _require(context, "piloto.write", roles)
     from db.repo_races import add_piloto, update_piloto
     clean = {key: value for key, value in fields.items() if key in {"nome", "equipe", "status", "numero"}}
+    if str(clean.get("equipe") or "").strip():
+        from db.equipes_utils import team_name_exists
+        if not team_name_exists(str(clean["equipe"])):
+            raise ValueError("Selecione uma equipe cadastrada.")
     ok = update_piloto(int(driver_id), **clean) if driver_id is not None else add_piloto(clean.get("nome", ""), equipe=clean.get("equipe", ""), status=clean.get("status", "Ativo"), numero=int(clean.get("numero") or 0))
     if not ok:
         raise ValueError("Não foi possível salvar o piloto.")
+
+
+def list_admin_teams(context: AuthenticatedContext) -> list[dict[str, Any]]:
+    _require(context, "equipe.read", frozenset({"admin", "master"}))
+    from db.equipes_utils import list_equipes
+    return [{
+        "id": int(row["id"]), "name": str(row["nome"]),
+        "primary_color": str(row["cor_primaria"] or "#687284"),
+        "secondary_color": str(row["cor_secundaria"]) if row.get("cor_secundaria") else None,
+        "status": str(row["status"] or "Ativa"),
+    } for row in list_equipes()]
+
+
+def upsert_team(context: AuthenticatedContext, team_id: int | None, fields: dict[str, Any]) -> int:
+    _require(context, "equipe.write", frozenset({"master"}))
+    name = str(fields.get("name") or "").strip()
+    primary = str(fields.get("primary_color") or "").strip().upper()
+    secondary = str(fields.get("secondary_color") or "").strip().upper() or None
+    status = str(fields.get("status") or "Ativa").strip()
+    if not name or not _valid_hex_color(primary) or (secondary and not _valid_hex_color(secondary)):
+        raise ValueError("Nome e cores da equipe são inválidos.")
+    if status not in {"Ativa", "Inativa"}:
+        raise ValueError("Status da equipe inválido.")
+    from db.equipes_utils import save_equipe
+    return save_equipe(team_id, name=name, primary_color=primary, secondary_color=secondary, status=status)
+
+
+def _valid_hex_color(value: str) -> bool:
+    return len(value) == 7 and value.startswith("#") and all(char in "0123456789ABCDEF" for char in value[1:])
 
 
 def upsert_race(context: AuthenticatedContext, race_id: int | None, season: str, fields: dict[str, Any]) -> None:

@@ -90,6 +90,8 @@ def admin_save_resultado(prova_id: int, temporada: str, posicoes: dict, abandono
             fields.append("temporada"); values.append(str(temporada)); updates.append("temporada = EXCLUDED.temporada")
         placeholders = ", ".join(["%s"] * len(fields))
         conn.cursor().execute(f"INSERT INTO resultados ({', '.join(fields)}) VALUES ({placeholders}) ON CONFLICT (prova_id) DO UPDATE SET {', '.join(updates)}", tuple(values))
+        from db.migrations_native_types import sync_resultado_native
+        sync_resultado_native(conn, int(prova_id))
         conn.commit()
     clear_data_cache()
 
