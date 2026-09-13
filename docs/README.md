@@ -2,8 +2,8 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.12
-atualizado: 2026-09-12
+versao: 1.15
+atualizado: 2026-09-13
 relacionados:
   - "[[sdd]]"
   - "[[01_necessidade]]"
@@ -16,7 +16,7 @@ aliases: ["Documentação BF1", "Map of Content"]
 # Documentação BF1
 
 > [!info] Status
-> **implementado** · área: `meta` · atualizado em 2026-09-12 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
+> **implementado** · área: `meta` · atualizado em 2026-09-13 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
 
 Este é o ponto de entrada da documentação do BF1. O vault é compatível com
 Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
@@ -93,6 +93,9 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.15` — 2026-09-13 — Telemetria V4 fecha o Painel do Participante com gráfico combinado e abas de apostas, histórico e conta.
+- `1.14` — 2026-09-13 — Telemetria passa a informar o uso do benefício de aposta automática e a penalização vigente.
+- `1.13` — 2026-09-13 — Gestão e acompanhamento das apostas de Campeonato implantados na V4.
 - `1.12` — 2026-09-12 — Pendências funcionais de equipes e resultados encerradas; migração segue para validação não funcional.
 - `1.11` — 2026-09-12 — Adicionada a spec da gestão financeira da temporada.
 - `1.10` — 2026-09-12 — Fase 8 marcada como concluída após confirmação operacional do fluxo Excel.

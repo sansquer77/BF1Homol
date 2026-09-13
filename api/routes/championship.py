@@ -3,11 +3,20 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import authorize_season_object, get_current_context
-from api.schemas import ChampionshipBetRecord, ChampionshipBetRequest, ChampionshipResponse, ChampionshipResult
+from api.schemas import ChampionshipAdminResponse, ChampionshipBetRecord, ChampionshipBetRequest, ChampionshipResponse, ChampionshipResult
 from services.access_control import AuthenticatedContext, AuthorizationDenied
-from services.championship_v4_service import build_championship_snapshot, place_championship_bet, save_official_result
+from services.championship_v4_service import build_championship_admin_snapshot, build_championship_snapshot, place_championship_bet, save_official_result
 
 router = APIRouter(prefix="/championship", tags=["championship"])
+
+
+@router.get("/admin", response_model=ChampionshipAdminResponse)
+def championship_admin(season: int = Query(ge=2000, le=2100), context: AuthenticatedContext = Depends(get_current_context)) -> ChampionshipAdminResponse:
+    authorize_season_object(str(season), context)
+    try:
+        return ChampionshipAdminResponse.model_validate(build_championship_admin_snapshot(season, context))
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado.") from exc
 
 
 @router.get("", response_model=ChampionshipResponse)

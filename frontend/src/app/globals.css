@@ -82,9 +82,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visibl
 .primary-action:hover { background: var(--scarlet); transform: translateY(-2px); }
 .track-art { position: relative; display: grid; place-items: center; overflow: hidden; color: rgba(225,6,0,.11); }
 .track-art img { z-index: 1; object-fit: contain; padding: 38px; filter: brightness(0) saturate(100%) invert(18%) sepia(100%) saturate(5124%) hue-rotate(357deg) brightness(84%) contrast(119%); }
-.track-art::before, .track-art::after { pointer-events: none; }
-.track-art::before, .track-art::after { content: ""; position: absolute; width: 280px; height: 150px; border: 6px solid currentColor; border-radius: 50% 30% 48% 22%; transform: rotate(-18deg); }
-.track-art::after { width: 190px; height: 90px; border-width: 2px; transform: rotate(16deg); }
 .track-art__line { font-size: clamp(90px, 13vw, 180px); font-weight: 950; font-style: italic; letter-spacing: -.12em; }
 .track-art small { position: absolute; z-index: 2; right: 32px; bottom: 28px; color: var(--muted); font-size: 8px; letter-spacing: .24em; }
 
@@ -94,6 +91,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visibl
 .metric-card > strong { display: block; font-size: 31px; letter-spacing: -.04em; }
 .metric-card > small { display: block; margin-top: 8px; color: var(--muted); font-size: 9px; }
 .metric-card b { color: var(--success); font-weight: 800; }
+.automatic-bet-alert { display: grid; gap: 4px; margin-top: 14px; padding: 10px 11px; border: 1px solid; border-radius: 6px; font-size: 9px; line-height: 1.45; }.automatic-bet-alert b { font: 800 9px/1.2 "JetBrains Mono", monospace; letter-spacing: .05em; text-transform: uppercase; }.automatic-bet-alert span { color: var(--muted); }.automatic-bet-alert--available { border-color: rgba(0,224,115,.3); background: rgba(0,224,115,.06); }.automatic-bet-alert--used { border-color: rgba(225,6,0,.36); background: rgba(225,6,0,.07); }.automatic-bet-alert--used b { color: var(--red-soft); }
 .metric-icon { position: absolute; top: 20px; right: 20px; display: grid; place-items: center; width: 34px; height: 34px; color: var(--red-soft); background: rgba(225,6,0,.12); border-radius: 4px; }
 .metric-icon svg { width: 17px; height: 17px; }
 .content-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); gap: 16px; }
@@ -266,6 +264,7 @@ details th, details td { padding: 8px; text-align: left; border-bottom: 1px soli
 .logs-table td small { display: block; max-width: 280px; margin-top: 5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .log-status { display: inline-block; padding: 5px 7px; color: var(--success); background: rgba(0,224,115,.08); border: 1px solid rgba(0,224,115,.25); border-radius: 999px; white-space: nowrap; }
 .log-status--failure { color: var(--danger); background: rgba(255,180,171,.08); border-color: rgba(255,180,171,.25); }
+.log-status--warning { color: var(--accent); background: rgba(225,6,0,.08); border-color: rgba(225,6,0,.25); }
 .log-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
 .log-summary span { display: grid; gap: 4px; padding: 14px; color: var(--muted); background: var(--panel-soft); border: 1px solid var(--line); font-size: 9px; }
 .log-summary strong { color: var(--ink); font: 700 24px/1 "Space Grotesk", sans-serif; }
@@ -491,7 +490,40 @@ details th, details td { padding: 8px; text-align: left; border-bottom: 1px soli
 @media (max-width: 900px) { .bet-layout { grid-template-columns: 1fr; }.bet-summary { position: static; } }
 .bet-eleventh--invalid select { border-color: var(--danger, #e10600); color: #ffaaa4; }
 @media (max-width: 680px) { .betting-page { padding: 28px 16px 56px; }.bet-allocation { grid-template-columns: 4px minmax(0, 1fr) 86px; }.bet-allocation button { grid-column: 2 / -1; width: fit-content; }.bet-section-heading { align-items: flex-start; flex-direction: column; }.bet-main .deadline { align-items: flex-start; flex-direction: column; } }
+.championship-admin-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }.championship-admin-metrics article { display: grid; gap: 7px; padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }.championship-admin-metrics span { color: var(--muted); font: 700 9px/1.2 "JetBrains Mono", monospace; letter-spacing: .1em; text-transform: uppercase; }.championship-admin-metrics strong { font: 700 30px/1 "Space Grotesk", sans-serif; }.championship-admin-metrics small { color: var(--muted); }.championship-admin-view > .deadline { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }.championship-admin-view > .deadline span { flex: 1; }.championship-admin-charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }.championship-admin-charts .panel { min-width: 0; padding: 18px; }.championship-admin-charts h2 { font-size: 17px; }.championship-admin-list { margin-bottom: 16px; }.championship-admin-lower { display: grid; grid-template-columns: minmax(250px, .75fr) minmax(0, 1.25fr); gap: 16px; }.championship-pending-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }.championship-pending-list li { padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); }.championship-result-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }.championship-result-form label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; }.championship-result-form select { min-width: 0; min-height: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: var(--surface); }.championship-result-form button { grid-column: 1 / -1; width: fit-content; }.championship-admin-history { margin-top: 16px; }.championship-admin-history summary { cursor: pointer; font-weight: 800; }.championship-admin-history details[open] summary { margin-bottom: 18px; }
+@media (max-width: 980px) { .championship-admin-charts { grid-template-columns: 1fr; }.championship-admin-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .championship-admin-lower, .championship-result-form { grid-template-columns: 1fr; }.championship-result-form button { grid-column: auto; }.championship-admin-view > .deadline { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 480px) { .championship-admin-metrics, .championship-pending-list { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .backup-card { gap: 22px; padding: 22px 18px; }.backup-card__heading { gap: 12px; }.backup-card__heading > span { flex-basis: 34px; width: 34px; height: 34px; }.backup-card .primary-action { width: 100%; } }
+
+.participant-tabs { display: flex; gap: 6px; margin: 0 0 24px; padding-bottom: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.participant-tab { flex: 0 0 auto; padding: 11px 14px; border-bottom: 2px solid transparent; color: var(--muted); font-size: 12px; font-weight: 800; text-decoration: none; }
+.participant-tab:hover, .participant-tab:focus-visible { color: var(--ink); }
+.participant-tab--active { color: var(--ink); border-bottom-color: var(--accent); }
+.participant-area { max-width: 1180px; margin: 0 auto; }
+.discard-status { display: grid; gap: 5px; margin-bottom: 18px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--muted); }
+.discard-status strong { color: var(--ink); }
+.discard-status--active { border-color: rgba(225,6,0,.4); background: rgba(225,6,0,.06); }
+.personal-bets-list { display: grid; gap: 12px; }
+.personal-bet { padding: 0; overflow: hidden; }
+.personal-bet summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 19px 22px; cursor: pointer; }
+.personal-bet summary > span { display: grid; gap: 5px; }
+.personal-bet summary small, .bet-eleventh-detail { color: var(--muted); }
+.personal-bet .table-scroll, .personal-bet .bet-eleventh-detail { margin: 0 22px 18px; }
+.personal-bet table { width: 100%; border-collapse: collapse; }
+.personal-bet th, .personal-bet td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.history-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.history-metric { position: relative; }
+.metric-help { position: absolute; top: 13px; right: 13px; display: grid; width: 24px; height: 24px; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--muted); cursor: help; }
+.metric-help:hover, .metric-help:focus-visible { color: var(--ink); border-color: var(--coral); }
+.account-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.account-form { display: grid; align-content: start; gap: 16px; }
+.account-form label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
+.account-form input { width: 100%; min-height: 46px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.account-form .primary-action { width: fit-content; border: 0; cursor: pointer; }
+.account-form > small { color: var(--muted); line-height: 1.5; }
+@media (max-width: 980px) { .history-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .history-metrics, .account-grid { grid-template-columns: 1fr; }.personal-bet summary { align-items: flex-start; flex-direction: column; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

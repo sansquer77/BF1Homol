@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.20
-atualizado: 2026-09-12
+versao: 4.23
+atualizado: 2026-09-13
 relacionados:
   - "[[01_necessidade]]"
   - "[[02_regras_de_negocio]]"
@@ -16,7 +16,7 @@ aliases: ["Arquitetura do Sistema"]
 # Arquitetura do Sistema — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-09-12 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
+> **implementado** · área: `bf1` · atualizado em 2026-09-13 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
 
 ## Visão Geral
 
@@ -296,6 +296,9 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.23` — 2026-09-13 — Painel pessoal V4 exposto por leituras autenticadas de apostas e histórico e mutações reautenticadas da própria conta, sem alterar o schema legado.
+- `4.22` — 2026-09-13 — Snapshot da Telemetria ampliado com estado derivado da aposta automática e percentual da regra vigente.
+- `4.21` — 2026-09-13 — Acompanhamento administrativo de Campeonato exposto por contrato autenticado, sem novas tabelas.
 - `4.20` — 2026-09-12 — Catálogo complementar de equipes e pipeline V4 de resultados com persistência legada e recálculo.
 - `4.19` — 2026-09-12 — Coordenadas opcionais de circuitos e previsão Open-Meteo isolada no backend da Telemetria.
 - `4.18` — 2026-09-12 — Visão, decisões, infraestrutura e segurança reconciliadas com o runtime V4; Streamlit rotulado como baseline V3.

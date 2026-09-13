@@ -2,8 +2,8 @@
 tipo: spec
 area: campeonato
 status: implementado
-versao: 1.1
-atualizado: 2026-07-31
+versao: 1.2
+atualizado: 2026-09-13
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[specs/deadline-de-apostas]]"
@@ -16,7 +16,7 @@ aliases: ["Apostas de Campeonato"]
 # Apostas de campeonato
 
 > [!info] Status
-> **implementado** · área: `campeonato` · atualizado em 2026-07-31 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/classificacao]], [[specs/controle-de-acesso]]
+> **implementado** · área: `campeonato` · atualizado em 2026-09-13 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/classificacao]], [[specs/controle-de-acesso]]
 
 ## Problema
 
@@ -35,6 +35,8 @@ e master registram o resultado; inativos não apostam.
 3. A aposta é salva ou atualizada e auditada.
 4. Admin/master registra o resultado final.
 5. Cada acerto gera bônus separado na classificação.
+6. Admin/master acompanha adesão, pendências, distribuição dos palpites e o
+   histórico de alterações, e registra o resultado oficial pela interface V4.
 
 ## Dados
 
@@ -53,13 +55,17 @@ e master registram o resultado; inativos não apostam.
 5. Somente admin/master executam `resultado_campeonato.write`.
 6. Cada acerto soma exclusivamente o bônus configurado correspondente.
 7. Resultado e aposta de campeonato invalidam caches de campeonato e classificação.
+8. O acompanhamento administrativo considera os participantes ativos da temporada,
+   identifica pendentes por `user_id` e não concede escrita sobre apostas alheias.
+9. O histórico administrativo é somente leitura e mantém todas as alterações
+   registradas em `championship_bets_log`.
 
 ## Interface, serviços e dados
 
 - Telas: `ui/championship_bets.py` e `ui/championship_results.py`.
 - Serviços: `services/championship_service.py` e `services/deadlines.py`.
 - Tabelas: `championship_bets`, `championship_bets_log`, `championship_results`, `regras`, `provas`.
-- API V4: `GET /api/v1/championship?season=YYYY`, `POST /api/v1/championship/bet?season=YYYY` e `POST /api/v1/championship/result?season=YYYY`. O resultado oficial é restrito a `admin` e `master`.
+- API V4: `GET /api/v1/championship?season=YYYY`, `POST /api/v1/championship/bet?season=YYYY`, `GET /api/v1/championship/admin?season=YYYY` e `POST /api/v1/championship/result?season=YYYY`. A gestão e o resultado oficial são restritos a `admin` e `master`.
 
 ## Critérios de aceite
 
@@ -71,13 +77,19 @@ e master registram o resultado; inativos não apostam.
 6. Dado perfil não autorizado, quando tenta registrar resultado, então a operação é negada.
 7. Dados acertos parciais, quando a pontuação é calculada, então somente os bônus correspondentes são somados.
 8. Dado resultado alterado, quando salvo, então o cache da classificação é invalidado.
+9. Dado Admin ou Master, quando abrir a gestão, então vê quantidade de elegíveis,
+   apostas atuais, pendentes, distribuições e histórico da temporada selecionada.
+10. Dado participante sem aposta, quando abrir o acompanhamento, então seu nome
+    consta como pendente sem expor credenciais ou outros dados sensíveis.
+11. Dado perfil participante, quando chamar a gestão diretamente, então a API nega.
 
 ## Verificação
 
 - Critérios 1 a 3 — `tests/test_championship_deadline.py`.
 - Critério 6 — `tests/test_access_matrix.py` e `tests/test_permissions_extended.py`.
 - Contratos tabulares — `tests/test_apostas_dataframe_contract.py`.
-- Critérios 4, 5, 7 e 8 — verificação de integração do fluxo de campeonato.
+- Critérios 4, 5, 7 e 8 — `tests/test_championship_v4.py` e verificação de integração.
+- Critérios 9 a 11 — `tests/test_championship_admin_v4.py` e `tests/test_v4_frontend_foundation.py`.
 
 ## Pendências
 
@@ -92,9 +104,11 @@ e master registram o resultado; inativos não apostam.
 
 - [x] Especificar aposta, deadline e auditoria. Fecha: critérios 1 a 4.
 - [x] Especificar resultado, autorização e bônus. Fecha: critérios 5 a 8.
+- [x] Implantar gestão e acompanhamento V4. Fecha: critérios 9 a 11.
 
 ## Changelog
 
+- `1.2` — 2026-09-13 — Gestão V4 adicionada com adesão, pendências, distribuições, histórico e resultado oficial.
 - `1.1` — 2026-09-08 — Contratos V4 migrados para Next.js/FastAPI, mantendo deadline fail-closed, histórico e compatibilidade das tabelas `championship_*`.
 - `1.0` — 2026-07-31 — Fluxo de campeonato especificado.
 

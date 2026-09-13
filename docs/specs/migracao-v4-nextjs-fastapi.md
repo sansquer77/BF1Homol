@@ -2,8 +2,8 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 4.0
-atualizado: 2026-09-12
+versao: 4.1
+atualizado: 2026-09-13
 relacionados:
   - "[[inventario-v4]]"
   - "[[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]"
@@ -165,7 +165,7 @@ controles de acesso, sanitização ou exportação.
 - [x] Fase 2 — baseline de 126 testes e 139 subtestes aprovada e congelada por domínio em `tests/characterization_v4.json`. Fecha: critérios 4 e 10 no comportamento legado; autorização HTTP será ampliada na Fase 3.
 - [x] Fase 3 — FastAPI e contratos `/api/v1` implementados com contexto correlacionável por requisição, autenticação por cookie revogável, rotação ativa, proteção de origem/CSRF, mitigação de enumeração e força bruta, autorização opaca por usuário/temporada, bootstrap Master transacional e observabilidade PostgreSQL exportável com reautenticação. Gates de integração aprovados. Fecha: critérios 5–9, 13, 14 e 17–20.
 - [x] Fase 4 — frontend Next.js 16/App Router e TypeScript criado com design system Apex Paddock UI mobile-first, ícone oficial BF1, login exclusivo para convidados, shell responsivo, cliente regenerável pelo OpenAPI versionado e adaptador ApexCharts carregado sob demanda com tabela acessível. O Painel do Participante passa a se chamar Telemetria e pilotos recebem marcadores acessíveis de equipe. Build de produção aprovado; dashboard, login, menu e ausência de overflow validados manualmente em 360 px. Fecha: critérios 11, 12, 21 e 22 na fundação visual.
-- [x] Fase 5 — conteúdo e consultas simples migrados: Sobre, Regulamento, Calendário e Telemetria real autenticada, sem dados demonstrativos. Fecha parte dos critérios 4, 10–12.
+- [x] Fase 5 — conteúdo e consultas simples migrados: Sobre, Regulamento, Calendário e Telemetria real autenticada, sem dados demonstrativos; Painel do Participante fechado com Visão geral, Apostas, Histórico e Minha conta. Fecha parte dos critérios 4, 10–12.
 - [x] Fase 6 — migrar acompanhamento e gráficos (Análise, Logs, Classificação, Hall, Dashboard e Campeonato). Classificação, Análise de Apostas, Hall da Fama, Logs, Dashboard F1 e Campeonato concluídos. Fecha critérios 4, 10 e 12.
 - [x] Fase 7 — migrar operações administrativas e autorização por objeto. Operações e telas administrativas V4 concluídas para usuários, pilotos, provas, Hall da Fama, financeiro e regras, incluindo edição exclusiva do Master, associação por temporada e clonagem.
 - [x] Fase 8 — backup/restauração SQL e Excel disponíveis e confirmados funcionais em homologação, com pré-validação, reautenticação e limites preservados.
@@ -175,6 +175,7 @@ controles de acesso, sanitização ou exportação.
 
 ## Changelog
 
+- `4.1` — 2026-09-13 — Painel do Participante encerrado na Telemetria com gráfico combinado e abas Apostas, Histórico e Minha conta.
 - `4.0` — 2026-09-12 — Lacunas funcionais encerradas com gestão explícita de equipes e processamento completo de resultados na V4.
 - `3.9` — 2026-09-12 — Telemetria enriquecida com previsão meteorológica contextual da próxima prova.
 - `3.8` — 2026-09-12 — Gestão financeira V4 concluída com histórico da temporada, resumos, premiação e lembrete seguro aos pendentes.

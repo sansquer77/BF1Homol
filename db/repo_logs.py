@@ -28,6 +28,8 @@ def registrar_log_aposta(
 	temporada: Optional[str] = None,
 	status: str = "Registrada",
 ) -> None:
+	# Apostas fora do prazo são classificadas como não efetivas no log.
+	effective_status = "Não efetiva" if int(tipo_aposta or 0) == 1 else (status or "Registrada")
 	try:
 		horario_dt = horario if isinstance(horario, datetime) else None
 		if horario_dt is None:
@@ -73,7 +75,7 @@ def registrar_log_aposta(
 					horario_dt,
 					ip_address,
 					temporada,
-					status,
+					effective_status,
 				),
 			)
 			cur.close()

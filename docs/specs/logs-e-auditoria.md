@@ -2,8 +2,8 @@
 tipo: spec
 area: auditoria
 status: implementado
-versao: 1.3
-atualizado: 2026-09-09
+versao: 1.4
+atualizado: 2026-09-13
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/apostas-de-prova]]", "[[04_arquitetura]]"]
 tags: [spec, "area/auditoria", "status/implementado"]
 aliases: ["Logs e auditoria"]
@@ -34,6 +34,7 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 
 - Acesso: usuário, instante, resultado e metadados técnicos necessários.
 - Aposta: usuário, temporada, prova, ação, instante e valores auditáveis permitidos.
+- Status da aposta: persistido no banco; apostas fora do prazo (`tipo_aposta = 1`) são classificadas como **Não efetiva**.
 - Paginação: filtros, total, página e tamanho, limitado a 500 registros por página.
 
 ## Regras
@@ -49,6 +50,10 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
    indisponibilidade dessa escrita não derruba a requisição e usa o log do processo como contingência.
 9. Somente Master reautenticado exporta até o limite configurado e por no máximo
    31 dias, em JSON Lines compactado, com nome produzido exclusivamente pelo servidor.
+10. Apostas fora do prazo (`tipo_aposta = 1`) são persistidas no log com status **Não efetiva**.
+11. O log de apostas pode ser filtrado por participante (dropdown e/ou busca textual), data exata,
+    tipo (no prazo, fora do prazo, automática) e status (Registrada, Não efetiva, Cancelada).
+12. O status **Não efetiva** é destacado visualmente na interface Next.js.
 
 ## Interface, serviços e dados
 
@@ -68,13 +73,19 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 5. Dada página inexistente, quando consultar, então o sistema usa uma página válida sem erro.
 6. Dado cabeçalho de IP de origem não confiável, quando registrar acesso, então ele não suplanta o endereço observado.
 7. Dado evento sensível, quando registrar, então senha, token e segredo não aparecem no payload nem na interface.
+8. Dada aposta fora do prazo, quando registrada no log, então o status persistido é **Não efetiva**.
+9. Dado log existente com `tipo_aposta = 1` e status diferente de **Não efetiva**, quando a migration rodar, então o status é atualizado.
+10. Dada interface V4, quando o usuário filtrar por tipo, então as opções são no prazo, fora do prazo e automática.
+11. Dada interface V4, quando o usuário filtrar por status, então as opções são Registrada, Não efetiva e Cancelada.
+12. Dado registro com status **Não efetiva**, quando exibido na interface V4, então recebe destaque visual de aviso.
 
 ## Verificação
 
-- Critérios 1–6 — testes: `tests/test_pagination_integration.py`,
+- Critérios 1–7 — testes: `tests/test_pagination_integration.py`,
   `tests/test_logs_read_service_v4.py`, `tests/test_v4_api_security.py`,
   `tests/test_proxy_topology.py` e `tests/test_access_matrix.py`.
 - Critério 7 — inspeção automatizada/manual dos campos de log e tentativa de autenticação com valor sentinela.
+- Critérios 8–12 — testes: `tests/test_log_apostas_nao_efetiva.py` e verificação visual da tela V4.
 
 ## Pendências
 
@@ -91,6 +102,7 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 
 ## Changelog
 
+- `1.4` — 2026-09-13 — Adicionado status "Não efetiva" para apostas fora do prazo, filtros por tipo/status/data na interface V4 e destaque visual.
 - `1.3` — 2026-09-09 — Filtro de apostador limitado ao combo de participantes autorizados da temporada global.
 - `1.2` — 2026-09-08 — Adicionados contratos V4 paginados para log de apostas com escopo de sessão e log de acessos exclusivo do Master.
 - `1.1` — 2026-09-08 — Documentadas observabilidade V4 e exportação administrativa limitada e reautenticada.

@@ -16,6 +16,7 @@ from db.repo_observability import export_events, record_event
 from services.access_control import AuthenticatedContext
 
 router = APIRouter(prefix="/logs", tags=["logs"])
+BET_KINDS = frozenset({"on_time", "late", "automatic"})
 
 
 def _json_default(value):
@@ -29,7 +30,9 @@ def betting_logs(
     page_size: int = Query(default=50, ge=1, le=200),
     bettor: str | None = Query(default=None, max_length=120),
     bettor_id: int | None = Query(default=None, gt=0),
+    bettor_contains: str | None = Query(default=None, max_length=120),
     bet_type: int | None = Query(default=None, ge=0, le=1),
+    bet_kind: str | None = Query(default=None),
     event_date: date | None = Query(default=None),
     log_status: str | None = Query(default=None, max_length=80),
     automatic_only: bool = Query(default=False),
@@ -39,6 +42,8 @@ def betting_logs(
     from services.logs_read_service import list_betting_logs
 
     authorize_season_object(season, context)
+    if bet_kind is not None and str(bet_kind).lower() not in BET_KINDS:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Tipo de aposta inválido.")
     scope_user_id = context.user_id if context.perfil in {"participante", "inativo"} else None
     result = list_betting_logs(
         season,
@@ -47,7 +52,9 @@ def betting_logs(
         page_size=page_size,
         bettor=bettor,
         bettor_id=bettor_id,
+        bettor_contains=bettor_contains,
         bet_type=bet_type,
+        bet_kind=bet_kind,
         event_date=event_date,
         log_status=log_status,
         automatic_only=automatic_only,

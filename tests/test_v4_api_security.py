@@ -110,6 +110,7 @@ class V4ApiSecurityTests(unittest.TestCase):
         snapshot = {
             "user_name": "Ana", "season": "2026", "next_race": None,
             "metrics": {"current_position": None, "points": 0, "bets_submitted": 0, "races_total": 0},
+            "automatic_bet": {"benefit_available": True, "automatic_generation": 0, "next_penalty_percent": 20},
             "evolution": [], "ranking": [],
         }
         try:

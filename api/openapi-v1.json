@@ -165,6 +165,51 @@
         "title": "AccessLogsResponse",
         "type": "object"
       },
+      "AccountEmailChange": {
+        "additionalProperties": false,
+        "properties": {
+          "current_password": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_email": {
+            "format": "email",
+            "title": "New Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_email"
+        ],
+        "title": "AccountEmailChange",
+        "type": "object"
+      },
+      "AccountPasswordChange": {
+        "additionalProperties": false,
+        "properties": {
+          "current_password": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 1024,
+            "minLength": 8,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "AccountPasswordChange",
+        "type": "object"
+      },
       "AdminParticipant": {
         "properties": {
           "id": {
@@ -497,6 +542,195 @@
         "title": "BettingLogsResponse",
         "type": "object"
       },
+      "ChampionshipAdminBet": {
+        "properties": {
+          "bet_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bet Time"
+          },
+          "champion": {
+            "title": "Champion",
+            "type": "string"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Season"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "user_nome": {
+            "title": "User Nome",
+            "type": "string"
+          },
+          "vice": {
+            "title": "Vice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_nome",
+          "champion",
+          "vice",
+          "team",
+          "season"
+        ],
+        "title": "ChampionshipAdminBet",
+        "type": "object"
+      },
+      "ChampionshipAdminResponse": {
+        "properties": {
+          "bet_count": {
+            "minimum": 0.0,
+            "title": "Bet Count",
+            "type": "integer"
+          },
+          "bets": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionshipAdminBet"
+            },
+            "title": "Bets",
+            "type": "array"
+          },
+          "can_bet": {
+            "title": "Can Bet",
+            "type": "boolean"
+          },
+          "champion_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionshipDistributionItem"
+            },
+            "title": "Champion Distribution",
+            "type": "array"
+          },
+          "completion_percent": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Completion Percent",
+            "type": "number"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "deadline_message": {
+            "title": "Deadline Message",
+            "type": "string"
+          },
+          "drivers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Drivers",
+            "type": "array"
+          },
+          "eligible_count": {
+            "minimum": 0.0,
+            "title": "Eligible Count",
+            "type": "integer"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionshipAdminBet"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "official_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChampionshipResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pending": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionshipPendingParticipant"
+            },
+            "title": "Pending",
+            "type": "array"
+          },
+          "pending_count": {
+            "minimum": 0.0,
+            "title": "Pending Count",
+            "type": "integer"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          },
+          "team_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionshipDistributionItem"
+            },
+            "title": "Team Distribution",
+            "type": "array"
+          },
+          "teams": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Teams",
+            "type": "array"
+          },
+          "vice_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionshipDistributionItem"
+            },
+            "title": "Vice Distribution",
+            "type": "array"
+          }
+        },
+        "required": [
+          "season",
+          "eligible_count",
+          "bet_count",
+          "pending_count",
+          "completion_percent",
+          "pending",
+          "bets",
+          "history",
+          "champion_distribution",
+          "vice_distribution",
+          "team_distribution",
+          "drivers",
+          "teams",
+          "can_bet",
+          "deadline_message"
+        ],
+        "title": "ChampionshipAdminResponse",
+        "type": "object"
+      },
       "ChampionshipBetRecord": {
         "properties": {
           "bet_time": {
@@ -582,6 +816,43 @@
           "team"
         ],
         "title": "ChampionshipBetRequest",
+        "type": "object"
+      },
+      "ChampionshipDistributionItem": {
+        "properties": {
+          "count": {
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "count"
+        ],
+        "title": "ChampionshipDistributionItem",
+        "type": "object"
+      },
+      "ChampionshipPendingParticipant": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "name"
+        ],
+        "title": "ChampionshipPendingParticipant",
         "type": "object"
       },
       "ChampionshipResponse": {
@@ -1979,6 +2250,262 @@
         "title": "PasswordResetRequest",
         "type": "object"
       },
+      "PersonalBetAllocation": {
+        "properties": {
+          "actual_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Position"
+          },
+          "chips": {
+            "title": "Chips",
+            "type": "integer"
+          },
+          "driver": {
+            "title": "Driver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "driver",
+          "chips"
+        ],
+        "title": "PersonalBetAllocation",
+        "type": "object"
+      },
+      "PersonalBetEntry": {
+        "properties": {
+          "allocations": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalBetAllocation"
+            },
+            "title": "Allocations",
+            "type": "array"
+          },
+          "automatic_generation": {
+            "title": "Automatic Generation",
+            "type": "integer"
+          },
+          "eleventh_actual": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eleventh Actual"
+          },
+          "eleventh_driver": {
+            "title": "Eleventh Driver",
+            "type": "string"
+          },
+          "race_id": {
+            "title": "Race Id",
+            "type": "integer"
+          },
+          "race_name": {
+            "title": "Race Name",
+            "type": "string"
+          },
+          "race_type": {
+            "title": "Race Type",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          }
+        },
+        "required": [
+          "race_id",
+          "race_name",
+          "race_type",
+          "automatic_generation",
+          "eleventh_driver",
+          "allocations"
+        ],
+        "title": "PersonalBetEntry",
+        "type": "object"
+      },
+      "PersonalBetsResponse": {
+        "properties": {
+          "discard_active": {
+            "title": "Discard Active",
+            "type": "boolean"
+          },
+          "discard_points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discard Points"
+          },
+          "discard_race": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discard Race"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalBetEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "entries",
+          "discard_active"
+        ],
+        "title": "PersonalBetsResponse",
+        "type": "object"
+      },
+      "PersonalHistoryEntry": {
+        "properties": {
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "position",
+          "points"
+        ],
+        "title": "PersonalHistoryEntry",
+        "type": "object"
+      },
+      "PersonalHistoryResponse": {
+        "properties": {
+          "best_points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Points"
+          },
+          "best_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Position"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalHistoryEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "podiums": {
+            "title": "Podiums",
+            "type": "integer"
+          },
+          "seasons_count": {
+            "title": "Seasons Count",
+            "type": "integer"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalHistorySeries"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "titles": {
+            "title": "Titles",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entries",
+          "seasons_count",
+          "titles",
+          "podiums",
+          "series"
+        ],
+        "title": "PersonalHistoryResponse",
+        "type": "object"
+      },
+      "PersonalHistorySeries": {
+        "properties": {
+          "drivers": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Drivers",
+            "type": "object"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "drivers"
+        ],
+        "title": "PersonalHistorySeries",
+        "type": "object"
+      },
       "RaceBetAllocation": {
         "properties": {
           "chips": {
@@ -2815,6 +3342,32 @@
         "title": "TeamWriteRequest",
         "type": "object"
       },
+      "TelemetryAutomaticBetStatus": {
+        "properties": {
+          "automatic_generation": {
+            "minimum": 0.0,
+            "title": "Automatic Generation",
+            "type": "integer"
+          },
+          "benefit_available": {
+            "title": "Benefit Available",
+            "type": "boolean"
+          },
+          "next_penalty_percent": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Next Penalty Percent",
+            "type": "number"
+          }
+        },
+        "required": [
+          "benefit_available",
+          "automatic_generation",
+          "next_penalty_percent"
+        ],
+        "title": "TelemetryAutomaticBetStatus",
+        "type": "object"
+      },
       "TelemetryEvolutionPoint": {
         "properties": {
           "cumulative_points": {
@@ -2982,6 +3535,9 @@
       },
       "TelemetryResponse": {
         "properties": {
+          "automatic_bet": {
+            "$ref": "#/components/schemas/TelemetryAutomaticBetStatus"
+          },
           "evolution": {
             "items": {
               "$ref": "#/components/schemas/TelemetryEvolutionPoint"
@@ -3022,6 +3578,7 @@
           "user_name",
           "season",
           "metrics",
+          "automatic_bet",
           "evolution",
           "ranking"
         ],
@@ -4562,6 +5119,88 @@
         ]
       }
     },
+    "/api/v1/auth/account/email": {
+      "put": {
+        "operationId": "update_own_email_api_v1_auth_account_email_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountEmailChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Own Email",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/account/password": {
+      "put": {
+        "operationId": "update_own_password_api_v1_auth_account_password_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPasswordChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Own Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "login_api_v1_auth_login_post",
@@ -5161,6 +5800,50 @@
         ]
       }
     },
+    "/api/v1/championship/admin": {
+      "get": {
+        "operationId": "championship_admin_api_v1_championship_admin_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Season",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChampionshipAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Championship Admin",
+        "tags": [
+          "championship"
+        ]
+      }
+    },
     "/api/v1/championship/bet": {
       "post": {
         "operationId": "championship_bet_api_v1_championship_bet_post",
@@ -5741,6 +6424,23 @@
           },
           {
             "in": "query",
+            "name": "bettor_contains",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bettor Contains"
+            }
+          },
+          {
+            "in": "query",
             "name": "bet_type",
             "required": false,
             "schema": {
@@ -5755,6 +6455,22 @@
                 }
               ],
               "title": "Bet Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bet_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bet Kind"
             }
           },
           {
@@ -6081,6 +6797,70 @@
           }
         },
         "summary": "Telemetry",
+        "tags": [
+          "telemetry"
+        ]
+      }
+    },
+    "/api/v1/telemetry/bets": {
+      "get": {
+        "operationId": "personal_bets_api_v1_telemetry_bets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalBetsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Personal Bets",
+        "tags": [
+          "telemetry"
+        ]
+      }
+    },
+    "/api/v1/telemetry/history": {
+      "get": {
+        "operationId": "personal_history_api_v1_telemetry_history_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Personal History",
         "tags": [
           "telemetry"
         ]

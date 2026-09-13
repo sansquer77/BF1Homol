@@ -3,7 +3,9 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { apiRequest, type AccessLogs, type BettingLogs, type User } from "@/lib/api/client";
 import { useSeason } from "@/lib/season-context";
+
 type ParticipantOption = { id: number; name: string };
+
 const INITIAL_START = isoDay(-7);
 const INITIAL_END = isoDay();
 const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "medium" });
@@ -14,6 +16,20 @@ function isoDay(offset = 0) {
   return value.toISOString().slice(0, 10);
 }
 
+const BET_KIND_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Todos" },
+  { value: "on_time", label: "No prazo" },
+  { value: "late", label: "Fora do prazo" },
+  { value: "automatic", label: "Automática" },
+];
+
+const STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Todos" },
+  { value: "Registrada", label: "Registrada" },
+  { value: "Não efetiva", label: "Não efetiva" },
+  { value: "Cancelada", label: "Cancelada" },
+];
+
 export function LogsView() {
   const { season } = useSeason();
   const [user, setUser] = useState<User | null>(null);
@@ -22,9 +38,15 @@ export function LogsView() {
   const [error, setError] = useState(false);
   const [betPage, setBetPage] = useState(1);
   const [accessPage, setAccessPage] = useState(1);
+
   const [bettor, setBettor] = useState("");
+  const [bettorText, setBettorText] = useState("");
+  const [betKind, setBetKind] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [logStatus, setLogStatus] = useState("");
+
   const [participants, setParticipants] = useState<ParticipantOption[]>([]);
-  const [automaticOnly, setAutomaticOnly] = useState(false);
+
   const [start, setStart] = useState(INITIAL_START);
   const [end, setEnd] = useState(INITIAL_END);
   const [userFilter, setUserFilter] = useState("");
@@ -32,10 +54,13 @@ export function LogsView() {
   const loadBets = useCallback((page = 1) => {
     const query = new URLSearchParams({ season, page: String(page), page_size: "50" });
     if (bettor) query.set("bettor_id", bettor);
-    if (automaticOnly) query.set("automatic_only", "true");
+    if (bettorText.trim()) query.set("bettor_contains", bettorText.trim());
+    if (betKind) query.set("bet_kind", betKind);
+    if (eventDate) query.set("event_date", eventDate);
+    if (logStatus) query.set("log_status", logStatus);
     setError(false);
     apiRequest<BettingLogs>(`/api/v1/logs/bets?${query}`).then(setBets).catch(() => setError(true));
-  }, [automaticOnly, bettor, season]);
+  }, [bettor, bettorText, betKind, eventDate, logStatus, season]);
 
   const loadAccess = useCallback((page = 1) => {
     const query = new URLSearchParams({ start, end, page: String(page), page_size: "50" });
@@ -45,32 +70,218 @@ export function LogsView() {
 
   useEffect(() => {
     let active = true;
-    setBets(null); setBettor("");
-    Promise.all([apiRequest<User>("/api/v1/auth/me"), apiRequest<BettingLogs>(`/api/v1/logs/bets?season=${season}&page=1&page_size=50`), apiRequest<ParticipantOption[]>(`/api/v1/calendar/participants?season=${season}`)])
-      .then(([identity, betting, options]) => { if (active) { setUser(identity); setBets(betting); setParticipants(options); if (identity.perfil === "master" && !access) apiRequest<AccessLogs>(`/api/v1/logs/access?start=${INITIAL_START}&end=${INITIAL_END}&page=1&page_size=50`).then((value) => { if (active) setAccess(value); }).catch(() => { if (active) setError(true); }); } })
+    setBets(null);
+    setBettor("");
+    setBettorText("");
+    setBetKind("");
+    setEventDate("");
+    setLogStatus("");
+    setBetPage(1);
+    Promise.all([
+      apiRequest<User>("/api/v1/auth/me"),
+      apiRequest<BettingLogs>(`/api/v1/logs/bets?season=${season}&page=1&page_size=50`),
+      apiRequest<ParticipantOption[]>(`/api/v1/calendar/participants?season=${season}`),
+    ])
+      .then(([identity, betting, options]) => {
+        if (active) {
+          setUser(identity);
+          setBets(betting);
+          setParticipants(options);
+          if (identity.perfil === "master" && !access) {
+            apiRequest<AccessLogs>(`/api/v1/logs/access?start=${INITIAL_START}&end=${INITIAL_END}&page=1&page_size=50`)
+              .then((value) => { if (active) setAccess(value); })
+              .catch(() => { if (active) setError(true); });
+          }
+        }
+      })
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [season]);
 
-  function applyBets(event: FormEvent) { event.preventDefault(); setBetPage(1); loadBets(1); }
-  function applyAccess(event: FormEvent) { event.preventDefault(); setAccessPage(1); loadAccess(1); }
-  function changeBetPage(page: number) { setBetPage(page); loadBets(page); }
-  function changeAccessPage(page: number) { setAccessPage(page); loadAccess(page); }
+  function applyBets(event: FormEvent) {
+    event.preventDefault();
+    setBetPage(1);
+    loadBets(1);
+  }
 
-  return <div className="logs-view"><header className="institutional-hero"><div><p className="eyebrow">Monitoramento</p><h1>Logs e auditoria.</h1><p>Histórico rastreável, filtrado no servidor e limitado ao seu nível de acesso.</p></div></header>
-    {error ? <div className="calendar-state calendar-state--error" role="alert">Não foi possível carregar os logs.</div> : null}
-    <section className="logs-section" aria-labelledby="bet-logs-title"><div className="panel__heading"><div><p className="eyebrow">Apostas</p><h2 id="bet-logs-title">Log de apostas</h2></div>{bets ? <small>{bets.pagination.total} registros · {bets.scope === "individual" ? "Meu histórico" : "Visão consolidada"}</small> : null}</div>
-      <form className="logs-filters" onSubmit={applyBets}><label>Apostador<select value={bettor} onChange={(event) => setBettor(event.target.value)} disabled={bets?.scope === "individual"}><option value="">Todos os participantes ativos</option>{participants.map((participant) => <option value={participant.id} key={participant.id}>{participant.name}</option>)}</select></label><label className="check-field"><input type="checkbox" checked={automaticOnly} onChange={(event) => setAutomaticOnly(event.target.checked)} />Somente automáticas</label><button className="secondary-action" type="submit">Aplicar filtros</button></form>
-      {!bets ? <div className="calendar-state" role="status">Carregando apostas…</div> : <div className="table-scroll" tabIndex={0}><table className="logs-table"><caption className="sr-only">Registros do log de apostas</caption><thead><tr><th>Data</th><th>Apostador</th><th>Prova</th><th>Pilotos</th><th>11º</th><th>Tipo</th><th>Status</th></tr></thead><tbody>{bets.items.map((item) => <tr key={item.id}><td>{item.data ?? "—"}<small>{item.horario ?? ""}</small></td><td>{item.apostador ?? "—"}</td><td>{item.nome_prova ?? "—"}</td><td>{item.pilotos ?? "—"}<small>{item.aposta ?? ""}</small></td><td>{item.piloto_11 ?? "—"}</td><td>{item.automatica ? "Automática" : item.tipo_aposta === 1 ? "Fora do prazo" : "No prazo"}</td><td><span className="log-status">{item.status ?? "Registrada"}</span></td></tr>)}</tbody></table></div>}
-      {bets ? <Pagination page={betPage} pages={bets.pagination.total_pages} onChange={changeBetPage} /> : null}
-    </section>
-    {user?.perfil === "master" ? <section className="logs-section" aria-labelledby="access-logs-title"><div className="panel__heading"><div><p className="eyebrow">Segurança</p><h2 id="access-logs-title">Log de acessos</h2></div><small>Exclusivo do Master</small></div>
-      <form className="logs-filters logs-filters--access" onSubmit={applyAccess}><label>Início<input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label><label>Fim<input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label><label>Usuário ou email<input value={userFilter} onChange={(event) => setUserFilter(event.target.value)} placeholder="Buscar" /></label><button className="secondary-action" type="submit">Aplicar filtros</button></form>
-      {access ? <><div className="log-summary"><span><strong>{access.pagination.total}</strong>Total</span><span><strong>{access.successes}</strong>Sucessos</span><span><strong>{access.failures}</strong>Falhas</span></div><div className="table-scroll" tabIndex={0}><table className="logs-table"><caption className="sr-only">Registros do log de acessos</caption><thead><tr><th>Instante</th><th>Evento</th><th>Usuário</th><th>Perfil</th><th>Resultado</th><th>IP</th></tr></thead><tbody>{access.items.map((item) => <tr key={item.id}><td>{dateTime.format(new Date(item.created_at))}</td><td>{item.evento ?? "—"}</td><td>{item.nome ?? item.email ?? "—"}<small>{item.nome ? item.email : ""}</small></td><td>{item.perfil ?? "—"}</td><td><span className={item.sucesso ? "log-status" : "log-status log-status--failure"}>{item.sucesso ? "Sucesso" : "Falha"}</span></td><td>{item.ip_address ?? "—"}</td></tr>)}</tbody></table></div><Pagination page={accessPage} pages={access.pagination.total_pages} onChange={changeAccessPage} /></> : <div className="calendar-state" role="status">Carregando acessos…</div>}
-    </section> : null}
-  </div>;
+  function applyAccess(event: FormEvent) {
+    event.preventDefault();
+    setAccessPage(1);
+    loadAccess(1);
+  }
+
+  function changeBetPage(page: number) {
+    setBetPage(page);
+    loadBets(page);
+  }
+
+  function changeAccessPage(page: number) {
+    setAccessPage(page);
+    loadAccess(page);
+  }
+
+  function statusClass(status: string | null | undefined): string {
+    if (status === "Não efetiva") return "log-status log-status--warning";
+    if (status === "Cancelada") return "log-status log-status--failure";
+    return "log-status";
+  }
+
+  function kindLabel(item: BettingLogs["items"][number]): string {
+    if (item.automatica) return "Automática";
+    if (item.tipo_aposta === 1) return "Fora do prazo";
+    return "No prazo";
+  }
+
+  return (
+    <div className="logs-view">
+      <header className="institutional-hero">
+        <div>
+          <p className="eyebrow">Monitoramento</p>
+          <h1>Logs e auditoria.</h1>
+          <p>Histórico rastreável, filtrado no servidor e limitado ao seu nível de acesso.</p>
+        </div>
+      </header>
+      {error ? <div className="calendar-state calendar-state--error" role="alert">Não foi possível carregar os logs.</div> : null}
+      <section className="logs-section" aria-labelledby="bet-logs-title">
+        <div className="panel__heading">
+          <div>
+            <p className="eyebrow">Apostas</p>
+            <h2 id="bet-logs-title">Log de apostas</h2>
+          </div>
+          {bets ? <small>{bets.pagination.total} registros · {bets.scope === "individual" ? "Meu histórico" : "Visão consolidada"}</small> : null}
+        </div>
+        <form className="logs-filters" onSubmit={applyBets}>
+          <label>
+            Apostador
+            <select value={bettor} onChange={(event) => setBettor(event.target.value)} disabled={bets?.scope === "individual"}>
+              <option value="">Todos os participantes ativos</option>
+              {participants.map((participant) => <option value={participant.id} key={participant.id}>{participant.name}</option>)}
+            </select>
+          </label>
+          <label>
+            Buscar apostador
+            <input
+              type="text"
+              value={bettorText}
+              onChange={(event) => setBettorText(event.target.value)}
+              placeholder="Nome do participante"
+              disabled={bets?.scope === "individual"}
+            />
+          </label>
+          <label>
+            Data da aposta
+            <input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} />
+          </label>
+          <label>
+            Tipo
+            <select value={betKind} onChange={(event) => setBetKind(event.target.value)}>
+              {BET_KIND_OPTIONS.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <label>
+            Status
+            <select value={logStatus} onChange={(event) => setLogStatus(event.target.value)}>
+              {STATUS_OPTIONS.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <button className="secondary-action" type="submit">Aplicar filtros</button>
+        </form>
+        {!bets ? (
+          <div className="calendar-state" role="status">Carregando apostas…</div>
+        ) : (
+          <>
+            <div className="table-scroll" tabIndex={0}>
+              <table className="logs-table">
+                <caption className="sr-only">Registros do log de apostas</caption>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Apostador</th>
+                    <th>Prova</th>
+                    <th>Pilotos</th>
+                    <th>11º</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bets.items.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.data ?? "—"}<small>{item.horario ?? ""}</small></td>
+                      <td>{item.apostador ?? "—"}</td>
+                      <td>{item.nome_prova ?? "—"}</td>
+                      <td>{item.pilotos ?? "—"}<small>{item.aposta ?? ""}</small></td>
+                      <td>{item.piloto_11 ?? "—"}</td>
+                      <td>{kindLabel(item)}</td>
+                      <td><span className={statusClass(item.status)}>{item.status ?? "Registrada"}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination page={betPage} pages={bets.pagination.total_pages} onChange={changeBetPage} />
+          </>
+        )}
+      </section>
+      {user?.perfil === "master" ? (
+        <section className="logs-section" aria-labelledby="access-logs-title">
+          <div className="panel__heading">
+            <div>
+              <p className="eyebrow">Segurança</p>
+              <h2 id="access-logs-title">Log de acessos</h2>
+            </div>
+            <small>Exclusivo do Master</small>
+          </div>
+          <form className="logs-filters logs-filters--access" onSubmit={applyAccess}>
+            <label>Início<input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label>
+            <label>Fim<input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label>
+            <label>Usuário ou email<input value={userFilter} onChange={(event) => setUserFilter(event.target.value)} placeholder="Buscar" /></label>
+            <button className="secondary-action" type="submit">Aplicar filtros</button>
+          </form>
+          {access ? (
+            <>
+              <div className="log-summary">
+                <span><strong>{access.pagination.total}</strong>Total</span>
+                <span><strong>{access.successes}</strong>Sucessos</span>
+                <span><strong>{access.failures}</strong>Falhas</span>
+              </div>
+              <div className="table-scroll" tabIndex={0}>
+                <table className="logs-table">
+                  <caption className="sr-only">Registros do log de acessos</caption>
+                  <thead>
+                    <tr><th>Instante</th><th>Evento</th><th>Usuário</th><th>Perfil</th><th>Resultado</th><th>IP</th></tr>
+                  </thead>
+                  <tbody>
+                    {access.items.map((item) => (
+                      <tr key={item.id}>
+                        <td>{dateTime.format(new Date(item.created_at))}</td>
+                        <td>{item.evento ?? "—"}</td>
+                        <td>{item.nome ?? item.email ?? "—"}<small>{item.nome ? item.email : ""}</small></td>
+                        <td>{item.perfil ?? "—"}</td>
+                        <td><span className={item.sucesso ? "log-status" : "log-status log-status--failure"}>{item.sucesso ? "Sucesso" : "Falha"}</span></td>
+                        <td>{item.ip_address ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination page={accessPage} pages={access.pagination.total_pages} onChange={changeAccessPage} />
+            </>
+          ) : (
+            <div className="calendar-state" role="status">Carregando acessos…</div>
+          )}
+        </section>
+      ) : null}
+    </div>
+  );
 }
 
 function Pagination({ page, pages, onChange }: { page: number; pages: number; onChange: (page: number) => void }) {
-  return <nav className="pagination" aria-label="Paginação"><button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)}>Anterior</button><span>Página {page} de {pages}</span><button type="button" disabled={page >= pages} onClick={() => onChange(page + 1)}>Próxima</button></nav>;
+  return (
+    <nav className="pagination" aria-label="Paginação">
+      <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)}>Anterior</button>
+      <span>Página {page} de {pages}</span>
+      <button type="button" disabled={page >= pages} onClick={() => onChange(page + 1)}>Próxima</button>
+    </nav>
+  );
 }

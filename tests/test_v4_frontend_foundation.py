@@ -74,6 +74,19 @@ def test_v4_python_runtime_has_no_legacy_ui_or_plotly_dependencies():
     assert "requirements-api.txt" in transitional
 
 
+def test_championship_administration_tracks_bets_and_official_result():
+    page = FRONTEND / "src/app/admin/campeonato/page.tsx"
+    view = (FRONTEND / "src/components/championship-admin-view.tsx").read_text(encoding="utf-8")
+    shell = compact_source(FRONTEND / "src/components/app-shell.tsx")
+    assert page.is_file()
+    assert "/api/v1/championship/admin?season=" in view
+    assert "/api/v1/championship/result?season=" in view
+    assert "completion_percent" in view
+    assert "Ainda não apostaram" in view
+    assert "Histórico completo de alterações" in view
+    assert 'label:"Apostasdocampeonato",href:"/admin/campeonato"' in shell
+
+
 def test_login_is_invite_only_and_calendar_contract_is_preserved():
     login = (FRONTEND / "src/app/login/page.tsx").read_text(encoding="utf-8")
     login_form = (FRONTEND / "src/components/login-form.tsx").read_text(encoding="utf-8")
@@ -171,6 +184,9 @@ def test_telemetry_has_no_demonstrative_data_and_uses_authenticated_api():
     assert "useSeason" in dashboard
     assert "data.metrics.current_position" in dashboard
     assert "data.metrics.bets_submitted" in dashboard
+    assert "data.automatic_bet.benefit_available" in dashboard
+    assert "Benefício já utilizado" in dashboard
+    assert "regra vigente" in dashboard
     assert "TRACK_ASSETS[nextRace.circuit_id]" in dashboard
     assert "data.evolution" in dashboard
     assert "data.ranking" in dashboard
@@ -181,7 +197,34 @@ def test_telemetry_has_no_demonstrative_data_and_uses_authenticated_api():
     assert "Ana Martins" not in dashboard
     assert "GP do Azerbaijão" not in dashboard
     assert "const points =" not in chart
+    assert 'type: "column"' in chart
+    assert 'type: "line"' in chart
+    assert "reversed: true" in chart
+    assert "Evolução da posição e pontuação" in chart
     assert "/api/v1/telemetry" in openapi["paths"]
+
+
+def test_telemetry_closes_v35_participant_panel_tabs():
+    dashboard = (FRONTEND / "src/components/dashboard-overview.tsx").read_text(encoding="utf-8")
+    tabs = (FRONTEND / "src/components/participant-tabs.tsx").read_text(encoding="utf-8")
+    bets = (FRONTEND / "src/components/personal-bets-view.tsx").read_text(encoding="utf-8")
+    history = (FRONTEND / "src/components/personal-history-view.tsx").read_text(encoding="utf-8")
+    account = (FRONTEND / "src/components/account-view.tsx").read_text(encoding="utf-8")
+    css = (FRONTEND / "src/app/globals.css").read_text(encoding="utf-8")
+
+    assert "<ParticipantTabs />" in dashboard
+    for route in ("/telemetria/apostas", "/telemetria/historico", "/telemetria/minha-conta"):
+        assert route in tabs
+    assert "/api/v1/telemetry/bets?season=" in bets
+    assert "Regra de descarte ativa" in bets
+    assert "/api/v1/telemetry/history" in history
+    assert 'className="metric-help"' in history and ">?</button>" in history
+    assert "/api/v1/auth/account/email" in account
+    assert "/api/v1/auth/account/password" in account
+    assert ".track-art::before" not in css
+    assert (FRONTEND / "src/app/telemetria/apostas/page.tsx").is_file()
+    assert (FRONTEND / "src/app/telemetria/historico/page.tsx").is_file()
+    assert (FRONTEND / "src/app/telemetria/minha-conta/page.tsx").is_file()
 
 
 def test_race_management_refreshes_and_selects_api_circuits():

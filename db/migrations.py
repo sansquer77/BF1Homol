@@ -473,6 +473,26 @@ def fix_sequences() -> None:
             logger.warning("⚠️  Falha no commit de fix_sequences: %s", exc)
 
 
+def backfill_log_apostas_status_nao_efetiva() -> None:
+    """Classifica registros históricos fora do prazo como 'Não efetiva'."""
+    try:
+        with get_pool().get_connection() as conn:
+            cursor = conn.cursor()
+            if table_exists(conn, "log_apostas") and "status" in get_table_columns(conn, "log_apostas"):
+                cursor.execute(
+                    """
+                    UPDATE log_apostas
+                    SET status = 'Não efetiva'
+                    WHERE tipo_aposta = 1
+                      AND COALESCE(status, '') != 'Não efetiva'
+                    """
+                )
+                conn.commit()
+                logger.info("✓ Backfill de status 'Não efetiva' aplicado em log_apostas")
+    except Exception as exc:
+        logger.debug("Erro ao aplicar backfill de status não efetiva: %s", exc)
+
+
 def run_migrations() -> None:
     init_db()
 
@@ -492,6 +512,7 @@ def run_migrations() -> None:
             add_login_attempts_ip_if_missing()
             add_penalidade_auto_percent_if_missing()
             harden_log_apostas_datetime_fields()
+            backfill_log_apostas_status_nao_efetiva()
             create_access_logs_table_if_missing()
             create_application_logs_table_if_missing()
             create_usuarios_status_historico_if_missing()

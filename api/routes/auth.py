@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from api.auth_backend import recent_failures, record_access, record_attempt
 from api.config import settings
 from api.dependencies import get_current_context
-from api.schemas import LoginRequest, MessageResponse, PasswordResetConfirm, PasswordResetRequest, UserResponse
+from api.schemas import AccountEmailChange, AccountPasswordChange, LoginRequest, MessageResponse, PasswordResetConfirm, PasswordResetRequest, UserResponse
 from api.security import clear_session_cookies, issue_session_cookies
 from db.db_config import LOCKOUT_DURATION, MAX_LOGIN_ATTEMPTS, MAX_RESET_ATTEMPTS, RESET_LOCKOUT_DURATION
 from services.access_control import AuthenticatedContext
@@ -64,6 +64,32 @@ def me(context: AuthenticatedContext = Depends(get_current_context)) -> UserResp
     from db.repo_users import get_user_by_id
     user = get_user_by_id(context.user_id)
     return _user_response(user)
+
+
+@router.put("/account/email", response_model=UserResponse)
+def update_own_email(payload: AccountEmailChange, context: AuthenticatedContext = Depends(get_current_context)) -> UserResponse:
+    from services.account_v4_service import change_own_email
+    from services.access_control import AuthorizationDenied
+    try:
+        return _user_response(change_own_email(context, payload.current_password, str(payload.new_email)))
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
+@router.put("/account/password", response_model=MessageResponse)
+def update_own_password(payload: AccountPasswordChange, response: Response, context: AuthenticatedContext = Depends(get_current_context)) -> MessageResponse:
+    from services.account_v4_service import change_own_password
+    from services.access_control import AuthorizationDenied
+    try:
+        change_own_password(context, payload.current_password, payload.new_password)
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    clear_session_cookies(response)
+    return MessageResponse(message="Senha alterada. Entre novamente com a nova senha.")
 
 
 @router.post("/refresh", response_model=UserResponse)

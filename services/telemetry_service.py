@@ -127,12 +127,21 @@ def build_telemetry_snapshot(
         })
 
     own_bet_races: set[int] = set()
+    automatic_generation = 0
     for row in _records(bets):
         try:
             if int(row.get("usuario_id")) == int(user_id):
                 own_bet_races.add(int(row.get("prova_id")))
+                automatic_generation = max(automatic_generation, max(0, int(_number(row.get("automatica")))))
         except (TypeError, ValueError):
             continue
+
+    try:
+        from services.rules_service import get_regras_aplicaveis
+        rules = get_regras_aplicaveis(season, "Normal")
+        next_penalty_percent = min(100.0, max(0.0, _number(rules.get("penalidade_auto_percent", 20))))
+    except Exception:
+        next_penalty_percent = 20.0
 
     return {
         "user_name": str(user_name),
@@ -143,6 +152,11 @@ def build_telemetry_snapshot(
             "points": round(sum(row["points"] for row in own_rows), 2),
             "bets_submitted": len(own_bet_races),
             "races_total": len(race_order),
+        },
+        "automatic_bet": {
+            "benefit_available": automatic_generation == 0,
+            "automatic_generation": automatic_generation,
+            "next_penalty_percent": next_penalty_percent,
         },
         "evolution": evolution,
         "ranking": ranking,

@@ -2,8 +2,8 @@
 tipo: spec
 area: historico
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-09-13
 relacionados: ["[[specs/classificacao]]", "[[specs/controle-de-acesso]]", "[[03_spec]]"]
 tags: [spec, "area/historico", "status/implementado"]
 aliases: ["Histórico do participante"]
@@ -12,7 +12,7 @@ aliases: ["Histórico do participante"]
 # Histórico do participante
 
 > [!info] Status
-> **implementado** · área: `historico` · atualizado em 2026-07-31 · relacionados: [[specs/classificacao]], [[specs/controle-de-acesso]], [[03_spec]]
+> **implementado** · área: `historico` · atualizado em 2026-09-13 · relacionados: [[specs/classificacao]], [[specs/controle-de-acesso]], [[03_spec]]
 
 ## Problema
 
@@ -44,11 +44,14 @@ Oferecer uma visão consolidada e comparável do desempenho de um participante e
 5. Consultas pesadas são carregadas apenas ao abrir a seção e têm limite operacional.
 6. O Inativo não acessa dados operacionais da temporada atual além do histórico autorizado.
 7. DataFrames vazios preservam o schema necessário para a UI.
+8. Na V4, os cards superiores usam os registros do Hall da Fama do próprio
+   usuário; a série inferior continua derivada das temporadas cadastradas.
 
 ## Interface, serviços e dados
 
-- Tela: Participante → Histórico/Painel.
+- Tela V4: `/telemetria/historico`, dentro das abas da Telemetria.
 - Serviço: `services/historico_service.py`.
+- API V4: `GET /api/v1/telemetry/history`, limitada ao usuário da sessão.
 - Persistência: consultas de classificação, apostas, resultados e posições históricas.
 - API externa: não aplicável.
 
@@ -82,6 +85,7 @@ Oferecer uma visão consolidada e comparável do desempenho de um participante e
 
 ## Changelog
 
+- `1.1` — 2026-09-13 — Histórico integrado às abas da Telemetria V4 com cards derivados do Hall da Fama.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
 ## Relacionados

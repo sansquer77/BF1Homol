@@ -1,0 +1,1 @@
+import { AppShell } from "@/components/app-shell";import { PersonalHistoryView } from "@/components/personal-history-view";export default function Page(){return <AppShell><PersonalHistoryView/></AppShell>}

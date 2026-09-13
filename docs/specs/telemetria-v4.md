@@ -2,8 +2,8 @@
 tipo: spec
 area: telemetria-v4
 status: implementado
-versao: 1.3
-atualizado: 2026-09-10
+versao: 1.5
+atualizado: 2026-09-13
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
   - "[[specs/calendario-provas-e-pilotos]]"
@@ -15,7 +15,7 @@ aliases: ["Telemetria V4"]
 # Telemetria V4
 
 > [!info] Status
-> **implementado** · área: `telemetria-v4` · atualizado em 2026-09-10 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[specs/calendario-provas-e-pilotos]], [[specs/classificacao]]
+> **implementado** · área: `telemetria-v4` · atualizado em 2026-09-13 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[specs/calendario-provas-e-pilotos]], [[specs/classificacao]]
 
 ## Problema
 
@@ -36,6 +36,8 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 
 - `provas`: próxima prova, rodada, data, horário e `circuit_id` canônico.
 - `apostas`: quantidade enviada pelo usuário na temporada.
+- `apostas.automatica`: maior geração automática já usada pelo usuário na temporada.
+- `regras.penalidade_auto_percent`: desconto vigente para a segunda geração automática em diante.
 - `posicoes_participantes`: pontos e posições por prova.
 - `usuarios`: nomes públicos da classificação resumida.
 - `circuitos_f1`: latitude e longitude opcionais sincronizadas da Jolpica.
@@ -56,6 +58,13 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 11. A previsão usa o horário mais próximo da largada no fuso canônico `America/Sao_Paulo` e informa temperatura, sensação, chuva, vento e condição WMO.
 12. A ausência de coordenadas, falha externa ou prova fora da janela máxima de 16 dias gera estado indisponível sem impedir o restante da Telemetria.
 13. A consulta meteorológica ocorre no backend com timeout curto e cache temporário; o navegador não consulta o provedor diretamente.
+14. O card de apostas informa se a primeira geração automática sem desconto ainda
+    está disponível; após seu uso, alerta que as próximas recebem a penalização
+    percentual da regra vigente.
+15. A evolução combina pontuação por prova em colunas e posição em linha, com
+    eixos independentes e posição invertida, sem substituir a tabela acessível.
+16. Telemetria oferece navegação em abas para Visão geral, Apostas da temporada,
+    Histórico e Minha conta; os conteúdos adicionais carregam sob demanda.
 
 ## Interface, serviços e dados
 
@@ -74,13 +83,27 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 5. Dado cliente que tente temporada não autorizada, então a API responde sem revelar dados.
 6. Dado conjunto vazio, então a tela apresenta zeros ou estado informativo sem conteúdo demonstrativo.
 7. Dado viewport de 360 px, então os componentes permanecem legíveis e sem rolagem horizontal.
-8. Dado o gráfico de evolução, então ele exibe os pontos acumulados sem percentual decorativo e usa nomes compactos de etapa no eixo X.
+8. Dado o gráfico de evolução, então ele usa nomes compactos de etapa no eixo X e não exibe percentual decorativo.
 9. Dada próxima prova dentro de 16 dias e circuito com coordenadas, então a previsão do horário da largada aparece com ícone e valores meteorológicos.
 10. Dada previsão indisponível, então a prova e os demais dados continuam visíveis e a interface explica a indisponibilidade.
+11. Dado usuário sem aposta automática na temporada, então o card informa que o
+    benefício ainda está disponível.
+12. Dado usuário com `automatica >= 1`, então o card informa que o benefício foi
+    usado e exibe o percentual de penalização vigente para as próximas gerações.
+13. Dadas posições materializadas, então o gráfico combina pontos da etapa e
+    posição; o primeiro lugar fica visualmente acima das demais posições.
+14. Dada aposta da temporada, então a aba Apostas apresenta composição, resultado,
+    pontuação e o descarte provisório aplicável.
+15. Dado histórico do usuário, então os cards usam o Hall da Fama e o gráfico usa
+    as temporadas cadastradas, com ajuda acessível nos cards.
+16. Dada senha atual válida, então Minha conta permite alterar email ou senha;
+    senha inválida, email duplicado e tentativa sobre a conta Master falham fechados.
 
 ## Verificação
 
-- Critérios 1–6, 9 e 10 — testes em `tests/test_telemetry_service.py`, `tests/test_weather_service.py`, `tests/test_v4_api_security.py` e `tests/test_v4_frontend_foundation.py`.
+- Critérios 1–6 e 9–16 — testes em `tests/test_telemetry_service.py`,
+  `tests/test_weather_service.py`, `tests/test_participant_panel_v4.py`,
+  `tests/test_v4_api_security.py` e `tests/test_v4_frontend_foundation.py`.
 - Critério 7 — build Next.js e verificação visual mobile.
 
 ## Pendências
@@ -101,9 +124,13 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 - [x] Integrar frontend responsivo e remover todos os dados demonstrativos. Fecha: critérios 1–4, 6 e 7.
 - [x] Atualizar contrato OpenAPI e status da Fase 5. Fecha: critérios 1 e 5.
 - [x] Integrar coordenadas Jolpica, previsão Open-Meteo e Meteocons locais. Fecha: critérios 9 e 10.
+- [x] Exibir uso do benefício de aposta automática e penalização vigente. Fecha: critérios 11 e 12.
+- [x] Completar abas do Painel V3.5 na Telemetria V4. Fecha: critérios 13 a 16.
 
 ## Changelog
 
+- `1.5` — 2026-09-13 — Evolução combinada e abas Apostas, Histórico e Minha conta adicionadas à Telemetria.
+- `1.4` — 2026-09-13 — Card de apostas passa a informar disponibilidade do benefício automático e penalização futura.
 - `1.3` — 2026-09-12 — Previsão meteorológica da próxima prova adicionada com janela, cache, fallback e ícones Meteocons.
 - `1.2` — 2026-09-12 — Removida pendência já concluída pela Fase 6 e esclarecidas as fronteiras com Classificação e Análises.
 - `1.1` — 2026-09-10 — Removido percentual sem significado da evolução e compactados os nomes das etapas no eixo X.

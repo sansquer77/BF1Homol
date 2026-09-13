@@ -21,6 +21,18 @@ class PasswordResetConfirm(BaseModel):
     new_password: str = Field(min_length=8, max_length=1024)
 
 
+class AccountEmailChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str = Field(min_length=1, max_length=1024)
+    new_email: EmailStr
+
+
+class AccountPasswordChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str = Field(min_length=1, max_length=1024)
+    new_password: str = Field(min_length=8, max_length=1024)
+
+
 class UserResponse(BaseModel):
     id: int
     nome: str
@@ -88,6 +100,12 @@ class TelemetryMetrics(BaseModel):
     races_total: int
 
 
+class TelemetryAutomaticBetStatus(BaseModel):
+    benefit_available: bool
+    automatic_generation: int = Field(ge=0)
+    next_penalty_percent: float = Field(ge=0, le=100)
+
+
 class TelemetryEvolutionPoint(BaseModel):
     race_id: int
     race_name: str
@@ -108,8 +126,56 @@ class TelemetryResponse(BaseModel):
     season: str
     next_race: TelemetryNextRace | None = None
     metrics: TelemetryMetrics
+    automatic_bet: TelemetryAutomaticBetStatus
     evolution: list[TelemetryEvolutionPoint]
     ranking: list[TelemetryRankingEntry]
+
+
+class PersonalBetAllocation(BaseModel):
+    driver: str
+    chips: int
+    actual_position: int | None = None
+
+
+class PersonalBetEntry(BaseModel):
+    race_id: int
+    race_name: str
+    race_type: str
+    submitted_at: str | None = None
+    automatic_generation: int
+    eleventh_driver: str
+    eleventh_actual: str | None = None
+    score: float | None = None
+    allocations: list[PersonalBetAllocation]
+
+
+class PersonalBetsResponse(BaseModel):
+    season: str
+    entries: list[PersonalBetEntry]
+    discard_active: bool
+    discard_race: str | None = None
+    discard_points: float | None = None
+
+
+class PersonalHistoryEntry(BaseModel):
+    season: str
+    position: int
+    points: float
+
+
+class PersonalHistorySeries(BaseModel):
+    season: str
+    drivers: dict[str, int]
+
+
+class PersonalHistoryResponse(BaseModel):
+    entries: list[PersonalHistoryEntry]
+    seasons_count: int
+    best_position: int | None = None
+    titles: int
+    podiums: int
+    best_points: float | None = None
+    series: list[PersonalHistorySeries]
 
 
 class ClassificationEntry(BaseModel):
@@ -570,6 +636,46 @@ class ChampionshipResponse(BaseModel):
     history: list[ChampionshipBetRecord]
     all_bets: list[ChampionshipBetRecord]
     official_result: ChampionshipResult | None = None
+    can_bet: bool
+    deadline_message: str
+    deadline: str | None = None
+
+
+class ChampionshipAdminBet(BaseModel):
+    user_id: int
+    user_nome: str
+    champion: str
+    vice: str
+    team: str
+    season: str | int
+    bet_time: str | None = None
+
+
+class ChampionshipPendingParticipant(BaseModel):
+    user_id: int
+    name: str
+
+
+class ChampionshipDistributionItem(BaseModel):
+    label: str
+    count: int = Field(ge=0)
+
+
+class ChampionshipAdminResponse(BaseModel):
+    season: str
+    eligible_count: int = Field(ge=0)
+    bet_count: int = Field(ge=0)
+    pending_count: int = Field(ge=0)
+    completion_percent: float = Field(ge=0, le=100)
+    pending: list[ChampionshipPendingParticipant]
+    bets: list[ChampionshipAdminBet]
+    history: list[ChampionshipAdminBet]
+    champion_distribution: list[ChampionshipDistributionItem]
+    vice_distribution: list[ChampionshipDistributionItem]
+    team_distribution: list[ChampionshipDistributionItem]
+    official_result: ChampionshipResult | None = None
+    drivers: list[str]
+    teams: list[str]
     can_bet: bool
     deadline_message: str
     deadline: str | None = None

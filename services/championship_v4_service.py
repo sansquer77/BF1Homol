@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from collections import Counter
 from typing import Any
 
-from services.access_control import AuthenticatedContext, AuthorizationDenied
+from services.access_control import AuthenticatedContext, AuthorizationDenied, authorize_context
 from services.championship_service import can_place_championship_bet
 from utils.datetime_utils import now_sao_paulo
 
@@ -16,6 +17,17 @@ def _season(season: int | None) -> int:
 
 def _as_text(value: Any) -> str:
     return "" if value is None else str(value).strip()
+
+
+def _timestamp(value: Any) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+
+def _distribution(rows: list[dict[str, Any]], field: str) -> list[dict[str, Any]]:
+    counts = Counter(_as_text(row.get(field)) for row in rows if _as_text(row.get(field)))
+    return [{"label": label, "count": count} for label, count in sorted(counts.items(), key=lambda item: (-item[1], item[0].casefold()))]
 
 
 def build_championship_snapshot(season: int, context: AuthenticatedContext) -> dict[str, Any]:
@@ -44,12 +56,14 @@ def build_championship_snapshot(season: int, context: AuthenticatedContext) -> d
         cursor.execute("SELECT champion, vice, team FROM championship_results WHERE season = %s", (season_value,))
         result = cursor.fetchone()
         cursor.close()
+    for row in history + all_bets:
+        row["bet_time"] = _timestamp(row.get("bet_time"))
     can_bet, deadline_message, deadline = can_place_championship_bet(season_value)
     return {
         "season": str(season_value), "drivers": drivers, "teams": teams,
-        "current_bet": {"season": str(season_value), **{key: current[key] for key in ("champion", "vice", "team", "bet_time")}} if current else None,
+        "current_bet": {"season": str(season_value), **{key: _timestamp(current[key]) if key == "bet_time" else current[key] for key in ("champion", "vice", "team", "bet_time")}} if current else None,
         "history": history, "all_bets": all_bets,
-        "official_result": {key: result[key] for key in ("champion", "vice", "team")} if result else None,
+        "official_result": {"season": str(season_value), **{key: result[key] for key in ("champion", "vice", "team")}} if result else None,
         "can_bet": bool(can_bet), "deadline_message": deadline_message,
         "deadline": deadline.isoformat() if deadline else None,
     }
@@ -99,4 +113,65 @@ def save_official_result(season: int, champion: str, vice: str, team: str, conte
         cursor = conn.cursor()
         cursor.execute("INSERT INTO championship_results (season, champion, vice, team) VALUES (%s,%s,%s,%s) ON CONFLICT (season) DO UPDATE SET champion=EXCLUDED.champion, vice=EXCLUDED.vice, team=EXCLUDED.team", (season_value, champion, vice, team))
         conn.commit()
+    from utils.cache_utils import clear_data_cache
+    clear_data_cache("championship", "classificacao")
     return {"season": str(season_value), "champion": champion, "vice": vice, "team": team}
+
+
+def build_championship_admin_snapshot(season: int, context: AuthenticatedContext) -> dict[str, Any]:
+    """Consolida adesão e auditoria sem permitir alteração de aposta alheia."""
+    from db.db_schema import db_connect
+    from db.repo_bets import get_participantes_temporada_df
+
+    season_value = _season(season)
+    authorize_context(context, frozenset({"admin", "master"}), season=str(season_value))
+    base = build_championship_snapshot(season_value, context)
+    participants = get_participantes_temporada_df(str(season_value))
+    eligible: dict[int, str] = {}
+    if not participants.empty:
+        for row in participants.to_dict("records"):
+            profile = _as_text(row.get("perfil")).lower()
+            if profile in {"master", "inativo"}:
+                continue
+            try:
+                eligible[int(row["id"])] = _as_text(row.get("nome")) or f"Participante {row['id']}"
+            except (KeyError, TypeError, ValueError):
+                continue
+    with db_connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT user_id,user_nome,champion,vice,team,season,bet_time FROM championship_bets WHERE season=%s ORDER BY user_nome,user_id",
+            (season_value,),
+        )
+        bets = [dict(row) for row in (cursor.fetchall() or [])]
+        cursor.execute(
+            "SELECT user_id,user_nome,champion,vice,team,season,bet_time FROM championship_bets_log WHERE season=%s ORDER BY bet_time DESC,id DESC",
+            (season_value,),
+        )
+        history = [dict(row) for row in (cursor.fetchall() or [])]
+        cursor.close()
+    for row in bets + history:
+        row["bet_time"] = _timestamp(row.get("bet_time"))
+    bettors = {int(row["user_id"]) for row in bets if row.get("user_id") is not None}
+    pending = [{"user_id": user_id, "name": name} for user_id, name in sorted(eligible.items(), key=lambda item: item[1].casefold()) if user_id not in bettors]
+    eligible_count = len(eligible)
+    bet_count = len(bettors & set(eligible)) if eligible_count else len(bettors)
+    return {
+        "season": str(season_value),
+        "eligible_count": eligible_count,
+        "bet_count": bet_count,
+        "pending_count": len(pending),
+        "completion_percent": round((bet_count / eligible_count * 100), 1) if eligible_count else 0.0,
+        "pending": pending,
+        "bets": bets,
+        "history": history,
+        "champion_distribution": _distribution(bets, "champion"),
+        "vice_distribution": _distribution(bets, "vice"),
+        "team_distribution": _distribution(bets, "team"),
+        "official_result": base["official_result"],
+        "drivers": base["drivers"],
+        "teams": base["teams"],
+        "can_bet": base["can_bet"],
+        "deadline_message": base["deadline_message"],
+        "deadline": base["deadline"],
+    }

@@ -2,8 +2,8 @@
 tipo: spec
 area: autenticacao
 status: implementado
-versao: 1.3
-atualizado: 2026-09-12
+versao: 1.4
+atualizado: 2026-09-13
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -59,6 +59,9 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 10. No bootstrap, `USUARIO_MASTER`, `EMAIL_MASTER` e `SENHA_MASTER` são a fonte
     autoritativa da conta Master; nome, email, status e hash bcrypt são
     sincronizados sem persistir a senha em texto.
+11. Alteração autenticada de email ou senha exige a senha atual; a conta Master
+    não altera email nem senha pela interface porque `EMAIL_MASTER` e
+    `SENHA_MASTER` permanecem autoritativos.
 
 ## Interface, serviços e dados
 
@@ -66,7 +69,8 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 - Serviços: `services/auth_service.py` e `services/access_control.py`.
 - Repositórios/tabelas: `usuarios`, `auth_sessions`, `login_attempts`, `password_reset_tokens`.
 - API V4: `/api/v1/auth/login`, `/logout`, `/me`, `/refresh`,
-  `/password-reset` e `/password-reset/confirm`.
+  `/password-reset`, `/password-reset/confirm`, `/account/email` e
+  `/account/password`.
 
 ## Critérios de aceite
 
@@ -77,6 +81,10 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 5. Dado logout, quando confirmado, então o JWT atual deixa de ser aceito.
 6. Dada troca ou redefinição de senha, quando concluída, então sessões anteriores deixam de ser aceitas.
 7. Dado OIDC desabilitado, quando a tela abre, então email e senha continuam sendo o fluxo operacional.
+8. Dada senha atual válida, quando um usuário não Master altera email ou senha,
+   então a alteração é aplicada; a troca de senha revoga as sessões existentes.
+9. Dada conta Master, quando tentar alterar credenciais pela interface, então a
+   operação falha sem sobrescrever as variáveis autoritativas do ambiente.
 
 ## Verificação
 
@@ -96,9 +104,11 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 - [x] Registrar o contrato de login e sessão. Fecha: critérios 1 a 7.
 - [x] Mapear segurança, persistência e verificações existentes. Fecha: critérios 2 a 6.
 - [x] Expor recuperação e confirmação de senha na tela de login V4. Fecha: critério 6.
+- [x] Expor Minha conta com reautenticação para email e senha. Fecha: critérios 8 e 9.
 
 ## Changelog
 
+- `1.4` — 2026-09-13 — Minha conta V4 permite alterar email e senha mediante confirmação da credencial atual.
 - `1.3` — 2026-09-12 — Interface e logout alinhados ao runtime Next.js/FastAPI; Streamlit identificado apenas como baseline V3.
 - `1.2` — 2026-09-09 — Recuperação segura de senha disponibilizada na tela de login V4.
 - `1.1` — 2026-09-08 — Documentados os contratos V4 de cookie, CSRF e rotação da sessão ativa.

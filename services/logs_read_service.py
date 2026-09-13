@@ -32,7 +32,9 @@ def list_betting_logs(
     page_size: int = 50,
     bettor: str | None = None,
     bettor_id: int | None = None,
+    bettor_contains: str | None = None,
     bet_type: int | None = None,
+    bet_kind: str | None = None,
     event_date: date | None = None,
     log_status: str | None = None,
     automatic_only: bool = False,
@@ -67,12 +69,23 @@ def list_betting_logs(
         if bettor and scope_user_id is None:
             where.append("LOWER(COALESCE(apostador, '')) LIKE %s")
             params.append(f"%{bettor.strip().lower()}%")
+        if bettor_contains and scope_user_id is None:
+            where.append("LOWER(COALESCE(apostador, '')) LIKE %s")
+            params.append(f"%{bettor_contains.strip().lower()}%")
         if bettor_id is not None and scope_user_id is None and user_col is not None:
             where.append(f"{user_col} = %s")
             params.append(int(bettor_id))
         if bet_type is not None:
             where.append("tipo_aposta = %s")
             params.append(int(bet_type))
+        if bet_kind is not None:
+            kind = str(bet_kind).strip().lower()
+            if kind == "automatic":
+                where.append("COALESCE(automatica, 0) > 0")
+            elif kind == "late":
+                where.append("tipo_aposta = 1")
+            elif kind == "on_time":
+                where.append("tipo_aposta = 0")
         if event_date is not None:
             where.append("SUBSTR(CAST(data AS TEXT), 1, 10) = %s")
             params.append(event_date.isoformat())

@@ -2,8 +2,8 @@
 tipo: spec
 area: apostas-automaticas
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-09-13
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[specs/apostas-de-prova]]"
@@ -15,7 +15,7 @@ aliases: ["Apostas Automáticas"]
 # Apostas automáticas
 
 > [!info] Status
-> **implementado** · área: `apostas-automaticas` · atualizado em 2026-07-31 · relacionados: [[02_regras_de_negocio]], [[specs/apostas-de-prova]], [[specs/pontuacao-de-provas]]
+> **implementado** · área: `apostas-automaticas` · atualizado em 2026-09-13 · relacionados: [[02_regras_de_negocio]], [[specs/apostas-de-prova]], [[specs/pontuacao-de-provas]]
 
 ## Problema
 
@@ -49,6 +49,8 @@ e podem acionar fluxos administrativos previstos.
 5. Primeira ausência mantém o percentual integral previsto pelo regulamento vigente.
 6. Segunda geração em diante aplica `penalidade_auto_percent` na pontuação.
 7. Toda geração é persistida e registrada no log como automática.
+8. A Telemetria deve tornar visível se a primeira geração sem desconto já foi
+   consumida e qual percentual vigente incidirá nas próximas.
 
 ## Interface, serviços e dados
 
@@ -88,10 +90,10 @@ e podem acionar fluxos administrativos previstos.
 
 ## Changelog
 
+- `1.1` — 2026-09-13 — Estado do benefício e penalização vigente passam a ser exibidos na Telemetria V4.
 - `1.0` — 2026-07-31 — Geração e penalidade automática especificadas.
 
 ## Relacionados
 
 - [[specs/apostas-de-prova]]
 - [[specs/pontuacao-de-provas]]
-
