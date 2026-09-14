@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from api.schemas import ChampionshipAdminResponse, ChampionshipResponse
 from services.access_control import AuthenticatedContext, AuthorizationDenied
 from services.championship_v4_service import build_championship_admin_snapshot, save_official_result
 
@@ -62,3 +63,47 @@ def test_official_result_invalidates_championship_and_classification_caches():
     assert result["champion"] == "Lando"
     connection.commit.assert_called_once()
     clear.assert_called_once_with("championship", "classificacao")
+
+
+def test_championship_response_schema_coerces_datetime_bet_time():
+    payload = {
+        "season": "2026",
+        "drivers": [],
+        "teams": [],
+        "current_bet": {"champion": "Lando", "vice": "Oscar", "team": "McLaren", "season": "2026", "bet_time": datetime(2026, 2, 23, 15, 0, 59)},
+        "history": [{"user_nome": "Admin", "champion": "Lando", "vice": "Oscar", "team": "McLaren", "season": "2026", "bet_time": datetime(2026, 2, 23, 15, 0, 59)}],
+        "all_bets": [{"user_id": 1, "user_nome": "Admin", "champion": "Lando", "vice": "Oscar", "team": "McLaren", "season": "2026", "bet_time": datetime(2026, 2, 23, 15, 0, 59)}],
+        "official_result": None,
+        "can_bet": True,
+        "deadline_message": "aberta",
+        "deadline": None,
+    }
+    response = ChampionshipResponse.model_validate(payload)
+    assert response.current_bet.bet_time == "2026-02-23T15:00:59"
+    assert response.history[0].bet_time == "2026-02-23T15:00:59"
+    assert response.all_bets[0].bet_time == "2026-02-23T15:00:59"
+
+
+def test_championship_admin_response_schema_coerces_datetime_bet_time():
+    payload = {
+        "season": "2026",
+        "eligible_count": 1,
+        "bet_count": 1,
+        "pending_count": 0,
+        "completion_percent": 100.0,
+        "pending": [],
+        "bets": [{"user_id": 1, "user_nome": "Admin", "champion": "Lando", "vice": "Oscar", "team": "McLaren", "season": "2026", "bet_time": datetime(2026, 2, 23, 15, 0, 59)}],
+        "history": [{"user_id": 1, "user_nome": "Admin", "champion": "Lando", "vice": "Oscar", "team": "McLaren", "season": "2026", "bet_time": datetime(2026, 2, 23, 15, 0, 59)}],
+        "champion_distribution": [],
+        "vice_distribution": [],
+        "team_distribution": [],
+        "official_result": None,
+        "drivers": [],
+        "teams": [],
+        "can_bet": True,
+        "deadline_message": "aberta",
+        "deadline": None,
+    }
+    response = ChampionshipAdminResponse.model_validate(payload)
+    assert response.bets[0].bet_time == "2026-02-23T15:00:59"
+    assert response.history[0].bet_time == "2026-02-23T15:00:59"

@@ -2,7 +2,7 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.15
+versao: 1.16
 atualizado: 2026-09-13
 relacionados:
   - "[[sdd]]"
@@ -93,6 +93,7 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.16` — 2026-09-13 — Detalhamento de apostas passa a expor contribuição por piloto e histórico compara as duas temporadas mais recentes.
 - `1.15` — 2026-09-13 — Telemetria V4 fecha o Painel do Participante com gráfico combinado e abas de apostas, histórico e conta.
 - `1.14` — 2026-09-13 — Telemetria passa a informar o uso do benefício de aposta automática e a penalização vigente.
 - `1.13` — 2026-09-13 — Gestão e acompanhamento das apostas de Campeonato implantados na V4.

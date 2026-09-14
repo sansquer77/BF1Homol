@@ -484,6 +484,7 @@ def backfill_log_apostas_status_nao_efetiva() -> None:
                     UPDATE log_apostas
                     SET status = 'Não efetiva'
                     WHERE tipo_aposta = 1
+                      AND COALESCE(automatica, 0) = 0
                       AND COALESCE(status, '') != 'Não efetiva'
                     """
                 )

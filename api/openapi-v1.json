@@ -2270,6 +2270,17 @@
           "driver": {
             "title": "Driver",
             "type": "string"
+          },
+          "points_contribution": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points Contribution"
           }
         },
         "required": [
@@ -6420,23 +6431,6 @@
                 }
               ],
               "title": "Bettor Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "bettor_contains",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maxLength": 120,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Bettor Contains"
             }
           },
           {

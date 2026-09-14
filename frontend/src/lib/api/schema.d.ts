@@ -1821,6 +1821,8 @@ export interface components {
             chips: number;
             /** Driver */
             driver: string;
+            /** Points Contribution */
+            points_contribution?: number | null;
         };
         /** PersonalBetEntry */
         PersonalBetEntry: {
@@ -4160,7 +4162,6 @@ export interface operations {
                 page_size?: number;
                 bettor?: string | null;
                 bettor_id?: number | null;
-                bettor_contains?: string | null;
                 bet_type?: number | null;
                 bet_kind?: string | null;
                 event_date?: string | null;

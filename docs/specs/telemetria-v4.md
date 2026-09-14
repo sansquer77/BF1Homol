@@ -2,7 +2,7 @@
 tipo: spec
 area: telemetria-v4
 status: implementado
-versao: 1.5
+versao: 1.6
 atualizado: 2026-09-13
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
@@ -65,6 +65,10 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
     eixos independentes e posição invertida, sem substituir a tabela acessível.
 16. Telemetria oferece navegação em abas para Visão geral, Apostas da temporada,
     Histórico e Minha conta; os conteúdos adicionais carregam sob demanda.
+17. Cada alocação detalhada informa sua contribuição para a pontuação, aplicando
+    tabela da prova, fichas, dobra Sprint e penalidades que incidam nessa linha.
+18. O gráfico histórico compara somente as duas temporadas cadastradas mais
+    recentes, com pilotos no eixo horizontal e uma série de colunas por ano.
 
 ## Interface, serviços e dados
 
@@ -98,6 +102,10 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
     as temporadas cadastradas, com ajuda acessível nos cards.
 16. Dada senha atual válida, então Minha conta permite alterar email ou senha;
     senha inválida, email duplicado e tentativa sobre a conta Master falham fechados.
+17. Dado resultado calculado, então cada piloto apostado exibe os pontos com que
+    contribuiu; piloto sem posição pontuável exibe `0,00`.
+18. Dadas três ou mais temporadas históricas, então o gráfico usa apenas as duas mais
+    recentes, com uma série de colunas por temporada.
 
 ## Verificação
 
@@ -129,6 +137,7 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 
 ## Changelog
 
+- `1.6` — 2026-09-13 — Detalhe por piloto recebe contribuição em pontos e histórico passa a comparar as duas temporadas mais recentes em colunas agrupadas.
 - `1.5` — 2026-09-13 — Evolução combinada e abas Apostas, Histórico e Minha conta adicionadas à Telemetria.
 - `1.4` — 2026-09-13 — Card de apostas passa a informar disponibilidade do benefício automático e penalização futura.
 - `1.3` — 2026-09-12 — Previsão meteorológica da próxima prova adicionada com janela, cache, fallback e ícones Meteocons.

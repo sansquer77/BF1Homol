@@ -27,7 +27,6 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "Todos" },
   { value: "Registrada", label: "Registrada" },
   { value: "Não efetiva", label: "Não efetiva" },
-  { value: "Cancelada", label: "Cancelada" },
 ];
 
 export function LogsView() {
@@ -40,7 +39,6 @@ export function LogsView() {
   const [accessPage, setAccessPage] = useState(1);
 
   const [bettor, setBettor] = useState("");
-  const [bettorText, setBettorText] = useState("");
   const [betKind, setBetKind] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [logStatus, setLogStatus] = useState("");
@@ -54,13 +52,12 @@ export function LogsView() {
   const loadBets = useCallback((page = 1) => {
     const query = new URLSearchParams({ season, page: String(page), page_size: "50" });
     if (bettor) query.set("bettor_id", bettor);
-    if (bettorText.trim()) query.set("bettor_contains", bettorText.trim());
     if (betKind) query.set("bet_kind", betKind);
     if (eventDate) query.set("event_date", eventDate);
     if (logStatus) query.set("log_status", logStatus);
     setError(false);
     apiRequest<BettingLogs>(`/api/v1/logs/bets?${query}`).then(setBets).catch(() => setError(true));
-  }, [bettor, bettorText, betKind, eventDate, logStatus, season]);
+  }, [bettor, betKind, eventDate, logStatus, season]);
 
   const loadAccess = useCallback((page = 1) => {
     const query = new URLSearchParams({ start, end, page: String(page), page_size: "50" });
@@ -72,7 +69,6 @@ export function LogsView() {
     let active = true;
     setBets(null);
     setBettor("");
-    setBettorText("");
     setBetKind("");
     setEventDate("");
     setLogStatus("");
@@ -122,7 +118,6 @@ export function LogsView() {
 
   function statusClass(status: string | null | undefined): string {
     if (status === "Não efetiva") return "log-status log-status--warning";
-    if (status === "Cancelada") return "log-status log-status--failure";
     return "log-status";
   }
 
@@ -157,16 +152,6 @@ export function LogsView() {
               <option value="">Todos os participantes ativos</option>
               {participants.map((participant) => <option value={participant.id} key={participant.id}>{participant.name}</option>)}
             </select>
-          </label>
-          <label>
-            Buscar apostador
-            <input
-              type="text"
-              value={bettorText}
-              onChange={(event) => setBettorText(event.target.value)}
-              placeholder="Nome do participante"
-              disabled={bets?.scope === "individual"}
-            />
           </label>
           <label>
             Data da aposta

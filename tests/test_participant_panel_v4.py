@@ -31,7 +31,7 @@ def test_personal_bets_filters_authenticated_user_and_reports_discard():
         snapshot = build_personal_bets(7, "2026")
 
     assert [item["race_name"] for item in snapshot["entries"]] == ["GP A", "GP B"]
-    assert snapshot["entries"][0]["allocations"][0] == {"driver": "Piloto A", "chips": 5, "actual_position": 1}
+    assert snapshot["entries"][0]["allocations"][0] == {"driver": "Piloto A", "chips": 5, "actual_position": 1, "points_contribution": 125.0}
     assert snapshot["entries"][0]["eleventh_actual"] == "Piloto C"
     assert snapshot["discard_active"] is True
     assert snapshot["discard_race"] == "GP B"
@@ -47,7 +47,7 @@ def test_personal_history_uses_hall_and_registered_seasons():
     connection = MagicMock()
     connection.__enter__.return_value = connection
     connection.cursor.return_value = cursor
-    graph = SimpleNamespace(fichas_por_temporada_piloto={"2024": {"Piloto A": 15}, "2025": {"Piloto B": 20}})
+    graph = SimpleNamespace(fichas_por_temporada_piloto={"2023": {"Piloto C": 8}, "2024": {"Piloto A": 15}, "2025": {"Piloto B": 20}})
     with patch("db.db_schema.db_connect", return_value=connection), patch("services.hall_da_fama_controller.resolve_hall_source", return_value=("hall_da_fama", None)), patch("services.historico_service.calcular_dados_grafico", return_value=graph):
         snapshot = build_personal_history(7)
 
@@ -57,6 +57,7 @@ def test_personal_history_uses_hall_and_registered_seasons():
     assert snapshot["podiums"] == 2
     assert snapshot["best_points"] == 3200.0
     assert snapshot["series"][0]["season"] == "2024"
+    assert [item["season"] for item in snapshot["series"]] == ["2024", "2025"]
 
 
 def test_account_changes_require_current_password_and_reject_master():

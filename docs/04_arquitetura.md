@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.23
+versao: 4.24
 atualizado: 2026-09-13
 relacionados:
   - "[[01_necessidade]]"
@@ -296,6 +296,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.24` — 2026-09-13 — Contrato de apostas pessoais inclui contribuição calculada por alocação; série histórica é limitada às duas temporadas mais recentes.
 - `4.23` — 2026-09-13 — Painel pessoal V4 exposto por leituras autenticadas de apostas e histórico e mutações reautenticadas da própria conta, sem alterar o schema legado.
 - `4.22` — 2026-09-13 — Snapshot da Telemetria ampliado com estado derivado da aposta automática e percentual da regra vigente.
 - `4.21` — 2026-09-13 — Acompanhamento administrativo de Campeonato exposto por contrato autenticado, sem novas tabelas.

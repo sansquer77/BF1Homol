@@ -28,8 +28,14 @@ def registrar_log_aposta(
 	temporada: Optional[str] = None,
 	status: str = "Registrada",
 ) -> None:
-	# Apostas fora do prazo são classificadas como não efetivas no log.
-	effective_status = "Não efetiva" if int(tipo_aposta or 0) == 1 else (status or "Registrada")
+	# Apostas fora do prazo são classificadas como não efetivas no log,
+	# exceto apostas geradas automaticamente pelo sistema, que permanecem registradas.
+	if int(automatica or 0) > 0:
+		effective_status = status or "Registrada"
+	elif int(tipo_aposta or 0) == 1:
+		effective_status = "Não efetiva"
+	else:
+		effective_status = status or "Registrada"
 	try:
 		horario_dt = horario if isinstance(horario, datetime) else None
 		if horario_dt is None:

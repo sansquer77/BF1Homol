@@ -1,6 +1,8 @@
 """Schemas públicos do contrato /api/v1."""
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class LoginRequest(BaseModel):
@@ -135,6 +137,7 @@ class PersonalBetAllocation(BaseModel):
     driver: str
     chips: int
     actual_position: int | None = None
+    points_contribution: float | None = None
 
 
 class PersonalBetEntry(BaseModel):
@@ -620,6 +623,15 @@ class ChampionshipBetRecord(BaseModel):
     season: str | int
     bet_time: str | None = None
 
+    @field_validator("bet_time", mode="before")
+    @classmethod
+    def _coerce_bet_time(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
+
 
 class ChampionshipResult(BaseModel):
     season: str
@@ -649,6 +661,15 @@ class ChampionshipAdminBet(BaseModel):
     team: str
     season: str | int
     bet_time: str | None = None
+
+    @field_validator("bet_time", mode="before")
+    @classmethod
+    def _coerce_bet_time(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
 
 
 class ChampionshipPendingParticipant(BaseModel):

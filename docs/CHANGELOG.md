@@ -25,7 +25,11 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 > homologação. As Fases 9–10 e duas jornadas administrativas permanecem;
 > esta atualização documental não altera a versão do produto.
 > Melhoria no log de apostas V4: status "Não efetiva" para apostas fora do
-> prazo, filtros por participante, data, tipo e status, e destaque visual.
+> prazo (não automáticas), filtros por participante, data, tipo e status, e
+> destaque visual. Ajuste: removida a busca textual de apostador e o filtro
+> de status "Cancelada" (não existe no domínio).
+> Correção: o schema V4 do Campeonato passa a coagir `bet_time` de `datetime`
+> para `str`, evitando erro 500 na consulta de apostas de campeonato.
 
 ## Versão vigente
 
@@ -87,7 +91,7 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
-- `1.17` — 2026-09-13 — Log de Apostas V4: indicador "Não efetiva" para apostas fora do prazo (`tipo_aposta = 1`), filtros por participante (dropdown + busca textual), data exata, tipo e status, e destaque visual na interface Next.js; produto permanece 3.5.1.
+- `1.17` — 2026-09-13 — Log de Apostas V4: indicador "Não efetiva" para apostas fora do prazo não automáticas, filtros por participante (dropdown), data exata, tipo e status, e destaque visual na interface Next.js; removida busca textual de apostador e filtro de status inexistente "Cancelada"; correção de `bet_time` do Campeonato V4 coagido para `str`; produto permanece 3.5.1.
 - `1.16` — 2026-09-12 — Fase 8 encerrada após confirmação operacional do backup/restore Excel; produto permanece 3.5.1.
 - `1.15` — 2026-09-12 — Documentação reconciliada com o runtime V4; Fases 1–7 confirmadas e Fase 8 mantida em revisão durante os testes Excel; produto permanece 3.5.1.
 - `1.14` — 2026-09-08 — Fase 7: gestão administrativa V4 do Hall da Fama, usuários, pilotos, provas, financeiro, regras e backup SQL; produto publicado permanece 3.5.1.

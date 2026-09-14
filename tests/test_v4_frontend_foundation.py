@@ -217,7 +217,11 @@ def test_telemetry_closes_v35_participant_panel_tabs():
         assert route in tabs
     assert "/api/v1/telemetry/bets?season=" in bets
     assert "Regra de descarte ativa" in bets
+    assert "points_contribution" in bets
+    assert ">Contribuição</th>" in bets
     assert "/api/v1/telemetry/history" in history
+    assert "categories: drivers" in history
+    assert "Últimas duas temporadas" in history
     assert 'className="metric-help"' in history and ">?</button>" in history
     assert "/api/v1/auth/account/email" in account
     assert "/api/v1/auth/account/password" in account
