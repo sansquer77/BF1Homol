@@ -36,3 +36,25 @@ def change_own_password(context: AuthenticatedContext, current_password: str, ne
         raise ValueError("A nova senha deve ser diferente da atual.")
     if not update_user_password(context.user_id, new_password):
         raise ValueError("Não foi possível alterar a senha.")
+
+
+_VALID_TIMEZONES = {
+    "America/Sao_Paulo", "America/Recife", "America/Manaus", "America/Rio_Branco",
+    "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+    "America/Anchorage", "Pacific/Honolulu", "UTC", "Europe/London", "Europe/Paris",
+    "Europe/Berlin", "Europe/Madrid", "Europe/Rome", "Asia/Tokyo", "Asia/Dubai",
+    "Australia/Sydney", "Australia/Melbourne",
+}
+
+
+def change_own_timezone(context: AuthenticatedContext, timezone: str) -> dict:
+    from db.repo_users import get_user_by_id, update_user_timezone
+    tz = str(timezone or "").strip()
+    if tz not in _VALID_TIMEZONES:
+        raise ValueError("Timezone inválido.")
+    user = get_user_by_id(context.user_id)
+    if not user:
+        raise AuthorizationDenied("Usuário não encontrado.")
+    if not update_user_timezone(context.user_id, tz):
+        raise ValueError("Não foi possível alterar o timezone.")
+    return {**user, "timezone": tz}

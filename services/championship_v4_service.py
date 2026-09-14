@@ -58,7 +58,7 @@ def build_championship_snapshot(season: int, context: AuthenticatedContext) -> d
         cursor.close()
     for row in history + all_bets:
         row["bet_time"] = _timestamp(row.get("bet_time"))
-    can_bet, deadline_message, deadline = can_place_championship_bet(season_value)
+    can_bet, deadline_message, deadline = can_place_championship_bet(season_value, display_timezone=context.timezone)
     return {
         "season": str(season_value), "drivers": drivers, "teams": teams,
         "current_bet": {"season": str(season_value), **{key: _timestamp(current[key]) if key == "bet_time" else current[key] for key in ("champion", "vice", "team", "bet_time")}} if current else None,

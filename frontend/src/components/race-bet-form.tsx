@@ -18,6 +18,7 @@ export function RaceBetForm() {
   const [eleventh, setEleventh] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
 
   function applySnapshot(snapshot: Snapshot) {
@@ -67,11 +68,22 @@ export function RaceBetForm() {
       setNotice({ kind: "error", text: reason instanceof ApiRequestError && reason.status === 403 ? "O prazo desta aposta está encerrado." : "A aposta foi recusada. Confira fichas, pilotos e regras da prova." });
     } finally { setSaving(false); }
   }
+  async function generateBet() {
+    if (!selectedRace?.is_open) return;
+    setGenerating(true); setNotice(null);
+    try {
+      const response = await apiRequest<{ message: string }>(`/api/v1/race-bets/generate?season=${season}`, { method: "POST", body: JSON.stringify({ race_id: selectedRace.id }) });
+      await load(selectedRace.id);
+      setNotice({ kind: "success", text: response.message });
+    } catch (reason) {
+      setNotice({ kind: "error", text: reason instanceof ApiRequestError && reason.status === 403 ? "O prazo desta aposta está encerrado." : "Não foi possível gerar uma aposta válida para esta prova." });
+    } finally { setGenerating(false); }
+  }
 
   return <div className="betting-page"><header className="institutional-hero"><div><p className="eyebrow">Apostas · Temporada {season}</p><h1>Monte sua estratégia.</h1><p>Distribua as fichas entre os pilotos e indique quem termina em 11º.</p></div></header>
     {notice ? <div className={`bet-notice bet-notice--${notice.kind}`} role="alert">{notice.text}</div> : null}
     {loading ? <div className="calendar-state" role="status">Carregando regras e provas…</div> : null}
-    {!loading && data ? <form onSubmit={submit} className="bet-layout"><section className="panel bet-main"><div className="panel__heading"><div><p className="eyebrow">Etapa</p><h2>Prova selecionada</h2></div></div><label className="bet-race-select">Prova<select value={selectedRace?.id ?? ""} onChange={(event) => void load(Number(event.target.value))}>{data.races.map((race) => <option key={race.id} value={race.id}>{race.name} · {race.is_open ? "aberta" : "encerrada"}</option>)}</select></label>{selectedRace ? <div className={selectedRace.is_open ? "deadline deadline--open" : "deadline deadline--closed"}><strong>{selectedRace.type}</strong><span>{selectedRace.deadline_message}</span></div> : <p className="panel-empty">Nenhuma prova cadastrada nesta temporada.</p>}
+    {!loading && data ? <form onSubmit={submit} className="bet-layout"><section className="panel bet-main"><div className="panel__heading"><div><p className="eyebrow">Etapa</p><h2>Prova selecionada</h2></div><button className="secondary-action" type="button" onClick={() => void generateBet()} disabled={!selectedRace?.is_open || generating || saving}>{generating ? "Gerando…" : "Sem ideias"}</button></div><label className="bet-race-select">Prova<select value={selectedRace?.id ?? ""} onChange={(event) => void load(Number(event.target.value))}>{data.races.map((race) => <option key={race.id} value={race.id}>{race.name} · {race.is_open ? "aberta" : "encerrada"}</option>)}</select></label>{selectedRace ? <div className={selectedRace.is_open ? "deadline deadline--open" : "deadline deadline--closed"}><strong>{selectedRace.type}</strong><span>{selectedRace.deadline_message}</span></div> : <p className="panel-empty">Nenhuma prova cadastrada nesta temporada.</p>}
       <div className="bet-section-heading"><div><p className="eyebrow">Distribuição</p><h2>Pilotos e fichas</h2></div><button className="secondary-action" type="button" onClick={addDriver} disabled={!available.length || !selectedRace?.is_open}>Adicionar piloto</button></div>
       <div className="bet-allocations">{allocations.map((allocation, index) => { const driver = data.drivers.find((item) => item.name === allocation.driver); const overLimit = allocation.chips > data.rules.max_chips_per_driver; return <div className={overLimit ? "bet-allocation bet-allocation--invalid" : "bet-allocation"} key={`${allocation.driver}-${index}`}><span className="team-marker" style={{ background: getOptionalTeamMarkerBackground(driver?.team) }} aria-hidden="true" /><label>Piloto<select value={allocation.driver} onChange={(event) => update(index, { driver: event.target.value })} disabled={!selectedRace?.is_open}><option value={allocation.driver}>{allocation.driver}</option>{available.map((item) => <option key={item.name} value={item.name}>{item.name} · {item.team}</option>)}</select></label><label>Fichas<input type="number" min="1" max={data.rules.max_chips_per_driver} value={allocation.chips} onChange={(event) => update(index, { chips: Number(event.target.value) })} disabled={!selectedRace?.is_open} aria-invalid={overLimit} aria-describedby={overLimit ? `chips-error-${index}` : undefined} />{overLimit ? <small className="bet-field-error" id={`chips-error-${index}`}>Máximo: {data.rules.max_chips_per_driver}</small> : null}</label><button type="button" className="table-action" onClick={() => remove(index)} disabled={!selectedRace?.is_open} aria-label={`Remover ${allocation.driver}`}>Remover</button></div>; })}</div>
       <label className={eleventhConflicts ? "bet-eleventh bet-eleventh--invalid" : "bet-eleventh"}>Palpite para o 11º colocado<select required value={eleventh} onChange={(event) => setEleventh(event.target.value)} disabled={!selectedRace?.is_open} aria-invalid={eleventhConflicts} aria-describedby={eleventhConflicts ? "eleventh-error" : undefined}><option value="">Selecione um piloto…</option>{eleventhConflicts ? <option value={eleventh}>{eleventh}</option> : null}{eleventhOptions.map((driver) => <option key={driver.name} value={driver.name}>{driver.name} · {driver.team}</option>)}</select>{eleventhConflicts ? <small className="bet-field-error" id="eleventh-error">O piloto do 11º não pode estar entre os apostados.</small> : null}</label>

@@ -2,12 +2,13 @@
 tipo: spec
 area: telemetria-v4
 status: implementado
-versao: 1.6
-atualizado: 2026-09-13
+versao: 1.8
+atualizado: 2026-09-14
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
   - "[[specs/calendario-provas-e-pilotos]]"
   - "[[specs/classificacao]]"
+  - "[[specs/autenticacao-e-sessao]]"
 tags: [spec, "area/telemetria-v4", "status/implementado"]
 aliases: ["Telemetria V4"]
 ---
@@ -15,7 +16,7 @@ aliases: ["Telemetria V4"]
 # Telemetria V4
 
 > [!info] Status
-> **implementado** · área: `telemetria-v4` · atualizado em 2026-09-13 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[specs/calendario-provas-e-pilotos]], [[specs/classificacao]]
+> **implementado** · área: `telemetria-v4` · atualizado em 2026-09-14 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[specs/calendario-provas-e-pilotos]], [[specs/classificacao]], [[specs/autenticacao-e-sessao]]
 
 ## Problema
 
@@ -69,6 +70,9 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
     tabela da prova, fichas, dobra Sprint e penalidades que incidam nessa linha.
 18. O gráfico histórico compara somente as duas temporadas cadastradas mais
     recentes, com pilotos no eixo horizontal e uma série de colunas por ano.
+19. Horários da próxima prova e contagem regressiva respeitam o timezone
+    selecionado pelo usuário; o instante absoluto da largada não muda.
+19. A Telemetria expõe, ao lado da temporada, as regras vigentes para a próxima prova; o tipo Normal/Sprint determina os limites e a tabela apresentados.
 
 ## Interface, serviços e dados
 
@@ -106,6 +110,8 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
     contribuiu; piloto sem posição pontuável exibe `0,00`.
 18. Dadas três ou mais temporadas históricas, então o gráfico usa apenas as duas mais
     recentes, com uma série de colunas por temporada.
+19. Dada próxima prova com regra associada, quando abrir “Regras Vigentes”, então a tela informa temporada, tipo, limites, bônus, penalidades e pontuação por posição aplicáveis sem permitir edição.
+20. Dado timezone diferente de `America/Sao_Paulo`, quando a Telemetria exibir a próxima prova, então data, hora e contagem regressiva usam o fuso selecionado.
 
 ## Verificação
 
@@ -134,9 +140,12 @@ Participante, Inativo com histórico autorizado, Administrador e Master.
 - [x] Integrar coordenadas Jolpica, previsão Open-Meteo e Meteocons locais. Fecha: critérios 9 e 10.
 - [x] Exibir uso do benefício de aposta automática e penalização vigente. Fecha: critérios 11 e 12.
 - [x] Completar abas do Painel V3.5 na Telemetria V4. Fecha: critérios 13 a 16.
+- [x] Exibir as regras vigentes da próxima prova em consulta somente leitura. Fecha: critério 19.
 
 ## Changelog
 
+- `1.8` — 2026-09-14 — Telemetria respeita o timezone do usuário na exibição da próxima prova e contagem regressiva.
+- `1.7` — 2026-09-14 — Adiciona consulta das regras vigentes para a próxima prova ao lado da temporada.
 - `1.6` — 2026-09-13 — Detalhe por piloto recebe contribuição em pontos e histórico passa a comparar as duas temporadas mais recentes em colunas agrupadas.
 - `1.5` — 2026-09-13 — Evolução combinada e abas Apostas, Histórico e Minha conta adicionadas à Telemetria.
 - `1.4` — 2026-09-13 — Card de apostas passa a informar disponibilidade do benefício automático e penalização futura.

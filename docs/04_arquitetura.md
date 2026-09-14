@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.24
+versao: 4.26
 atualizado: 2026-09-13
 relacionados:
   - "[[01_necessidade]]"
@@ -296,6 +296,8 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.26` — 2026-09-13 — Gestão administrativa de apostas passa a operar em `/admin/apostas`, autorizada para Admin/Master e reutilizando geração e email legados.
+- `4.25` — 2026-09-13 — API V4 expõe a geração autenticada `Sem ideias` sobre o serviço legado, sem duplicar regras ou alterar o schema PostgreSQL.
 - `4.24` — 2026-09-13 — Contrato de apostas pessoais inclui contribuição calculada por alocação; série histórica é limitada às duas temporadas mais recentes.
 - `4.23` — 2026-09-13 — Painel pessoal V4 exposto por leituras autenticadas de apostas e histórico e mutações reautenticadas da própria conta, sem alterar o schema legado.
 - `4.22` — 2026-09-13 — Snapshot da Telemetria ampliado com estado derivado da aposta automática e percentual da regra vigente.

@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/v1/admin/bets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Bets */
+        get: operations["admin_bets_api_v1_admin_bets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bets/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Bet */
+        post: operations["generate_bet_api_v1_admin_bets_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bets/reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remind Bet */
+        post: operations["remind_bet_api_v1_admin_bets_reminder_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/circuits": {
         parameters: {
             query?: never;
@@ -265,6 +316,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/rules/position-points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Admin Rule Position Points */
+        put: operations["update_admin_rule_position_points_api_v1_admin_rules_position_points_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/rules/recalculate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recalculate Admin Rules */
+        post: operations["recalculate_admin_rules_api_v1_admin_rules_recalculate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/rules/{rule_id}": {
         parameters: {
             query?: never;
@@ -276,7 +361,8 @@ export interface paths {
         /** Update Admin Rule */
         put: operations["update_admin_rule_api_v1_admin_rules__rule_id__put"];
         post?: never;
-        delete?: never;
+        /** Delete Admin Rule */
+        delete: operations["delete_admin_rule_api_v1_admin_rules__rule_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -413,6 +499,23 @@ export interface paths {
         get?: never;
         /** Update Own Password */
         put: operations["update_own_password_api_v1_auth_account_password_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/account/timezone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Own Timezone */
+        put: operations["update_own_timezone_api_v1_auth_account_timezone_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -980,6 +1083,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/race-bets/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Race Bet Route */
+        post: operations["generate_race_bet_route_api_v1_race_bets_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams": {
         parameters: {
             query?: never;
@@ -1129,6 +1249,105 @@ export interface components {
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** AccountTimezoneChange */
+        AccountTimezoneChange: {
+            /** Timezone */
+            timezone: string;
+        };
+        /** AdminBetActionRequest */
+        AdminBetActionRequest: {
+            /** Race Id */
+            race_id: number;
+            /** Season */
+            season: string;
+            /** User Id */
+            user_id?: number | null;
+        };
+        /** AdminBetActionResponse */
+        AdminBetActionResponse: {
+            /** Message */
+            message: string;
+            /** Recipients */
+            recipients?: number | null;
+            /** Status */
+            status: string;
+        };
+        /** AdminBetParticipant */
+        AdminBetParticipant: {
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /** User Id */
+            user_id: number;
+        };
+        /** AdminBetRace */
+        AdminBetRace: {
+            /** Date */
+            date: string;
+            /** Name */
+            name: string;
+            /** Race Id */
+            race_id: number;
+            /** Time */
+            time: string;
+            /** Type */
+            type: string;
+        };
+        /** AdminBetRecord */
+        AdminBetRecord: {
+            /**
+             * Automatic Generation
+             * @default 0
+             */
+            automatic_generation: number;
+            /** Chips */
+            chips: number[];
+            /** Drivers */
+            drivers: string[];
+            /** Eleventh Driver */
+            eleventh_driver: string;
+            /** Race Id */
+            race_id: number;
+            /** Submitted At */
+            submitted_at?: string | null;
+            /** User Id */
+            user_id: number;
+        };
+        /** AdminBetReport */
+        AdminBetReport: {
+            /** Automatic Races */
+            automatic_races: string[];
+            /** Automatic Total */
+            automatic_total: number;
+            /** Bets Total */
+            bets_total: number;
+            /** Manual Races */
+            manual_races: string[];
+            /** Manual Total */
+            manual_total: number;
+            /** Missing Races */
+            missing_races: string[];
+            /** Missing Total */
+            missing_total: number;
+            /** Name */
+            name: string;
+            /** User Id */
+            user_id: number;
+        };
+        /** AdminBetsResponse */
+        AdminBetsResponse: {
+            /** Bets */
+            bets: components["schemas"]["AdminBetRecord"][];
+            /** Participants */
+            participants: components["schemas"]["AdminBetParticipant"][];
+            /** Races */
+            races: components["schemas"]["AdminBetRace"][];
+            /** Reports */
+            reports: components["schemas"]["AdminBetReport"][];
+            /** Season */
+            season: string;
         };
         /** AdminParticipant */
         AdminParticipant: {
@@ -1916,6 +2135,11 @@ export interface components {
             /** Team */
             team: string;
         };
+        /** RaceBetGenerateRequest */
+        RaceBetGenerateRequest: {
+            /** Race Id */
+            race_id: number;
+        };
         /** RaceBetOption */
         RaceBetOption: {
             /** Date */
@@ -2105,6 +2329,20 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** RulePositionPointsRequest */
+        RulePositionPointsRequest: {
+            /** Points */
+            points: number[];
+            /** Race Type */
+            race_type: string;
+            /** Season */
+            season: string;
+        };
+        /** RuleRecalculateRequest */
+        RuleRecalculateRequest: {
+            /** Season */
+            season: string;
+        };
         /** RuleWriteRequest */
         RuleWriteRequest: {
             /** Bonus Podio Completo */
@@ -2196,6 +2434,35 @@ export interface components {
             /** Next Penalty Percent */
             next_penalty_percent: number;
         };
+        /** TelemetryCurrentRules */
+        TelemetryCurrentRules: {
+            /** Allow Same Team */
+            allow_same_team: boolean;
+            /** Automatic Bet Penalty Percent */
+            automatic_bet_penalty_percent: number;
+            /** Discard Enabled */
+            discard_enabled: boolean;
+            /** Doubled Sprint Points */
+            doubled_sprint_points: boolean;
+            /** Eleventh Bonus */
+            eleventh_bonus: number;
+            /** Max Chips Per Driver */
+            max_chips_per_driver: number;
+            /** Minimum Drivers */
+            minimum_drivers: number;
+            /** Name */
+            name: string;
+            /** Position Points */
+            position_points: number[];
+            /** Race Type */
+            race_type: string;
+            /** Retirement Penalty Enabled */
+            retirement_penalty_enabled: boolean;
+            /** Retirement Penalty Points */
+            retirement_penalty_points: number;
+            /** Total Chips */
+            total_chips: number;
+        };
         /** TelemetryEvolutionPoint */
         TelemetryEvolutionPoint: {
             /** Cumulative Points */
@@ -2254,6 +2521,7 @@ export interface components {
         /** TelemetryResponse */
         TelemetryResponse: {
             automatic_bet: components["schemas"]["TelemetryAutomaticBetStatus"];
+            current_rules?: components["schemas"]["TelemetryCurrentRules"] | null;
             /** Evolution */
             evolution: components["schemas"]["TelemetryEvolutionPoint"][];
             metrics: components["schemas"]["TelemetryMetrics"];
@@ -2322,6 +2590,11 @@ export interface components {
             perfil: string;
             /** Status */
             status: string;
+            /**
+             * Timezone
+             * @default America/Sao_Paulo
+             */
+            timezone: string;
         };
         /** UserUpdateRequest */
         UserUpdateRequest: {
@@ -2358,6 +2631,103 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admin_bets_api_v1_admin_bets_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBetsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_bet_api_v1_admin_bets_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminBetActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBetActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remind_bet_api_v1_admin_bets_reminder_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminBetActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBetActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_admin_circuits_api_v1_admin_circuits_get: {
         parameters: {
             query?: never;
@@ -3012,6 +3382,72 @@ export interface operations {
             };
         };
     };
+    update_admin_rule_position_points_api_v1_admin_rules_position_points_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RulePositionPointsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recalculate_admin_rules_api_v1_admin_rules_recalculate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleRecalculateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_admin_rule_api_v1_admin_rules__rule_id__put: {
         parameters: {
             query?: never;
@@ -3026,6 +3462,37 @@ export interface operations {
                 "application/json": components["schemas"]["RuleWriteRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_admin_rule_api_v1_admin_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -3343,6 +3810,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_own_timezone_api_v1_auth_account_timezone_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountTimezoneChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4272,6 +4772,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RaceBetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RaceBetResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_race_bet_route_api_v1_race_bets_generate_post: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RaceBetGenerateRequest"];
             };
         };
         responses: {

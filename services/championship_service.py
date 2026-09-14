@@ -2,6 +2,7 @@ import pandas as pd
 import logging
 from datetime import datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 from db.db_schema import db_connect
 from db.repo_users import get_user_by_id
 from db.repo_races import get_provas_df
@@ -41,7 +42,7 @@ def _parse_datetime_sp(date_str: str, time_str: str) -> datetime:
     """Parseia data/hora e retorna datetime com timezone America/Sao_Paulo."""
     return parse_datetime_sao_paulo(date_str, time_str)
 
-def can_place_championship_bet(season: Optional[int] = None, now: Optional[datetime] = None) -> tuple[bool, str, Optional[datetime]]:
+def can_place_championship_bet(season: Optional[int] = None, now: Optional[datetime] = None, display_timezone: Optional[str] = None) -> tuple[bool, str, Optional[datetime]]:
     """Valida se apostas do campeonato estao abertas para a temporada.
 
     Regra fail-closed: bloqueia a partir do horario exato da primeira prova.
@@ -55,20 +56,20 @@ def can_place_championship_bet(season: Optional[int] = None, now: Optional[datet
     try:
         provas_df = get_provas_df(str(season_val))
         if provas_df.empty:
-            return evaluate_championship_deadline(None, now or now_sao_paulo())
+            return evaluate_championship_deadline(None, now or now_sao_paulo(), display_timezone)
 
         if "temporada" not in provas_df.columns:
-            return evaluate_championship_deadline(None, now or now_sao_paulo())
+            return evaluate_championship_deadline(None, now or now_sao_paulo(), display_timezone)
         provas_df = provas_df[
             provas_df["temporada"].fillna("").astype(str).str.strip() == str(season_val)
         ]
         if provas_df.empty:
-            return evaluate_championship_deadline(None, now or now_sao_paulo())
+            return evaluate_championship_deadline(None, now or now_sao_paulo(), display_timezone)
 
         if "status" in provas_df.columns:
             provas_df = provas_df[provas_df["status"].fillna("").str.lower() != "inativa"]
             if provas_df.empty:
-                return evaluate_championship_deadline(None, now or now_sao_paulo())
+                return evaluate_championship_deadline(None, now or now_sao_paulo(), display_timezone)
 
         dt_list = []
         for _, row in provas_df.iterrows():
@@ -76,20 +77,21 @@ def can_place_championship_bet(season: Optional[int] = None, now: Optional[datet
             horario_raw = row.get("horario_prova")
             horario_str = str(horario_raw or "").strip()
             if not data_str or not horario_str:
-                return evaluate_championship_deadline(None, now or now_sao_paulo())
+                return evaluate_championship_deadline(None, now or now_sao_paulo(), display_timezone)
             normalized_time = normalize_time_string(horario_str)
             try:
                 if normalized_time is None:
-                    return evaluate_championship_deadline(None, now or now_sao_paulo())
+                    return evaluate_championship_deadline(None, now or now_sao_paulo(), display_timezone)
                 dt_list.append(_parse_datetime_sp(data_str, horario_str))
             except ValueError:
-                return evaluate_championship_deadline(None, now or now_sao_paulo())
+                return evaluate_championship_deadline(None, now or now_sao_paulo(), display_timezone)
 
         if not dt_list:
-            return evaluate_championship_deadline(None, now or now_sao_paulo())
+            return evaluate_championship_deadline(None, now or now_sao_paulo(), display_timezone)
 
         primeira_prova = min(dt_list)
-        return evaluate_championship_deadline(primeira_prova, now or now_sao_paulo())
+        user_now = datetime.now(ZoneInfo(display_timezone)) if display_timezone else (now or now_sao_paulo())
+        return evaluate_championship_deadline(primeira_prova, user_now, display_timezone)
     except Exception as e:
         logger.exception(f"Erro ao validar prazo de aposta do campeonato (season={season_val}): {e}")
         return False, "Erro ao validar prazo; apostas bloqueadas. Avise o administrador.", None

@@ -3,7 +3,7 @@ tipo: produto
 area: releases
 status: implementado
 versao: 1.17
-atualizado: 2026-09-13
+atualizado: 2026-09-14
 relacionados:
   - "[[sdd]]"
   - "[[03_spec]]"
@@ -15,7 +15,7 @@ aliases: ["Changelog do produto", "Versões do BF1"]
 # Changelog do produto BF1
 
 > [!info] Status
-> **implementado** · área: `releases` · atualizado em 2026-09-13 · relacionados: [[sdd]], [[03_spec]], [[07_guia_deploy]]
+> **implementado** · área: `releases` · atualizado em 2026-09-14 · relacionados: [[sdd]], [[03_spec]], [[07_guia_deploy]]
 
 Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
@@ -30,6 +30,15 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 > de status "Cancelada" (não existe no domínio).
 > Correção: o schema V4 do Campeonato passa a coagir `bet_time` de `datetime`
 > para `str`, evitando erro 500 na consulta de apostas de campeonato.
+> Ajuste visual: removida a lista "Todas as apostas" da tela pública de
+> Palpite de temporada no menu Campeonato.
+> Logs V4: tela de Logs em Informações passa a usar abas **Apostas** e
+> **Acessos**; o log de acessos permanece exclusivo do Master.
+> Timezone V4: seletor global persistido por usuário; horários de provas,
+> prazos de apostas e contagem regressiva na Telemetria passam a respeitar o
+> fuso selecionado.
+> Gestão de apostas V4: Admin e Master passam a contar com visões por prova e
+> usuário, lembretes segmentados, geração automática e relatório anual.
 
 ## Versão vigente
 
@@ -91,7 +100,7 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
-- `1.17` — 2026-09-13 — Log de Apostas V4: indicador "Não efetiva" para apostas fora do prazo não automáticas, filtros por participante (dropdown), data exata, tipo e status, e destaque visual na interface Next.js; removida busca textual de apostador e filtro de status inexistente "Cancelada"; correção de `bet_time` do Campeonato V4 coagido para `str`; produto permanece 3.5.1.
+- `1.17` — 2026-09-14 — Log de Apostas V4: indicador "Não efetiva" para apostas fora do prazo não automáticas, filtros por participante (dropdown), data exata, tipo e status, e destaque visual na interface Next.js; removida busca textual de apostador e filtro de status inexistente "Cancelada"; correção de `bet_time` do Campeonato V4 coagido para `str`; removida lista "Todas as apostas" da tela pública de Palpite de temporada; Logs V4 em Informações passa a usar abas **Apostas** e **Acessos** (exclusivo do Master); Timezone V4 com seletor global persistido por usuário e aplicação em horários, prazos e contagem regressiva; produto permanece 3.5.1.
 - `1.16` — 2026-09-12 — Fase 8 encerrada após confirmação operacional do backup/restore Excel; produto permanece 3.5.1.
 - `1.15` — 2026-09-12 — Documentação reconciliada com o runtime V4; Fases 1–7 confirmadas e Fase 8 mantida em revisão durante os testes Excel; produto permanece 3.5.1.
 - `1.14` — 2026-09-08 — Fase 7: gestão administrativa V4 do Hall da Fama, usuários, pilotos, provas, financeiro, regras e backup SQL; produto publicado permanece 3.5.1.

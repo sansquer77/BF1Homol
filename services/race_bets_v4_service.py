@@ -7,6 +7,9 @@ from typing import Any
 import pandas as pd
 
 from services.access_control import AuthenticatedContext, AuthorizationDenied, authorize_context
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from services.bets_rules import _aposta_valida_regras, pode_fazer_aposta
 from services.rules_service import get_regras_aplicaveis
 
@@ -36,7 +39,8 @@ def build_race_bet_snapshot(season: str, context: AuthenticatedContext, race_id:
             current_id = int(row["id"])
         except (KeyError, TypeError, ValueError):
             continue
-        can_bet, deadline_message, deadline = pode_fazer_aposta(row.get("data"), row.get("horario_prova"))
+        horario_usuario = datetime.now(ZoneInfo(context.timezone)) if context.timezone else None
+        can_bet, deadline_message, deadline = pode_fazer_aposta(row.get("data"), row.get("horario_prova"), horario_usuario, context.timezone)
         is_open = bool(can_bet and current_id not in completed)
         race_options.append({
             "id": current_id,
@@ -125,4 +129,25 @@ def place_race_bet(season: str, race_id: int, allocations: list[dict[str, Any]],
     return {"status": "registered", "race_id": int(race_id), "message": "Aposta registrada com sucesso."}
 
 
-__all__ = ["build_race_bet_snapshot", "place_race_bet"]
+def generate_race_bet(season: str, race_id: int, context: AuthenticatedContext) -> dict[str, Any]:
+    authorize_context(context, frozenset({"participante", "admin", "master"}), season=str(season))
+    snapshot = build_race_bet_snapshot(str(season), context, int(race_id))
+    race = snapshot.get("selected_race")
+    if not race or int(race["id"]) != int(race_id):
+        raise ValueError("Prova não encontrada na temporada.")
+    if not race["is_open"]:
+        raise AuthorizationDenied("Prazo de apostas encerrado para esta prova.")
+
+    from services.bets_write import gerar_aposta_sem_ideias
+    generated, message, _ = gerar_aposta_sem_ideias(
+        usuario_id=context.user_id,
+        prova_id=int(race_id),
+        nome_prova=race["name"],
+        temporada=str(season),
+    )
+    if not generated:
+        raise ValueError(message or "Não foi possível gerar uma aposta válida.")
+    return {"status": "registered", "race_id": int(race_id), "message": message}
+
+
+__all__ = ["build_race_bet_snapshot", "generate_race_bet", "place_race_bet"]

@@ -26,7 +26,13 @@ def test_snapshot_uses_authenticated_user_and_materialized_v3_data():
          patch("db.repo_bets.get_posicoes_participantes_df", return_value=positions), \
          patch("db.repo_bets.get_participantes_temporada_df", return_value=users), \
          patch("db.circuitos_utils.get_circuit_coordinates", return_value=None), \
-         patch("services.rules_service.get_regras_aplicaveis", return_value={"penalidade_auto_percent": 15}):
+         patch("services.rules_service.get_regras_aplicaveis", return_value={
+             "nome_regra": "Sprint 2026", "quantidade_fichas": 10, "fichas_por_piloto": 5,
+             "qtd_minima_pilotos": 2, "mesma_equipe": False, "descarte": True,
+             "pontos_11_colocado": 50, "penalidade_abandono": True, "pontos_penalidade": -5,
+             "penalidade_auto_percent": 15, "pontos_dobrada": True,
+             "pontos_posicoes": [8, 7, 6, 5, 4, 3, 2, 1],
+         }):
         snapshot = build_telemetry_snapshot(
             7, "Ana", "2026", now=datetime(2026, 9, 8, tzinfo=ZoneInfo("America/Sao_Paulo"))
         )
@@ -37,6 +43,9 @@ def test_snapshot_uses_authenticated_user_and_materialized_v3_data():
     assert snapshot["next_race"]["weather"]["available"] is False
     assert snapshot["metrics"] == {"current_position": 2, "points": 18.0, "bets_submitted": 1, "races_total": 2}
     assert snapshot["automatic_bet"] == {"benefit_available": False, "automatic_generation": 1, "next_penalty_percent": 15.0}
+    assert snapshot["current_rules"]["name"] == "Sprint 2026"
+    assert snapshot["current_rules"]["race_type"] == "Sprint"
+    assert snapshot["current_rules"]["position_points"] == [8, 7, 6, 5, 4, 3, 2, 1]
     assert snapshot["evolution"][0]["cumulative_points"] == 18.0
     assert snapshot["ranking"][0]["name"] == "Beto"
     assert "email" not in snapshot["ranking"][0]
@@ -52,6 +61,7 @@ def test_snapshot_returns_valid_empty_contract():
         snapshot = build_telemetry_snapshot(7, "Ana", "2026")
 
     assert snapshot["next_race"] is None
+    assert snapshot["current_rules"] is None
     assert snapshot["metrics"] == {"current_position": None, "points": 0, "bets_submitted": 0, "races_total": 0}
     assert snapshot["automatic_bet"] == {"benefit_available": True, "automatic_generation": 0, "next_penalty_percent": 20.0}
     assert snapshot["evolution"] == []

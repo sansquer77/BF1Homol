@@ -30,7 +30,10 @@ def get_current_context(request: Request) -> AuthenticatedContext:
         seasons = frozenset({str(datetime.now().year)})
     else:
         seasons = frozenset()
-    context = AuthenticatedContext(int(user["id"]), str(user.get("nome") or ""), perfil, db_status, seasons)
+    tz = str(user.get("timezone") or "America/Sao_Paulo").strip()
+    if not tz:
+        tz = "America/Sao_Paulo"
+    context = AuthenticatedContext(int(user["id"]), str(user.get("nome") or ""), perfil, db_status, seasons, tz)
     request.state.auth = context
     return context
 

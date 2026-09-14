@@ -7,14 +7,26 @@ import { CalendarIcon, FlagIcon, TrophyIcon } from "./icons";
 import { apiRequest, type Telemetry } from "@/lib/api/client";
 import { TRACK_ASSETS } from "@/lib/track-assets";
 import { useSeason } from "@/lib/season-context";
+import { useTimezone } from "@/lib/timezone-context";
 import { ParticipantTabs } from "./participant-tabs";
+
+type CurrentRules = {
+  name: string; race_type: string; total_chips: number; max_chips_per_driver: number;
+  minimum_drivers: number; allow_same_team: boolean; discard_enabled: boolean;
+  eleventh_bonus: number; retirement_penalty_enabled: boolean; retirement_penalty_points: number;
+  automatic_bet_penalty_percent: number; doubled_sprint_points: boolean; position_points: number[];
+};
+type DashboardTelemetry = Telemetry & { current_rules?: CurrentRules | null };
 
 function formatPoints(value: number): string {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(value);
 }
 
-function formatRaceDate(date: string, time: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(`${date}T${time}:00-03:00`));
+function useRaceDateFormatter() {
+  const { timezone } = useTimezone();
+  return (date: string, time: string) => new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: timezone,
+  }).format(new Date(`${date}T${time}:00-03:00`));
 }
 
 function initials(name: string): string {
@@ -37,14 +49,17 @@ const WEATHER_ICONS: Record<string, string> = {
 
 export function DashboardOverview() {
   const { season } = useSeason();
-  const [data, setData] = useState<Telemetry | null>(null);
+  const { formatDateTime } = useTimezone();
+  const formatRaceDate = useRaceDateFormatter();
+  const [data, setData] = useState<DashboardTelemetry | null>(null);
   const [error, setError] = useState(false);
   const [clock, setClock] = useState(0);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
     setData(null); setError(false);
-    apiRequest<Telemetry>(("/api/v1/telemetry?season=" + season) as `/api/v1/${string}`)
+    apiRequest<DashboardTelemetry>(("/api/v1/telemetry?season=" + season) as `/api/v1/${string}`)
       .then((snapshot) => { if (active) setData(snapshot); })
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
@@ -64,8 +79,9 @@ export function DashboardOverview() {
   if (!data) return <div className="dashboard"><div className="calendar-state" role="status">Carregando Telemetria…</div></div>;
 
   return <div className="dashboard">
-    <header className="page-header"><div><p className="eyebrow">Telemetria · Olá, {data.user_name}</p><h1>A corrida começa antes da largada.</h1><p>{nextRace ? `Acompanhe sua estratégia para ${nextRace.name}.` : "Acompanhe seu desempenho na temporada."}</p></div><div className="season-select" aria-label={`Temporada selecionada: ${data.season}`}><span>Temporada</span><strong>{data.season}</strong></div></header>
+    <header className="page-header"><div><p className="eyebrow">Telemetria · Olá, {data.user_name}</p><h1>A corrida começa antes da largada.</h1><p>{nextRace ? `Acompanhe sua estratégia para ${nextRace.name}.` : "Acompanhe seu desempenho na temporada."}</p></div><div className="telemetry-header-actions"><div className="season-select" aria-label={`Temporada selecionada: ${data.season}`}><span>Temporada</span><strong>{data.season}</strong></div><button type="button" className="rules-current-button" disabled={!data.current_rules} onClick={() => setRulesOpen(true)}>Regras Vigentes</button></div></header>
     <ParticipantTabs />
+    {rulesOpen && data.current_rules ? <div className="rules-modal-backdrop" role="presentation" onMouseDown={() => setRulesOpen(false)}><section className="rules-modal panel" role="dialog" aria-modal="true" aria-labelledby="current-rules-title" onMouseDown={(event) => event.stopPropagation()}><div className="panel__heading"><div><p className="eyebrow">Próxima prova · {data.current_rules.race_type}</p><h2 id="current-rules-title">Regras vigentes</h2><span>{data.current_rules.name} · temporada {data.season}</span></div><button type="button" className="rules-modal-close" aria-label="Fechar regras vigentes" onClick={() => setRulesOpen(false)}>×</button></div><dl className="rules-summary-list"><div><dt>Fichas</dt><dd>{data.current_rules.total_chips}</dd></div><div><dt>Mínimo de pilotos</dt><dd>{data.current_rules.minimum_drivers}</dd></div><div><dt>Máximo por piloto</dt><dd>{data.current_rules.max_chips_per_driver}</dd></div><div><dt>Dois pilotos da mesma equipe</dt><dd>{data.current_rules.allow_same_team ? "Permitido" : "Não permitido"}</dd></div><div><dt>Bônus do 11º</dt><dd>{formatPoints(data.current_rules.eleventh_bonus)} pts</dd></div><div><dt>Descarte</dt><dd>{data.current_rules.discard_enabled ? "Ativo" : "Inativo"}</dd></div><div><dt>Penalidade por abandono</dt><dd>{data.current_rules.retirement_penalty_enabled ? `${formatPoints(data.current_rules.retirement_penalty_points)} pts` : "Inativa"}</dd></div><div><dt>2ª+ aposta automática</dt><dd>{formatPoints(data.current_rules.automatic_bet_penalty_percent)}%</dd></div>{data.current_rules.race_type === "Sprint" ? <div><dt>Pontuação dobrada</dt><dd>{data.current_rules.doubled_sprint_points ? "Sim" : "Não"}</dd></div> : null}</dl><div className="rules-position-summary"><h3>Pontuação por posição</h3><ol>{data.current_rules.position_points.map((points, index) => points > 0 ? <li key={index}><span>{index + 1}º</span><strong>{formatPoints(points)} pts</strong></li> : null)}</ol></div></section></div> : null}
     {nextRace ? <section className="race-hero" id="calendario" aria-labelledby="next-race-title"><div className="race-hero__glow" aria-hidden="true" /><div className="race-hero__content"><p className="eyebrow"><span className="live-dot" /> Próxima prova · Rodada {nextRace.round}</p><h2 id="next-race-title">{nextRace.name.replace("Grande Prêmio", "GP")}</h2><div className="race-meta"><span><CalendarIcon /> {formatRaceDate(nextRace.date, nextRace.time)}</span><span><FlagIcon /> {nextRace.circuit_id?.replaceAll("_", " ") ?? "Circuito não informado"}</span></div><div className={nextRace.weather?.available ? "race-weather" : "race-weather race-weather--unavailable"}>{nextRace.weather?.available ? <><Image src={`/weather/meteocons/${WEATHER_ICONS[nextRace.weather.icon ?? ""] ?? "not-available"}.svg`} alt="" width={64} height={64}/><div><small>Previsão para a largada</small><strong>{nextRace.weather.condition}</strong><span>{nextRace.weather.temperature_c} °C · sensação {nextRace.weather.apparent_temperature_c} °C</span><span>Chuva {nextRace.weather.precipitation_probability}% · vento {nextRace.weather.wind_speed_kmh} km/h</span></div></> : <><Image src="/weather/meteocons/not-available.svg" alt="" width={48} height={48}/><div><small>Previsão para a largada</small><span>{nextRace.weather?.reason ?? "Previsão ainda indisponível."}</span></div></>}</div><div className="countdown" aria-label={remaining.label}><span><strong>{remaining.days}</strong><small>dias</small></span><i>:</i><span><strong>{remaining.hours}</strong><small>horas</small></span><i>:</i><span><strong>{remaining.minutes}</strong><small>min</small></span></div><a className="primary-action" href="/apostas">Fazer minha aposta <span aria-hidden="true">→</span></a></div><div className="track-art">{track ? <Image src={track.src} alt={`Circuito de ${nextRace.name}`} fill sizes="(max-width: 760px) 100vw, 42vw" /> : <FlagIcon />}<small>{nextRace.name}</small></div></section> : <section className="calendar-state"><strong>Nenhuma próxima prova cadastrada.</strong><p>O calendário da temporada não possui evento futuro disponível.</p></section>}
     <section className="metric-grid" aria-label="Resumo da temporada">
       <article className="metric-card"><span className="metric-icon"><TrophyIcon /></span><p>Sua posição registrada</p><strong>{data.metrics.current_position ? `${data.metrics.current_position}º` : "—"}</strong><small>Última prova com classificação</small></article>

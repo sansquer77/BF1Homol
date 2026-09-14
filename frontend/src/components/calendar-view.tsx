@@ -5,20 +5,26 @@ import { useEffect, useMemo, useState } from "react";
 import { apiRequest, type Race } from "@/lib/api/client";
 import { TRACK_ASSETS } from "@/lib/track-assets";
 import { useSeason } from "@/lib/season-context";
+import { useTimezone } from "@/lib/timezone-context";
 
-function formatDate(date: string, time: string | null): string {
-  const value = new Date(date + "T" + (time ?? "23:59") + ":00-03:00");
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(value);
-}
-
-function formatTime(date: string, time: string | null): string {
-  if (!time) return "Horário a confirmar";
-  const value = new Date(date + "T" + time + ":00-03:00");
-  return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZoneName: "short" }).format(value);
+function useCalendarFormatters() {
+  const { timezone } = useTimezone();
+  return {
+    formatDate: (date: string, time: string | null) => new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit", month: "short", year: "numeric", timeZone: timezone,
+    }).format(new Date(date + "T" + (time ?? "23:59") + ":00-03:00")),
+    formatTime: (date: string, time: string | null) => {
+      if (!time) return "Horário a confirmar";
+      return new Intl.DateTimeFormat("pt-BR", {
+        hour: "2-digit", minute: "2-digit", timeZoneName: "short", timeZone: timezone,
+      }).format(new Date(date + "T" + time + ":00-03:00"));
+    },
+  };
 }
 
 export function CalendarView() {
   const { season } = useSeason();
+  const { formatDate, formatTime } = useCalendarFormatters();
   const [races, setRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

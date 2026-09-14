@@ -3,11 +3,26 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import authorize_season_object, get_current_context
-from api.schemas import RaceBetRequest, RaceBetResponse, RaceBetSnapshot
+from api.schemas import RaceBetGenerateRequest, RaceBetRequest, RaceBetResponse, RaceBetSnapshot
 from services.access_control import AuthenticatedContext, AuthorizationDenied
-from services.race_bets_v4_service import build_race_bet_snapshot, place_race_bet
+from services.race_bets_v4_service import build_race_bet_snapshot, generate_race_bet, place_race_bet
 
 router = APIRouter(prefix="/race-bets", tags=["race-bets"])
+
+
+@router.post("/generate", response_model=RaceBetResponse)
+def generate_race_bet_route(
+    payload: RaceBetGenerateRequest,
+    season: str = Query(pattern=r"^\d{4}$"),
+    context: AuthenticatedContext = Depends(get_current_context),
+) -> RaceBetResponse:
+    authorize_season_object(season, context)
+    try:
+        return RaceBetResponse.model_validate(generate_race_bet(season, payload.race_id, context))
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
 @router.get("", response_model=RaceBetSnapshot)

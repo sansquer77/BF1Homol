@@ -2,8 +2,8 @@
 tipo: spec
 area: autenticacao
 status: implementado
-versao: 1.4
-atualizado: 2026-09-13
+versao: 1.5
+atualizado: 2026-09-14
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -16,7 +16,7 @@ aliases: ["Autenticação e Sessão"]
 # Autenticação e sessão
 
 > [!info] Status
-> **implementado** · área: `autenticacao` · atualizado em 2026-09-12 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[specs/controle-de-acesso]], [[07_guia_deploy]]
+> **implementado** · área: `autenticacao` · atualizado em 2026-09-14 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[specs/controle-de-acesso]], [[07_guia_deploy]]
 
 ## Problema
 
@@ -41,6 +41,7 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 - `senha_hash`: hash bcrypt; senha em texto não é persistida.
 - `jti`: identificador único do JWT persistido em `auth_sessions`.
 - `session_version`: versão que invalida sessões anteriores.
+- `timezone`: fuso horário de exibição do usuário (padrão `America/Sao_Paulo`).
 - `exp`: expiração do JWT, atualmente 120 minutos.
 
 ## Regras
@@ -62,6 +63,10 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 11. Alteração autenticada de email ou senha exige a senha atual; a conta Master
     não altera email nem senha pela interface porque `EMAIL_MASTER` e
     `SENHA_MASTER` permanecem autoritativos.
+12. O timezone do usuário é persistido em `usuarios.timezone`, carregado na
+    autenticação e usado para exibir horários e prazos na interface V4.
+13. O usuário pode alterar seu timezone através de seletor global; a escolha
+    persiste entre sessões e não exige reautenticação.
 
 ## Interface, serviços e dados
 
@@ -69,8 +74,8 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 - Serviços: `services/auth_service.py` e `services/access_control.py`.
 - Repositórios/tabelas: `usuarios`, `auth_sessions`, `login_attempts`, `password_reset_tokens`.
 - API V4: `/api/v1/auth/login`, `/logout`, `/me`, `/refresh`,
-  `/password-reset`, `/password-reset/confirm`, `/account/email` e
-  `/account/password`.
+  `/password-reset`, `/password-reset/confirm`, `/account/email`,
+  `/account/password` e `/account/timezone`.
 
 ## Critérios de aceite
 
@@ -84,7 +89,11 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 8. Dada senha atual válida, quando um usuário não Master altera email ou senha,
    então a alteração é aplicada; a troca de senha revoga as sessões existentes.
 9. Dada conta Master, quando tentar alterar credenciais pela interface, então a
-   operação falha sem sobrescrever as variáveis autoritativas do ambiente.
+    operação falha sem sobrescrever as variáveis autoritativas do ambiente.
+10. Dado usuário autenticado, quando acessar a interface V4, então seu timezone
+    persistido é carregado e aplicado aos horários exibidos.
+11. Dado usuário autenticado, quando alterar o timezone no seletor global, então
+    o novo valor é persistido e refletido imediatamente na interface.
 
 ## Verificação
 
@@ -108,6 +117,7 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 
 ## Changelog
 
+- `1.5` — 2026-09-14 — Adicionado timezone do usuário persistido, seletor global e API `/account/timezone`.
 - `1.4` — 2026-09-13 — Minha conta V4 permite alterar email e senha mediante confirmação da credencial atual.
 - `1.3` — 2026-09-12 — Interface e logout alinhados ao runtime Next.js/FastAPI; Streamlit identificado apenas como baseline V3.
 - `1.2` — 2026-09-09 — Recuperação segura de senha disponibilizada na tela de login V4.

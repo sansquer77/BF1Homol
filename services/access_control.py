@@ -26,6 +26,7 @@ class AuthenticatedContext:
     perfil: str
     status: str
     temporadas_autorizadas: FrozenSet[str]
+    timezone: str = "America/Sao_Paulo"
 
     @property
     def ativo(self) -> bool:
@@ -101,7 +102,10 @@ def resolve_authenticated_context() -> AuthenticatedContext:
         seasons = frozenset({str(datetime.now().year)})
     else:
         seasons = frozenset()  # admin/master: escopo global, ainda autenticado
-    return AuthenticatedContext(int(user["id"]), str(user.get("nome", "")), perfil, status, seasons)
+    tz = str(user.get("timezone") or "America/Sao_Paulo").strip()
+    if not tz:
+        tz = "America/Sao_Paulo"
+    return AuthenticatedContext(int(user["id"]), str(user.get("nome", "")), perfil, status, seasons, tz)
 
 
 def require_operation(operation: str, *, season: str | None = None) -> AuthenticatedContext:

@@ -14,7 +14,7 @@ def _parse_datetime_sp(date_str: str, time_str: str):
     return parse_datetime_sao_paulo(date_str, time_str)
 
 
-def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
+def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None, display_timezone: str | None = None):
     try:
         horario_limite_sp = _parse_datetime_sp(data_prova_str, horario_prova_str)
 
@@ -27,9 +27,11 @@ def pode_fazer_aposta(data_prova_str, horario_prova_str, horario_usuario=None):
         horario_limite_utc = horario_limite_sp.astimezone(ZoneInfo("UTC"))
 
         pode = horario_usuario_utc <= horario_limite_utc
+        tz = ZoneInfo(display_timezone) if display_timezone else SAO_PAULO_TZ
+        horario_limite_display = horario_limite_sp.astimezone(tz)
         mensagem = (
             f"Aposta {'permitida' if pode else 'bloqueada'} "
-            f"(Horário limite SP: {horario_limite_sp.strftime('%d/%m/%Y %H:%M:%S')})"
+            f"(Horário limite: {horario_limite_display.strftime('%d/%m/%Y %H:%M:%S')} {tz.key if hasattr(tz, 'key') else str(tz)})"
         )
         return pode, mensagem, horario_limite_sp
     except Exception as e:

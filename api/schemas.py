@@ -35,6 +35,11 @@ class AccountPasswordChange(BaseModel):
     new_password: str = Field(min_length=8, max_length=1024)
 
 
+class AccountTimezoneChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    timezone: str = Field(min_length=1, max_length=80)
+
+
 class UserResponse(BaseModel):
     id: int
     nome: str
@@ -42,6 +47,7 @@ class UserResponse(BaseModel):
     perfil: str
     status: str
     must_change_password: bool = False
+    timezone: str = "America/Sao_Paulo"
 
 
 class MessageResponse(BaseModel):
@@ -123,10 +129,27 @@ class TelemetryRankingEntry(BaseModel):
     is_current_user: bool
 
 
+class TelemetryCurrentRules(BaseModel):
+    name: str
+    race_type: str
+    total_chips: int
+    max_chips_per_driver: int
+    minimum_drivers: int
+    allow_same_team: bool
+    discard_enabled: bool
+    eleventh_bonus: int
+    retirement_penalty_enabled: bool
+    retirement_penalty_points: int
+    automatic_bet_penalty_percent: float
+    doubled_sprint_points: bool
+    position_points: list[int]
+
+
 class TelemetryResponse(BaseModel):
     user_name: str
     season: str
     next_race: TelemetryNextRace | None = None
+    current_rules: TelemetryCurrentRules | None = None
     metrics: TelemetryMetrics
     automatic_bet: TelemetryAutomaticBetStatus
     evolution: list[TelemetryEvolutionPoint]
@@ -269,10 +292,72 @@ class RaceBetRequest(BaseModel):
     eleventh_driver: str = Field(min_length=1, max_length=120)
 
 
+class RaceBetGenerateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    race_id: int = Field(gt=0)
+
+
 class RaceBetResponse(BaseModel):
     status: str
     race_id: int
     message: str
+
+
+class AdminBetParticipant(BaseModel):
+    user_id: int
+    name: str
+    email: str
+
+
+class AdminBetRace(BaseModel):
+    race_id: int
+    name: str
+    date: str
+    time: str
+    type: str
+
+
+class AdminBetRecord(BaseModel):
+    user_id: int
+    race_id: int
+    drivers: list[str]
+    chips: list[int]
+    eleventh_driver: str
+    submitted_at: str | None = None
+    automatic_generation: int = 0
+
+
+class AdminBetReport(BaseModel):
+    user_id: int
+    name: str
+    bets_total: int
+    manual_total: int
+    automatic_total: int
+    missing_total: int
+    manual_races: list[str]
+    automatic_races: list[str]
+    missing_races: list[str]
+
+
+class AdminBetsResponse(BaseModel):
+    season: str
+    participants: list[AdminBetParticipant]
+    races: list[AdminBetRace]
+    bets: list[AdminBetRecord]
+    reports: list[AdminBetReport]
+
+
+class AdminBetActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    season: str = Field(pattern=r"^\d{4}$")
+    race_id: int = Field(gt=0)
+    user_id: int | None = Field(default=None, gt=0)
+
+
+class AdminBetActionResponse(BaseModel):
+    status: str
+    message: str
+    recipients: int | None = None
 
 
 class DriverBetAggregate(BaseModel):
@@ -487,7 +572,7 @@ class RuleWriteRequest(BaseModel):
     bonus_podio_qualquer: int = Field(ge=0, le=1000)
     qtd_minima_pilotos: int = Field(ge=1, le=20)
     penalidade_abandono: bool = False
-    pontos_penalidade: int = Field(ge=0, le=1000)
+    pontos_penalidade: int = Field(ge=-1000, le=1000)
     penalidade_auto_percent: int = Field(ge=0, le=100)
     pontos_campeao: int = Field(ge=0, le=2000)
     pontos_vice: int = Field(ge=0, le=2000)
@@ -501,6 +586,18 @@ class RuleAssignmentRequest(BaseModel):
 class RuleCloneRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=120)
+
+
+class RulePositionPointsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    season: str = Field(pattern=r"^\d{4}$")
+    race_type: str = Field(pattern=r"^(Normal|Sprint)$")
+    points: list[int] = Field(min_length=1, max_length=20)
+
+
+class RuleRecalculateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    season: str = Field(pattern=r"^\d{4}$")
 
 
 class PaginationResponse(BaseModel):

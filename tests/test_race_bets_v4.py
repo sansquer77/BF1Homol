@@ -4,8 +4,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from services.access_control import AuthenticatedContext
-from services.race_bets_v4_service import build_race_bet_snapshot, place_race_bet
+from services.access_control import AuthenticatedContext, AuthorizationDenied
+from services.race_bets_v4_service import build_race_bet_snapshot, generate_race_bet, place_race_bet
 
 
 CONTEXT = AuthenticatedContext(7, "Ana", "participante", "ativo", frozenset({"2026"}))
@@ -55,3 +55,23 @@ def test_submission_rejects_eleventh_driver_also_in_allocations():
         else:
             raise AssertionError("Piloto do 11º também apostado deveria ser recusado")
     save.assert_not_called()
+
+
+def test_sem_ideias_uses_authenticated_user_and_legacy_generator():
+    snapshot = {"selected_race": {"id": 10, "name": "GP Teste", "type": "Normal", "is_open": True}}
+    with patch("services.race_bets_v4_service.build_race_bet_snapshot", return_value=snapshot), patch("services.bets_write.gerar_aposta_sem_ideias", return_value=(True, "Aposta gerada!", {"pilotos": ["A"]})) as generate:
+        result = generate_race_bet("2026", 10, CONTEXT)
+    assert result == {"status": "registered", "race_id": 10, "message": "Aposta gerada!"}
+    generate.assert_called_once_with(usuario_id=7, prova_id=10, nome_prova="GP Teste", temporada="2026")
+
+
+def test_sem_ideias_rejects_closed_race_without_calling_generator():
+    snapshot = {"selected_race": {"id": 10, "name": "GP Teste", "type": "Normal", "is_open": False}}
+    with patch("services.race_bets_v4_service.build_race_bet_snapshot", return_value=snapshot), patch("services.bets_write.gerar_aposta_sem_ideias") as generate:
+        try:
+            generate_race_bet("2026", 10, CONTEXT)
+        except AuthorizationDenied as exc:
+            assert "encerrado" in str(exc)
+        else:
+            raise AssertionError("Prova encerrada deveria impedir Sem ideias")
+    generate.assert_not_called()

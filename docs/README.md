@@ -2,7 +2,7 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.16
+versao: 1.18
 atualizado: 2026-09-13
 relacionados:
   - "[[sdd]]"
@@ -71,6 +71,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 - [[specs/conteudo-institucional-v4|Regulamento e Sobre da versão 4]]
 - [[specs/telemetria-v4|Telemetria da versão 4]]
 - [[specs/financeiro-da-temporada|Gestão financeira da temporada]]
+- [[specs/gestao-administrativa-de-apostas|Gestão administrativa de apostas]]
 
 Novas funcionalidades devem ganhar uma spec focada em `docs/specs/`. A
 [[03_spec|spec consolidada]] continua como referência de compatibilidade até a
@@ -93,6 +94,8 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.18` — 2026-09-13 — Gestão administrativa de apostas V4 concluída com visões por prova/usuário, lembretes, geração automática e relatório anual.
+- `1.17` — 2026-09-13 — Formulário V4 passa a oferecer geração assistida `Sem ideias`, preservando o fluxo e as regras da V3.5.
 - `1.16` — 2026-09-13 — Detalhamento de apostas passa a expor contribuição por piloto e histórico compara as duas temporadas mais recentes.
 - `1.15` — 2026-09-13 — Telemetria V4 fecha o Painel do Participante com gráfico combinado e abas de apostas, histórico e conta.
 - `1.14` — 2026-09-13 — Telemetria passa a informar o uso do benefício de aposta automática e a penalização vigente.

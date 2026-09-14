@@ -3,12 +3,13 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { apiRequest, type AccessLogs, type BettingLogs, type User } from "@/lib/api/client";
 import { useSeason } from "@/lib/season-context";
+import { useTimezone } from "@/lib/timezone-context";
 
 type ParticipantOption = { id: number; name: string };
+type LogTab = "bets" | "access";
 
 const INITIAL_START = isoDay(-7);
 const INITIAL_END = isoDay();
-const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "medium" });
 
 function isoDay(offset = 0) {
   const value = new Date();
@@ -31,10 +32,12 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
 
 export function LogsView() {
   const { season } = useSeason();
+  const { formatDateTime } = useTimezone();
   const [user, setUser] = useState<User | null>(null);
   const [bets, setBets] = useState<BettingLogs | null>(null);
   const [access, setAccess] = useState<AccessLogs | null>(null);
   const [error, setError] = useState(false);
+  const [activeTab, setActiveTab] = useState<LogTab>("bets");
   const [betPage, setBetPage] = useState(1);
   const [accessPage, setAccessPage] = useState(1);
 
@@ -49,6 +52,8 @@ export function LogsView() {
   const [end, setEnd] = useState(INITIAL_END);
   const [userFilter, setUserFilter] = useState("");
 
+  const isMaster = user?.perfil === "master";
+
   const loadBets = useCallback((page = 1) => {
     const query = new URLSearchParams({ season, page: String(page), page_size: "50" });
     if (bettor) query.set("bettor_id", bettor);
@@ -62,17 +67,21 @@ export function LogsView() {
   const loadAccess = useCallback((page = 1) => {
     const query = new URLSearchParams({ start, end, page: String(page), page_size: "50" });
     if (userFilter.trim()) query.set("user_contains", userFilter.trim());
+    setError(false);
     apiRequest<AccessLogs>(`/api/v1/logs/access?${query}`).then(setAccess).catch(() => setError(true));
   }, [end, start, userFilter]);
 
   useEffect(() => {
     let active = true;
     setBets(null);
+    setAccess(null);
     setBettor("");
     setBetKind("");
     setEventDate("");
     setLogStatus("");
     setBetPage(1);
+    setAccessPage(1);
+    setActiveTab("bets");
     Promise.all([
       apiRequest<User>("/api/v1/auth/me"),
       apiRequest<BettingLogs>(`/api/v1/logs/bets?season=${season}&page=1&page_size=50`),
@@ -83,16 +92,21 @@ export function LogsView() {
           setUser(identity);
           setBets(betting);
           setParticipants(options);
-          if (identity.perfil === "master" && !access) {
-            apiRequest<AccessLogs>(`/api/v1/logs/access?start=${INITIAL_START}&end=${INITIAL_END}&page=1&page_size=50`)
-              .then((value) => { if (active) setAccess(value); })
-              .catch(() => { if (active) setError(true); });
-          }
         }
       })
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [season]);
+
+  useEffect(() => {
+    if (activeTab !== "access" || !isMaster) return;
+    let active = true;
+    setAccess(null);
+    apiRequest<AccessLogs>(`/api/v1/logs/access?start=${INITIAL_START}&end=${INITIAL_END}&page=1&page_size=50`)
+      .then((value) => { if (active) setAccess(value); })
+      .catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, [activeTab, isMaster]);
 
   function applyBets(event: FormEvent) {
     event.preventDefault();
@@ -127,6 +141,11 @@ export function LogsView() {
     return "No prazo";
   }
 
+  function selectTab(tab: LogTab) {
+    if (tab === "access" && !isMaster) return;
+    setActiveTab(tab);
+  }
+
   return (
     <div className="logs-view">
       <header className="institutional-hero">
@@ -137,78 +156,103 @@ export function LogsView() {
         </div>
       </header>
       {error ? <div className="calendar-state calendar-state--error" role="alert">Não foi possível carregar os logs.</div> : null}
-      <section className="logs-section" aria-labelledby="bet-logs-title">
-        <div className="panel__heading">
-          <div>
-            <p className="eyebrow">Apostas</p>
-            <h2 id="bet-logs-title">Log de apostas</h2>
-          </div>
-          {bets ? <small>{bets.pagination.total} registros · {bets.scope === "individual" ? "Meu histórico" : "Visão consolidada"}</small> : null}
-        </div>
-        <form className="logs-filters" onSubmit={applyBets}>
-          <label>
-            Apostador
-            <select value={bettor} onChange={(event) => setBettor(event.target.value)} disabled={bets?.scope === "individual"}>
-              <option value="">Todos os participantes ativos</option>
-              {participants.map((participant) => <option value={participant.id} key={participant.id}>{participant.name}</option>)}
-            </select>
-          </label>
-          <label>
-            Data da aposta
-            <input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} />
-          </label>
-          <label>
-            Tipo
-            <select value={betKind} onChange={(event) => setBetKind(event.target.value)}>
-              {BET_KIND_OPTIONS.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
-            </select>
-          </label>
-          <label>
-            Status
-            <select value={logStatus} onChange={(event) => setLogStatus(event.target.value)}>
-              {STATUS_OPTIONS.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
-            </select>
-          </label>
-          <button className="secondary-action" type="submit">Aplicar filtros</button>
-        </form>
-        {!bets ? (
-          <div className="calendar-state" role="status">Carregando apostas…</div>
-        ) : (
-          <>
-            <div className="table-scroll" tabIndex={0}>
-              <table className="logs-table">
-                <caption className="sr-only">Registros do log de apostas</caption>
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Apostador</th>
-                    <th>Prova</th>
-                    <th>Pilotos</th>
-                    <th>11º</th>
-                    <th>Tipo</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bets.items.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.data ?? "—"}<small>{item.horario ?? ""}</small></td>
-                      <td>{item.apostador ?? "—"}</td>
-                      <td>{item.nome_prova ?? "—"}</td>
-                      <td>{item.pilotos ?? "—"}<small>{item.aposta ?? ""}</small></td>
-                      <td>{item.piloto_11 ?? "—"}</td>
-                      <td>{kindLabel(item)}</td>
-                      <td><span className={statusClass(item.status)}>{item.status ?? "Registrada"}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+      <nav className="log-tabs" aria-label="Abas de logs">
+        <button
+          type="button"
+          className={activeTab === "bets" ? "log-tab log-tab--active" : "log-tab"}
+          onClick={() => selectTab("bets")}
+          aria-current={activeTab === "bets" ? "page" : undefined}
+        >
+          Apostas
+        </button>
+        {isMaster ? (
+          <button
+            type="button"
+            className={activeTab === "access" ? "log-tab log-tab--active" : "log-tab"}
+            onClick={() => selectTab("access")}
+            aria-current={activeTab === "access" ? "page" : undefined}
+          >
+            Acessos
+          </button>
+        ) : null}
+      </nav>
+
+      {activeTab === "bets" ? (
+        <section className="logs-section" aria-labelledby="bet-logs-title">
+          <div className="panel__heading">
+            <div>
+              <p className="eyebrow">Apostas</p>
+              <h2 id="bet-logs-title">Log de apostas</h2>
             </div>
-            <Pagination page={betPage} pages={bets.pagination.total_pages} onChange={changeBetPage} />
-          </>
-        )}
-      </section>
-      {user?.perfil === "master" ? (
+            {bets ? <small>{bets.pagination.total} registros · {bets.scope === "individual" ? "Meu histórico" : "Visão consolidada"}</small> : null}
+          </div>
+          <form className="logs-filters" onSubmit={applyBets}>
+            <label>
+              Apostador
+              <select value={bettor} onChange={(event) => setBettor(event.target.value)} disabled={bets?.scope === "individual"}>
+                <option value="">Todos os participantes ativos</option>
+                {participants.map((participant) => <option value={participant.id} key={participant.id}>{participant.name}</option>)}
+              </select>
+            </label>
+            <label>
+              Data da aposta
+              <input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} />
+            </label>
+            <label>
+              Tipo
+              <select value={betKind} onChange={(event) => setBetKind(event.target.value)}>
+                {BET_KIND_OPTIONS.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <label>
+              Status
+              <select value={logStatus} onChange={(event) => setLogStatus(event.target.value)}>
+                {STATUS_OPTIONS.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <button className="secondary-action" type="submit">Aplicar filtros</button>
+          </form>
+          {!bets ? (
+            <div className="calendar-state" role="status">Carregando apostas…</div>
+          ) : (
+            <>
+              <div className="table-scroll" tabIndex={0}>
+                <table className="logs-table">
+                  <caption className="sr-only">Registros do log de apostas</caption>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Apostador</th>
+                      <th>Prova</th>
+                      <th>Pilotos</th>
+                      <th>11º</th>
+                      <th>Tipo</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bets.items.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.data ?? "—"}<small>{item.horario ?? ""}</small></td>
+                        <td>{item.apostador ?? "—"}</td>
+                        <td>{item.nome_prova ?? "—"}</td>
+                        <td>{item.pilotos ?? "—"}<small>{item.aposta ?? ""}</small></td>
+                        <td>{item.piloto_11 ?? "—"}</td>
+                        <td>{kindLabel(item)}</td>
+                        <td><span className={statusClass(item.status)}>{item.status ?? "Registrada"}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination page={betPage} pages={bets.pagination.total_pages} onChange={changeBetPage} />
+            </>
+          )}
+        </section>
+      ) : null}
+
+      {activeTab === "access" && isMaster ? (
         <section className="logs-section" aria-labelledby="access-logs-title">
           <div className="panel__heading">
             <div>
@@ -239,7 +283,7 @@ export function LogsView() {
                   <tbody>
                     {access.items.map((item) => (
                       <tr key={item.id}>
-                        <td>{dateTime.format(new Date(item.created_at))}</td>
+                        <td>{formatDateTime(item.created_at)}</td>
                         <td>{item.evento ?? "—"}</td>
                         <td>{item.nome ?? item.email ?? "—"}<small>{item.nome ? item.email : ""}</small></td>
                         <td>{item.perfil ?? "—"}</td>

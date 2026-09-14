@@ -354,9 +354,30 @@ def test_race_bet_form_and_collapsible_navigation_are_connected():
     assert 'aria-invalid={overLimit}' in form
     assert "eleventhConflicts" in form
     assert "O piloto do 11º não pode estar entre os apostados." in form
+    assert "/api/v1/race-bets/generate?season=" in form
+    assert '"Sem ideias"' in form
     assert 'aria-expanded={isExpanded}' in shell
     assert 'aria-current={active ? "page" : undefined}' in shell
     assert "/api/v1/race-bets" in openapi["paths"]
+    assert "/api/v1/race-bets/generate" in openapi["paths"]
+
+
+def test_admin_bet_management_preserves_v35_views_and_adds_reports():
+    view = (FRONTEND / "src/components/bets-admin-view.tsx").read_text(encoding="utf-8")
+    shell = (FRONTEND / "src/components/app-shell.tsx").read_text(encoding="utf-8")
+    openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
+    assert 'label: "Gestão de apostas"' in shell
+    assert 'href: "/admin/apostas"' in shell
+    for label in ("Por prova", "Por usuário", "Relatórios"):
+        assert label in view
+    assert "/api/v1/admin/bets?season=" in view
+    assert "/api/v1/admin/bets/${kind}" in view
+    assert "Enviar lembrete em CCO" in view
+    assert "Enviar lembrete individual" in view
+    assert "Gerar aposta automática" in view
+    assert "automatic_races" in view and "manual_races" in view and "missing_races" in view
+    for path in ("/api/v1/admin/bets", "/api/v1/admin/bets/generate", "/api/v1/admin/bets/reminder"):
+        assert path in openapi["paths"]
 
 
 def test_phase7_admin_contract_is_explicitly_versioned_and_server_authorized():
@@ -368,6 +389,29 @@ def test_phase7_admin_contract_is_explicitly_versioned_and_server_authorized():
     assert "authorize_context" in service
     assert 'frozenset({"master"})' in service
     assert "positions: dict[str, Any]" in routes
+
+
+def test_result_retirements_are_compact_and_use_team_markers():
+    view = (FRONTEND / "src/components/results-admin-view.tsx").read_text(encoding="utf-8")
+    css = (FRONTEND / "src/app/globals.css").read_text(encoding="utf-8")
+    assert "getOptionalTeamMarkerBackground(driver.team)" in view
+    assert 'className="result-team-marker"' in view
+    assert ".result-team-marker" in css
+    assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in css
+
+
+def test_rules_admin_has_v35_editor_positions_recalculation_and_telemetry_summary():
+    rules = (FRONTEND / "src/components/rules-admin-view.tsx").read_text(encoding="utf-8")
+    telemetry = (FRONTEND / "src/components/dashboard-overview.tsx").read_text(encoding="utf-8")
+    for label in ("Regras por temporada", "Criar/Editar regras", "Pontuação por posição"):
+        assert label in rules
+    for field in ("bonus_vencedor", "bonus_podio_completo", "pontos_sprint_pole", "penalidade_auto_percent"):
+        assert field in rules
+    assert "/api/v1/admin/rules/position-points" in rules
+    assert "/api/v1/admin/rules/recalculate" in rules
+    assert "Recalcular pontuação da temporada" in rules
+    assert "Regras Vigentes" in telemetry
+    assert "current_rules.position_points" in telemetry
 
 
 def test_master_can_edit_users_drivers_and_races_in_v4_catalog():

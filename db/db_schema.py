@@ -95,6 +95,7 @@ def init_db() -> None:
             status               TEXT DEFAULT 'ativo',
             must_change_password BOOLEAN DEFAULT FALSE,
             faltas               INTEGER DEFAULT 0,
+            timezone             TEXT DEFAULT 'America/Sao_Paulo',
             criado_em            TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 

@@ -84,6 +84,20 @@ def add_password_reset_flag_if_missing() -> None:
             conn.rollback()
 
 
+def add_user_timezone_if_missing() -> None:
+    """Adiciona coluna de timezone aos usuarios com padrao America/Sao_Paulo."""
+    with get_pool().get_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            if table_exists(conn, "usuarios"):
+                _add_column_if_missing(cursor, conn, "usuarios", "timezone", "timezone TEXT DEFAULT 'America/Sao_Paulo'")
+                cursor.execute("UPDATE usuarios SET timezone = 'America/Sao_Paulo' WHERE COALESCE(timezone, '') = ''")
+            conn.commit()
+        except Exception as exc:
+            logger.debug("Erro ao adicionar timezone: %s", exc)
+            conn.rollback()
+
+
 def create_auth_sessions_and_retention() -> None:
     """Cria controle de sessao e aplica retencao configurada no bootstrap."""
     login_days = max(1, int(os.environ.get("LOGIN_ATTEMPTS_RETENTION_DAYS", "30")))
@@ -514,6 +528,7 @@ def run_migrations() -> None:
             add_penalidade_auto_percent_if_missing()
             harden_log_apostas_datetime_fields()
             backfill_log_apostas_status_nao_efetiva()
+            add_user_timezone_if_missing()
             create_access_logs_table_if_missing()
             create_application_logs_table_if_missing()
             create_usuarios_status_historico_if_missing()

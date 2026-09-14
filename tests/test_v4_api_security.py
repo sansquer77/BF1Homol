@@ -171,6 +171,24 @@ class V4ApiSecurityTests(unittest.TestCase):
         finally:
             app.dependency_overrides.clear()
 
+    def test_timezone_update_persists_and_returns_user_response(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(7, "Ana", "participante", "ativo", frozenset({"2026"}), "America/Sao_Paulo")
+        headers = {"Origin": "https://bf1.test"}
+        try:
+            with patch("services.account_v4_service.change_own_timezone", return_value={"id": 7, "nome": "Ana", "email": "ana@example.com", "perfil": "participante", "status": "ativo", "timezone": "America/New_York"}):
+                response = self.client.put("/api/v1/auth/account/timezone", headers=headers, json={"timezone": "America/New_York"})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["timezone"], "America/New_York")
+
+            with patch("services.account_v4_service.change_own_timezone", side_effect=ValueError("Timezone inválido.")):
+                response = self.client.put("/api/v1/auth/account/timezone", headers=headers, json={"timezone": "Mars/Phobos"})
+            self.assertEqual(response.status_code, 422)
+        finally:
+            app.dependency_overrides.clear()
+
     def test_f1_dashboard_requires_authentication_but_allows_historical_season(self):
         from api.dependencies import get_current_context
         from api.main import app

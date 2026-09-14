@@ -25,7 +25,7 @@ function readCookie(name: string): string | undefined {
 }
 
 export class ApiRequestError extends Error {
-  constructor(public readonly status: number, public readonly requestId?: string) {
+  constructor(public readonly status: number, public readonly requestId?: string, public readonly detail?: string) {
     super(status === 401 ? "Sua sessão expirou. Entre novamente." : "Não foi possível concluir a solicitação.");
   }
 }
@@ -43,7 +43,7 @@ export async function apiRequest<T>(path: `/api/v1/${string}`, init: RequestInit
   const response = await fetch(path, { ...init, method, headers, credentials: "include", cache: "no-store" });
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as Partial<ApiError>;
-    throw new ApiRequestError(response.status, body.request_id ?? response.headers.get("X-Request-ID") ?? undefined);
+    throw new ApiRequestError(response.status, body.request_id ?? response.headers.get("X-Request-ID") ?? undefined, body.detail);
   }
   return response.json() as Promise<T>;
 }

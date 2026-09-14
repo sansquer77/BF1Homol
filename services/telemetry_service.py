@@ -136,10 +136,28 @@ def build_telemetry_snapshot(
         except (TypeError, ValueError):
             continue
 
+    current_rules = None
     try:
         from services.rules_service import get_regras_aplicaveis
-        rules = get_regras_aplicaveis(season, "Normal")
+        next_race_type = str((next_race or {}).get("type") or "Normal")
+        rules = get_regras_aplicaveis(season, next_race_type)
         next_penalty_percent = min(100.0, max(0.0, _number(rules.get("penalidade_auto_percent", 20))))
+        if next_race is not None:
+            current_rules = {
+                "name": str(rules.get("nome_regra") or "Regra vigente"),
+                "race_type": next_race_type,
+                "total_chips": int(_number(rules.get("quantidade_fichas"))),
+                "max_chips_per_driver": int(_number(rules.get("fichas_por_piloto"))),
+                "minimum_drivers": int(_number(rules.get("qtd_minima_pilotos"))),
+                "allow_same_team": bool(rules.get("mesma_equipe")),
+                "discard_enabled": bool(rules.get("descarte")),
+                "eleventh_bonus": int(_number(rules.get("pontos_11_colocado"))),
+                "retirement_penalty_enabled": bool(rules.get("penalidade_abandono")),
+                "retirement_penalty_points": int(_number(rules.get("pontos_penalidade"))),
+                "automatic_bet_penalty_percent": next_penalty_percent,
+                "doubled_sprint_points": bool(rules.get("pontos_dobrada")),
+                "position_points": [int(_number(value)) for value in rules.get("pontos_posicoes", [])],
+            }
     except Exception:
         next_penalty_percent = 20.0
 
@@ -147,6 +165,7 @@ def build_telemetry_snapshot(
         "user_name": str(user_name),
         "season": season,
         "next_race": next_race,
+        "current_rules": current_rules,
         "metrics": {
             "current_position": own_rows[-1]["position"] if own_rows else None,
             "points": round(sum(row["points"] for row in own_rows), 2),

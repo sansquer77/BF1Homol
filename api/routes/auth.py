@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from api.auth_backend import recent_failures, record_access, record_attempt
 from api.config import settings
 from api.dependencies import get_current_context
-from api.schemas import AccountEmailChange, AccountPasswordChange, LoginRequest, MessageResponse, PasswordResetConfirm, PasswordResetRequest, UserResponse
+from api.schemas import AccountEmailChange, AccountPasswordChange, AccountTimezoneChange, LoginRequest, MessageResponse, PasswordResetConfirm, PasswordResetRequest, UserResponse
 from api.security import clear_session_cookies, issue_session_cookies
 from db.db_config import LOCKOUT_DURATION, MAX_LOGIN_ATTEMPTS, MAX_RESET_ATTEMPTS, RESET_LOCKOUT_DURATION
 from services.access_control import AuthenticatedContext
@@ -20,9 +20,15 @@ GENERIC_RESET = "Se o email estiver cadastrado, você receberá as instruções 
 
 
 def _user_response(user: dict) -> UserResponse:
-    return UserResponse(id=int(user["id"]), nome=str(user.get("nome") or ""), email=str(user.get("email") or ""),
-                        perfil=str(user.get("perfil") or "participante").lower(), status=str(user.get("status") or "").lower(),
-                        must_change_password=bool(user.get("must_change_password") or False))
+    return UserResponse(
+        id=int(user["id"]),
+        nome=str(user.get("nome") or ""),
+        email=str(user.get("email") or ""),
+        perfil=str(user.get("perfil") or "participante").lower(),
+        status=str(user.get("status") or "").lower(),
+        must_change_password=bool(user.get("must_change_password") or False),
+        timezone=str(user.get("timezone") or "America/Sao_Paulo"),
+    )
 
 
 @router.post("/login", response_model=UserResponse, responses={401: {"description": GENERIC_LOGIN}})
@@ -90,6 +96,18 @@ def update_own_password(payload: AccountPasswordChange, response: Response, cont
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     clear_session_cookies(response)
     return MessageResponse(message="Senha alterada. Entre novamente com a nova senha.")
+
+
+@router.put("/account/timezone", response_model=UserResponse)
+def update_own_timezone(payload: AccountTimezoneChange, context: AuthenticatedContext = Depends(get_current_context)) -> UserResponse:
+    from services.account_v4_service import change_own_timezone
+    from services.access_control import AuthorizationDenied
+    try:
+        return _user_response(change_own_timezone(context, payload.timezone))
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
 @router.post("/refresh", response_model=UserResponse)

@@ -2,8 +2,8 @@
 tipo: spec
 area: apostas
 status: implementado
-versao: 1.2
-atualizado: 2026-09-12
+versao: 1.3
+atualizado: 2026-09-13
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[specs/deadline-de-apostas]]"
@@ -53,13 +53,18 @@ explicitamente autorizadas.
 6. Quando `mesma_equipe` é falso, equipes apostadas não se repetem.
 7. Persistência só ocorre com composição válida, deadline válido e contexto autorizado.
 8. Escrita invalida caches de apostas e registra auditoria.
+9. A ação `Sem ideias` gera e registra uma composição válida usando o serviço
+   legado, com estratégia assistida quando disponível e fallback aleatório.
+10. A aposta criada por `Sem ideias` é manual (`automatica = 0`) e não consome
+    o benefício reservado às ausências automáticas.
 
 ## Interface, serviços e dados
 
 - Telas: `ui/painel.py` no V3 e `/apostas` no frontend V4.
 - Serviços: `services/bets_rules.py`, `services/bets_write.py` e `services/race_bets_v4_service.py`.
 - Tabelas: `apostas`, `log_apostas`, `provas`, `pilotos`, `regras`.
-- API V4: `GET /api/v1/race-bets` e `POST /api/v1/race-bets`; a identidade vem exclusivamente da sessão.
+- API V4: `GET /api/v1/race-bets`, `POST /api/v1/race-bets` e
+  `POST /api/v1/race-bets/generate`; a identidade vem exclusivamente da sessão.
 
 ## Critérios de aceite
 
@@ -75,13 +80,17 @@ explicitamente autorizadas.
 10. Dada uma distribuição acima do total ou do máximo por piloto, quando o
     usuário edita a aposta, então a linha e o resumo correspondentes ficam em
     estado visual vermelho e acessível antes do envio.
+11. Dada uma prova aberta, quando o usuário aciona `Sem ideias`, então uma
+    aposta válida é registrada e o formulário é recarregado com a composição.
+12. Dada prova encerrada ou falha do gerador, quando `Sem ideias` é acionado,
+    então nenhuma aposta inválida é persistida e a interface informa a falha.
 
 ## Verificação
 
 - Critérios 2 a 7 — `tests/test_bets_rules_extended.py`.
 - Critério 8 — `tests/test_apostas_dataframe_contract.py` e `tests/test_performance_optimizations.py`.
 - Critério 1 — verificação de integração do fluxo de envio.
-- Critérios 1–10 na V4 — `tests/test_race_bets_v4.py`, contrato estático do frontend e testes de API/segurança.
+- Critérios 1–12 na V4 — `tests/test_race_bets_v4.py`, contrato estático do frontend e testes de API/segurança.
 
 ## Pendências
 
@@ -97,9 +106,11 @@ explicitamente autorizadas.
 - [x] Relacionar validações e contratos de UI. Fecha: critérios 2 a 8.
 - [x] Expor formulário responsivo e endpoints V4 usando identidade da sessão, regras e escrita legadas. Fecha: critérios 1 a 9.
 - [x] Sinalizar visualmente total e piloto acima dos limites vigentes. Fecha: critério 10.
+- [x] Expor `Sem ideias` reutilizando o gerador V3 e recarregar a composição. Fecha: critérios 11 e 12.
 
 ## Changelog
 
+- `1.3` — 2026-09-13 — Formulário V4 recebe geração `Sem ideias` compatível com o fluxo V3.5.
 - `1.2` — 2026-09-12 — Formulário passa a destacar em vermelho pilotos e total de fichas acima dos limites da regra.
 - `1.1` — 2026-09-10 — Formulário de apostas V4 conectado a provas, pilotos, regras, deadline e persistência legada.
 - `1.0` — 2026-07-31 — Fluxo de aposta de prova especificado.

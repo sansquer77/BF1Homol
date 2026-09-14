@@ -2,8 +2,8 @@
 tipo: spec
 area: resultados
 status: implementado
-versao: 1.1
-atualizado: 2026-09-12
+versao: 1.2
+atualizado: 2026-09-13
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[specs/pontuacao-de-provas]]"
@@ -16,7 +16,7 @@ aliases: ["Resultados de Provas"]
 # Resultados de provas
 
 > [!info] Status
-> **implementado** · área: `resultados` · atualizado em 2026-09-12 · relacionados: [[02_regras_de_negocio]], [[specs/pontuacao-de-provas]], [[specs/classificacao]], [[specs/controle-de-acesso]]
+> **implementado** · área: `resultados` · atualizado em 2026-09-13 · relacionados: [[02_regras_de_negocio]], [[specs/pontuacao-de-provas]], [[specs/classificacao]], [[specs/controle-de-acesso]]
 
 ## Problema
 
@@ -54,6 +54,8 @@ Admin e master registram resultados; demais perfis apenas consomem os efeitos.
    abandonos referenciam pilotos ativos antes de qualquer escrita.
 9. O processamento persiste o resultado legado, recalcula todas as posições da
    temporada e só então tenta as notificações.
+10. A seleção de abandonos usa uma grade compacta e identifica visualmente cada
+    piloto com a cor da equipe, sem depender somente da cor para o entendimento.
 
 ## Interface, serviços e dados
 
@@ -76,12 +78,16 @@ Admin e master registram resultados; demais perfis apenas consomem os efeitos.
 9. Dada prova de outra temporada, piloto inativo/desconhecido ou posições duplicadas, então a API rejeita sem recalcular.
 10. Dado resultado válido pela V4, então a resposta confirma persistência,
     recálculo e estatísticas de notificação, e a próxima prova pendente é sugerida.
+11. Dada a lista de pilotos ativos, quando a área de abandonos é exibida, então
+    os controles ocupam uma grade compacta e cada nome recebe uma barra com a
+    cor canônica da equipe, mantendo checkbox, nome e equipe acessíveis.
 
 ## Verificação
 
 - Critérios 1 a 4 — `tests/test_result_default_race.py`.
 - Critérios 5, 6 e 8–10 — `tests/test_results_admin_v4_service.py`,
   `tests/test_classification_workflow.py`, `tests/test_access_matrix.py` e `tests/test_admin_ui_has_no_writes.py`.
+- Critério 11 — contrato estático do frontend e build Next.js.
 - Critério 7 — verificação de integração do envio de email.
 
 ## Pendências
@@ -97,9 +103,11 @@ Admin e master registram resultados; demais perfis apenas consomem os efeitos.
 - [x] Documentar seleção, persistência e recálculo. Fecha: critérios 1 a 6.
 - [x] Registrar tratamento de notificação parcial. Fecha: critério 7.
 - [x] Expor leitura, edição e processamento completo na V4. Fecha: critérios 8–10.
+- [x] Compactar a seleção de abandonos e aplicar marcadores de equipe. Fecha: critério 11.
 
 ## Changelog
 
+- `1.2` — 2026-09-13 — Grade de abandonos compactada e identificada pelas cores das equipes.
 - `1.1` — 2026-09-12 — Interface e API V4 passam a validar, pré-carregar, salvar, recalcular e notificar resultados.
 - `1.0` — 2026-07-31 — Fluxo atual de resultados especificado.
 

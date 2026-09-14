@@ -189,6 +189,24 @@ def update_user_password(user_id: int, nova_senha: str, must_change_password: bo
         return False
 
 
+def update_user_timezone(user_id: int, timezone: str) -> bool:
+    try:
+        with db_connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE usuarios SET timezone = %s WHERE id = %s",
+                (timezone, user_id),
+            )
+            cur.close()
+            conn.commit()
+        clear_data_cache("usuarios")
+        logger.info("Timezone do usuário %s atualizado para %s", user_id, timezone)
+        return True
+    except Exception as exc:
+        logger.error("Erro ao atualizar timezone: %s", exc)
+        return False
+
+
 def update_usuario(user_id: int, **campos) -> bool:
     if not campos:
         return False
@@ -383,6 +401,7 @@ __all__ = [
     "autenticar_usuario",
     "update_user_email",
     "update_user_password",
+    "update_user_timezone",
     "update_usuario",
     "delete_usuario",
     "get_usuarios_df",

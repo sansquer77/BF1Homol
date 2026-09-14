@@ -58,7 +58,7 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 
 ## Interface, serviços e dados
 
-- Telas: Monitoramento → Log de Acessos e Log de Apostas.
+- Telas: Informações → Logs, com abas **Apostas** (todos os perfis autorizados) e **Acessos** (exclusivo do Master).
 - Serviços/repositórios: controle de acesso, `db/repo_logs.py` e consultas paginadas.
 - Persistência: tabelas de logs de acesso e de apostas.
 - API V4: `GET /api/v1/logs/bets` com escopo derivado da sessão,
@@ -80,6 +80,9 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 11. Dada interface V4, quando o usuário filtrar por tipo, então as opções são no prazo, fora do prazo e automática.
 12. Dada interface V4, quando o usuário filtrar por status, então as opções são Registrada e Não efetiva.
 13. Dado registro com status **Não efetiva**, quando exibido na interface V4, então recebe destaque visual de aviso.
+14. Dada interface V4 de Logs, quando o usuário acessar, então a aba ativa padrão é **Apostas**.
+15. Dado perfil diferente de Master, quando acessar a tela de Logs, então a aba **Acessos** não é exibida.
+16. Dado Master, quando alternar para a aba **Acessos**, então o log de acessos é carregado com filtros de data, usuário/email e paginação.
 
 ## Verificação
 
@@ -87,7 +90,7 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
   `tests/test_logs_read_service_v4.py`, `tests/test_v4_api_security.py`,
   `tests/test_proxy_topology.py` e `tests/test_access_matrix.py`.
 - Critério 7 — inspeção automatizada/manual dos campos de log e tentativa de autenticação com valor sentinela.
-- Critérios 8–13 — testes: `tests/test_log_apostas_nao_efetiva.py` e verificação visual da tela V4.
+- Critérios 8–16 — testes: `tests/test_log_apostas_nao_efetiva.py`, `tests/test_v4_frontend_foundation.py` e verificação visual da tela V4.
 
 ## Pendências
 

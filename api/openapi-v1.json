@@ -210,6 +210,302 @@
         "title": "AccountPasswordChange",
         "type": "object"
       },
+      "AccountTimezoneChange": {
+        "additionalProperties": false,
+        "properties": {
+          "timezone": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timezone"
+        ],
+        "title": "AccountTimezoneChange",
+        "type": "object"
+      },
+      "AdminBetActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "race_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Race Id",
+            "type": "integer"
+          },
+          "season": {
+            "pattern": "^\\d{4}$",
+            "title": "Season",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "season",
+          "race_id"
+        ],
+        "title": "AdminBetActionRequest",
+        "type": "object"
+      },
+      "AdminBetActionResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "recipients": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipients"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "AdminBetActionResponse",
+        "type": "object"
+      },
+      "AdminBetParticipant": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "email"
+        ],
+        "title": "AdminBetParticipant",
+        "type": "object"
+      },
+      "AdminBetRace": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "race_id": {
+            "title": "Race Id",
+            "type": "integer"
+          },
+          "time": {
+            "title": "Time",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "race_id",
+          "name",
+          "date",
+          "time",
+          "type"
+        ],
+        "title": "AdminBetRace",
+        "type": "object"
+      },
+      "AdminBetRecord": {
+        "properties": {
+          "automatic_generation": {
+            "default": 0,
+            "title": "Automatic Generation",
+            "type": "integer"
+          },
+          "chips": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Chips",
+            "type": "array"
+          },
+          "drivers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Drivers",
+            "type": "array"
+          },
+          "eleventh_driver": {
+            "title": "Eleventh Driver",
+            "type": "string"
+          },
+          "race_id": {
+            "title": "Race Id",
+            "type": "integer"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "race_id",
+          "drivers",
+          "chips",
+          "eleventh_driver"
+        ],
+        "title": "AdminBetRecord",
+        "type": "object"
+      },
+      "AdminBetReport": {
+        "properties": {
+          "automatic_races": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Automatic Races",
+            "type": "array"
+          },
+          "automatic_total": {
+            "title": "Automatic Total",
+            "type": "integer"
+          },
+          "bets_total": {
+            "title": "Bets Total",
+            "type": "integer"
+          },
+          "manual_races": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Manual Races",
+            "type": "array"
+          },
+          "manual_total": {
+            "title": "Manual Total",
+            "type": "integer"
+          },
+          "missing_races": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Races",
+            "type": "array"
+          },
+          "missing_total": {
+            "title": "Missing Total",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "bets_total",
+          "manual_total",
+          "automatic_total",
+          "missing_total",
+          "manual_races",
+          "automatic_races",
+          "missing_races"
+        ],
+        "title": "AdminBetReport",
+        "type": "object"
+      },
+      "AdminBetsResponse": {
+        "properties": {
+          "bets": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBetRecord"
+            },
+            "title": "Bets",
+            "type": "array"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBetParticipant"
+            },
+            "title": "Participants",
+            "type": "array"
+          },
+          "races": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBetRace"
+            },
+            "title": "Races",
+            "type": "array"
+          },
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBetReport"
+            },
+            "title": "Reports",
+            "type": "array"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "participants",
+          "races",
+          "bets",
+          "reports"
+        ],
+        "title": "AdminBetsResponse",
+        "type": "object"
+      },
       "AdminParticipant": {
         "properties": {
           "id": {
@@ -2589,6 +2885,21 @@
         "title": "RaceBetDriver",
         "type": "object"
       },
+      "RaceBetGenerateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "race_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Race Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "race_id"
+        ],
+        "title": "RaceBetGenerateRequest",
+        "type": "object"
+      },
       "RaceBetOption": {
         "properties": {
           "date": {
@@ -3140,6 +3451,52 @@
         "title": "RuleCloneRequest",
         "type": "object"
       },
+      "RulePositionPointsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "points": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Points",
+            "type": "array"
+          },
+          "race_type": {
+            "pattern": "^(Normal|Sprint)$",
+            "title": "Race Type",
+            "type": "string"
+          },
+          "season": {
+            "pattern": "^\\d{4}$",
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season",
+          "race_type",
+          "points"
+        ],
+        "title": "RulePositionPointsRequest",
+        "type": "object"
+      },
+      "RuleRecalculateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "season": {
+            "pattern": "^\\d{4}$",
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season"
+        ],
+        "title": "RuleRecalculateRequest",
+        "type": "object"
+      },
       "RuleWriteRequest": {
         "additionalProperties": true,
         "properties": {
@@ -3219,7 +3576,7 @@
           },
           "pontos_penalidade": {
             "maximum": 1000.0,
-            "minimum": 0.0,
+            "minimum": -1000.0,
             "title": "Pontos Penalidade",
             "type": "integer"
           },
@@ -3377,6 +3734,82 @@
           "next_penalty_percent"
         ],
         "title": "TelemetryAutomaticBetStatus",
+        "type": "object"
+      },
+      "TelemetryCurrentRules": {
+        "properties": {
+          "allow_same_team": {
+            "title": "Allow Same Team",
+            "type": "boolean"
+          },
+          "automatic_bet_penalty_percent": {
+            "title": "Automatic Bet Penalty Percent",
+            "type": "number"
+          },
+          "discard_enabled": {
+            "title": "Discard Enabled",
+            "type": "boolean"
+          },
+          "doubled_sprint_points": {
+            "title": "Doubled Sprint Points",
+            "type": "boolean"
+          },
+          "eleventh_bonus": {
+            "title": "Eleventh Bonus",
+            "type": "integer"
+          },
+          "max_chips_per_driver": {
+            "title": "Max Chips Per Driver",
+            "type": "integer"
+          },
+          "minimum_drivers": {
+            "title": "Minimum Drivers",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position_points": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Position Points",
+            "type": "array"
+          },
+          "race_type": {
+            "title": "Race Type",
+            "type": "string"
+          },
+          "retirement_penalty_enabled": {
+            "title": "Retirement Penalty Enabled",
+            "type": "boolean"
+          },
+          "retirement_penalty_points": {
+            "title": "Retirement Penalty Points",
+            "type": "integer"
+          },
+          "total_chips": {
+            "title": "Total Chips",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "race_type",
+          "total_chips",
+          "max_chips_per_driver",
+          "minimum_drivers",
+          "allow_same_team",
+          "discard_enabled",
+          "eleventh_bonus",
+          "retirement_penalty_enabled",
+          "retirement_penalty_points",
+          "automatic_bet_penalty_percent",
+          "doubled_sprint_points",
+          "position_points"
+        ],
+        "title": "TelemetryCurrentRules",
         "type": "object"
       },
       "TelemetryEvolutionPoint": {
@@ -3548,6 +3981,16 @@
         "properties": {
           "automatic_bet": {
             "$ref": "#/components/schemas/TelemetryAutomaticBetStatus"
+          },
+          "current_rules": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TelemetryCurrentRules"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "evolution": {
             "items": {
@@ -3764,6 +4207,11 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "timezone": {
+            "default": "America/Sao_Paulo",
+            "title": "Timezone",
+            "type": "string"
           }
         },
         "required": [
@@ -3891,6 +4339,131 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/bets": {
+      "get": {
+        "operationId": "admin_bets_api_v1_admin_bets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminBetsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Bets",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/bets/generate": {
+      "post": {
+        "operationId": "generate_bet_api_v1_admin_bets_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminBetActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminBetActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Bet",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/bets/reminder": {
+      "post": {
+        "operationId": "remind_bet_api_v1_admin_bets_reminder_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminBetActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminBetActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remind Bet",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/circuits": {
       "get": {
         "operationId": "get_admin_circuits_api_v1_admin_circuits_get",
@@ -4752,7 +5325,123 @@
         ]
       }
     },
+    "/api/v1/admin/rules/position-points": {
+      "put": {
+        "operationId": "update_admin_rule_position_points_api_v1_admin_rules_position_points_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulePositionPointsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Admin Rule Position Points",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/rules/recalculate": {
+      "post": {
+        "operationId": "recalculate_admin_rules_api_v1_admin_rules_recalculate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleRecalculateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recalculate Admin Rules",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/rules/{rule_id}": {
+      "delete": {
+        "operationId": "delete_admin_rule_api_v1_admin_rules__rule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Admin Rule",
+        "tags": [
+          "admin"
+        ]
+      },
       "put": {
         "operationId": "update_admin_rule_api_v1_admin_rules__rule_id__put",
         "parameters": [
@@ -5207,6 +5896,47 @@
           }
         },
         "summary": "Update Own Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/account/timezone": {
+      "put": {
+        "operationId": "update_own_timezone_api_v1_auth_account_timezone_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountTimezoneChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Own Timezone",
         "tags": [
           "auth"
         ]
@@ -6723,6 +7453,59 @@
           }
         },
         "summary": "Submit Race Bet",
+        "tags": [
+          "race-bets"
+        ]
+      }
+    },
+    "/api/v1/race-bets/generate": {
+      "post": {
+        "operationId": "generate_race_bet_route_api_v1_race_bets_generate_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaceBetGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RaceBetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Race Bet Route",
         "tags": [
           "race-bets"
         ]

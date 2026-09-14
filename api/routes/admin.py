@@ -8,11 +8,12 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from api.dependencies import get_current_context
 from services.access_control import AuthenticatedContext, AuthorizationDenied
 from services.admin_v4_service import create_user, list_admin_circuits, list_admin_drivers, list_admin_races, list_admin_teams, list_admin_users, refresh_admin_circuits, update_user, upsert_driver, upsert_race, upsert_team
+from services.admin_bets_v4_service import generate_admin_bet, get_admin_bets, send_admin_bet_reminder
 from services.hall_admin_v4_service import bulk_save_hall, delete_hall_record, list_hall_admin, save_hall_record, update_hall_record
 from services.financial_v4_service import get_financial, save_financial, send_financial_reminder
-from services.rules_admin_v4_service import assign_rule, clone_rule, list_rules, save_rule
+from services.rules_admin_v4_service import assign_rule, clone_rule, delete_rule, list_rules, recalculate_season, save_position_points, save_rule
 from services.results_admin_v4_service import get_result_management, save_and_process_result
-from api.schemas import AdminTeam, FinancialReminderResponse, FinancialResponse, FinancialWriteRequest, ResultManagementResponse, ResultProcessResponse, RuleAssignmentRequest, RuleCloneRequest, RuleWriteRequest, TeamWriteRequest
+from api.schemas import AdminBetActionRequest, AdminBetActionResponse, AdminBetsResponse, AdminTeam, FinancialReminderResponse, FinancialResponse, FinancialWriteRequest, ResultManagementResponse, ResultProcessResponse, RuleAssignmentRequest, RuleCloneRequest, RulePositionPointsRequest, RuleRecalculateRequest, RuleWriteRequest, TeamWriteRequest
 from api.schemas import HallAdminResponse, HallAdminUpdateRequest, HallAdminWriteRequest
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -93,6 +94,35 @@ def _read(action, *args, **kwargs):
     except AuthorizationDenied as exc:
         raise HTTPException(status_code=403, detail="Acesso negado.") from exc
 
+
+@router.get("/bets", response_model=AdminBetsResponse)
+def admin_bets(season: str = Query(pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
+    return _read(get_admin_bets, context, season)
+
+
+@router.post("/bets/generate", response_model=AdminBetActionResponse)
+def generate_bet(payload: AdminBetActionRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    if payload.user_id is None:
+        raise HTTPException(status_code=422, detail="Selecione o participante.")
+    try:
+        message = generate_admin_bet(context, payload.season, payload.user_id, payload.race_id)
+        return {"status": "ok", "message": message}
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/bets/reminder", response_model=AdminBetActionResponse)
+def remind_bet(payload: AdminBetActionRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    try:
+        recipients = send_admin_bet_reminder(context, payload.season, payload.race_id, payload.user_id)
+        return {"status": "ok", "message": "Lembrete enviado com sucesso.", "recipients": recipients}
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
 @router.get("/financial", response_model=FinancialResponse)
 def admin_financial(season: str = Query(pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
     return _read(get_financial, context, season)
@@ -119,6 +149,16 @@ def get_admin_rules(context: AuthenticatedContext = Depends(get_current_context)
 def create_admin_rule(payload: RuleWriteRequest, context: AuthenticatedContext = Depends(get_current_context)):
     return _run(save_rule, context, None, payload.model_dump())
 
+
+@router.put("/rules/position-points")
+def update_admin_rule_position_points(payload: RulePositionPointsRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    try:
+        return save_position_points(context, payload.season, payload.race_type, payload.points)
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
 @router.put("/rules/{rule_id}")
 def update_admin_rule(rule_id: int, payload: RuleWriteRequest, context: AuthenticatedContext = Depends(get_current_context)):
     return _run(save_rule, context, rule_id, payload.model_dump())
@@ -130,6 +170,16 @@ def assign_admin_rule(payload: RuleAssignmentRequest, context: AuthenticatedCont
 @router.post("/rules/{rule_id}/clone", status_code=201)
 def clone_admin_rule(rule_id: int, payload: RuleCloneRequest, context: AuthenticatedContext = Depends(get_current_context)):
     return _run(clone_rule, context, rule_id, payload.name)
+
+
+@router.delete("/rules/{rule_id}")
+def delete_admin_rule(rule_id: int, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(delete_rule, context, rule_id)
+
+
+@router.post("/rules/recalculate")
+def recalculate_admin_rules(payload: RuleRecalculateRequest, context: AuthenticatedContext = Depends(get_current_context)):
+    return _run(recalculate_season, context, payload.season)
 
 
 @router.post("/users", status_code=201)
