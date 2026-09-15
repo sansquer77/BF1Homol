@@ -510,6 +510,28 @@ details th, details td { padding: 8px; text-align: left; border-bottom: 1px soli
 @media (max-width: 480px) { .championship-admin-metrics, .championship-pending-list { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .backup-card { gap: 22px; padding: 22px 18px; }.backup-card__heading { gap: 12px; }.backup-card__heading > span { flex-basis: 34px; width: 34px; height: 34px; }.backup-card .primary-action { width: 100%; } }
 
+/* Gestão de regras: separação visual dos controles e leitura do desconto. */
+.rules-season-panel, .rules-recalculate, .rules-positions { padding: 28px; }
+.rules-season-actions { grid-template-columns: minmax(150px, .32fr) minmax(320px, 1fr) minmax(150px, auto); gap: 20px; margin-top: 22px; }
+.rules-season-actions label, .rules-position-toolbar label { min-width: 0; }
+.rules-season-actions input, .rules-season-actions select, .rules-season-actions .primary-action { width: 100%; min-height: 48px; }
+.rules-season-actions .primary-action { justify-content: center; }
+.rules-current { padding: 14px 16px; border-left: 3px solid var(--coral); border-radius: 0 6px 6px 0; background: rgba(255,255,255,.025); }
+.rules-recalculate { margin-top: 24px; }
+.rules-recalculate .primary-action { flex: 0 0 auto; min-width: 160px; justify-content: center; }
+.rules-summary-list div:nth-child(8) dd::before { content: "-"; }
+
+@media (max-width: 960px) {
+  .rules-season-actions { grid-template-columns: minmax(140px, .35fr) minmax(240px, 1fr); }
+  .rules-season-actions .primary-action { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .rules-season-panel, .rules-recalculate, .rules-positions { padding: 20px 16px; }
+  .rules-season-actions { grid-template-columns: 1fr; gap: 15px; }
+  .rules-season-actions .primary-action { grid-column: auto; }
+  .rules-recalculate .primary-action { width: 100%; }
+}
+
 .participant-tabs { display: flex; gap: 6px; margin: 0 0 24px; padding-bottom: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); }
 .participant-tab { flex: 0 0 auto; padding: 11px 14px; border-bottom: 2px solid transparent; color: var(--muted); font-size: 12px; font-weight: 800; text-decoration: none; }
 .participant-tab:hover, .participant-tab:focus-visible { color: var(--ink); }
