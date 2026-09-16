@@ -82,6 +82,9 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
   mesmo quando a coluna `must_change_password` ainda não foi aplicada no banco,
   evitando o erro "O servidor não conseguiu carregar os registros
   administrativos" em ambientes de homologação.
+- Instrumentação: rotina de listagem de usuários e tela de cadastros passam a
+  expor detalhes técnicos do erro (status e mensagem) no console do navegador e
+  nos logs do servidor, facilitando diagnóstico em homologação.
 
 ### 3.6.0
 

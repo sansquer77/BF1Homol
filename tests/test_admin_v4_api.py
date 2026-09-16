@@ -1,6 +1,26 @@
 from unittest.mock import patch
 
 
+def test_admin_users_route_calls_the_imported_read_service():
+    from fastapi.testclient import TestClient
+    from api.main import app
+    from api.dependencies import get_current_context
+    from services.access_control import AuthenticatedContext
+
+    context = AuthenticatedContext(1, "Master", "master", "ativo", frozenset())
+    expected = [{"id": 2, "name": "Ana", "email": "ana@example.com", "profile": "admin", "status": "ativo", "must_change_password": False}]
+    app.dependency_overrides[get_current_context] = lambda: context
+    try:
+        client = TestClient(app, raise_server_exceptions=False)
+        with patch("api.routes.admin.list_admin_users", return_value=expected) as list_users, patch("db.repo_observability.record_event"):
+            response = client.get("/api/v1/admin/users", headers={"Origin": "https://bf1.test"})
+        assert response.status_code == 200
+        assert response.json() == expected
+        list_users.assert_called_once_with(context)
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_admin_write_routes_deny_participant_and_do_not_call_service():
     from fastapi.testclient import TestClient
     from api.main import app

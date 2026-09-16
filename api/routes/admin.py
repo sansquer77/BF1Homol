@@ -1,13 +1,28 @@
 """Operações administrativas V4; todas revalidam perfil e temporada no serviço."""
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from api.dependencies import get_current_context
 from services.access_control import AuthenticatedContext, AuthorizationDenied
-from services.admin_v4_service import create_user, list_admin_circuits, list_admin_drivers, list_admin_races, list_admin_teams, refresh_admin_circuits, update_user, upsert_driver, upsert_race, upsert_team
+from services.admin_v4_service import (
+    create_user,
+    list_admin_circuits,
+    list_admin_drivers,
+    list_admin_races,
+    list_admin_teams,
+    list_admin_users,
+    refresh_admin_circuits,
+    update_user,
+    upsert_driver,
+    upsert_race,
+    upsert_team,
+)
 from services.admin_bets_v4_service import generate_admin_bet, get_admin_bets, send_admin_bet_reminder
 from services.report_image_service import generate_bets_coverage_image
 from services.hall_admin_v4_service import bulk_save_hall, delete_hall_record, list_hall_admin, save_hall_record, update_hall_record
@@ -210,7 +225,11 @@ def create_admin_user(payload: UserCreateRequest, context: AuthenticatedContext 
 
 @router.get("/users")
 def get_admin_users(context: AuthenticatedContext = Depends(get_current_context)):
-    return _read(list_admin_users, context)
+    try:
+        return _read(list_admin_users, context)
+    except Exception as exc:
+        logger.exception("Failed to list admin users for user_id=%s", getattr(context, "user_id", None))
+        raise
 
 
 @router.patch("/users/{user_id}")

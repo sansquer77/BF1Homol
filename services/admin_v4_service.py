@@ -105,27 +105,35 @@ def save_result(context: AuthenticatedContext, race_id: int, season: str, positi
 def list_admin_users(context: AuthenticatedContext) -> list[dict[str, Any]]:
     _require(context, "usuario.read", frozenset({"master"}))
     from db.db_schema import db_connect, get_table_columns
-    with db_connect() as conn:
-        cols = get_table_columns(conn, "usuarios")
-        has_must_change = "must_change_password" in cols
-        select_cols = "id,nome,email,perfil,status"
-        if has_must_change:
-            select_cols += ",must_change_password"
-        cur = conn.cursor()
-        cur.execute(f"SELECT {select_cols} FROM usuarios ORDER BY nome")  # noqa: S608 — colunas são literais controlados acima.
-        rows = cur.fetchall()
-        cur.close()
-    return [
-        {
-            "id": r["id"],
-            "name": r["nome"],
-            "email": r["email"],
-            "profile": r["perfil"],
-            "status": r["status"],
-            "must_change_password": bool(r.get("must_change_password")) if has_must_change else False,
-        }
-        for r in rows
-    ]
+    try:
+        with db_connect() as conn:
+            try:
+                cols = get_table_columns(conn, "usuarios")
+                has_must_change = "must_change_password" in cols
+            except Exception as col_exc:
+                logger.warning("Could not read usuarios columns, assuming legacy schema: %s", col_exc)
+                has_must_change = False
+            select_cols = "id,nome,email,perfil,status"
+            if has_must_change:
+                select_cols += ",must_change_password"
+            cur = conn.cursor()
+            cur.execute(f"SELECT {select_cols} FROM usuarios ORDER BY nome")  # noqa: S608 — colunas são literais controlados acima.
+            rows = cur.fetchall()
+            cur.close()
+        return [
+            {
+                "id": r["id"],
+                "name": r["nome"],
+                "email": r["email"],
+                "profile": r["perfil"],
+                "status": r["status"],
+                "must_change_password": bool(r.get("must_change_password")) if has_must_change else False,
+            }
+            for r in rows
+        ]
+    except Exception as exc:
+        logger.exception("list_admin_users failed: %s", exc)
+        raise
 
 
 def list_admin_drivers(context: AuthenticatedContext) -> list[dict[str, Any]]:

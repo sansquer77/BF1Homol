@@ -35,13 +35,17 @@ export function AdminCatalogView() {
   const set = (key: string, next: string | boolean) => setForm((current) => ({ ...current, [key]: next }));
   const cancelEdit = () => { setEditingId(null); setForm({}); setError(""); };
 
+  const [errorDetail, setErrorDetail] = useState("");
+
   const load = useCallback(() => {
     if (!identity) return;
     const path = tab === "users" ? "/api/v1/admin/users" : tab === "teams" ? "/api/v1/admin/teams" : tab === "drivers" ? "/api/v1/admin/drivers" : `/api/v1/admin/races?season=${season}`;
-    setError("");
+    setError(""); setErrorDetail("");
     apiRequest<Item[]>(path as `/api/v1/${string}`).then(setItems).catch((reason) => {
+      const detail = reason instanceof ApiRequestError ? `HTTP ${reason.status}${reason.detail ? ` — ${reason.detail}` : ""}` : String(reason);
       // eslint-disable-next-line no-console
-      console.error("admin-catalog load failed", reason);
+      console.error("admin-catalog load failed", path, detail, reason);
+      setErrorDetail(detail);
       setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não tem permissão para este cadastro." : "O servidor não conseguiu carregar os registros administrativos.");
     });
   }, [identity, season, tab]);
@@ -135,7 +139,7 @@ export function AdminCatalogView() {
       {tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "admin-tab admin-tab--active" : "admin-tab"} onClick={() => selectTab(key)}>{label}</button>)}
       {tab === "races" ? <><label className="admin-season">Temporada<input inputMode="numeric" pattern="[0-9]{4}" value={season} onChange={(event) => { setSeason(event.target.value); cancelEdit(); }} /></label><button type="button" className="admin-tab" disabled={refreshingCircuits || !/^\d{4}$/.test(season)} onClick={refreshCircuits}>{refreshingCircuits ? "Atualizando…" : "Atualizar circuitos"}</button></> : null}
     </div>
-    {error ? <div className="calendar-state calendar-state--error" role="alert">{error}</div> : null}
+    {error ? <div className="calendar-state calendar-state--error" role="alert">{error}{errorDetail && canEdit ? <><br /><small>{errorDetail}</small></> : null}</div> : null}
     {notice ? <div className="calendar-state" role="status">{notice}</div> : null}
     {tab === "teams" && !canEdit ? null : <section className="panel admin-form"><div className="panel__heading"><h2>{title}</h2>{editingId !== null ? <button type="button" className="table-action" onClick={cancelEdit}>Cancelar edição</button> : null}</div><form className="admin-fields" onSubmit={submit}>
       <label>Nome<input required value={value("name")} onChange={(event) => set("name", event.target.value)} /></label>
