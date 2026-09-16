@@ -5,6 +5,7 @@ from typing import Any
 import pandas as pd
 
 from db.migrations_native_types import parse_posicoes_safe
+from utils.ttl_cache import ttl_cache
 
 
 def _records(frame: pd.DataFrame | None) -> list[dict[str, Any]]:
@@ -52,6 +53,7 @@ def _allocation_contributions(
     return allocation_rows
 
 
+@ttl_cache(ttl=60, tags=("personal_bets", "telemetry"))
 def build_personal_bets(user_id: int, season: str) -> dict[str, Any]:
     from db.repo_bets import get_apostas_df
     from db.repo_races import get_provas_df, get_resultados_df
@@ -95,6 +97,7 @@ def build_personal_bets(user_id: int, season: str) -> dict[str, Any]:
     return {"season": str(season), "entries": entries, "discard_active": discard_active, "discard_race": discard[0] if discard else None, "discard_points": discard[1] if discard else None}
 
 
+@ttl_cache(ttl=60, tags=("personal_history", "telemetry"))
 def build_personal_history(user_id: int) -> dict[str, Any]:
     from db.db_schema import db_connect
     from services.hall_da_fama_controller import resolve_hall_source

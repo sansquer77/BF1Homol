@@ -7,8 +7,10 @@ from typing import Any
 
 from db.db_schema import db_connect
 from services.hall_da_fama_controller import resolve_hall_source
+from utils.ttl_cache import ttl_cache
 
 
+@ttl_cache(ttl=60, tags=("hall_da_fama",))
 def build_hall_of_fame() -> dict[str, Any]:
     with db_connect() as conn:
         source, _ = resolve_hall_source(conn)

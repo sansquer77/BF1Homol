@@ -85,6 +85,11 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 - Instrumentação: rotina de listagem de usuários e tela de cadastros passam a
   expor detalhes técnicos do erro (status e mensagem) no console do navegador e
   nos logs do servidor, facilitando diagnóstico em homologação.
+- Performance: cache TTL adicionado aos endpoints de leitura da V4
+  (Telemetria, Calendário, Hall da Fama, Análise de Apostas, Histórico Pessoal,
+  Apostas Pessoais, Dashboard F1 e Logs) e proteção contra thundering herd no
+  cache de previsão do tempo; invalidações de cache atualizadas em escritas de
+  provas, resultados e apostas.
 
 ### 3.6.0
 

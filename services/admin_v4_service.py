@@ -90,7 +90,7 @@ def upsert_race(context: AuthenticatedContext, race_id: int | None, season: str,
         ok = update_prova(int(race_id), **clean)
     if not ok:
         raise ValueError("Não foi possível salvar a prova.")
-    clear_data_cache("classificacao")
+    clear_data_cache("classificacao", "calendar", "telemetry", "bets_analysis")
 
 
 def save_result(context: AuthenticatedContext, race_id: int, season: str, positions: dict[str, Any], retirements: list[str]) -> None:

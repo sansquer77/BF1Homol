@@ -163,7 +163,7 @@ def add_prova(
                 cur.execute("INSERT INTO provas (nome,data,horario_prova,tipo,status,temporada) VALUES (%s,%s,%s,%s,%s,%s)", (nome,data,horario_prova,tipo,status,temporada))
             cur.close()
             conn.commit()
-        clear_data_cache("provas")
+        clear_data_cache("provas", "calendar", "telemetry", "bets_analysis", "classificacao")
         return True
     except Exception as exc:
         logger.error("add_prova falhou: %s", exc)
@@ -185,7 +185,7 @@ def update_prova(prova_id: int, **campos) -> bool:
             cur.execute(f"UPDATE provas SET {set_clause} WHERE id = %s", values)
             cur.close()
             conn.commit()
-        clear_data_cache("provas")
+        clear_data_cache("provas", "calendar", "telemetry", "bets_analysis", "classificacao")
         return True
     except Exception as exc:
         logger.error("update_prova falhou: %s", exc)
@@ -199,7 +199,7 @@ def delete_prova(prova_id: int) -> bool:
             cur.execute("DELETE FROM provas WHERE id = %s", (prova_id,))
             cur.close()
             conn.commit()
-        clear_data_cache("provas")
+        clear_data_cache("provas", "calendar", "telemetry", "bets_analysis", "classificacao")
         return True
     except Exception as exc:
         logger.error("delete_prova falhou: %s", exc)
@@ -233,7 +233,7 @@ def salvar_resultado(prova_id: int, posicoes: str, abandono_pilotos: str = "") -
             )
             cur.close()
             conn.commit()
-        clear_data_cache("resultados", "historico", "classificacao")
+        clear_data_cache("resultados", "historico", "classificacao", "telemetry", "bets_analysis")
         return True
     except Exception as exc:
         logger.error("salvar_resultado falhou: %s", exc)

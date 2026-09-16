@@ -6,6 +6,8 @@ from datetime import date, datetime, time, timedelta
 from math import ceil
 from typing import Any
 
+from utils.ttl_cache import ttl_cache
+
 
 def _pagination(total: int, requested_page: int, page_size: int) -> dict[str, int]:
     size = max(1, min(int(page_size), 200))
@@ -24,6 +26,7 @@ def _row(row: Any) -> dict[str, Any]:
     return {str(key): _json_value(value) for key, value in dict(row).items()}
 
 
+@ttl_cache(ttl=15, tags=("logs", "betting_logs"))
 def list_betting_logs(
     season: str,
     *,
@@ -110,6 +113,7 @@ def list_betting_logs(
     return {"season": str(season), "scope": "individual" if scope_user_id is not None else "all", "pagination": pagination, "items": items}
 
 
+@ttl_cache(ttl=15, tags=("logs", "access_logs"))
 def list_access_logs(
     start: date,
     end: date,

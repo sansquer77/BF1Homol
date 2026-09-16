@@ -7,7 +7,10 @@ from typing import Any
 
 import pandas as pd
 
+from utils.ttl_cache import ttl_cache
 
+
+@ttl_cache(ttl=60, tags=("bets_analysis",))
 def build_bets_analysis(season: str, *, scope_user_id: int | None, include_participants: bool = False) -> dict[str, Any]:
     from db.repo_bets import get_apostas_df, get_participantes_temporada_df
     from db.repo_races import get_pilotos_df, get_provas_df, get_resultados_df

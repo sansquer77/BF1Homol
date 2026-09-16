@@ -6,6 +6,8 @@ from typing import Any
 
 import pandas as pd
 
+from utils.ttl_cache import ttl_cache
+
 
 def _records(frame: Any) -> list[dict[str, Any]]:
     if not isinstance(frame, pd.DataFrame) or frame.empty:
@@ -13,6 +15,7 @@ def _records(frame: Any) -> list[dict[str, Any]]:
     return [{str(key): (None if pd.isna(value) else value) for key, value in row.items()} for row in frame.to_dict("records")]
 
 
+@ttl_cache(ttl=60, tags=("f1_dashboard",))
 def build_f1_dashboard(season: str) -> dict[str, Any]:
     """Carrega estatísticas oficiais sem misturá-las aos dados do bolão."""
     from utils.data_utils import (

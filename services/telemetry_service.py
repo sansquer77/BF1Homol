@@ -9,6 +9,7 @@ import pandas as pd
 
 from services.painel_controller import ordenar_provas_por_calendario, parse_evento_prova_dt
 from utils.datetime_utils import now_sao_paulo
+from utils.ttl_cache import ttl_cache
 
 
 def _records(frame: pd.DataFrame | None) -> list[dict[str, Any]]:
@@ -22,6 +23,7 @@ def _number(value: object) -> float:
     return 0.0 if pd.isna(parsed) else float(parsed)
 
 
+@ttl_cache(ttl=60, tags=("telemetry",))
 def build_telemetry_snapshot(
     user_id: int,
     user_name: str,
