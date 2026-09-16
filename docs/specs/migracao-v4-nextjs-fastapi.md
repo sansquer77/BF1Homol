@@ -2,8 +2,8 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 4.1
-atualizado: 2026-09-13
+versao: 4.2
+atualizado: 2026-09-16
 relacionados:
   - "[[inventario-v4]]"
   - "[[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]"
@@ -15,7 +15,7 @@ aliases: ["Migração BF1 4.0 para Next.js e FastAPI"]
 # Migração BF1 4.0 para Next.js e FastAPI
 
 > [!info] Status
-> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-12 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
+> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-16 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
 
 ## Problema
 
@@ -138,14 +138,36 @@ operação responsável por deploy, observabilidade e restauração.
 - Critérios 21–22 — testes de contrato visual e E2E com inspeção acessível em
   viewports mobile e desktop.
 
+### Resultado de carga em homologação — 2026-09-16
+
+O primeiro gate de carga da Classificação foi executado contra a homologação
+com 100 usuários virtuais simultâneos, três leituras por usuário e uma sessão
+Master compartilhada. A sessão compartilhada é necessária porque um novo login
+na mesma conta rotaciona a sessão anterior; portanto, este cenário mede 100
+acessos autenticados concorrentes, não 100 identidades independentes.
+
+- 300 requisições ao contrato `GET /api/v1/classification?season=2026`;
+- 10 respostas HTTP 200 e 290 falhas no cliente, compatíveis com o timeout de
+  30 segundos configurado no ensaio;
+- taxa de erro de 96,67%, vazão de 3,18 requisições/s e p95 de 30,527 s;
+- após o ensaio, `/api/v1/health/live` e `/classificacao` responderam HTTP 200
+  em aproximadamente 0,5 s.
+
+O critério 15 permanece **reprovado**: a meta de leitura é p95 inferior a 400
+ms e taxa de erro inferior a 1%. Antes de repetir o gate, devem ser analisados
+CPU, memória, reinícios, pool de conexões PostgreSQL e consultas/cálculos da
+Classificação. O script reproduzível está em
+`scripts/load_test_classification.py` e o resultado bruto em
+`load-test-classification-100.json`.
+
 ## Pendências
 
 > [!question] Pendências
 > As decisões de produto e arquitetura necessárias ao scaffold foram aprovadas.
 
-1. Fechar duas jornadas administrativas residuais da V4: gestão explícita de
-   equipes e atualização de resultados de provas pela interface.
-2. Executar a Fase 9: segurança, carga, acessibilidade e experiência mobile.
+1. Corrigir a saturação da Classificação observada no gate de 100 usuários e
+   repetir a carga em patamares de 10, 25, 50, 75 e 100 usuários.
+2. Concluir a Fase 9: carga, acessibilidade e experiência mobile.
 3. Executar a Fase 10: builds limpos, publicação/cutover, observação e ensaio de rollback.
 
 A retenção de logs poderá ser calibrada após observar o volume real, sem reduzir
@@ -175,6 +197,7 @@ controles de acesso, sanitização ou exportação.
 
 ## Changelog
 
+- `4.2` — 2026-09-16 — Gate de 100 acessos autenticados concorrentes registrado como reprovado por saturação e timeouts na Classificação.
 - `4.1` — 2026-09-13 — Painel do Participante encerrado na Telemetria com gráfico combinado e abas Apostas, Histórico e Minha conta.
 - `4.0` — 2026-09-12 — Lacunas funcionais encerradas com gestão explícita de equipes e processamento completo de resultados na V4.
 - `3.9` — 2026-09-12 — Telemetria enriquecida com previsão meteorológica contextual da próxima prova.

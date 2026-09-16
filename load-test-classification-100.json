@@ -1,0 +1,22 @@
+{
+  "target": "https://bf1homol-3i2u4.ondigitalocean.app/api/v1/classification?season=2026",
+  "virtual_users": 100,
+  "iterations_per_user": 3,
+  "requests": 300,
+  "wall_seconds": 94.348,
+  "requests_per_second": 3.18,
+  "failures": 290,
+  "error_rate": 0.966667,
+  "latency_ms": {
+    "min": 965.808,
+    "mean": 29961.212,
+    "p50": 30076.65,
+    "p95": 30527.006,
+    "p99": 33756.231,
+    "max": 38145.037
+  },
+  "status_counts": {
+    "0": 290,
+    "200": 10
+  }
+}
