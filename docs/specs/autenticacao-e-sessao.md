@@ -2,8 +2,8 @@
 tipo: spec
 area: autenticacao
 status: implementado
-versao: 1.5
-atualizado: 2026-09-14
+versao: 1.7
+atualizado: 2026-09-16
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -16,7 +16,7 @@ aliases: ["Autenticação e Sessão"]
 # Autenticação e sessão
 
 > [!info] Status
-> **implementado** · área: `autenticacao` · atualizado em 2026-09-14 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[specs/controle-de-acesso]], [[07_guia_deploy]]
+> **implementado** · área: `autenticacao` · atualizado em 2026-09-16 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[specs/controle-de-acesso]], [[07_guia_deploy]]
 
 ## Problema
 
@@ -67,6 +67,22 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
     autenticação e usado para exibir horários e prazos na interface V4.
 13. O usuário pode alterar seu timezone através de seletor global; a escolha
     persiste entre sessões e não exige reautenticação.
+14. Confirmações de senha para operações administrativas críticas compartilham
+    um limite persistido por conta e IP; sessão renovada ou troca de endpoint
+    não reinicia a janela, e indisponibilidade do limitador falha fechada.
+15. A interface de conta rejeita o Master antes de verificar a senha, pois suas
+    credenciais são autoritativas nas variáveis de ambiente e não podem servir
+    como oráculo alternativo de validação.
+16. Quando `must_change_password` estiver ativo, o servidor só permite consultar
+    a identidade, encerrar a sessão ou concluir a troca de senha; as demais
+    rotas protegidas são recusadas independentemente da UI.
+16. O fluxo de recuperação de senha retorna a mesma mensagem genérica para
+    emails cadastrados e não cadastrados.
+17. O envio do email de recuperação é executado em background, de modo que a
+    latência do SMTP não influencie o tempo de resposta da API.
+18. Quando o email não está cadastrado, o servidor executa trabalho
+    computacionalmente similar ao caminho existente para equalizar o tempo de
+    resposta e dificultar enumeração por timing attack.
 
 ## Interface, serviços e dados
 
@@ -94,6 +110,18 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
     persistido é carregado e aplicado aos horários exibidos.
 11. Dado usuário autenticado, quando alterar o timezone no seletor global, então
     o novo valor é persistido e refletido imediatamente na interface.
+12. Dado o limite de reautenticação crítica atingido por conta ou IP, quando
+    houver nova tentativa em restauração ou exportação de logs, então bcrypt
+    não é executado e nenhuma autorização ou exportação é concedida.
+13. Dada conta Master, quando tentar alterar email ou senha com qualquer
+    candidato, então a operação é rejeitada antes de comparar o hash.
+14. Dado usuário com `must_change_password`, quando acessar uma rota protegida
+    que não seja troca de senha, identidade ou logout, então o servidor recusa
+    a operação.
+14. Dado email cadastrado, quando solicitada recuperação de senha, então a
+    resposta é genérica e o email é enviado em background.
+15. Dado email não cadastrado, quando solicitada recuperação de senha, então a
+    resposta é idêntica à do email cadastrado e nenhum email é enviado.
 
 ## Verificação
 
@@ -114,9 +142,15 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 - [x] Mapear segurança, persistência e verificações existentes. Fecha: critérios 2 a 6.
 - [x] Expor recuperação e confirmação de senha na tela de login V4. Fecha: critério 6.
 - [x] Expor Minha conta com reautenticação para email e senha. Fecha: critérios 8 e 9.
+- [x] Limitar reautenticação crítica e fechar oráculos alternativos do Master. Fecha: critérios 12 e 13.
+- [x] Aplicar `must_change_password` no servidor e redirecionar a interface para Minha conta. Fecha: critério 14.
+- [x] Mitigar information disclosure por timing no reset de senha. Fecha: critérios 14 e 15.
 
 ## Changelog
 
+- `1.7` — 2026-09-16 — Recuperação de senha envia email em background e equaliza tempo de processamento para emails não cadastrados, dificultando enumeração por timing.
+- `1.6` — 2026-09-16 — Reautenticação crítica passa a ter bucket compartilhado por conta/IP e a conta Master é recusada antes de bcrypt na interface de conta.
+- `1.7` — 2026-09-16 — Troca obrigatória de senha passou a ser imposta pela dependência de identidade da API, com exceções mínimas para senha, identidade e logout.
 - `1.5` — 2026-09-14 — Adicionado timezone do usuário persistido, seletor global e API `/account/timezone`.
 - `1.4` — 2026-09-13 — Minha conta V4 permite alterar email e senha mediante confirmação da credencial atual.
 - `1.3` — 2026-09-12 — Interface e logout alinhados ao runtime Next.js/FastAPI; Streamlit identificado apenas como baseline V3.

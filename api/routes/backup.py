@@ -57,13 +57,12 @@ def download_sql(context: AuthenticatedContext=Depends(require_master)):
 
 @router.post("/validate/sql")
 async def validate_sql(request: Request, context: AuthenticatedContext=Depends(require_master)):
- from utils.backup_security import get_backup_limits, validate_sql_content_size
+ from utils.backup_security import get_backup_limits, validate_sql_backup_content
  raw=await request.body()
  if len(raw)>get_backup_limits().sql_bytes: raise HTTPException(status_code=413,detail="Arquivo excede o limite permitido.")
- try: sql=raw.decode("utf-8"); validate_sql_content_size(sql)
+ try: sql=raw.decode("utf-8"); validate_sql_backup_content(sql)
  except Exception as exc: raise HTTPException(status_code=422,detail="Backup SQL inválido ou acima do limite.") from exc
- upper=sql[:4096].upper(); mode="data-only" if "BF1 POSTGRES DATA-ONLY DUMP" in upper else "full-or-standard"
- return {"status":"valid","mode":mode,"bytes":len(raw)}
+ return {"status":"valid","mode":"data-only","bytes":len(raw)}
 
 @router.post("/reauthorize")
 def reauthorize(payload:ReauthRequest, response:FastAPIResponse, request:Request, context:AuthenticatedContext=Depends(require_master)):
@@ -72,7 +71,7 @@ def reauthorize(payload:ReauthRequest, response:FastAPIResponse, request:Request
   from services.auth_service import decode_token
   from api.config import settings
   from api.security import issue_restore_authorization_cookie
-  expires=reauthorize_restore(payload.password)
+  expires=reauthorize_restore(payload.password,ip_address=request.state.client_ip or "unknown")
   session=decode_token(request.cookies.get(settings.cookie_name, ""))
   if not session or int(session.get("user_id", 0)) != context.user_id: raise PermissionError
   issue_restore_authorization_cookie(response,user_id=context.user_id,session_jti=str(session["jti"]),expires_at=expires)

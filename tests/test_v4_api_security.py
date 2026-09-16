@@ -259,6 +259,44 @@ class V4ApiSecurityTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Se o email estiver cadastrado", response.json()["message"])
 
+    def test_password_reset_sends_email_in_background_for_existing_user(self):
+        headers = {"Origin": "https://bf1.test"}
+        with patch("api.routes.auth.recent_failures", return_value=(0, 0, False)), \
+             patch("api.routes.auth.record_attempt"), \
+             patch("services.auth_service.redefinir_senha_usuario", return_value=(True, ("Fulano", "token", 30))), \
+             patch("services.email_service.enviar_email_recuperacao_senha") as mock_send, \
+             patch("db.repo_observability.record_event"):
+            response = self.client.post("/api/v1/auth/password-reset", headers=headers, json={"email": "exists@example.com"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Se o email estiver cadastrado", response.json()["message"])
+        mock_send.assert_called_once_with("exists@example.com", "Fulano", "token", 30)
+
+    def test_password_reset_does_not_send_email_for_missing_user(self):
+        headers = {"Origin": "https://bf1.test"}
+        with patch("api.routes.auth.recent_failures", return_value=(0, 0, False)), \
+             patch("api.routes.auth.record_attempt"), \
+             patch("services.auth_service.redefinir_senha_usuario", return_value=(False, "missing")), \
+             patch("services.email_service.enviar_email_recuperacao_senha") as mock_send, \
+             patch("db.repo_observability.record_event"):
+            response = self.client.post("/api/v1/auth/password-reset", headers=headers, json={"email": "missing@example.com"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Se o email estiver cadastrado", response.json()["message"])
+        mock_send.assert_not_called()
+
+    def test_password_reset_dummy_work_runs_for_missing_user(self):
+        headers = {"Origin": "https://bf1.test"}
+        with patch("api.routes.auth.recent_failures", return_value=(0, 0, False)), \
+             patch("api.routes.auth.record_attempt"), \
+             patch("services.auth_service.get_user_by_email", return_value=None), \
+             patch("services.auth_service._timing_safe_dummy_work") as mock_dummy, \
+             patch("services.email_service.enviar_email_recuperacao_senha") as mock_send, \
+             patch("db.repo_observability.record_event"):
+            response = self.client.post("/api/v1/auth/password-reset", headers=headers, json={"email": "nobody@example.com"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Se o email estiver cadastrado", response.json()["message"])
+        mock_dummy.assert_called_once()
+        mock_send.assert_not_called()
+
     def test_user_object_rejects_idor_as_not_found(self):
         from api.dependencies import get_current_context
         from api.main import app
@@ -359,8 +397,7 @@ class V4ApiSecurityTests(unittest.TestCase):
         from services.access_control import AuthenticatedContext
         app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(1, "Master", "master", "ativo", frozenset())
         row = {"id": 1, "created_at": datetime(2026, 9, 8, tzinfo=timezone.utc), "event": "request_completed"}
-        with patch("db.repo_users.get_user_by_id", return_value={"id": 1, "senha_hash": "hash"}), \
-             patch("db.repo_users.check_password", return_value=True), \
+        with patch("services.critical_reauthentication.verify_critical_password", return_value={"id": 1}), \
              patch("api.routes.logs.export_events", return_value=[row]) as export, \
              patch("api.routes.logs.record_event") as audit, \
              patch("db.repo_observability.record_event"):
@@ -370,6 +407,24 @@ class V4ApiSecurityTests(unittest.TestCase):
         self.assertEqual(json.loads(gzip.decompress(response.content).decode().strip())["event"], "request_completed")
         self.assertLessEqual(export.call_args.kwargs["limit"], 50_000)
         self.assertEqual(audit.call_args.kwargs["event"], "log_exported")
+
+    def test_blocked_log_reauthentication_never_exports(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        from services.critical_reauthentication import CriticalReauthenticationBlocked
+
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(1, "Master", "master", "ativo", frozenset())
+        with patch(
+            "services.critical_reauthentication.verify_critical_password",
+            side_effect=CriticalReauthenticationBlocked,
+        ), patch("api.routes.logs.export_events") as export, patch("db.repo_observability.record_event"):
+            response = self.client.get(
+                "/api/v1/logs/export",
+                headers={"X-Reauth-Password": "sentinel"},
+            )
+        self.assertEqual(response.status_code, 403)
+        export.assert_not_called()
 
     def test_api_has_no_public_signup_contract(self):
         with patch("db.repo_observability.record_event"):

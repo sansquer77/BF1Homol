@@ -7,6 +7,8 @@ import secrets
 import hmac
 import uuid
 
+import bcrypt
+
 # Funções de auth/usuário importadas dos módulos focados de dados.
 from db.db_schema import db_connect, get_table_columns
 from db.repo_users import hash_password, check_password, get_user_by_id
@@ -264,6 +266,20 @@ def _hash_reset_token(raw_token: str) -> str:
     return hashlib.sha256((raw_token or "").encode("utf-8")).hexdigest()
 
 
+def _timing_safe_dummy_work() -> None:
+    """Executa trabalho computacionalmente similar ao caminho existente.
+
+    Usado quando o email não está cadastrado para evitar disclosure via timing
+    attack: o atacante não deve distinguir respostas rápidas (email ausente)
+    de respostas que passam por gravação de token e envio de email.
+    """
+    # Custo compatível com uma escrita de token + hash de senha, sem efeitos
+    # colaterais no banco ou em serviços externos.
+    dummy = secrets.token_urlsafe(24)
+    _hash_reset_token(dummy)
+    bcrypt.hashpw(dummy.encode("utf-8"), bcrypt.gensalt(rounds=12))
+
+
 def _ensure_password_reset_table(conn) -> None:
     c = conn.cursor()
     c.execute(
@@ -289,6 +305,9 @@ def redefinir_senha_usuario(email: str):
     email = normalize_email_identifier(email)
     usuario = get_user_by_email(email)
     if not usuario:
+        # spec: autenticacao-e-sessao v1.5 — critério 12
+        # Equaliza tempo de processamento para não revelar existência do email.
+        _timing_safe_dummy_work()
         return False, "Usuário não encontrado."
 
     reset_token = secrets.token_urlsafe(24)

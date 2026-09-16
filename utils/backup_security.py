@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import time
 import zipfile
 from dataclasses import dataclass
@@ -20,6 +21,24 @@ class RestoreReauthenticationFailed(PermissionError):
 
 class BackupLimitExceeded(ValueError):
     pass
+
+
+class UnsafeSqlBackup(ValueError):
+    pass
+
+
+BF1_SQL_BACKUP_TABLES = frozenset(
+    {
+        "access_logs", "apostas", "application_logs", "auth_sessions",
+        "championship_bets", "championship_bets_log", "championship_results",
+        "circuitos_f1", "equipes", "financeiro_config_temporada",
+        "financeiro_participantes", "hall_da_fama", "log_apostas",
+        "login_attempts", "password_reset_tokens", "pilotos",
+        "posicoes_participantes", "provas", "regras", "resultados",
+        "temporadas", "temporadas_regras", "usuarios",
+        "usuarios_status_historico",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -161,6 +180,223 @@ def validate_sql_content_size(sql_content: str) -> int:
     return size
 
 
+_INSERT_RE = re.compile(
+    rf'^INSERT\s+INTO\s+(?P<table>"[A-Za-z_][A-Za-z0-9_]*"|[A-Za-z_][A-Za-z0-9_]*)'
+    rf'\s*\((?P<columns>[^()]*)\)\s+VALUES\s*\((?P<values>.*)\)$',
+    re.IGNORECASE | re.DOTALL,
+)
+_TRUNCATE_RE = re.compile(
+    r'^TRUNCATE\s+TABLE\s+(?P<tables>.+?)\s+RESTART\s+IDENTITY\s+CASCADE$',
+    re.IGNORECASE | re.DOTALL,
+)
+_SETVAL_RE = re.compile(
+    r'''^SELECT\s+setval\(\s*pg_get_serial_sequence\(\s*'([A-Za-z_][A-Za-z0-9_]*)'\s*,\s*'([A-Za-z_][A-Za-z0-9_]*)'\s*\)\s*,\s*COALESCE\(\s*\(SELECT\s+MAX\(\s*"?([A-Za-z_][A-Za-z0-9_]*)"?\s*\)\s+FROM\s+"?([A-Za-z_][A-Za-z0-9_]*)"?\s*\)\s*,\s*1\s*\)\s*\)$''',
+    re.IGNORECASE | re.DOTALL,
+)
+_NUMBER_RE = re.compile(r'^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$')
+_IDENTIFIER_RE = re.compile(r'^(?:"([A-Za-z_][A-Za-z0-9_]*)"|([A-Za-z_][A-Za-z0-9_]*))$')
+
+
+def _split_sql_statements(sql_content: str) -> list[str]:
+    """Divide o dump sem interpretar `;` dentro de strings ou comentários."""
+    statements: list[str] = []
+    current: list[str] = []
+    index = 0
+    quote: str | None = None
+    block_comment = False
+    line_comment = False
+    while index < len(sql_content):
+        char = sql_content[index]
+        next_char = sql_content[index + 1] if index + 1 < len(sql_content) else ""
+        if line_comment:
+            if char in "\r\n":
+                line_comment = False
+                current.append(" ")
+            index += 1
+            continue
+        if block_comment:
+            if char == "*" and next_char == "/":
+                block_comment = False
+                index += 2
+            else:
+                index += 1
+            continue
+        if quote:
+            current.append(char)
+            if char == quote:
+                if next_char == quote:
+                    current.append(next_char)
+                    index += 2
+                    continue
+                quote = None
+            index += 1
+            continue
+        if char == "-" and next_char == "-":
+            line_comment = True
+            index += 2
+            continue
+        if char == "/" and next_char == "*":
+            block_comment = True
+            index += 2
+            continue
+        if char in {"'", '"'}:
+            quote = char
+            current.append(char)
+            index += 1
+            continue
+        if char == ";":
+            statement = "".join(current).strip()
+            if statement:
+                statements.append(statement)
+            current = []
+            index += 1
+            continue
+        current.append(char)
+        index += 1
+    if quote or block_comment:
+        raise UnsafeSqlBackup("Backup SQL possui string ou comentário não finalizado.")
+    trailing = "".join(current).strip()
+    if trailing:
+        raise UnsafeSqlBackup("Backup SQL deve terminar cada comando com ponto e vírgula.")
+    return statements
+
+
+def _identifier(value: str) -> str:
+    match = _IDENTIFIER_RE.fullmatch(value.strip())
+    if not match:
+        raise UnsafeSqlBackup("Backup SQL contém identificador inválido.")
+    return match.group(1) or match.group(2)
+
+
+def _split_csv_literals(value: str) -> list[str]:
+    parts: list[str] = []
+    current: list[str] = []
+    quoted = False
+    brackets = 0
+    index = 0
+    while index < len(value):
+        char = value[index]
+        next_char = value[index + 1] if index + 1 < len(value) else ""
+        if quoted:
+            current.append(char)
+            if char == "'":
+                if next_char == "'":
+                    current.append(next_char)
+                    index += 2
+                    continue
+                quoted = False
+            index += 1
+            continue
+        if char == "'":
+            quoted = True
+            current.append(char)
+        elif char == "[":
+            brackets += 1
+            current.append(char)
+        elif char == "]":
+            brackets -= 1
+            if brackets < 0:
+                raise UnsafeSqlBackup("Backup SQL contém array inválido.")
+            current.append(char)
+        elif char == "," and brackets == 0:
+            parts.append("".join(current).strip())
+            current = []
+        else:
+            current.append(char)
+        index += 1
+    if quoted or brackets:
+        raise UnsafeSqlBackup("Backup SQL possui literal não finalizado.")
+    parts.append("".join(current).strip())
+    return parts
+
+
+def _validate_literal(value: str) -> None:
+    if value.upper() in {"NULL", "TRUE", "FALSE"} or _NUMBER_RE.fullmatch(value):
+        return
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        index = 1
+        while index < len(value) - 1:
+            if value[index] == "'":
+                if index + 1 < len(value) - 1 and value[index + 1] == "'":
+                    index += 2
+                    continue
+                raise UnsafeSqlBackup("Backup SQL contém aspas inválidas em literal.")
+            index += 1
+        return
+    if value.upper().startswith("ARRAY[") and value.endswith("]"):
+        if not value[6:-1].strip():
+            return
+        members = _split_csv_literals(value[6:-1])
+        if not members or any(not member for member in members):
+            raise UnsafeSqlBackup("Backup SQL contém array inválido.")
+        for member in members:
+            _validate_literal(member)
+        return
+    raise UnsafeSqlBackup("Backup SQL aceita apenas valores literais em INSERT.")
+
+
+def validate_sql_backup_content(sql_content: str) -> list[str]:
+    """Valida o formato lógico BF1 e devolve somente comandos seguros para importação.
+
+    O upload nunca deve ser tratado como script PostgreSQL/psql. A gramática aceita
+    é deliberadamente igual ao dump data-only produzido pelo BF1 3.x/4.x.
+    """
+    validate_sql_content_size(sql_content)
+    first_nonempty = next((line.strip() for line in sql_content.splitlines() if line.strip()), "")
+    if not first_nonempty.upper().startswith("-- BF1 POSTGRES DATA-ONLY DUMP"):
+        raise UnsafeSqlBackup("Formato SQL não suportado. Use um backup de dados gerado pelo BF1.")
+    statements = _split_sql_statements(sql_content)
+    if len(statements) < 3 or statements[0].upper() != "BEGIN" or statements[-1].upper() != "COMMIT":
+        raise UnsafeSqlBackup("Backup SQL deve possuir uma única transação BEGIN/COMMIT.")
+
+    safe: list[str] = []
+    truncate_seen = False
+    declared_tables: set[str] = set()
+    for statement in statements[1:-1]:
+        upper = statement.upper()
+        if upper in {"BEGIN", "COMMIT", "ROLLBACK"}:
+            raise UnsafeSqlBackup("Backup SQL contém controle de transação inesperado.")
+        truncate = _TRUNCATE_RE.fullmatch(statement)
+        if truncate:
+            if truncate_seen:
+                raise UnsafeSqlBackup("Backup SQL contém mais de um TRUNCATE.")
+            table_tokens = [part.strip() for part in truncate.group("tables").split(",")]
+            if not table_tokens or any(not token for token in table_tokens):
+                raise UnsafeSqlBackup("Backup SQL contém TRUNCATE inválido.")
+            declared_tables = {_identifier(token).lower() for token in table_tokens}
+            if not declared_tables.issubset(BF1_SQL_BACKUP_TABLES):
+                raise UnsafeSqlBackup("Backup SQL contém tabela fora do contrato BF1.")
+            truncate_seen = True
+            safe.append(statement)
+            continue
+        insert = _INSERT_RE.fullmatch(statement)
+        if insert:
+            insert_table = _identifier(insert.group("table")).lower()
+            if insert_table not in BF1_SQL_BACKUP_TABLES or insert_table not in declared_tables:
+                raise UnsafeSqlBackup("Backup SQL contém INSERT fora das tabelas declaradas do BF1.")
+            columns = [part.strip() for part in insert.group("columns").split(",")]
+            if not columns or any(not column for column in columns):
+                raise UnsafeSqlBackup("Backup SQL contém lista de colunas inválida.")
+            normalized_columns = [_identifier(column) for column in columns]
+            if len(set(normalized_columns)) != len(normalized_columns):
+                raise UnsafeSqlBackup("Backup SQL contém coluna duplicada.")
+            values = _split_csv_literals(insert.group("values"))
+            if len(values) != len(columns):
+                raise UnsafeSqlBackup("Backup SQL possui quantidade incompatível de valores.")
+            for value in values:
+                _validate_literal(value)
+            safe.append(statement)
+            continue
+        setval = _SETVAL_RE.fullmatch(statement)
+        if setval and setval.group(1) == setval.group(4) and setval.group(2) == setval.group(3):
+            # A sequência é recalculada internamente após o commit; nunca executamos o SELECT enviado.
+            continue
+        raise UnsafeSqlBackup("Backup SQL contém comando não permitido.")
+    if not truncate_seen:
+        raise UnsafeSqlBackup("Backup SQL não contém o TRUNCATE canônico.")
+    return safe
+
+
 def validate_excel_archive(content: bytes) -> None:
     limits = get_backup_limits()
     try:
@@ -188,9 +424,11 @@ def validate_excel_dimensions(rows: int, columns: int) -> None:
 
 __all__ = [
     "BackupLimitExceeded",
+    "BF1_SQL_BACKUP_TABLES",
     "BackupLimits",
     "RestoreNotAuthorized",
     "RestoreReauthenticationFailed",
+    "UnsafeSqlBackup",
     "clear_restore_authorization",
     "get_backup_limits",
     "grant_restore_authorization",
@@ -200,5 +438,6 @@ __all__ = [
     "validate_excel_archive",
     "validate_excel_dimensions",
     "validate_sql_content_size",
+    "validate_sql_backup_content",
     "validate_upload_size",
 ]

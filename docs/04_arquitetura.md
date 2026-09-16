@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.26
-atualizado: 2026-09-13
+versao: 4.29
+atualizado: 2026-09-16
 relacionados:
   - "[[01_necessidade]]"
   - "[[02_regras_de_negocio]]"
@@ -16,7 +16,7 @@ aliases: ["Arquitetura do Sistema"]
 # Arquitetura do Sistema — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-09-13 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
+> **implementado** · área: `bf1` · atualizado em 2026-09-16 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
 
 ## Visão Geral
 
@@ -48,6 +48,10 @@ acessível do piloto; ela é apresentação, não dado mestre do PostgreSQL.
 O fluxo V4 de continuidade expõe backups SQL e Excel por tabela em `/api/v1/backup`;
 ambos exigem Master, e restores usam pré-validação seguida de reautenticação curta
 vinculada à sessão. O Excel preserva o contrato V3.x de uma planilha `data` por tabela.
+O SQL usa exclusivamente o dump lógico data-only BF1 caracterizado pela V3.5:
+o upload é analisado por uma gramática fail-closed, nunca é enviado ao `psql`,
+aceita somente `TRUNCATE`/`INSERT` literais do contrato e recalcula sequences
+internamente. A exportação V4 produz o mesmo formato canônico restaurável.
 
 ---
 
@@ -291,11 +295,19 @@ USUARIO_MASTER      # Nome do usuário master inicial
 - **Mutações administrativas**: a UI coleta dados; `admin_operations.py` autoriza e escreve.
 - **Fail-closed**: deadline incompleto ou erro de cálculo bloqueia apostas de campeonato.
 - **Rate limiting**: aplicado na autenticação para mitigar força bruta.
+- **Reautenticação crítica**: restore e exportação de logs compartilham o bucket
+  `critical_reauth` em `login_attempts`, limitado por conta e IP; falha no
+  armazenamento bloqueia a operação e o padrão é 5 falhas em 15 minutos,
+  configurável por `MAX_REAUTH_ATTEMPTS` e `REAUTH_LOCKOUT_DURATION`. Locks
+  transacionais por conta/IP tornam contagem, bcrypt e gravação uma operação
+  serializada contra rajadas concorrentes.
 - **Credenciais**: nunca no código — sempre via variáveis de ambiente.
 - **HTTPS**: garantido pela App Platform da DigitalOcean.
 
 ### Changelog
 
+- `4.29` — 2026-09-16 — `must_change_password` aplicado pela identidade FastAPI antes de rotas protegidas.
+- `4.28` — 2026-09-16 — Reautenticação administrativa crítica centralizada, rate-limited e fail-closed para restore e exportação de logs.
 - `4.26` — 2026-09-13 — Gestão administrativa de apostas passa a operar em `/admin/apostas`, autorizada para Admin/Master e reutilizando geração e email legados.
 - `4.25` — 2026-09-13 — API V4 expõe a geração autenticada `Sem ideias` sobre o serviço legado, sem duplicar regras ou alterar o schema PostgreSQL.
 - `4.24` — 2026-09-13 — Contrato de apostas pessoais inclui contribuição calculada por alocação; série histórica é limitada às duas temporadas mais recentes.

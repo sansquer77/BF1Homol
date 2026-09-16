@@ -2,8 +2,8 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.17
-atualizado: 2026-09-14
+versao: 1.20
+atualizado: 2026-09-16
 relacionados:
   - "[[sdd]]"
   - "[[03_spec]]"
@@ -15,7 +15,7 @@ aliases: ["Changelog do produto", "Versões do BF1"]
 # Changelog do produto BF1
 
 > [!info] Status
-> **implementado** · área: `releases` · atualizado em 2026-09-14 · relacionados: [[sdd]], [[03_spec]], [[07_guia_deploy]]
+> **implementado** · área: `releases` · atualizado em 2026-09-16 · relacionados: [[sdd]], [[03_spec]], [[07_guia_deploy]]
 
 Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
@@ -37,10 +37,34 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 > Timezone V4: seletor global persistido por usuário; horários de provas,
 > prazos de apostas e contagem regressiva na Telemetria passam a respeitar o
 > fuso selecionado.
+> Segurança: recuperação de senha agora envia email em background e equaliza
+> o tempo de processamento para emails não cadastrados, mitigando timing attack.
 > Gestão de apostas V4: Admin e Master passam a contar com visões por prova e
 > usuário, lembretes segmentados, geração automática e relatório anual.
 
 ## Versão vigente
+
+### 3.5.3
+
+- Segurança: recuperação de senha envia o email em background e executa trabalho
+  computacionalmente similar quando o email não está cadastrado, dificultando
+  enumeração de contas por análise de tempo de resposta (timing attack).
+
+### 3.5.2
+
+- Segurança: restauração SQL não executa mais uploads pelo `psql` ou como SQL
+  genérico; somente o dump lógico data-only BF1 com identificadores e valores
+  literais validados é aceito.
+- Compatibilidade: a fixture real anonimizada V3.5 permanece aceita e a
+  exportação V4 passa a produzir sempre o mesmo formato canônico restaurável.
+- Integridade: comandos de sequence enviados no arquivo não são executados; as
+  sequences são recalculadas internamente após a carga.
+- Segurança: reautenticações críticas de restore e exportação de logs passam a
+  compartilhar limite persistido por conta/IP; a interface de conta Master não
+  compara mais a senha que é autoritativa no ambiente.
+- Segurança: `must_change_password` agora é aplicado no servidor, bloqueando
+  rotas protegidas até a troca obrigatória e mantendo apenas senha, identidade
+  e logout disponíveis.
 
 ### 3.5.1
 
@@ -100,6 +124,10 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Changelog
 
+- `1.19` — 2026-09-16 — Patch 3.5.2 passa a limitar reautenticações críticas e fecha o oráculo alternativo de senha da conta Master.
+- `1.20` — 2026-09-16 — Patch 3.5.2 passa a impor troca obrigatória de senha no servidor.
+- `1.18` — 2026-09-16 — Patch 3.5.2 corrige execução de scripts no restore SQL
+  preservando o contrato de backup V3.5 data-only.
 - `1.17` — 2026-09-14 — Log de Apostas V4: indicador "Não efetiva" para apostas fora do prazo não automáticas, filtros por participante (dropdown), data exata, tipo e status, e destaque visual na interface Next.js; removida busca textual de apostador e filtro de status inexistente "Cancelada"; correção de `bet_time` do Campeonato V4 coagido para `str`; removida lista "Todas as apostas" da tela pública de Palpite de temporada; Logs V4 em Informações passa a usar abas **Apostas** e **Acessos** (exclusivo do Master); Timezone V4 com seletor global persistido por usuário e aplicação em horários, prazos e contagem regressiva; produto permanece 3.5.1.
 - `1.16` — 2026-09-12 — Fase 8 encerrada após confirmação operacional do backup/restore Excel; produto permanece 3.5.1.
 - `1.15` — 2026-09-12 — Documentação reconciliada com o runtime V4; Fases 1–7 confirmadas e Fase 8 mantida em revisão durante os testes Excel; produto permanece 3.5.1.

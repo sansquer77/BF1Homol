@@ -73,9 +73,10 @@ def test_account_changes_require_current_password_and_reject_master():
 
     master = AuthenticatedContext(1, "Master", "master", "ativo", frozenset())
     master_user = {"id": 1, "perfil": "master", "senha_hash": "hash"}
-    with patch("db.repo_users.get_user_by_id", return_value=master_user), patch("db.repo_users.check_password", return_value=True):
+    with patch("db.repo_users.get_user_by_id", return_value=master_user), patch("db.repo_users.check_password") as check:
         with pytest.raises(ValueError, match="variáveis de ambiente"):
             change_own_password(master, "Atual1Senha", "Nova2Senha")
+    check.assert_not_called()
 
 
 def test_account_password_validates_current_password_and_policy():

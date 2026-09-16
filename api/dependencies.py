@@ -7,6 +7,12 @@ from fastapi import Depends, HTTPException, Request, status
 from api.config import settings
 from services.access_control import AuthenticatedContext, AuthorizationDenied, authorize_context
 
+_PASSWORD_CHANGE_ALLOWED_PATHS = {
+    "/api/v1/auth/me",
+    "/api/v1/auth/account/password",
+    "/api/v1/auth/logout",
+}
+
 
 def get_current_context(request: Request) -> AuthenticatedContext:
     token = request.cookies.get(settings.cookie_name)
@@ -33,7 +39,13 @@ def get_current_context(request: Request) -> AuthenticatedContext:
     tz = str(user.get("timezone") or "America/Sao_Paulo").strip()
     if not tz:
         tz = "America/Sao_Paulo"
-    context = AuthenticatedContext(int(user["id"]), str(user.get("nome") or ""), perfil, db_status, seasons, tz)
+    must_change = bool(user.get("must_change_password") or False)
+    if must_change and request.url.path not in _PASSWORD_CHANGE_ALLOWED_PATHS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Troca de senha obrigatória antes de continuar.",
+        )
+    context = AuthenticatedContext(int(user["id"]), str(user.get("nome") or ""), perfil, db_status, seasons, tz, must_change)
     request.state.auth = context
     return context
 

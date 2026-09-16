@@ -2,8 +2,8 @@
 tipo: spec
 area: auditoria
 status: implementado
-versao: 1.4
-atualizado: 2026-09-13
+versao: 1.5
+atualizado: 2026-09-16
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/apostas-de-prova]]", "[[04_arquitetura]]"]
 tags: [spec, "area/auditoria", "status/implementado"]
 aliases: ["Logs e auditoria"]
@@ -12,7 +12,7 @@ aliases: ["Logs e auditoria"]
 # Logs e auditoria
 
 > [!info] Status
-> **implementado** · área: `auditoria` · atualizado em 2026-09-08 · relacionados: [[specs/controle-de-acesso]], [[specs/apostas-de-prova]], [[04_arquitetura]]
+> **implementado** · área: `auditoria` · atualizado em 2026-09-16 · relacionados: [[specs/controle-de-acesso]], [[specs/apostas-de-prova]], [[04_arquitetura]]
 
 ## Problema
 
@@ -55,6 +55,8 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 11. O log de apostas pode ser filtrado por participante (dropdown), data exata,
     tipo (no prazo, fora do prazo, automática) e status (Registrada, Não efetiva).
 12. O status **Não efetiva** é destacado visualmente na interface Next.js.
+13. A senha exigida na exportação usa o mesmo bucket de tentativas críticas da
+    restauração, persistido por conta e IP, sem registrar a credencial.
 
 ## Interface, serviços e dados
 
@@ -83,6 +85,8 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 14. Dada interface V4 de Logs, quando o usuário acessar, então a aba ativa padrão é **Apostas**.
 15. Dado perfil diferente de Master, quando acessar a tela de Logs, então a aba **Acessos** não é exibida.
 16. Dado Master, quando alternar para a aba **Acessos**, então o log de acessos é carregado com filtros de data, usuário/email e paginação.
+17. Dado limite crítico atingido na restauração ou exportação, quando tentar
+    exportar logs, então a consulta não é executada e a recusa é auditada.
 
 ## Verificação
 
@@ -90,7 +94,7 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
   `tests/test_logs_read_service_v4.py`, `tests/test_v4_api_security.py`,
   `tests/test_proxy_topology.py` e `tests/test_access_matrix.py`.
 - Critério 7 — inspeção automatizada/manual dos campos de log e tentativa de autenticação com valor sentinela.
-- Critérios 8–16 — testes: `tests/test_log_apostas_nao_efetiva.py`, `tests/test_v4_frontend_foundation.py` e verificação visual da tela V4.
+- Critérios 8–17 — testes: `tests/test_log_apostas_nao_efetiva.py`, `tests/test_v4_frontend_foundation.py`, `tests/test_critical_reauthentication.py` e verificação visual da tela V4.
 
 ## Pendências
 
@@ -107,6 +111,7 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 
 ## Changelog
 
+- `1.5` — 2026-09-16 — Exportação reautenticada passa a compartilhar limite persistido de tentativas críticas com o restore.
 - `1.4` — 2026-09-13 — Adicionado status "Não efetiva" para apostas fora do prazo, filtros por tipo/status/data na interface V4 e destaque visual.
 - `1.3` — 2026-09-09 — Filtro de apostador limitado ao combo de participantes autorizados da temporada global.
 - `1.2` — 2026-09-08 — Adicionados contratos V4 paginados para log de apostas com escopo de sessão e log de acessos exclusivo do Master.

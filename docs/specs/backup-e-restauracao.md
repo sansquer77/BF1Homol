@@ -2,8 +2,8 @@
 tipo: spec
 area: backup
 status: implementado
-versao: 1.6
-atualizado: 2026-09-12
+versao: 1.8
+atualizado: 2026-09-16
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/autenticacao-e-sessao]]", "[[04_arquitetura]]"]
 tags: [spec, "area/backup", "status/implementado"]
 aliases: ["Backup e restauração"]
@@ -12,7 +12,7 @@ aliases: ["Backup e restauração"]
 # Backup e restauração
 
 > [!info] Status
-> **implementado** · área: `backup` · atualizado em 2026-09-12 · relacionados: [[specs/controle-de-acesso]], [[specs/autenticacao-e-sessao]], [[04_arquitetura]]
+> **implementado** · área: `backup` · atualizado em 2026-09-16 · relacionados: [[specs/controle-de-acesso]], [[specs/autenticacao-e-sessao]], [[04_arquitetura]]
 
 ## Problema
 
@@ -48,6 +48,18 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 9. O contrato Excel permanece um arquivo `.xlsx` por tabela, com planilha `data` e cabeçalhos correspondentes às colunas PostgreSQL, compatível com as exportações V3.x.
 10. A tabela de destino é escolhida da lista retornada pelo servidor; nomes arbitrários, colunas obrigatórias ausentes e arquivos destinados a outra tabela são recusados.
 11. Tabelas referenciadas por FK usam UPSERT pela chave primária e preservam linhas ausentes do Excel; tabelas sem filhos podem ser substituídas de forma transacional.
+12. O backup SQL suportado é o dump lógico data-only gerado pelo BF1, compatível
+    com o formato V3.x caracterizado: `BEGIN`, `TRUNCATE` de tabelas BF1,
+    `INSERT` com colunas explícitas e valores exclusivamente literais, resets de
+    sequence canônicos e `COMMIT`.
+13. Conteúdo SQL importado nunca é encaminhado ao executável `psql` nem aceito
+    como script PostgreSQL genérico; meta-comandos, DDL, DML fora do contrato,
+    funções, subqueries, expressões e identificadores inválidos falham antes de
+    qualquer preparação de schema ou escrita.
+14. Resets de sequence presentes no arquivo são validados, mas não executados;
+    o backend os recalcula internamente após a restauração.
+15. Tentativas de reautenticação são limitadas pelo mesmo bucket crítico usado
+    na exportação de logs, por conta e IP, com padrão de 5 falhas em 15 minutos.
 
 ## Interface, serviços e dados
 
@@ -68,10 +80,17 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 7. Dado arquivo estruturalmente inválido, quando restaurar, então o banco permanece consistente e o erro é informado sem segredo.
 8. Dado arquivo Excel V3.x e a tabela correspondente, quando pré-validar, então tamanho, ZIP, dimensões, colunas obrigatórias e compatibilidade são verificados sem escrita.
 9. Dada reautenticação válida após a pré-validação, quando restaurar Excel, então tipos PostgreSQL, FKs e sequences são tratados e a quantidade de linhas importadas é informada.
+10. Dado backup SQL V3.x canônico, quando pré-validar e restaurar, então ele
+    permanece compatível sem executar o arquivo como script.
+11. Dado arquivo com meta-comando `psql`, DDL, mutação fora do contrato,
+    expressão ou subquery, quando pré-validar ou restaurar, então é recusado
+    antes de qualquer chamada ao banco ou processo externo.
+12. Dado limite crítico atingido na restauração ou exportação de logs, quando
+    tentar reautorizar um restore, então bcrypt não é executado e nenhum grant é criado.
 
 ## Verificação
 
-- Critérios 2–9 — testes automatizados em `tests/test_backup_security.py` e `tests/test_backup_excel_v4.py`.
+- Critérios 2–12 — testes automatizados em `tests/test_backup_security.py`, `tests/test_backup_excel_v4.py` e `tests/test_critical_reauthentication.py`.
 - Critério 1 — verificação manual: exportar Excel/SQL em ambiente de homologação e conferir abertura, tabelas esperadas e ausência de segredos.
 
 ## Pendências
@@ -91,9 +110,15 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 - [x] Expor listagem, exportação, pré-validação e restauração Excel por tabela na API e tela V4. Fecha implementação dos critérios 8 e 9; validação real permanece em homologação.
 - [x] Round-trip Excel confirmado funcional em homologação pelo mantenedor.
   Fecha a revisão dos critérios 1, 8 e 9.
+- [x] Substituir execução de uploads SQL por gramática data-only BF1 fail-closed,
+  mantendo a fixture real anonimizada V3.5. Fecha: critérios 10 e 11.
 
 ## Changelog
 
+- `1.8` — 2026-09-16 — Reautenticação de restore recebe limite compartilhado por conta/IP, persistido e fail-closed.
+- `1.7` — 2026-09-16 — Restore SQL deixa de executar uploads via `psql`, passa
+  a aceitar somente o dump lógico BF1 com valores literais e preserva a fixture
+  real anonimizada V3.5 como contrato de compatibilidade.
 - `1.6` — 2026-09-12 — Backup e restore Excel confirmados funcionais em homologação; revisão operacional concluída.
 - `1.5` — 2026-09-12 — Status alterado para revisão enquanto os testes reais de exportação/restauração Excel estão em andamento; gate operacional explicitado.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.

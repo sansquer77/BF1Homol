@@ -33,7 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const activeGroup = useMemo(() => groups.find((group) => group.items.some((item) => itemIsActive(pathname, item.href)))?.label ?? "Corrida", [pathname]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => ({ [activeGroup]: true }));
 
-  useEffect(() => { let active = true; apiRequest<User>("/api/v1/auth/me").then((value) => { if (active) setUser(value); }).catch(() => router.replace("/login")); return () => { active = false; }; }, [router]);
+  useEffect(() => { let active = true; apiRequest<User>("/api/v1/auth/me").then((value) => { if (!active) return; setUser(value); if (value.must_change_password && window.location.pathname !== "/telemetria/minha-conta") router.replace("/telemetria/minha-conta"); }).catch(() => router.replace("/login")); return () => { active = false; }; }, [router]);
   useEffect(() => { setExpanded((current) => ({ ...current, [activeGroup]: true })); }, [activeGroup]);
   async function logout() { try { await apiRequest("/api/v1/auth/logout", { method: "POST" }); } finally { router.replace("/login"); router.refresh(); } }
   if (!user) return <main className="status-page" aria-busy="true"><BrandMark /><p>Validando sua sessão…</p></main>;

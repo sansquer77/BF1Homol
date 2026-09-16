@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response, status
 from fastapi import HTTPException
 
 from api.auth_backend import recent_failures, record_access, record_attempt
@@ -131,7 +131,11 @@ def refresh_session(request: Request, response: Response, context: Authenticated
 
 
 @router.post("/password-reset", response_model=MessageResponse)
-def request_password_reset(payload: PasswordResetRequest, request: Request) -> MessageResponse:
+def request_password_reset(
+    payload: PasswordResetRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> MessageResponse:
     from services.auth_service import redefinir_senha_usuario
     email = normalize_email_identifier(str(payload.email))
     ip = request.state.client_ip or "unknown"
@@ -139,9 +143,11 @@ def request_password_reset(payload: PasswordResetRequest, request: Request) -> M
     if not blocked:
         ok, result = redefinir_senha_usuario(email)
         if ok:
+            # spec: autenticacao-e-sessao v1.5 — critério 13
+            # Envia email em background para não vazar existência via latência.
             from services.email_service import enviar_email_recuperacao_senha
             nome, token, minutes = result
-            enviar_email_recuperacao_senha(email, nome, token, minutes)
+            background_tasks.add_task(enviar_email_recuperacao_senha, email, nome, token, minutes)
     record_attempt(email, False, ip, "password_reset")
     return MessageResponse(message=GENERIC_RESET)
 

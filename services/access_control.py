@@ -27,6 +27,7 @@ class AuthenticatedContext:
     status: str
     temporadas_autorizadas: FrozenSet[str]
     timezone: str = "America/Sao_Paulo"
+    must_change_password: bool = False
 
     @property
     def ativo(self) -> bool:
@@ -73,6 +74,8 @@ OPERATION_ACCESS: dict[str, frozenset[str]] = {
 def authorize_context(context: AuthenticatedContext, allowed_roles: frozenset[str], *, season: str | None = None) -> None:
     if not context.ativo:
         raise AuthorizationDenied("Usuario inativo nao pode executar operacoes sensiveis.")
+    if context.must_change_password:
+        raise AuthorizationDenied("Troca de senha obrigatoria antes de continuar.")
     if context.perfil not in allowed_roles:
         raise AuthorizationDenied("Perfil sem permissao para esta operacao.")
     if season and context.temporadas_autorizadas and str(season) not in context.temporadas_autorizadas:
@@ -105,7 +108,10 @@ def resolve_authenticated_context() -> AuthenticatedContext:
     tz = str(user.get("timezone") or "America/Sao_Paulo").strip()
     if not tz:
         tz = "America/Sao_Paulo"
-    return AuthenticatedContext(int(user["id"]), str(user.get("nome", "")), perfil, status, seasons, tz)
+    return AuthenticatedContext(
+        int(user["id"]), str(user.get("nome", "")), perfil, status, seasons, tz,
+        bool(user.get("must_change_password") or False),
+    )
 
 
 def require_operation(operation: str, *, season: str | None = None) -> AuthenticatedContext:

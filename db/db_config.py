@@ -64,3 +64,5 @@ MAX_LOGIN_ATTEMPTS = int(os.environ.get("MAX_LOGIN_ATTEMPTS", "5"))
 LOCKOUT_DURATION = int(os.environ.get("LOCKOUT_DURATION", "900"))  # 15 minutos
 MAX_RESET_ATTEMPTS = int(os.environ.get("MAX_RESET_ATTEMPTS", "3"))
 RESET_LOCKOUT_DURATION = int(os.environ.get("RESET_LOCKOUT_DURATION", "900"))  # 15 minutos
+MAX_REAUTH_ATTEMPTS = int(os.environ.get("MAX_REAUTH_ATTEMPTS", "5"))
+REAUTH_LOCKOUT_DURATION = int(os.environ.get("REAUTH_LOCKOUT_DURATION", "900"))  # 15 minutos

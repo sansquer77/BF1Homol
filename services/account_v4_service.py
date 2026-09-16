@@ -4,12 +4,13 @@ from utils.security_utils import normalize_email_identifier
 
 
 def _verified_user(context: AuthenticatedContext, current_password: str) -> dict:
+    # spec: autenticacao-e-sessao v1.6 — critério 13
     from db.repo_users import check_password, get_user_by_id
     user = get_user_by_id(context.user_id)
+    if str((user or {}).get("perfil") or "").lower() == "master":
+        raise ValueError("As credenciais do Master são administradas pelas variáveis de ambiente.")
     if not user or not check_password(current_password, str(user.get("senha_hash") or "")):
         raise AuthorizationDenied("Senha atual inválida.")
-    if str(user.get("perfil") or "").lower() == "master":
-        raise ValueError("As credenciais do Master são administradas pelas variáveis de ambiente.")
     return user
 
 

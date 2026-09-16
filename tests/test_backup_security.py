@@ -13,8 +13,10 @@ from starlette.requests import Request
 
 from utils.backup_security import (
     BackupLimitExceeded,
+    BF1_SQL_BACKUP_TABLES,
     RestoreNotAuthorized,
     RestoreReauthenticationFailed,
+    UnsafeSqlBackup,
     grant_restore_authorization,
     require_restore_authorized,
     restore_authorization_error,
@@ -22,6 +24,7 @@ from utils.backup_security import (
     validate_excel_archive,
     validate_excel_dimensions,
     validate_sql_content_size,
+    validate_sql_backup_content,
     validate_upload_size,
 )
 from db.backup_repair import _repair_insert_boolean_literals
@@ -141,27 +144,26 @@ class BackupSecurityTests(unittest.TestCase):
         from services.access_control import AuthenticatedContext
 
         context = AuthenticatedContext(7, "Master", "master", "ativo", frozenset())
-        check_password = Mock(return_value=True)
-        fake_repo = types.SimpleNamespace(
-            get_user_by_id=lambda user_id: {"senha_hash": "hash-atual"},
-            check_password=check_password,
-        )
-        fake_db = types.ModuleType("db")
-        fake_db.repo_users = fake_repo
         fake_auth = types.SimpleNamespace(
             decode_token=lambda token: {"user_id": 7, "jti": "jti-atual"}
         )
-        with patch("services.backup_restore_authorization.get_session", return_value={"token": "token-atual"}), patch(
-            "services.backup_restore_authorization.require_operation", return_value=context
-        ), patch.dict(
-            sys.modules,
-            {"db": fake_db, "db.repo_users": fake_repo, "services.auth_service": fake_auth},
-        ), patch(
-            "services.backup_restore_authorization.grant_restore_authorization", return_value=1600
-        ) as grant:
+        with (
+            patch("services.backup_restore_authorization.get_session", return_value={"token": "token-atual"}),
+            patch("services.backup_restore_authorization.require_operation", return_value=context),
+            patch.dict(sys.modules, {"services.auth_service": fake_auth}),
+            patch(
+                "services.critical_reauthentication.verify_critical_password",
+                return_value={"id": 7, "email": "master@example.com"},
+            ) as verify,
+            patch("utils.request_utils.get_client_ip", return_value="203.0.113.7"),
+            patch(
+                "services.backup_restore_authorization.grant_restore_authorization",
+                return_value=1600,
+            ) as grant,
+        ):
             self.assertEqual(backup_restore_authorization.reauthorize_restore("senha"), 1600)
 
-        check_password.assert_called_once_with("senha", "hash-atual")
+        verify.assert_called_once_with(7, "senha", ip_address="203.0.113.7")
         grant.assert_called_once_with(user_id=7, jti="jti-atual")
 
     def test_reautenticacao_invalida_nao_cria_grant(self):
@@ -169,25 +171,23 @@ class BackupSecurityTests(unittest.TestCase):
         from services.access_control import AuthenticatedContext
 
         context = AuthenticatedContext(7, "Master", "master", "ativo", frozenset())
-        fake_repo = types.SimpleNamespace(
-            get_user_by_id=lambda user_id: {"senha_hash": "hash-atual"},
-            check_password=Mock(return_value=False),
-        )
-        fake_db = types.ModuleType("db")
-        fake_db.repo_users = fake_repo
         fake_auth = types.SimpleNamespace(
             decode_token=lambda token: {"user_id": 7, "jti": "jti-atual"}
         )
-        with patch("services.backup_restore_authorization.get_session", return_value={"token": "token-atual"}), patch(
-            "services.backup_restore_authorization.require_operation", return_value=context
-        ), patch.dict(
-            sys.modules,
-            {"db": fake_db, "db.repo_users": fake_repo, "services.auth_service": fake_auth},
-        ), patch(
-            "services.backup_restore_authorization.clear_restore_authorization"
-        ) as clear, patch(
-            "services.backup_restore_authorization.grant_restore_authorization"
-        ) as grant:
+        from services.critical_reauthentication import CriticalReauthenticationFailed
+
+        with (
+            patch("services.backup_restore_authorization.get_session", return_value={"token": "token-atual"}),
+            patch("services.backup_restore_authorization.require_operation", return_value=context),
+            patch.dict(sys.modules, {"services.auth_service": fake_auth}),
+            patch(
+                "services.critical_reauthentication.verify_critical_password",
+                side_effect=CriticalReauthenticationFailed,
+            ),
+            patch("utils.request_utils.get_client_ip", return_value="203.0.113.7"),
+            patch("services.backup_restore_authorization.clear_restore_authorization") as clear,
+            patch("services.backup_restore_authorization.grant_restore_authorization") as grant,
+        ):
             with self.assertRaises(RestoreReauthenticationFailed):
                 backup_restore_authorization.reauthorize_restore("senha-incorreta")
 
@@ -201,6 +201,105 @@ class BackupSecurityTests(unittest.TestCase):
                 validate_sql_content_size("SELECT 10")
             with self.assertRaises(BackupLimitExceeded):
                 validate_upload_size(_Uploaded(9), 8, "Backup SQL")
+
+    def test_backup_sql_v35_real_anonimizado_passa_na_gramatica_canonica(self):
+        statements = validate_sql_backup_content(
+            (ROOT / "tests" / "fixtures" / "backups" / "v3_5_0" / "fixture.sql").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertEqual(len(statements), 3914)
+        self.assertTrue(statements[0].upper().startswith("TRUNCATE TABLE"))
+        self.assertTrue(all("setval" not in statement.lower() for statement in statements))
+
+    def test_backup_sql_preserva_ponto_e_virgula_e_arrays_em_valores_literais(self):
+        sql = """-- BF1 POSTGRES DATA-ONLY DUMP
+BEGIN;
+TRUNCATE TABLE "pilotos" RESTART IDENTITY CASCADE;
+INSERT INTO "pilotos" ("id", "nome", "aliases") VALUES (1, 'Nome; com ''aspas''', ARRAY['a,b', 'c']);
+COMMIT;
+"""
+
+        statements = validate_sql_backup_content(sql)
+
+        self.assertEqual(len(statements), 2)
+        self.assertIn("Nome; com ''aspas''", statements[1])
+
+    def test_backup_sql_rejeita_meta_comandos_psql_e_sql_arbitrario(self):
+        attacks = (
+            "\\! id",
+            "  \\copy usuarios TO PROGRAM 'id'",
+            "UPDATE usuarios SET perfil='master'",
+            "DELETE FROM usuarios",
+            "CREATE EXTENSION file_fdw",
+            "DO $$ BEGIN PERFORM pg_sleep(1); END $$",
+            "INSERT INTO \"pilotos\" (\"id\") VALUES ((SELECT 1))",
+            "INSERT INTO \"pilotos\" (\"id\") VALUES (pg_sleep(1))",
+        )
+        for attack in attacks:
+            sql = (
+                "-- BF1 POSTGRES DATA-ONLY DUMP\nBEGIN;\n"
+                'TRUNCATE TABLE "pilotos" RESTART IDENTITY CASCADE;\n'
+                f"{attack};\nCOMMIT;\n"
+            )
+            with self.subTest(attack=attack), self.assertRaises(UnsafeSqlBackup):
+                validate_sql_backup_content(sql)
+
+    def test_backup_sql_rejeita_marcador_copiado_para_script_malicioso(self):
+        with self.assertRaises(UnsafeSqlBackup):
+            validate_sql_backup_content(
+                "-- BF1 POSTGRES DATA-ONLY DUMP\nBEGIN;\nDROP TABLE usuarios;\nCOMMIT;\n"
+            )
+
+    def test_restore_rejeita_meta_comando_antes_de_schema_processo_ou_banco(self):
+        from db.backup_utils import restore_backup_from_sql
+
+        malicious = """-- BF1 POSTGRES DATA-ONLY DUMP
+BEGIN;
+TRUNCATE TABLE "usuarios" RESTART IDENTITY CASCADE;
+\\! id;
+COMMIT;
+"""
+        presenter = Mock()
+        with patch("db.backup_utils.require_restore_authorized"), patch(
+            "db.backup_utils._prepare_schema_for_restore"
+        ) as prepare, patch("db.backup_utils._run_command") as run_command, patch(
+            "db.backup_utils.db_connect"
+        ) as connect:
+            self.assertFalse(restore_backup_from_sql(malicious, presenter))
+
+        prepare.assert_not_called()
+        run_command.assert_not_called()
+        connect.assert_not_called()
+        presenter.error.assert_called_once()
+
+    def test_backup_sql_rejeita_tabela_fora_do_contrato_ou_nao_declarada(self):
+        attacks = (
+            """-- BF1 POSTGRES DATA-ONLY DUMP
+BEGIN;
+TRUNCATE TABLE "shadow_control" RESTART IDENTITY CASCADE;
+INSERT INTO "shadow_control" ("id") VALUES (1);
+COMMIT;
+""",
+            """-- BF1 POSTGRES DATA-ONLY DUMP
+BEGIN;
+TRUNCATE TABLE "pilotos" RESTART IDENTITY CASCADE;
+INSERT INTO "usuarios" ("id") VALUES (1);
+COMMIT;
+""",
+        )
+        for attack in attacks:
+            with self.subTest(sql=attack), self.assertRaises(UnsafeSqlBackup):
+                validate_sql_backup_content(attack)
+
+    def test_contrato_sql_cobre_todas_as_tabelas_da_fixture_v35(self):
+        import json
+
+        manifest = json.loads(
+            (ROOT / "tests" / "fixtures" / "backups" / "v3_5_0" / "manifest.json").read_text()
+        )
+        self.assertTrue(set(manifest["tables"]).issubset(BF1_SQL_BACKUP_TABLES))
 
     def test_excel_limita_descompactacao_e_dimensoes(self):
         content = io.BytesIO()
@@ -231,16 +330,20 @@ class BackupSecurityTests(unittest.TestCase):
 
         self.assertGreaterEqual(service.count("require_restore_authorized()"), 2)
         self.assertIn('require_operation("backup.write")', authorization)
-        self.assertIn("check_password(candidate, password_hash)", authorization)
+        self.assertIn("verify_critical_password(", authorization)
         self.assertIn("grant_restore_authorization", authorization)
         self.assertNotIn("BACKUP_RESTORE_ENABLED", service)
-        self.assertIn("validate_sql_content_size(sql_content)", sql)
         self.assertIn("validate_upload_size(uploaded, max_sql_bytes", sql)
         self.assertNotIn('decode("utf-8", errors="ignore")', sql)
+        self.assertIn("restore_canonical_sql(sql_content, presenter)", sql)
         self.assertIn("validate_excel_archive(content)", excel)
         self.assertIn("validate_excel_dimensions", excel)
         self.assertIn("nrows=limits.excel_rows + 1", excel)
         self.assertGreaterEqual(legacy.count("require_restore_authorized()"), 4)
+        restore = legacy[legacy.index("def restore_backup_from_sql"):legacy.index("def upload_db")]
+        self.assertIn("validate_sql_backup_content(sql_content)", restore)
+        self.assertNotIn("sql_input=sql_content", restore)
+        self.assertIn("SET LOCAL standard_conforming_strings = on", restore)
 
     def test_preparacao_do_restore_cria_tabelas_v35_antes_do_dump(self):
         legacy = (ROOT / "db" / "backup_utils.py").read_text(encoding="utf-8")

@@ -6,7 +6,7 @@ import gzip
 import json
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import Response
 
 from api.config import settings
@@ -85,16 +85,21 @@ def access_logs(
 
 @router.get("/export")
 def export_logs(
+    request: Request,
     start: datetime | None = Query(default=None),
     end: datetime | None = Query(default=None),
     reauth_password: str = Header(alias="X-Reauth-Password", min_length=1, max_length=1024),
     context: AuthenticatedContext = Depends(require_master),
 ) -> Response:
     """Gera JSONL gzip em memória; não aceita nomes ou caminhos do cliente."""
-    from db.repo_users import check_password, get_user_by_id
-    user = get_user_by_id(context.user_id)
-    if not user or not check_password(reauth_password, str(user.get("senha_hash") or user.get("senha") or "")):
-        record_event(level="WARNING", category="security", event="log_export_reauth_failed", message="Reautenticação de exportação falhou", user_id=context.user_id)
+    from services.critical_reauthentication import CriticalReauthenticationFailed, verify_critical_password
+    try:
+        verify_critical_password(
+            context.user_id,
+            reauth_password,
+            ip_address=request.state.client_ip or "unknown",
+        )
+    except CriticalReauthenticationFailed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Reautenticação necessária.")
     now = datetime.now(timezone.utc)
     start = start or (now - timedelta(days=1))

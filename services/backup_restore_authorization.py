@@ -15,19 +15,16 @@ from utils.backup_security import (
 logger = logging.getLogger(__name__)
 
 
-def reauthorize_restore(password: str) -> float:
+def reauthorize_restore(password: str, *, ip_address: str | None = None) -> float:
     """Revalida a senha atual do master e vincula uma autorização à sessão ativa."""
     context = require_operation("backup.write")
-    candidate = password if isinstance(password, str) else ""
-    if not candidate or len(candidate) > 1024:
-        clear_restore_authorization()
-        raise RestoreReauthenticationFailed("Não foi possível confirmar a senha.")
-
-    from db.repo_users import check_password, get_user_by_id
     from services.auth_service import decode_token
+    from services.critical_reauthentication import (
+        CriticalReauthenticationFailed,
+        verify_critical_password,
+    )
+    from utils.request_utils import get_client_ip
 
-    user = get_user_by_id(context.user_id)
-    password_hash = str((user or {}).get("senha_hash") or (user or {}).get("senha") or "")
     token = get_session().get("token")
     payload = decode_token(token) if token else None
     session_matches = bool(
@@ -35,9 +32,18 @@ def reauthorize_restore(password: str) -> float:
         and int(payload.get("user_id", 0)) == context.user_id
         and payload.get("jti")
     )
-    if not session_matches or not check_password(candidate, password_hash):
+    if not session_matches:
         clear_restore_authorization()
         raise RestoreReauthenticationFailed("Não foi possível confirmar a senha.")
+    try:
+        verify_critical_password(
+            context.user_id,
+            password,
+            ip_address=ip_address or get_client_ip() or "unknown",
+        )
+    except CriticalReauthenticationFailed as exc:
+        clear_restore_authorization()
+        raise RestoreReauthenticationFailed("Não foi possível confirmar a senha.") from exc
 
     expires_at = grant_restore_authorization(
         user_id=context.user_id,

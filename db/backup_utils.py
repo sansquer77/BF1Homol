@@ -18,12 +18,13 @@ from openpyxl.utils import get_column_letter
 from db.db_config import DATABASE_URL
 from db.db_schema import db_connect
 from utils.backup_security import (
+    BF1_SQL_BACKUP_TABLES,
     BackupLimitExceeded,
     get_backup_limits,
     require_restore_authorized,
     validate_excel_archive,
     validate_excel_dimensions,
-    validate_sql_content_size,
+    validate_sql_backup_content,
     validate_upload_size,
 )
 
@@ -397,7 +398,9 @@ def _build_data_only_sql() -> str:
         "BEGIN;",
     ]
 
-    tables = _order_tables_for_dump(_list_tables())
+    tables = _order_tables_for_dump(
+        [table for table in _list_tables() if table.lower() in BF1_SQL_BACKUP_TABLES]
+    )
     if tables:
         trunc = ", ".join(_quote_identifier(t) for t in tables)
         lines.append(f"TRUNCATE TABLE {trunc} RESTART IDENTITY CASCADE;")
@@ -921,67 +924,19 @@ def _execute_with_savepoint(cursor, statement: str) -> tuple[bool, Exception | N
 
 
 def get_postgres_backup_mode() -> tuple[str, str]:
-    pg_env, dbname = _build_pg_env_from_database_url(DATABASE_URL)
-    pg_dump = _detect_cmd(("pg_dump", "pg_dump16", "pg_dump15", "pg_dump14"))
-    if not pg_dump:
-        return "fallback", "pg_dump not found; using internal data-only dump"
-
-    ok, _, err = _run_command([pg_dump, "--version"])
-    if not ok:
-        return "fallback", f"pg_dump unavailable: {err.strip() or 'unknown error'}"
-
-    # Validate real compatibility with the target server.
-    probe_ok, _, probe_err = _run_command(
-        [
-            pg_dump,
-            "--dbname",
-            dbname,
-            "--schema-only",
-            "--no-owner",
-            "--no-privileges",
-        ],
-        env_overrides=pg_env,
-    )
-    if not probe_ok:
-        probe_detail = (probe_err or "").strip() or "pg_dump probe failed"
-        if "server version mismatch" in probe_detail.lower():
-            return "fallback", "pg_dump version mismatch with PostgreSQL server"
-        return "fallback", f"pg_dump unavailable: {probe_detail}"
-
-    return "full", f"Compatible with {pg_dump}"
+    return "data-only", "BF1 canonical logical dump"
 
 
 def _generate_backup_sql_content() -> tuple[str, str]:
-    pg_env, dbname = _build_pg_env_from_database_url(DATABASE_URL)
-    mode, detail = get_postgres_backup_mode()
-    if mode == "full":
-        pg_dump = _detect_cmd(("pg_dump", "pg_dump16", "pg_dump15", "pg_dump14"))
-        if pg_dump:
-            ok, out, err = _run_command(
-                [
-                    pg_dump,
-                    "--dbname",
-                    dbname,
-                    "--no-owner",
-                    "--no-privileges",
-                    "--format=plain",
-                    "--encoding=UTF8",
-                ],
-                env_overrides=pg_env,
-            )
-            if ok and out.strip():
-                return out, "full"
-            logger.warning("pg_dump failed, using fallback. Detail: %s", err.strip())
-
-    _ = detail
-    return _build_data_only_sql(), "fallback"
+    # spec: backup-e-restauracao v1.7 — critério 10
+    # O formato canônico é data-only e pode ser validado como dados; dumps pg_dump
+    # são scripts executáveis e, portanto, não podem atravessar o boundary de upload.
+    return _build_data_only_sql(), "data-only"
 
 
 def download_db(presenter) -> None:
     sql_content, mode = _generate_backup_sql_content()
-    label = "Download PostgreSQL full backup (.sql)"
-    if mode == "fallback":
-        label = "Download PostgreSQL data-only backup (.sql)"
+    label = "Download PostgreSQL data-only backup (.sql)"
 
     presenter.download_button(
         label=label,
@@ -996,47 +951,23 @@ def download_db(presenter) -> None:
 def restore_backup_from_sql(sql_content: str, presenter=None) -> bool:
     feedback = presenter or logger
     require_restore_authorized()
-    validate_sql_content_size(sql_content)
-    is_data_only = "BF1 POSTGRES DATA-ONLY DUMP" in (sql_content[:4096] or "")
-    if is_data_only:
-        try:
-            _prepare_schema_for_restore()
-        except Exception as exc:
-            feedback.error(f"Failed to prepare schema for restore: {exc}")
-            return False
-
-    pg_env, dbname = _build_pg_env_from_database_url(DATABASE_URL)
-    psql = _detect_cmd(("psql", "psql16", "psql15", "psql14"))
-    if psql:
-        ok, _, err = _run_command(
-            [psql, "-d", dbname, "-v", "ON_ERROR_STOP=1"],
-            sql_input=sql_content,
-            env_overrides=pg_env,
-        )
-        if ok:
-            try:
-                _run_fix_sequences_after_restore()
-            except Exception as exc:
-                feedback.warning(f"Restore concluído, mas falhou ao ressincronizar sequences: {exc}")
-            return True
-        feedback.warning(f"psql failed, trying statement execution. Detail: {err.strip()}")
-
-    statements = [s.strip() for s in sql_content.split(";") if s.strip()]
+    try:
+        statements = validate_sql_backup_content(sql_content)
+        _prepare_schema_for_restore()
+    except Exception as exc:
+        feedback.error(f"Backup SQL rejeitado: {exc}")
+        return False
     try:
         with db_connect() as conn:
             c = conn.cursor()
+            # A gramática do dump segue strings SQL padrão; fixa a mesma semântica
+            # no servidor para impedir divergência por configuração da conexão.
+            c.execute("SET LOCAL standard_conforming_strings = on")
             existing_tables = {t.lower() for t in _list_tables()}
             pending_fk_inserts: list[tuple[str, str]] = []
 
             for stmt in statements:
                 upper = stmt.upper()
-                if upper in {"BEGIN", "COMMIT", "ROLLBACK"}:
-                    continue
-
-                # Ignora linhas de comentário SQL geradas no dump
-                if stmt.strip().startswith("--"):
-                    continue
-
                 if upper.startswith("TRUNCATE TABLE"):
                     tables = _extract_truncate_tables(stmt)
                     if tables is not None:
