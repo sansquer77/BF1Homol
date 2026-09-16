@@ -238,7 +238,21 @@ equipes
 - **Backup**: widgets são fornecidos pela camada chamadora por injeção, enquanto validação, geração e restauração continuam nas camadas internas.
 - **Justificativa**: permite testar o domínio sem navegador ou protocolo de entrega.
 
-### 8. Previsão meteorológica da Telemetria
+### 8. Cache da Classificação
+- `services/classification_service.py` mantém snapshots da classificação por
+  temporada em `utils/ttl_cache.py`, com TTL de 5 minutos (configurável via
+  `BF1_TTL_CACHE_*`) e invalidação seletiva pela tag `classificacao`.
+- O cálculo é dividido em `build_classification_summary` (tabela atual) e
+  `build_classification_history` (histórico por prova e séries dos gráficos),
+  permitindo que a página inicial carregue apenas o resumo.
+- Escritas em apostas, resultados, regras, provas, pilotos, equipes e
+  participantes disparam `clear_data_cache("classificacao")` para garantir
+  consistência.
+- Após o processamento de um resultado, `save_and_process_result` chama
+  `build_classification` para materializar o read model em cache antes das
+  próximas leituras.
+
+### 9. Previsão meteorológica da Telemetria
 - A sincronização Jolpica persiste coordenadas opcionais em `circuitos_f1`; as
   colunas são incrementais e backups V3.x sem esses campos continuam restauráveis.
 - `services/weather_service.py` consulta Open-Meteo somente no backend, com

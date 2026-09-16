@@ -354,6 +354,9 @@ def test_race_bet_form_and_collapsible_navigation_are_connected():
     assert 'aria-invalid={overLimit}' in form
     assert "eleventhConflicts" in form
     assert "O piloto do 11º não pode estar entre os apostados." in form
+    assert "teamsValid" in form
+    assert 'className={!teamsValid ? "rule-error" : ""}' in form
+    assert "Pilotos repetidos" in form
     assert "/api/v1/race-bets/generate?season=" in form
     assert '"Sem ideias"' in form
     assert 'aria-expanded={isExpanded}' in shell
@@ -400,9 +403,34 @@ def test_result_retirements_are_compact_and_use_team_markers():
     assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in css
 
 
+def test_hall_of_fame_admin_allows_editing_existing_records():
+    view = (FRONTEND / "src/components/hall-admin-view.tsx").read_text(encoding="utf-8")
+    css = (FRONTEND / "src/app/globals.css").read_text(encoding="utf-8")
+    openapi = json.loads((ROOT / "api/openapi-v1.json").read_text(encoding="utf-8"))
+    assert "startEdit" in view
+    assert "editingId" in view
+    assert 'method: "PUT"' in view
+    assert "Editar" in view
+    assert "Cancelar" in view
+    assert ".hall-admin-actions" in css
+    assert "/api/v1/admin/hall-of-fame/{record_id}" in openapi["paths"]
+
+
+def test_financial_admin_recalculates_summary_on_toggle_and_validates_fee():
+    view = (FRONTEND / "src/components/financial-admin-view.tsx").read_text(encoding="utf-8")
+    css = (FRONTEND / "src/app/globals.css").read_text(encoding="utf-8")
+    assert "recalculate" in view
+    assert "updateDerived" in view
+    assert "feeValid" in view
+    assert "Informe uma taxa válida" in view
+    assert "admin-season--error" in css
+    assert 'disabled={busy || !/^\\d{4}$/.test(season) || !feeValid}' in view
+
+
 def test_rules_admin_has_v35_editor_positions_recalculation_and_telemetry_summary():
     rules = (FRONTEND / "src/components/rules-admin-view.tsx").read_text(encoding="utf-8")
     telemetry = (FRONTEND / "src/components/dashboard-overview.tsx").read_text(encoding="utf-8")
+    css = (FRONTEND / "src/app/globals.css").read_text(encoding="utf-8")
     for label in ("Regras por temporada", "Criar/Editar regras", "Pontuação por posição"):
         assert label in rules
     for field in ("bonus_vencedor", "bonus_podio_completo", "pontos_sprint_pole", "penalidade_auto_percent"):
@@ -412,6 +440,8 @@ def test_rules_admin_has_v35_editor_positions_recalculation_and_telemetry_summar
     assert "Recalcular pontuação da temporada" in rules
     assert "Regras Vigentes" in telemetry
     assert "current_rules.position_points" in telemetry
+    assert ".rules-position-toolbar { grid-template-columns: repeat(3, minmax(0, 1fr))" in css
+    assert ".rules-position-toolbar input, .rules-position-toolbar select { width: 100%; min-width: 0; max-width: 100%; }" in css
 
 
 def test_master_can_edit_users_drivers_and_races_in_v4_catalog():

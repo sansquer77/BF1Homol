@@ -6,6 +6,7 @@ export type About = components["schemas"]["AboutResponse"];
 export type Race = components["schemas"]["RaceResponse"];
 export type Telemetry = components["schemas"]["TelemetryResponse"];
 export type Classification = components["schemas"]["ClassificationResponse"];
+export type ClassificationHistory = components["schemas"]["ClassificationHistoryResponse"];
 export type BetsAnalysis = components["schemas"]["BetsAnalysisResponse"];
 export type HallOfFame = components["schemas"]["HallOfFameResponse"];
 export type BettingLogs = components["schemas"]["BettingLogsResponse"];

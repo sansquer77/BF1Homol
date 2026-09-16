@@ -2,8 +2,8 @@
 tipo: spec
 area: financeiro
 status: implementado
-versao: 1.0
-atualizado: 2026-09-12
+versao: 1.1
+atualizado: 2026-09-16
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[specs/controle-de-acesso]]"
@@ -15,7 +15,7 @@ aliases: ["Gestão financeira da temporada"]
 # Gestão financeira da temporada
 
 > [!info] Status
-> **implementado** · área: `financeiro` · atualizado em 2026-09-12 · relacionados: [[02_regras_de_negocio]], [[specs/controle-de-acesso]], [[specs/migracao-v4-nextjs-fastapi]]
+> **implementado** · área: `financeiro` · atualizado em 2026-09-16 · relacionados: [[02_regras_de_negocio]], [[specs/controle-de-acesso]], [[specs/migracao-v4-nextjs-fastapi]]
 
 ## Problema
 
@@ -52,6 +52,8 @@ alterar ou disparar cobranças financeiras.
 5. O filtro de pendentes é apenas visual e não altera os registros.
 6. A cobrança usa somente e-mails válidos de participantes pendentes derivados pelo servidor e os envia em CCO.
 7. Falta de destinatários ou falha do provedor de e-mail não produz falso sucesso.
+8. A alteração do status de pagamento de um participante atualiza imediatamente os cards de resumo no frontend, sem exigir salvamento prévio.
+9. O formulário só permite salvar quando a taxa informada é um número válido maior ou igual a zero; mensagens de erro da API são apresentadas ao usuário.
 
 ## Interface, serviços e dados
 
@@ -68,11 +70,14 @@ alterar ou disparar cobranças financeiras.
 4. A tela permite filtrar devedores e apresenta todos os resumos.
 5. O lembrete envia em CCO somente aos pendentes com e-mail válido.
 6. Perfis diferentes de Master recebem acesso negado em todas as operações.
+7. Dado que o Master altera um pagamento na tabela, quando a ação ocorre, então os cards de resumo e a distribuição de prêmios recalculam instantaneamente.
+8. Dado uma taxa inválida ou vazia, quando o Master tenta salvar, então a ação é bloqueada no frontend com mensagem clara.
 
 ## Verificação
 
 - Critérios 1–3, 5 e 6 — testes em `tests/test_financial_v4_service.py`.
 - Critério 4 — contrato de frontend e build Next.js.
+- Critérios 7 e 8 — teste em `tests/test_v4_frontend_foundation.py`.
 
 ## Pendências
 
@@ -91,6 +96,7 @@ alterar ou disparar cobranças financeiras.
 
 ## Changelog
 
+- `1.1` — 2026-09-16 — Recálculo imediato dos cards de resumo ao alternar status de pagamento; validação de taxa e exibição de erro da API no frontend.
 - `1.0` — 2026-09-12 — Gestão financeira V4 especificada com paridade funcional à V3.
 
 ## Relacionados

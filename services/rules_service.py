@@ -91,8 +91,11 @@ def get_regras_aplicaveis(temporada: str, tipo_prova: str = "Normal") -> dict:
         "min_pilotos": min_pilotos  # Alias para compatibilidade
     }
     
-    if is_sprint and regra['regra_sprint']:
-        config["pontos_posicoes"] = regra['pontos_sprint_posicoes']
+    # spec: classificacao v1.8 — critério 12
+    # A tabela Sprint é própria do tipo da prova. `regra_sprint` altera apenas
+    # a composição (quantidade de fichas e mínimo de pilotos).
+    if is_sprint:
+        config["pontos_posicoes"] = regra.get('pontos_sprint_posicoes') or regra['pontos_posicoes']
     else:
         config["pontos_posicoes"] = regra['pontos_posicoes']
     

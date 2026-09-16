@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.20
+versao: 1.21
 atualizado: 2026-09-16
 relacionados:
   - "[[sdd]]"
@@ -49,11 +49,44 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
 
+### 3.7.1
+
+- Correção: o máximo do Comparativo da Etapa usa a tabela de pontuação Sprint
+  mesmo quando a composição especial `regra_sprint` está desativada; com a
+  regra vigente de 2026, o teto passa de 664,00 para 304,00 pontos.
+- Usabilidade: os campos Temporada, Tipo de Prova e Posições que pontuam da aba
+  Pontuação por posição passam a ocupar colunas responsivas independentes, sem
+  colisão entre controles.
+
+### 3.7.0
+
+- Performance: classificação passa a usar cache por temporada
+  (`services/classification_service.py`), com invalidação em escritas de
+  apostas, resultados, regras, provas, pilotos, equipes e participantes.
+- Arquitetura: cálculo da classificação dividido entre resumo atual e histórico
+  por prova; endpoint `GET /api/v1/classification/history` carrega séries e
+  comparativo de etapas sob demanda.
+- Materialização: após processamento de um resultado, o snapshot da
+  classificação V4 é pré-calculado e armazenado em cache, reduzindo filas de
+  processamento síncrono sob concorrência.
+- Funcionalidade: gestão do Hall da Fama na administração passa a oferecer
+  botão "Editar" para cada registro, preenchendo o formulário e usando
+  `PUT /api/v1/admin/hall-of-fame/{record_id}`.
+- Correção: financeiro da temporada recalcula os cards de resumo e a
+  distribuição de prêmios imediatamente ao marcar/desmarcar um pagamento,
+  antes mesmo de salvar.
+- Correção: financeiro da temporada valida a taxa no frontend, desabilita o
+  salvamento quando inválido e exibe o detalhe do erro retornado pela API,
+  evitando a mensagem genérica "Não foi possível salvar o financeiro."
+
 ### 3.6.0
 
 - Funcionalidade: gestão administrativa de apostas passa a oferecer download de
   imagem institucional do relatório de cobertura por participante, com logo,
   barra de progresso e identidade visual do BF1.
+- Usabilidade: no formulário de apostas, o indicativo "Mesma equipe" no painel
+  de regras fica vermelho quando a regra proíbe pilotos repetidos e o usuário
+  seleciona dois pilotos da mesma equipe.
 
 ### 3.5.4
 

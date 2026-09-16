@@ -242,6 +242,11 @@ class ClassificationResponse(BaseModel):
     races: list[ClassificationRace] = []
 
 
+class ClassificationHistoryResponse(BaseModel):
+    season: str
+    races: list[ClassificationRace] = []
+
+
 class RaceBetDriver(BaseModel):
     name: str
     team: str

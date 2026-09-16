@@ -1,4 +1,9 @@
-"""Leitura canônica da classificação BF1 para a API V4."""
+"""Leitura canônica da classificação BF1 para a API V4.
+
+A classificação é cacheada por temporada. O cache é invalidado por
+`clear_data_cache('classificacao')` após alterações em apostas, resultados,
+regras, provas ou participantes.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +18,7 @@ from services.bets_scoring import calcular_pontuacao_lote
 from services.championship_service import get_championship_bets_df, get_final_results
 from services.rules_service import get_regras_aplicaveis
 from utils.dataframe_contracts import APOSTAS_COLUMNS, PROVAS_COLUMNS, RESULTADOS_COLUMNS, USUARIOS_COLUMNS, with_required_columns
+from utils.ttl_cache import ttl_cache
 
 
 _PNG_COLUMN_WIDTHS = (0.06, 0.34, 0.12, 0.11, 0.11, 0.14, 0.12)
@@ -43,7 +49,16 @@ def calculate_movement(previous_position: int | None, current_position: int) -> 
 
 def calculate_max_race_points(rules: dict[str, Any], race_type: str = "Normal") -> float:
     """Calcula o teto teórico de uma aposta válida conforme a regra vigente."""
-    points_table = [max(0.0, float(value or 0)) for value in rules.get("pontos_posicoes", [])]
+    is_sprint = str(race_type).strip().casefold() == "sprint"
+    # spec: classificacao v1.8 — critério 12
+    # O teto precisa usar a mesma tabela que o motor de pontuação. A flag
+    # `regra_sprint` controla somente a composição especial da aposta.
+    raw_points = (
+        (rules.get("pontos_sprint_posicoes") or rules.get("pontos_posicoes", []))
+        if is_sprint
+        else rules.get("pontos_posicoes", [])
+    )
+    points_table = [max(0.0, float(value or 0)) for value in raw_points]
     total_chips = max(0, int(rules.get("quantidade_fichas", 0) or 0))
     per_driver = max(1, int(rules.get("fichas_por_piloto", total_chips or 1) or 1))
     minimum_drivers = max(1, int(rules.get("qtd_minima_pilotos", rules.get("min_pilotos", 1)) or 1))
@@ -64,7 +79,7 @@ def calculate_max_race_points(rules: dict[str, Any], race_type: str = "Normal") 
     maximum += max(0.0, float(rules.get("pontos_11_colocado", 0) or 0))
     # spec: classificacao v1.6 — critério 12
     # `pontos_dobrada` pertence à regra Sprint; nunca dobra uma prova Normal.
-    if str(race_type).strip().casefold() == "sprint" and rules.get("pontos_dobrada"):
+    if is_sprint and rules.get("pontos_dobrada"):
         maximum *= 2
     return round(maximum, 2)
 
@@ -73,7 +88,7 @@ def _format_points_br(value: float) -> str:
     return f"{float(value):,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
 
 
-def build_classification(season: str) -> dict[str, Any]:
+def _normalize_frames(season: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     from db.repo_bets import get_apostas_df, get_participantes_temporada_df
     from db.repo_races import get_provas_df, get_resultados_df
 
@@ -87,75 +102,102 @@ def build_classification(season: str) -> dict[str, Any]:
         frame.dropna(subset=columns, inplace=True)
         for column in columns:
             frame[column] = frame[column].astype(int)
+    return users, races, bets, results
 
-    participants = users[users["nome"].notna() & (users["nome"].astype(str) != "Master")]
-    calculated = bets.copy()
-    calculated["__points"] = [0.0 if value is None else float(value) for value in calcular_pontuacao_lote(calculated, results, races, temporada_descarte=season)] if not calculated.empty else []
-    completed_ids = set(results["prova_id"].tolist())
-    completed = calculated[calculated["prova_id"].isin(completed_ids)].copy()
-    if "data_envio" in completed.columns:
-        completed["__sent"] = pd.to_datetime(completed["data_envio"], errors="coerce")
-        completed = completed.sort_values("__sent").drop_duplicates(["usuario_id", "prova_id"], keep="last")
 
-    rules = get_regras_aplicaveis(str(season), "Normal")
-    discard_active = bool(rules.get("descarte", False))
-    final_result = get_final_results(int(season))
-    championship_map: dict[int, dict[str, Any]] = {}
-    if final_result:
-        championship = get_championship_bets_df(int(season))
-        for row in championship.to_dict("records"):
+class _ClassificationBase:
+    """Container imutável com os dados preparados para classificação."""
+
+    def __init__(self, season: str) -> None:
+        users, races, bets, results = _normalize_frames(season)
+        self.season = str(season)
+        self.users = users
+        self.races = races
+        self.bets = bets
+        self.results = results
+        self.participants = users[users["nome"].notna() & (users["nome"].astype(str) != "Master")]
+
+        calculated = bets.copy()
+        calculated["__points"] = (
+            [0.0 if value is None else float(value) for value in calcular_pontuacao_lote(calculated, results, races, temporada_descarte=season)]
+            if not calculated.empty else []
+        )
+        completed_ids = set(results["prova_id"].tolist())
+        completed = calculated[calculated["prova_id"].isin(completed_ids)].copy()
+        if "data_envio" in completed.columns:
+            completed["__sent"] = pd.to_datetime(completed["data_envio"], errors="coerce")
+            completed = completed.sort_values("__sent").drop_duplicates(["usuario_id", "prova_id"], keep="last")
+        self.completed = completed
+        self.completed_ids = completed_ids
+
+        self.rules = get_regras_aplicaveis(str(season), "Normal")
+        self.discard_active = bool(self.rules.get("descarte", False))
+        self.final_result = get_final_results(int(season))
+        self.championship_map: dict[int, dict[str, Any]] = {}
+        if self.final_result:
+            championship = get_championship_bets_df(int(season))
+            for row in championship.to_dict("records"):
+                try:
+                    self.championship_map[int(row.get("user_id"))] = row
+                except (TypeError, ValueError):
+                    continue
+
+        self.eleventh_hits: dict[int, int] = {}
+        self.result_eleven: dict[int, str] = {}
+        for row in results.to_dict("records"):
             try:
-                championship_map[int(row.get("user_id"))] = row
-            except (TypeError, ValueError):
+                positions = ast.literal_eval(str(row.get("posicoes") or "{}"))
+                self.result_eleven[int(row["prova_id"])] = str(positions.get(11, "")).strip()
+            except (ValueError, SyntaxError, TypeError):
                 continue
+        for row in completed.to_dict("records"):
+            if str(row.get("piloto_11") or "").strip() == self.result_eleven.get(int(row["prova_id"]), ""):
+                uid = int(row["usuario_id"])
+                self.eleventh_hits[uid] = self.eleventh_hits.get(uid, 0) + 1
 
-    eleventh_hits: dict[int, int] = {}
-    result_eleven: dict[int, str] = {}
-    for row in results.to_dict("records"):
-        try:
-            positions = ast.literal_eval(str(row.get("posicoes") or "{}"))
-            result_eleven[int(row["prova_id"])] = str(positions.get(11, "")).strip()
-        except (ValueError, SyntaxError, TypeError):
-            continue
-    for row in completed.to_dict("records"):
-        if str(row.get("piloto_11") or "").strip() == result_eleven.get(int(row["prova_id"]), ""):
-            uid = int(row["usuario_id"])
-            eleventh_hits[uid] = eleventh_hits.get(uid, 0) + 1
 
-    entries = []
-    completed_race_ids = [int(race_id) for race_id in races["id"].tolist() if int(race_id) in completed_ids]
+@ttl_cache(ttl=300, tags=("classificacao",))
+def _load_classification_base(season: str) -> _ClassificationBase:
+    """Carrega e prepara os dados crus da classificação, compartilhado entre summary e history."""
+    return _ClassificationBase(season)
+
+
+def _build_entries(base: _ClassificationBase) -> list[dict[str, Any]]:
+    participant_records = base.participants.to_dict("records")
+    completed_race_ids = [int(race_id) for race_id in base.races["id"].tolist() if int(race_id) in base.completed_ids]
+
     previous_positions: dict[int, int] = {}
     if len(completed_race_ids) > 1:
         previous_ids = set(completed_race_ids[:-1])
         previous_totals: list[tuple[int, float, int]] = []
-        for order, row in enumerate(participants.to_dict("records")):
+        for order, row in enumerate(participant_records):
             uid = int(row["id"])
-            previous_bets = completed[(completed["usuario_id"] == uid) & (completed["prova_id"].isin(previous_ids))]
+            previous_bets = base.completed[(base.completed["usuario_id"] == uid) & (base.completed["prova_id"].isin(previous_ids))]
             previous_total = float(pd.to_numeric(previous_bets["__points"], errors="coerce").fillna(0).sum()) if not previous_bets.empty else 0.0
-            if discard_active and not previous_bets.empty:
+            if base.discard_active and not previous_bets.empty:
                 previous_total -= float(pd.to_numeric(previous_bets["__points"], errors="coerce").min())
             previous_totals.append((uid, previous_total, order))
         previous_totals.sort(key=lambda item: (-item[1], item[2]))
         previous_positions = {uid: position for position, (uid, _, _) in enumerate(previous_totals, start=1)}
 
-    participant_records = participants.to_dict("records")
+    entries = []
     for row in participant_records:
         uid = int(row["id"])
-        own = completed[completed["usuario_id"] == uid]
+        own = base.completed[base.completed["usuario_id"] == uid]
         total = float(pd.to_numeric(own["__points"], errors="coerce").fillna(0).sum()) if not own.empty else 0.0
-        discard = float(pd.to_numeric(own["__points"], errors="coerce").min()) if discard_active and not own.empty else 0.0
+        discard = float(pd.to_numeric(own["__points"], errors="coerce").min()) if base.discard_active and not own.empty else 0.0
         champion_bonus = vice_bonus = team_bonus = 0.0
         championship_hits = 0
-        championship_bet = championship_map.get(uid)
-        if final_result and championship_bet:
-            if championship_bet.get("champion") == final_result.get("champion"):
-                champion_bonus = float(rules.get("pontos_campeao", 150)); championship_hits += 1
-            if championship_bet.get("vice") == final_result.get("vice"):
-                vice_bonus = float(rules.get("pontos_vice", 100)); championship_hits += 1
-            if championship_bet.get("team") == final_result.get("team"):
-                team_bonus = float(rules.get("pontos_equipe", 80)); championship_hits += 1
+        championship_bet = base.championship_map.get(uid)
+        if base.final_result and championship_bet:
+            if championship_bet.get("champion") == base.final_result.get("champion"):
+                champion_bonus = float(base.rules.get("pontos_campeao", 150)); championship_hits += 1
+            if championship_bet.get("vice") == base.final_result.get("vice"):
+                vice_bonus = float(base.rules.get("pontos_vice", 100)); championship_hits += 1
+            if championship_bet.get("team") == base.final_result.get("team"):
+                team_bonus = float(base.rules.get("pontos_equipe", 80)); championship_hits += 1
         totals = calculate_totals(total, champion_bonus, vice_bonus, team_bonus, discard)
-        entries.append({"user_id": uid, "participant": str(row["nome"]), "eleventh_hits": eleventh_hits.get(uid, 0), "championship_hits": championship_hits, **totals})
+        entries.append({"user_id": uid, "participant": str(row["nome"]), "eleventh_hits": base.eleventh_hits.get(uid, 0), "championship_hits": championship_hits, **totals})
 
     entries.sort(key=lambda item: (-item["valid_total"], -item["eleventh_hits"], -item["championship_hits"], item["participant"]))
     previous = None
@@ -166,19 +208,26 @@ def build_classification(season: str) -> dict[str, Any]:
         entry["movement"] = calculate_movement(prior_position, index)
         entry.pop("user_id", None)
         previous = entry["valid_total"]
-    race_records = races.to_dict("records")
+    return entries
+
+
+def _build_history(base: _ClassificationBase) -> list[dict[str, Any]]:
+    participant_records = base.participants.to_dict("records")
+    completed_race_ids = [int(race_id) for race_id in base.races["id"].tolist() if int(race_id) in base.completed_ids]
+    race_records = base.races.to_dict("records")
     race_names = {int(row["id"]): str(row.get("nome") or "Prova") for row in race_records}
     race_types = {int(row["id"]): str(row.get("tipo") or "Normal") for row in race_records}
     cumulative = {int(row["id"]): 0.0 for row in participant_records}
     names = {int(row["id"]): str(row.get("nome") or "Participante") for row in participant_records}
+
     race_history: list[dict[str, Any]] = []
     for race_id in completed_race_ids:
         race_type = race_types.get(race_id, "Normal")
-        maximum_points = calculate_max_race_points(get_regras_aplicaveis(str(season), race_type), race_type)
+        maximum_points = calculate_max_race_points(get_regras_aplicaveis(str(base.season), race_type), race_type)
         points_by_user: dict[int, float] = {}
         for row in participant_records:
             uid = int(row["id"])
-            own_race = completed[(completed["usuario_id"] == uid) & (completed["prova_id"] == race_id)]
+            own_race = base.completed[(base.completed["usuario_id"] == uid) & (base.completed["prova_id"] == race_id)]
             points = float(pd.to_numeric(own_race["__points"], errors="coerce").fillna(0).sum()) if not own_race.empty else 0.0
             points_by_user[uid] = points
             cumulative[uid] += points
@@ -197,7 +246,28 @@ def build_classification(season: str) -> dict[str, Any]:
                 "position": positions[uid],
             } for uid in ranking],
         })
-    return {"season": str(season), "discard_active": discard_active, "entries": entries, "races": race_history}
+    return race_history
+
+
+@ttl_cache(ttl=300, tags=("classificacao",))
+def build_classification_summary(season: str) -> dict[str, Any]:
+    """Retorna classificação atual (entries) sem o histórico por prova."""
+    base = _load_classification_base(season)
+    return {"season": base.season, "discard_active": base.discard_active, "entries": _build_entries(base)}
+
+
+@ttl_cache(ttl=300, tags=("classificacao",))
+def build_classification_history(season: str) -> dict[str, Any]:
+    """Retorna o histórico de pontuação por prova (races)."""
+    base = _load_classification_base(season)
+    return {"season": base.season, "races": _build_history(base)}
+
+
+def build_classification(season: str) -> dict[str, Any]:
+    """Retorna classificação completa com entries e histórico (compatibilidade)."""
+    summary = build_classification_summary(season)
+    history = build_classification_history(season)
+    return {**summary, "races": history["races"]}
 
 
 def classification_for_race(snapshot: dict[str, Any], race_id: int) -> dict[str, Any]:
@@ -280,4 +350,13 @@ def render_classification_png(snapshot: dict[str, Any]) -> BytesIO:
         plt.close(figure)
 
 
-__all__ = ["build_classification", "calculate_max_race_points", "calculate_movement", "calculate_totals", "classification_for_race", "render_classification_png"]
+__all__ = [
+    "build_classification",
+    "build_classification_summary",
+    "build_classification_history",
+    "calculate_max_race_points",
+    "calculate_movement",
+    "calculate_totals",
+    "classification_for_race",
+    "render_classification_png",
+]

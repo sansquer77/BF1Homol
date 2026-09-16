@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from services.access_control import AuthenticatedContext, authorize_context
+from utils.cache_utils import clear_data_cache
 
 
 def _require(context: AuthenticatedContext, operation: str, roles: frozenset[str], season: str | None = None) -> None:
@@ -16,6 +17,7 @@ def create_user(context: AuthenticatedContext, *, name: str, email: str, passwor
     from services.auth_service import cadastrar_usuario
     if not cadastrar_usuario(name.strip(), email.strip().lower(), password, perfil=profile.strip().lower(), status=user_status.strip().lower()):
         raise ValueError("Não foi possível criar o usuário.")
+    clear_data_cache("classificacao")
 
 
 def update_user(context: AuthenticatedContext, user_id: int, fields: dict[str, Any]) -> None:
@@ -24,6 +26,7 @@ def update_user(context: AuthenticatedContext, user_id: int, fields: dict[str, A
     allowed = {key: value for key, value in fields.items() if key in {"nome", "email", "perfil", "status", "must_change_password"}}
     if not allowed or not update_usuario(int(user_id), **allowed):
         raise ValueError("Nenhum campo administrativo válido foi alterado.")
+    clear_data_cache("classificacao")
 
 
 def upsert_driver(context: AuthenticatedContext, driver_id: int | None, fields: dict[str, Any]) -> None:
@@ -38,6 +41,7 @@ def upsert_driver(context: AuthenticatedContext, driver_id: int | None, fields: 
     ok = update_piloto(int(driver_id), **clean) if driver_id is not None else add_piloto(clean.get("nome", ""), equipe=clean.get("equipe", ""), status=clean.get("status", "Ativo"), numero=int(clean.get("numero") or 0))
     if not ok:
         raise ValueError("Não foi possível salvar o piloto.")
+    clear_data_cache("classificacao")
 
 
 def list_admin_teams(context: AuthenticatedContext) -> list[dict[str, Any]]:
@@ -62,7 +66,9 @@ def upsert_team(context: AuthenticatedContext, team_id: int | None, fields: dict
     if status not in {"Ativa", "Inativa"}:
         raise ValueError("Status da equipe inválido.")
     from db.equipes_utils import save_equipe
-    return save_equipe(team_id, name=name, primary_color=primary, secondary_color=secondary, status=status)
+    result = save_equipe(team_id, name=name, primary_color=primary, secondary_color=secondary, status=status)
+    clear_data_cache("classificacao")
+    return result
 
 
 def _valid_hex_color(value: str) -> bool:
@@ -81,12 +87,16 @@ def upsert_race(context: AuthenticatedContext, race_id: int | None, season: str,
         ok = update_prova(int(race_id), **clean)
     if not ok:
         raise ValueError("Não foi possível salvar a prova.")
+    clear_data_cache("classificacao")
 
 
 def save_result(context: AuthenticatedContext, race_id: int, season: str, positions: dict[str, Any], retirements: list[str]) -> None:
     _require(context, "resultado.write", frozenset({"admin", "master"}), season=season)
     from services.admin_operations import admin_save_resultado
     admin_save_resultado(race_id, season, positions, retirements)
+    # O admin_save_resultado já invalida caches; mantemos a chamada explícita para
+    # garantir invalidação da classificação por temporada.
+    clear_data_cache("classificacao")
 
 
 def list_admin_users(context: AuthenticatedContext) -> list[dict[str, Any]]:

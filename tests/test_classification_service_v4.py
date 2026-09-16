@@ -3,9 +3,12 @@ from unittest.mock import patch
 import pandas as pd
 
 from services.classification_service import build_classification, calculate_max_race_points, calculate_totals, classification_for_race, render_classification_png
+from utils.ttl_cache import clear_all_caches
 
 
 def test_total_valido_preserves_canonical_formula():
+    clear_all_caches("classificacao")
+
     assert calculate_totals(300, 150, 100, 80, 40)["valid_total"] == 590
 
 
@@ -23,12 +26,28 @@ def test_maximum_race_points_comes_from_active_rule():
     assert calculate_max_race_points({**rules, "pontos_dobrada": True}, "Sprint") == 664
 
 
+def test_maximum_sprint_points_uses_sprint_position_table_even_without_special_composition():
+    rules = {
+        "quantidade_fichas": 15,
+        "fichas_por_piloto": 5,
+        "qtd_minima_pilotos": 5,
+        "pontos_posicoes": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+        "pontos_sprint_posicoes": [8, 7, 6, 5, 4, 3, 2, 1],
+        "pontos_11_colocado": 50,
+        "regra_sprint": False,
+        "pontos_dobrada": True,
+    }
+
+    assert calculate_max_race_points(rules, "Sprint") == 304
+
+
 def test_classification_png_is_generated():
     image = render_classification_png({"season": "2026", "entries": []})
     assert image.read(8) == b"\x89PNG\r\n\x1a\n"
 
 
 def test_classification_orders_by_valid_total_and_applies_discard_once():
+    clear_all_caches("classificacao")
     users = pd.DataFrame([
         {"id": 1, "nome": "Ana", "perfil": "participante"},
         {"id": 2, "nome": "Beto", "perfil": "participante"},

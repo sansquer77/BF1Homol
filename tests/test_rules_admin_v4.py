@@ -4,6 +4,7 @@ import pytest
 
 from services.access_control import AuthenticatedContext, AuthorizationDenied
 from services.rules_admin_v4_service import RULE_FIELDS, _validated_fields, recalculate_season
+from services.rules_service import get_regras_aplicaveis
 
 
 def _context(role: str = "master") -> AuthenticatedContext:
@@ -37,6 +38,17 @@ def test_rule_contract_rejects_hidden_or_incomplete_updates():
     del payload["bonus_podio_completo"]
     with pytest.raises(ValueError, match="bonus_podio_completo"):
         _validated_fields(payload)
+
+
+def test_sprint_table_does_not_depend_on_special_sprint_composition_flag():
+    rule = {**_rule_payload(), "id": 7, "regra_sprint": False}
+    get_regras_aplicaveis.clear()
+    with patch("services.rules_service.get_regra_temporada", return_value=rule):
+        resolved = get_regras_aplicaveis("2026", "Sprint")
+
+    assert resolved["quantidade_fichas"] == 15
+    assert resolved["qtd_minima_pilotos"] == 5
+    assert resolved["pontos_posicoes"] == rule["pontos_sprint_posicoes"]
 
 
 def test_recalculate_is_master_only_and_scoped_to_selected_season():

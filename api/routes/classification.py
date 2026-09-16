@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
 from api.dependencies import authorize_season_object, get_current_context
-from api.schemas import ClassificationResponse
+from api.schemas import ClassificationHistoryResponse, ClassificationResponse
 from services.access_control import AuthenticatedContext
-from services.classification_service import build_classification, classification_for_race, render_classification_png
+from services.classification_service import build_classification, build_classification_history, build_classification_summary, classification_for_race, render_classification_png
 
 router = APIRouter(prefix="/classification", tags=["classification"])
 
@@ -14,11 +14,23 @@ router = APIRouter(prefix="/classification", tags=["classification"])
 @router.get("", response_model=ClassificationResponse)
 def classification(
     season: str = Query(pattern=r"^\d{4}$"),
+    history: bool = Query(default=False),
     race_id: int | None = Query(default=None, gt=0),
     context: AuthenticatedContext = Depends(get_current_context),
 ) -> ClassificationResponse:
     authorize_season_object(season, context)
-    return ClassificationResponse.model_validate(build_classification(season))
+    if history:
+        return ClassificationResponse.model_validate(build_classification(season))
+    return ClassificationResponse.model_validate(build_classification_summary(season))
+
+
+@router.get("/history", response_model=ClassificationHistoryResponse)
+def classification_history(
+    season: str = Query(pattern=r"^\d{4}$"),
+    context: AuthenticatedContext = Depends(get_current_context),
+) -> ClassificationHistoryResponse:
+    authorize_season_object(season, context)
+    return ClassificationHistoryResponse.model_validate(build_classification_history(season))
 
 
 @router.get("/image", response_class=StreamingResponse)

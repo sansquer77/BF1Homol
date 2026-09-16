@@ -1490,6 +1490,27 @@
         "title": "ClassificationResponse",
         "type": "object"
       },
+      "ClassificationHistoryResponse": {
+        "properties": {
+          "races": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ClassificationRace"
+            },
+            "title": "Races",
+            "type": "array"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season"
+        ],
+        "title": "ClassificationHistoryResponse",
+        "type": "object"
+      },
       "DriverBetAggregate": {
         "properties": {
           "bets": {
@@ -6709,6 +6730,16 @@
           },
           {
             "in": "query",
+            "name": "history",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "History",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
             "name": "race_id",
             "required": false,
             "schema": {
@@ -6748,6 +6779,49 @@
           }
         },
         "summary": "Classification",
+        "tags": [
+          "classification"
+        ]
+      }
+    },
+    "/api/v1/classification/history": {
+      "get": {
+        "operationId": "classification_history_api_v1_classification_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Classification History",
         "tags": [
           "classification"
         ]

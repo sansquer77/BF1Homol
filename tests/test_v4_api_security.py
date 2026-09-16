@@ -227,6 +227,50 @@ class V4ApiSecurityTests(unittest.TestCase):
         finally:
             app.dependency_overrides.clear()
 
+    def test_financial_update_is_master_only_and_persists_payments(self):
+        from contextlib import contextmanager
+        from unittest.mock import MagicMock
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        import pandas as pd
+
+        admin = AuthenticatedContext(7, "Ana", "admin", "ativo", frozenset({"2026"}))
+        master = AuthenticatedContext(1, "Master", "master", "ativo", frozenset())
+
+        cursor = MagicMock()
+        cursor.fetchone.return_value = {"valor_taxa": 200}
+        cursor.fetchall.return_value = [{"usuario_id": 2, "pago": True}]
+        connection = MagicMock()
+        connection.cursor.return_value = cursor
+
+        @contextmanager
+        def connect():
+            yield connection
+
+        participants = pd.DataFrame([
+            {"id": 2, "nome": "Ana", "email": "ana@example.com", "perfil": "participante"},
+            {"id": 3, "nome": "Bia", "email": "bia@example.com", "perfil": "participante"},
+        ])
+
+        app.dependency_overrides[get_current_context] = lambda: admin
+        try:
+            with patch("db.db_schema.db_connect", connect), patch("db.repo_bets.get_participantes_temporada_df", return_value=participants), patch("db.repo_observability.record_event"):
+                response = self.client.put("/api/v1/admin/financial", headers={"Origin": "https://bf1.test"}, json={"season": "2026", "fee": 200, "payments": [{"user_id": 2, "paid": True}]})
+            self.assertEqual(response.status_code, 403)
+        finally:
+            app.dependency_overrides.clear()
+
+        app.dependency_overrides[get_current_context] = lambda: master
+        try:
+            with patch("db.db_schema.db_connect", connect), patch("db.repo_bets.get_participantes_temporada_df", return_value=participants), patch("db.repo_observability.record_event"):
+                response = self.client.put("/api/v1/admin/financial", headers={"Origin": "https://bf1.test"}, json={"season": "2026", "fee": 200, "payments": [{"user_id": 2, "paid": True}, {"user_id": 3, "paid": False}]})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), {"status": "ok"})
+            connection.commit.assert_called_once()
+        finally:
+            app.dependency_overrides.clear()
+
     def tearDown(self):
         self.client.cookies.clear()
         from api.main import app

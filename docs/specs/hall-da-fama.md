@@ -2,8 +2,8 @@
 tipo: spec
 area: hall-da-fama
 status: implementado
-versao: 1.4
-atualizado: 2026-09-09
+versao: 1.5
+atualizado: 2026-09-16
 relacionados: ["[[specs/classificacao]]", "[[specs/controle-de-acesso]]", "[[specs/historico-do-participante]]"]
 tags: [spec, "area/hall-da-fama", "status/implementado"]
 aliases: ["Hall da Fama"]
@@ -12,7 +12,7 @@ aliases: ["Hall da Fama"]
 # Hall da Fama
 
 > [!info] Status
-> **implementado** · área: `hall-da-fama` · atualizado em 2026-09-08 · relacionados: [[specs/classificacao]], [[specs/controle-de-acesso]], [[specs/historico-do-participante]]
+> **implementado** · área: `hall-da-fama` · atualizado em 2026-09-16 · relacionados: [[specs/classificacao]], [[specs/controle-de-acesso]], [[specs/historico-do-participante]]
 
 ## Problema
 
@@ -27,7 +27,7 @@ Preservar e apresentar campeões e colocações históricas de temporadas elegí
 
 1. O usuário abre o Hall da Fama.
 2. O sistema lista temporadas elegíveis e suas colocações em ordem consistente.
-3. O Master pode manter registros, com validação e proteção contra duplicidade.
+3. O Master pode incluir, editar e remover registros, com validação e proteção contra duplicidade.
 
 ## Dados
 
@@ -60,6 +60,7 @@ Preservar e apresentar campeões e colocações históricas de temporadas elegí
 5. Dada temporada vazia, quando consultar, então nenhum campeão é inferido.
 6. Dada exclusão de colocação, quando concluir, então usuário e histórico de apostas permanecem.
 7. Dado lote com usuário inexistente ou item inválido, quando importar, então o resumo diferencia ignorados e erros.
+8. Dado registro existente, quando o Master clicar em "Editar", então o formulário é preenchido e permite atualizar temporada, posição e pontos via `PUT /api/v1/admin/hall-of-fame/{record_id}`.
 
 ## Verificação
 
@@ -84,6 +85,7 @@ Preservar e apresentar campeões e colocações históricas de temporadas elegí
 
 ## Changelog
 
+- `1.5` — 2026-09-16 — Botão "Editar" na gestão administrativa do Hall da Fama, integrado ao endpoint `PUT /api/v1/admin/hall-of-fame/{record_id}`.
 - `1.4` — 2026-09-09 — Contadores e distribuição histórica abrangendo todos os participantes, inclusive sem pódio.
 - `1.3` — 2026-09-09 — Listagem administrativa corrigida para o contrato `dict_row` do psycopg 3 usado em produção.
 - `1.2` — 2026-09-08 — Gestão administrativa V4 do Hall da Fama disponível para Master.

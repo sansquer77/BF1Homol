@@ -920,6 +920,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/classification/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Classification History */
+        get: operations["classification_history_api_v1_classification_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content/about": {
         parameters: {
             query?: never;
@@ -1641,6 +1658,16 @@ export interface components {
             discard_active: boolean;
             /** Entries */
             entries: components["schemas"]["ClassificationEntry"][];
+            /**
+             * Races
+             * @default []
+             */
+            races: components["schemas"]["ClassificationRace"][];
+            /** Season */
+            season: string;
+        };
+        /** ClassificationHistoryResponse */
+        ClassificationHistoryResponse: {
             /**
              * Races
              * @default []
@@ -4492,6 +4519,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    classification_history_api_v1_classification_history_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassificationHistoryResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

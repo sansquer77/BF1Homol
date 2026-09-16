@@ -2,8 +2,8 @@
 tipo: spec
 area: regras
 status: implementado
-versao: 1.1
-atualizado: 2026-09-14
+versao: 1.2
+atualizado: 2026-09-16
 relacionados: ["[[02_regras_de_negocio]]", "[[specs/pontuacao-de-provas]]", "[[specs/classificacao]]"]
 tags: [spec, "area/regras", "status/implementado"]
 aliases: ["Gestão de temporadas e regras"]
@@ -12,7 +12,7 @@ aliases: ["Gestão de temporadas e regras"]
 # Gestão de temporadas e regras
 
 > [!info] Status
-> **implementado** · área: `regras` · atualizado em 2026-09-14 · relacionados: [[02_regras_de_negocio]], [[specs/pontuacao-de-provas]], [[specs/classificacao]]
+> **implementado** · área: `regras` · atualizado em 2026-09-16 · relacionados: [[02_regras_de_negocio]], [[specs/pontuacao-de-provas]], [[specs/classificacao]]
 
 ## Problema
 
@@ -47,6 +47,7 @@ Centralizar configurações versionáveis de pontuação e associá-las às temp
 8. O formulário V4 preserva todos os campos persistidos pela V3.5, inclusive tabelas Normal/Sprint, bônus, penalidades e parâmetros de campeonato.
 9. Ao alterar pontos por posição de uma temporada cuja regra é compartilhada, o sistema clona a regra e reassocia somente a temporada escolhida antes da alteração.
 10. O recálculo é sempre uma ação explícita do Master, limitada à temporada selecionada, e reutiliza a rotina canônica de materialização da V3.5.
+11. Na aba Pontuação por posição, Temporada, Tipo de Prova e quantidade de posições permanecem separados, sem sobreposição, em desktop e mobile.
 
 ## Interface, serviços e dados
 
@@ -67,6 +68,7 @@ Centralizar configurações versionáveis de pontuação e associá-las às temp
 8. Dada regra existente, quando o Master escolher Editar, então todos os campos atuais são carregados e podem ser atualizados sem redefinir valores ocultos.
 9. Dada temporada e tipo de prova, quando salvar a tabela por posição, então são persistidas até 20 posições e uma regra compartilhada não altera outra temporada.
 10. Dada temporada selecionada, quando o Master confirmar o recálculo, então todas as provas dessa temporada são reprocessadas pela rotina canônica.
+11. Dada a aba Pontuação por posição, quando exibida em viewport suportado, então os campos Temporada e Tipo de Prova não colidem nem extrapolam seus controles.
 
 ## Verificação
 
@@ -90,6 +92,7 @@ Centralizar configurações versionáveis de pontuação e associá-las às temp
 
 ## Changelog
 
+- `1.2` — 2026-09-16 — Formaliza a separação responsiva dos filtros da aba Pontuação por posição.
 - `1.1` — 2026-09-14 — Especifica paridade integral do editor V3.5, pontuação por posição com isolamento por temporada e recálculo explícito.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 

@@ -2,8 +2,8 @@
 tipo: spec
 area: classificacao
 status: implementado
-versao: 1.7
-atualizado: 2026-09-12
+versao: 1.9
+atualizado: 2026-09-16
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -16,7 +16,7 @@ aliases: ["Spec de Classificação"]
 # Classificação
 
 > [!info] Status
-> **implementado** · área: `classificacao` · atualizado em 2026-09-12 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[glossario]], [[adr/0002-limites-de-camadas]]
+> **implementado** · área: `classificacao` · atualizado em 2026-09-16 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[glossario]], [[adr/0002-limites-de-camadas]]
 
 ## Problema
 
@@ -31,9 +31,11 @@ classificação da temporada. Administradores e master também geram imagens.
 ## Jornada
 
 1. O usuário abre “Classificação” e escolhe a temporada.
-2. O sistema carrega provas realizadas, apostas, resultados, regras e bônus.
+2. O sistema usa o snapshot cacheado quando disponível; caso contrário, calcula a classificação a partir dos dados oficiais.
 3. A tabela apresenta totais em ordem decrescente de Total Válido.
-4. Admin ou master prepara a imagem geral ou de uma prova e baixa o PNG sem perder a sessão autenticada.
+4. O histórico por prova e os gráficos são carregados em endpoint separado, sob demanda.
+5. Admin ou master prepara a imagem geral ou de uma prova e baixa o PNG sem perder a sessão autenticada.
+6. Após o processamento de um resultado, o read model da classificação é recalculado e armazenado em cache.
 
 ## Dados
 
@@ -59,16 +61,22 @@ classificação da temporada. Administradores e master também geram imagens.
 9. Recursos do Matplotlib são liberados tanto no sucesso quanto em falhas de renderização.
 10. O PNG usa o ícone oficial do BF1 no canto superior esquerdo e distribui as colunas conforme o conteúdo, priorizando a leitura integral do participante.
 11. A movimentação compara a posição atual com a classificação acumulada até a penúltima prova realizada: valor positivo indica subida, negativo indica queda, zero permanência e ausência de referência indica novo participante.
-12. O percentual por prova divide os pontos obtidos pelo teto teórico calculado com a regra aplicável ao tipo da etapa: fichas totais, limite por piloto, mínimo de pilotos, tabela de posições e acerto do 11º. A pontuação dobrada somente integra o teto de etapas Sprint; nunca é aplicada a uma prova Normal.
+12. O percentual por prova divide os pontos obtidos pelo teto teórico calculado com a regra aplicável ao tipo da etapa: fichas totais, limite por piloto, mínimo de pilotos, tabela de posições e acerto do 11º. Uma Sprint usa sempre `pontos_sprint_posicoes`, independentemente de `regra_sprint`; esta flag altera somente a composição da aposta. A pontuação dobrada somente integra o teto de etapas Sprint; nunca é aplicada a uma prova Normal.
+13. O snapshot da classificação é mantido em cache por temporada, com TTL configurável, e reutilizado entre requisições concorrentes.
+14. O cache da classificação é invalidado quando apostas, resultados, regras, provas, pilotos, equipes ou participantes são alterados.
+15. O histórico completo por prova é exposto em endpoint separado, evitando o recálculo obrigatório em toda abertura da página.
+16. Após o processamento de um resultado, o read model da classificação V4 é recalculado e armazenado em cache, servindo as próximas leituras sem novo processamento síncrono.
 
 ## Interface, serviços e dados
 
 - Telas: `ui/classificacao.py` no V3 e `/classificacao` no frontend V4.
 - Serviços: `services/bets_scoring.py`, `services/championship_service.py`, `services/classification_service.py` e fachadas de leitura.
 - Tabelas: `usuarios`, `provas`, `apostas`, `resultados`, `regras`, `championship_bets` e resultados do campeonato.
-- API V4: `GET /api/v1/classification?season=YYYY` e
-  `GET /api/v1/classification/image?season=YYYY&race_id=ID`, autenticadas e
-  autorizadas por temporada; `race_id` é opcional para a imagem geral.
+- API V4:
+  - `GET /api/v1/classification?season=YYYY` — classificação atual (sem histórico completo por padrão).
+  - `GET /api/v1/classification?season=YYYY&history=true` — classificação com histórico (compatibilidade).
+  - `GET /api/v1/classification/history?season=YYYY` — histórico por prova e gráficos.
+  - `GET /api/v1/classification/image?season=YYYY&race_id=ID` — exportação PNG, autenticada e autorizada por temporada; `race_id` é opcional.
 
 ## Critérios de aceite
 
@@ -85,6 +93,10 @@ classificação da temporada. Administradores e master também geram imagens.
 11. Dadas ao menos duas provas realizadas, quando a classificação é carregada, então cada participante exibe ícone e quantidade de posições ganhas ou perdidas em relação à classificação anterior.
 12. Dada uma prova Normal ou Sprint, quando a pontuação por prova é exibida, então cada participante mostra o percentual do teto derivado da regra vigente, sem constante fixa no frontend.
 13. Dados gráficos com muitas etapas, então nomes compactos e legenda superior evitam colisão entre rótulos do eixo X e legenda.
+14. Dada classificação já calculada, quando uma nova requisição consulta a mesma temporada, então o cache é reutilizado sem recalcular do banco.
+15. Dada uma alteração em apostas, resultados, regras, provas ou participantes, quando a classificação é consultada novamente, então o cache é invalidado e o novo valor é calculado.
+16. Dada abertura da página de classificação, quando o usuário ainda não expandiu o histórico, então apenas a tabela atual é calculada/retornada.
+17. Dado o processamento de um resultado, quando ele conclui, então o snapshot da classificação é pré-calculado e armazenado para leituras subsequentes.
 
 ## Verificação
 
@@ -93,6 +105,7 @@ classificação da temporada. Administradores e master também geram imagens.
 - Critérios 8 e 9 — testes em `tests/test_classificacao_imagem.py` e verificação manual do download no ambiente Streamlit.
 - Critério 10 — teste de proporções em `tests/test_classificacao_imagem.py` e inspeção visual do PNG V4.
 - Critério 11 — teste de caracterização do cálculo em `tests/test_classification_workflow.py` e verificação visual da tabela V4.
+- Critérios 14 a 17 — testes em `tests/test_classification_cache.py` e verificação de comportamento sob carga em homologação.
 
 ## Pendências
 
@@ -114,9 +127,13 @@ classificação da temporada. Administradores e master também geram imagens.
 - [x] Restaurar movimentação histórica na API, tabela e PNG V4. Fecha: critério 11.
 - [x] Expor pontuação por prova, progressão acumulada, posições e PNG de uma etapa específica na V4.
 - [x] Calcular teto e percentual por etapa a partir das regras vigentes e ajustar legibilidade de tabelas e gráficos. Fecha: critérios 12 e 13.
+- [x] Cachear snapshot da classificação por temporada, invalidar por domínio e separar histórico em endpoint próprio. Fecha: critérios 14 a 16.
+- [x] Materializar read model da classificação V4 após processamento de resultados. Fecha: critério 17.
 
 ## Changelog
 
+- `1.9` — 2026-09-16 — Classificação passa a usar cache por temporada, invalidação em escritas de apostas/resultados/regras/provas/participantes, endpoint separado para histórico e pré-cálculo após processamento de resultados.
+- `1.8` — 2026-09-16 — Teto da Sprint passa a usar obrigatoriamente sua tabela por posição; `regra_sprint` permanece restrita aos limites de composição.
 - `1.7` — 2026-09-12 — Corrigido o contrato da imagem para declarar `race_id` opcional e coberto o download por prova na API V4.
 - `1.6` — 2026-09-10 — Percentual do teto por etapa calculado pelas regras, com dobra exclusiva para Sprint; tipografia, distribuição de colunas, rótulos e legendas ajustados.
 - `1.5` — 2026-09-09 — Séries e tabela por prova, gráficos ApexCharts e exportação PNG de etapa específica.

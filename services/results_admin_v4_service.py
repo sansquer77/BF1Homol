@@ -84,8 +84,12 @@ def save_and_process_result(
 
     from services.admin_operations import admin_save_resultado
     from services.bets_scoring import atualizar_classificacoes_todas_as_provas
+    from services.classification_service import build_classification
     admin_save_resultado(int(race_id), season, normalized, clean_retirements)
     atualizar_classificacoes_todas_as_provas(season)
+    # spec: classificacao v1.7 — critério 13
+    # Materializa o read model da classificação V4 em cache após processar resultado.
+    build_classification(str(season))
 
     notifications = {"sent": 0, "failed": 0, "skipped": 0, "warning": None}
     try:

@@ -147,16 +147,24 @@ na mesma conta rotaciona a sessão anterior; portanto, este cenário mede 100
 acessos autenticados concorrentes, não 100 identidades independentes.
 
 - 300 requisições ao contrato `GET /api/v1/classification?season=2026`;
-- 10 respostas HTTP 200 e 290 falhas no cliente, compatíveis com o timeout de
-  30 segundos configurado no ensaio;
+- 10 respostas HTTP 200 recebidas dentro do prazo e 290 timeouts no cliente;
 - taxa de erro de 96,67%, vazão de 3,18 requisições/s e p95 de 30,527 s;
+- os logs da API registraram posteriormente as 300 requisições do ensaio como
+  HTTP 200, até 15:47:35, demonstrando acúmulo de trabalho após os clientes já
+  terem desistido, e não rejeição funcional das chamadas;
+- durante a fila, a CPU da instância da API atingiu aproximadamente 70% e sua
+  memória subiu de cerca de 35% para 49%, sem evidência de reinício; a CPU do
+  PostgreSQL permaneceu em sua faixa habitual de aproximadamente 20–25%;
 - após o ensaio, `/api/v1/health/live` e `/classificacao` responderam HTTP 200
   em aproximadamente 0,5 s.
 
 O critério 15 permanece **reprovado**: a meta de leitura é p95 inferior a 400
-ms e taxa de erro inferior a 1%. Antes de repetir o gate, devem ser analisados
-CPU, memória, reinícios, pool de conexões PostgreSQL e consultas/cálculos da
-Classificação. O script reproduzível está em
+ms e taxa de erro inferior a 1%. As evidências apontam primeiro para saturação
+do processamento síncrono da API e ausência de cancelamento do trabalho após o
+timeout do cliente, enquanto não indicam saturação primária do banco. O contrato
+recalcula integralmente, a cada chamada, pontuação, descartes, movimentos e
+histórico com DataFrames. Antes de repetir o gate, esse caminho deve ser
+perfilado e receber cache/read model com invalidação por domínio. O script reproduzível está em
 `scripts/load_test_classification.py` e o resultado bruto em
 `load-test-classification-100.json`.
 

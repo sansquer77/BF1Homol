@@ -2,7 +2,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import type { ApexOptions } from "apexcharts";
-import { apiRequest, type Classification } from "@/lib/api/client";
+import { apiRequest, type Classification, type ClassificationHistory } from "@/lib/api/client";
 import { useSeason } from "@/lib/season-context";
 
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false, loading: () => <div className="chart-skeleton" /> });
@@ -16,18 +16,35 @@ function shortRaceName(name: string): string {
 export function ClassificationView() {
   const { season } = useSeason();
   const [data, setData] = useState<Classification | null>(null);
+  const [history, setHistory] = useState<ClassificationHistory | null>(null);
   const [raceId, setRaceId] = useState("");
   const [error, setError] = useState(false);
-  useEffect(() => { let active = true; setData(null); setError(false); apiRequest<Classification>(`/api/v1/classification?season=${season}`).then((value) => { if (active) { setData(value); setRaceId(value.races.at(-1)?.race_id.toString() ?? ""); } }).catch(() => { if (active) setError(true); }); return () => { active = false; }; }, [season]);
+  const [historyError, setHistoryError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setData(null);
+    setHistory(null);
+    setError(false);
+    setHistoryError(false);
+    apiRequest<Classification>(`/api/v1/classification?season=${season}`)
+      .then((value) => { if (active) setData(value); })
+      .catch(() => { if (active) setError(true); });
+    apiRequest<ClassificationHistory>(`/api/v1/classification/history?season=${season}`)
+      .then((value) => { if (active) { setHistory(value); setRaceId(value.races.at(-1)?.race_id.toString() ?? ""); } })
+      .catch(() => { if (active) setHistoryError(true); });
+    return () => { active = false; };
+  }, [season]);
   const participants = useMemo(() => data?.entries.map((entry) => entry.participant) ?? [], [data]);
-  const accumulatedOptions: ApexOptions = { chart: { id: "classification-points", toolbar: { show: false }, foreColor: "#8A94A6" }, stroke: { width: 2, curve: "smooth" }, legend: { position: "top", horizontalAlign: "left" }, xaxis: { categories: data?.races.map((race) => shortRaceName(race.race_name)) ?? [], labels: { rotate: -35, rotateAlways: true, hideOverlappingLabels: true, trim: true, maxHeight: 90 } }, grid: { borderColor: "rgba(255,255,255,.08)", padding: { bottom: 18 } }, dataLabels: { enabled: false } };
+  const accumulatedOptions: ApexOptions = { chart: { id: "classification-points", toolbar: { show: false }, foreColor: "#8A94A6" }, stroke: { width: 2, curve: "smooth" }, legend: { position: "top", horizontalAlign: "left" }, xaxis: { categories: history?.races.map((race) => shortRaceName(race.race_name)) ?? [], labels: { rotate: -35, rotateAlways: true, hideOverlappingLabels: true, trim: true, maxHeight: 90 } }, grid: { borderColor: "rgba(255,255,255,.08)", padding: { bottom: 18 } }, dataLabels: { enabled: false } };
   const positionOptions: ApexOptions = { ...accumulatedOptions, chart: { ...accumulatedOptions.chart, id: "classification-positions" }, yaxis: { reversed: true, min: 1, forceNiceScale: true } };
-  const pointsSeries = participants.map((participant) => ({ name: participant, data: data?.races.map((race) => race.scores.find((score) => score.participant === participant)?.cumulative_points ?? 0) ?? [] }));
-  const positionSeries = participants.map((participant) => ({ name: participant, data: data?.races.map((race) => race.scores.find((score) => score.participant === participant)?.position ?? null) ?? [] }));
+  const pointsSeries = participants.map((participant) => ({ name: participant, data: history?.races.map((race) => race.scores.find((score) => score.participant === participant)?.cumulative_points ?? 0) ?? [] }));
+  const positionSeries = participants.map((participant) => ({ name: participant, data: history?.races.map((race) => race.scores.find((score) => score.participant === participant)?.position ?? null) ?? [] }));
+  const combined: Classification | null = data && history ? { ...data, races: history.races } : data;
   return <div className="classification-view"><header className="institutional-hero"><div><p className="eyebrow">Classificação · Temporada {season}</p><h1>Cada ponto conta.</h1><p>Total geral, bônus de campeonato e descarte reunidos na mesma base oficial.</p></div>{data ? <a className="secondary-action" href={`/api/v1/classification/image?season=${data.season}`}>Baixar classificação em PNG</a> : null}</header>
     {error ? <div className="calendar-state calendar-state--error" role="alert">Não foi possível carregar a classificação.</div> : null}{!data && !error ? <div className="calendar-state">Calculando classificação…</div> : null}{data?.discard_active ? <p className="classification-note">O descarte atual é provisório e pode mudar após cada novo resultado.</p> : null}
     {data?.entries.length ? <div className="table-scroll classification-table-wrap"><table className="classification-table"><colgroup><col className="col-position" /><col className="col-participant" /><col span={data.discard_active ? 8 : 7} className="col-number" /></colgroup><thead><tr><th>Pos.</th><th>Participante</th><th>Total geral</th><th>Bônus campeão</th><th>Bônus vice</th><th>Bônus equipe</th>{data.discard_active ? <th>Descarte</th> : null}<th>Total válido</th><th>Diferença</th><th>Movimentação</th></tr></thead><tbody>{data.entries.map((entry) => <tr key={entry.participant}><td><strong>{entry.position}</strong></td><td>{entry.participant}</td><td>{number.format(entry.total)}</td><td>{number.format(entry.champion_bonus)}</td><td>{number.format(entry.vice_bonus)}</td><td>{number.format(entry.team_bonus)}</td>{data.discard_active ? <td>−{number.format(entry.discard)}</td> : null}<td className="valid-total">{number.format(entry.valid_total)}</td><td>{entry.position === 1 ? "—" : number.format(entry.difference)}</td><td><Movement value={entry.movement} /></td></tr>)}</tbody></table></div> : null}
-    {data?.races.length ? <><section className="panel classification-race-panel"><div className="panel__heading"><div><p className="eyebrow">Pontuação por prova</p><h2>Comparativo da etapa</h2></div><label>Prova<select value={raceId} onChange={(event) => setRaceId(event.target.value)}>{data.races.map((race) => <option key={race.race_id} value={race.race_id}>{race.race_name}</option>)}</select></label><a className="secondary-action" href={`/api/v1/classification/image?season=${season}&race_id=${raceId}`}>Baixar imagem da prova</a></div><RaceScores data={data} raceId={raceId} /></section><div className="classification-charts"><section className="panel"><h2>Evolução da pontuação acumulada</h2><div role="img" aria-label="Evolução dos pontos por prova"><ApexChart type="line" height={470} options={accumulatedOptions} series={pointsSeries} /></div></section><section className="panel"><h2>Posição ao longo do campeonato</h2><div role="img" aria-label="Posições por prova"><ApexChart type="line" height={470} options={positionOptions} series={positionSeries} /></div></section></div></> : null}
+    {history?.races.length ? <><section className="panel classification-race-panel"><div className="panel__heading"><div><p className="eyebrow">Pontuação por prova</p><h2>Comparativo da etapa</h2></div><label>Prova<select value={raceId} onChange={(event) => setRaceId(event.target.value)}>{history.races.map((race) => <option key={race.race_id} value={race.race_id}>{race.race_name}</option>)}</select></label><a className="secondary-action" href={`/api/v1/classification/image?season=${season}&race_id=${raceId}`}>Baixar imagem da prova</a></div>{combined ? <RaceScores data={combined} raceId={raceId} /> : null}</section><div className="classification-charts"><section className="panel"><h2>Evolução da pontuação acumulada</h2><div role="img" aria-label="Evolução dos pontos por prova"><ApexChart type="line" height={470} options={accumulatedOptions} series={pointsSeries} /></div></section><section className="panel"><h2>Posição ao longo do campeonato</h2><div role="img" aria-label="Posições por prova"><ApexChart type="line" height={470} options={positionOptions} series={positionSeries} /></div></section></div></> : null}
+    {historyError ? <div className="calendar-state calendar-state--error" role="alert">Não foi possível carregar o histórico por prova.</div> : null}
   </div>;
 }
 
