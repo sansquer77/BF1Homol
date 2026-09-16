@@ -39,7 +39,11 @@ export function AdminCatalogView() {
     if (!identity) return;
     const path = tab === "users" ? "/api/v1/admin/users" : tab === "teams" ? "/api/v1/admin/teams" : tab === "drivers" ? "/api/v1/admin/drivers" : `/api/v1/admin/races?season=${season}`;
     setError("");
-    apiRequest<Item[]>(path as `/api/v1/${string}`).then(setItems).catch((reason) => setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não tem permissão para este cadastro." : "O servidor não conseguiu carregar os registros administrativos."));
+    apiRequest<Item[]>(path as `/api/v1/${string}`).then(setItems).catch((reason) => {
+      // eslint-disable-next-line no-console
+      console.error("admin-catalog load failed", reason);
+      setError(reason instanceof ApiRequestError && reason.status === 403 ? "Seu perfil não tem permissão para este cadastro." : "O servidor não conseguiu carregar os registros administrativos.");
+    });
   }, [identity, season, tab]);
 
   const loadTeams = useCallback(() => {

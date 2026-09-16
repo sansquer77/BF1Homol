@@ -2,7 +2,7 @@
 tipo: metodologia
 area: bf1
 status: em-revisao
-versao: 5.2
+versao: 5.3
 atualizado: 2026-09-16
 relacionados: ["[[04_arquitetura]]", "[[06_modulos_tecnicos]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [metodologia, "area/bf1", "status/em-revisao"]
@@ -41,8 +41,10 @@ Platform e nunca no YAML ou repositório.
 
 1. A API instala `requirements-api.txt`, inicia Uvicorn e executa o bootstrap
    idempotente de schema/Master.
-2. O frontend usa o lockfile com pnpm, executa o build Next e publica a saída
-   standalone. O comando de runtime não repassa um `--` extra ao `next start`.
+2. O frontend fixa `pnpm@12.4.2` no `package.json` e no manifesto da App
+   Platform, usa o lockfile congelado, executa o build Next e publica a saída
+   standalone. Não instale pnpm globalmente no build efêmero da DigitalOcean.
+   O comando de runtime executa diretamente o servidor standalone com Node.
 3. Os health checks devem aprovar API e frontend antes de expor a revisão.
 4. Antes do cutover, executar suíte Python, geração/verificação OpenAPI,
    typecheck e build de produção do frontend.
@@ -76,6 +78,7 @@ DigitalOcean. O Master pode exportar logs por endpoint limitado e reautenticado.
 
 ## Changelog
 
+- `5.3` — 2026-09-16 — pnpm 12.4.2 fixado no projeto e no build da DigitalOcean.
 - `5.2` — 2026-09-16 — Gestão de equipes/resultados confirmada e novo gate pós-cache incluído no checklist de promoção.
 - `5.1` — 2026-09-12 — Checklist atualizado com backup/restore Excel funcional em homologação.
 - `5.0` — 2026-09-12 — Guia reescrito para a topologia Next.js/FastAPI em dois componentes e contrato Excel por tabela.

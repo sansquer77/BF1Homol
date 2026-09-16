@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from services.access_control import AuthenticatedContext, authorize_context
 from utils.cache_utils import clear_data_cache
+
+logger = logging.getLogger(__name__)
 
 
 def _require(context: AuthenticatedContext, operation: str, roles: frozenset[str], season: str | None = None) -> None:
@@ -101,11 +104,28 @@ def save_result(context: AuthenticatedContext, race_id: int, season: str, positi
 
 def list_admin_users(context: AuthenticatedContext) -> list[dict[str, Any]]:
     _require(context, "usuario.read", frozenset({"master"}))
-    from db.db_schema import db_connect
+    from db.db_schema import db_connect, get_table_columns
     with db_connect() as conn:
-        cur = conn.cursor(); cur.execute("SELECT id,nome,email,perfil,status,must_change_password FROM usuarios ORDER BY nome")
-        rows = cur.fetchall(); cur.close()
-    return [{"id": r["id"], "name": r["nome"], "email": r["email"], "profile": r["perfil"], "status": r["status"], "must_change_password": bool(r["must_change_password"])} for r in rows]
+        cols = get_table_columns(conn, "usuarios")
+        has_must_change = "must_change_password" in cols
+        select_cols = "id,nome,email,perfil,status"
+        if has_must_change:
+            select_cols += ",must_change_password"
+        cur = conn.cursor()
+        cur.execute(f"SELECT {select_cols} FROM usuarios ORDER BY nome")  # noqa: S608 — colunas são literais controlados acima.
+        rows = cur.fetchall()
+        cur.close()
+    return [
+        {
+            "id": r["id"],
+            "name": r["nome"],
+            "email": r["email"],
+            "profile": r["perfil"],
+            "status": r["status"],
+            "must_change_password": bool(r.get("must_change_password")) if has_must_change else False,
+        }
+        for r in rows
+    ]
 
 
 def list_admin_drivers(context: AuthenticatedContext) -> list[dict[str, Any]]:

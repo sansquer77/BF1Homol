@@ -2,7 +2,7 @@
   "name": "bf1-v4-frontend",
   "version": "4.0.0",
   "private": true,
-  "packageManager": "pnpm@11.19.0",
+  "packageManager": "pnpm@12.4.2",
   "engines": {
     "node": ">=20.9.0"
   },

@@ -78,6 +78,10 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 - Correção: financeiro da temporada valida a taxa no frontend, desabilita o
   salvamento quando inválido e exibe o detalhe do erro retornado pela API,
   evitando a mensagem genérica "Não foi possível salvar o financeiro."
+- Correção: cadastro de usuários na administração V4 passa a listar registros
+  mesmo quando a coluna `must_change_password` ainda não foi aplicada no banco,
+  evitando o erro "O servidor não conseguiu carregar os registros
+  administrativos" em ambientes de homologação.
 
 ### 3.6.0
 

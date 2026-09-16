@@ -30,6 +30,7 @@ def database_modules(connect):
     package.__path__ = []
     schema = types.ModuleType("db.db_schema")
     schema.db_connect = connect
+    schema.get_table_columns = MagicMock(return_value=["id", "nome", "email", "perfil", "status", "must_change_password"])
     return {"db": package, "db.db_schema": schema}
 
 
@@ -86,3 +87,22 @@ def test_financial_reads_psycopg_dict_rows():
     assert result["fee"] == 200.0
     assert result["participants"] == [{"user_id": 2, "name": "Ana", "email": "a@example.com", "paid": True}]
     assert result["summary"]["collected"] == 200.0
+
+
+def test_list_admin_users_falls_back_when_must_change_password_column_is_missing():
+    from services.admin_v4_service import list_admin_users
+    cursor = MagicMock()
+    cursor.fetchall.return_value = [{"id": 2, "nome": "Ana", "email": "a@example.com", "perfil": "participante", "status": "ativo"}]
+    connection = MagicMock(); connection.cursor.return_value = cursor
+    schema = types.ModuleType("db.db_schema")
+
+    @contextmanager
+    def connect():
+        yield connection
+
+    schema.db_connect = connect
+    schema.get_table_columns = MagicMock(return_value=["id", "nome", "email", "perfil", "status"])
+    with patch.dict(sys.modules, {"db.db_schema": schema}):
+        result = list_admin_users(MASTER)
+    assert result == [{"id": 2, "name": "Ana", "email": "a@example.com", "profile": "participante", "status": "ativo", "must_change_password": False}]
+    cursor.execute.assert_called_once_with("SELECT id,nome,email,perfil,status FROM usuarios ORDER BY nome")
