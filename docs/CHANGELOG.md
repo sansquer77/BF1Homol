@@ -65,10 +65,10 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
   apostas, resultados, regras, provas, pilotos, equipes e participantes.
 - Arquitetura: cálculo da classificação dividido entre resumo atual e histórico
   por prova; endpoint `GET /api/v1/classification/history` carrega séries e
-  comparativo de etapas sob demanda.
-- Materialização: após processamento de um resultado, o snapshot da
-  classificação V4 é pré-calculado e armazenado em cache, reduzindo filas de
-  processamento síncrono sob concorrência.
+  comparativo separadamente, em paralelo ao resumo.
+- Aquecimento: após processamento de um resultado, o snapshot da classificação
+  V4 é pré-calculado e armazenado no cache local do processo, reduzindo leituras
+  frias subsequentes sem criar persistência adicional no PostgreSQL.
 - Funcionalidade: gestão do Hall da Fama na administração passa a oferecer
   botão "Editar" para cada registro, preenchendo o formulário e usando
   `PUT /api/v1/admin/hall-of-fame/{record_id}`.

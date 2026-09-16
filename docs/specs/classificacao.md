@@ -2,7 +2,7 @@
 tipo: spec
 area: classificacao
 status: implementado
-versao: 1.9
+versao: 1.10
 atualizado: 2026-09-16
 relacionados:
   - "[[02_regras_de_negocio]]"
@@ -33,9 +33,10 @@ classificação da temporada. Administradores e master também geram imagens.
 1. O usuário abre “Classificação” e escolhe a temporada.
 2. O sistema usa o snapshot cacheado quando disponível; caso contrário, calcula a classificação a partir dos dados oficiais.
 3. A tabela apresenta totais em ordem decrescente de Total Válido.
-4. O histórico por prova e os gráficos são carregados em endpoint separado, sob demanda.
+4. O histórico por prova e os gráficos são carregados por endpoint separado,
+   em paralelo ao resumo, sem bloquear a primeira resposta da tabela.
 5. Admin ou master prepara a imagem geral ou de uma prova e baixa o PNG sem perder a sessão autenticada.
-6. Após o processamento de um resultado, o read model da classificação é recalculado e armazenado em cache.
+6. Após o processamento de um resultado, o snapshot em memória da classificação é recalculado e aquecido no cache.
 
 ## Dados
 
@@ -62,10 +63,15 @@ classificação da temporada. Administradores e master também geram imagens.
 10. O PNG usa o ícone oficial do BF1 no canto superior esquerdo e distribui as colunas conforme o conteúdo, priorizando a leitura integral do participante.
 11. A movimentação compara a posição atual com a classificação acumulada até a penúltima prova realizada: valor positivo indica subida, negativo indica queda, zero permanência e ausência de referência indica novo participante.
 12. O percentual por prova divide os pontos obtidos pelo teto teórico calculado com a regra aplicável ao tipo da etapa: fichas totais, limite por piloto, mínimo de pilotos, tabela de posições e acerto do 11º. Uma Sprint usa sempre `pontos_sprint_posicoes`, independentemente de `regra_sprint`; esta flag altera somente a composição da aposta. A pontuação dobrada somente integra o teto de etapas Sprint; nunca é aplicada a uma prova Normal.
-13. O snapshot da classificação é mantido em cache por temporada, com TTL configurável, e reutilizado entre requisições concorrentes.
+13. A base normalizada, o resumo e o histórico da classificação são mantidos em
+    cache local por temporada e processo da API, com TTL fixo de 300 segundos.
 14. O cache da classificação é invalidado quando apostas, resultados, regras, provas, pilotos, equipes ou participantes são alterados.
-15. O histórico completo por prova é exposto em endpoint separado, evitando o recálculo obrigatório em toda abertura da página.
-16. Após o processamento de um resultado, o read model da classificação V4 é recalculado e armazenado em cache, servindo as próximas leituras sem novo processamento síncrono.
+15. O histórico completo por prova é exposto em endpoint separado e reutiliza a
+    mesma base preparada do resumo; o frontend inicia ambas as leituras em
+    paralelo e pode renderizar a tabela assim que o resumo chegar.
+16. Após o processamento de um resultado, o snapshot completo da Classificação
+    V4 é recalculado e aquecido no cache local, servindo as próximas leituras do
+    mesmo processo sem novo processamento síncrono.
 
 ## Interface, serviços e dados
 
@@ -95,7 +101,9 @@ classificação da temporada. Administradores e master também geram imagens.
 13. Dados gráficos com muitas etapas, então nomes compactos e legenda superior evitam colisão entre rótulos do eixo X e legenda.
 14. Dada classificação já calculada, quando uma nova requisição consulta a mesma temporada, então o cache é reutilizado sem recalcular do banco.
 15. Dada uma alteração em apostas, resultados, regras, provas ou participantes, quando a classificação é consultada novamente, então o cache é invalidado e o novo valor é calculado.
-16. Dada abertura da página de classificação, quando o usuário ainda não expandiu o histórico, então apenas a tabela atual é calculada/retornada.
+16. Dada abertura da página de classificação, quando resumo e histórico são
+    solicitados em paralelo, então o resumo pode ser retornado e renderizado sem
+    aguardar a resposta do histórico.
 17. Dado o processamento de um resultado, quando ele conclui, então o snapshot da classificação é pré-calculado e armazenado para leituras subsequentes.
 
 ## Verificação
@@ -128,10 +136,11 @@ classificação da temporada. Administradores e master também geram imagens.
 - [x] Expor pontuação por prova, progressão acumulada, posições e PNG de uma etapa específica na V4.
 - [x] Calcular teto e percentual por etapa a partir das regras vigentes e ajustar legibilidade de tabelas e gráficos. Fecha: critérios 12 e 13.
 - [x] Cachear snapshot da classificação por temporada, invalidar por domínio e separar histórico em endpoint próprio. Fecha: critérios 14 a 16.
-- [x] Materializar read model da classificação V4 após processamento de resultados. Fecha: critério 17.
+- [x] Aquecer o snapshot em memória da classificação V4 após processamento de resultados. Fecha: critério 17.
 
 ## Changelog
 
+- `1.10` — 2026-09-16 — Documentação corrigida para cache local com TTL fixo e carregamento paralelo, sem caracterizá-lo como materialização persistente ou histórico acionado por expansão.
 - `1.9` — 2026-09-16 — Classificação passa a usar cache por temporada, invalidação em escritas de apostas/resultados/regras/provas/participantes, endpoint separado para histórico e pré-cálculo após processamento de resultados.
 - `1.8` — 2026-09-16 — Teto da Sprint passa a usar obrigatoriamente sua tabela por posição; `regra_sprint` permanece restrita aos limites de composição.
 - `1.7` — 2026-09-12 — Corrigido o contrato da imagem para declarar `race_id` opcional e coberto o download por prova na API V4.

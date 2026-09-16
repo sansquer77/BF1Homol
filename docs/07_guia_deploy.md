@@ -2,8 +2,8 @@
 tipo: metodologia
 area: bf1
 status: em-revisao
-versao: 5.1
-atualizado: 2026-09-12
+versao: 5.2
+atualizado: 2026-09-16
 relacionados: ["[[04_arquitetura]]", "[[06_modulos_tecnicos]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [metodologia, "area/bf1", "status/em-revisao"]
 aliases: ["Guia de Deploy e Operações"]
@@ -12,7 +12,7 @@ aliases: ["Guia de Deploy e Operações"]
 # Guia de Deploy e Operações — BF1 V4
 
 > [!info] Status
-> **em-revisao** · área: `bf1` · atualizado em 2026-09-12 · configuração de homologação ativa; cutover ainda pendente.
+> **em-revisao** · área: `bf1` · atualizado em 2026-09-16 · configuração de homologação ativa; cutover ainda pendente.
 
 ## Topologia DigitalOcean
 
@@ -66,14 +66,17 @@ DigitalOcean. O Master pode exportar logs por endpoint limitado e reautenticado.
 ## Checklist de promoção
 
 - [x] Round-trip Excel aprovado em homologação.
-- [ ] Gestão de equipes e atualização de resultados disponíveis na V4.
+- [x] Gestão de equipes e atualização de resultados disponíveis na V4.
 - [ ] Testes de segurança, carga, acessibilidade e mobile aprovados.
+- [ ] Gate de carga repetido após o cache da Classificação, com p95 abaixo de
+  400 ms e taxa de erro inferior a 1%.
 - [ ] Restore SQL/Excel e rollback ensaiados a partir do artefato estável.
 - [ ] Builds limpos e health checks dos dois componentes aprovados.
 - [ ] Métricas e logs observados após a promoção.
 
 ## Changelog
 
+- `5.2` — 2026-09-16 — Gestão de equipes/resultados confirmada e novo gate pós-cache incluído no checklist de promoção.
 - `5.1` — 2026-09-12 — Checklist atualizado com backup/restore Excel funcional em homologação.
 - `5.0` — 2026-09-12 — Guia reescrito para a topologia Next.js/FastAPI em dois componentes e contrato Excel por tabela.
 - `4.2` — 2026-07-20 — Operação do runtime Streamlit V3 documentada.

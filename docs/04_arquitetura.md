@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.29
+versao: 4.30
 atualizado: 2026-09-16
 relacionados:
   - "[[01_necessidade]]"
@@ -240,17 +240,20 @@ equipes
 
 ### 8. Cache da Classificação
 - `services/classification_service.py` mantém snapshots da classificação por
-  temporada em `utils/ttl_cache.py`, com TTL de 5 minutos (configurável via
-  `BF1_TTL_CACHE_*`) e invalidação seletiva pela tag `classificacao`.
+  temporada e por processo da API em `utils/ttl_cache.py`, com TTL fixo de 300
+  segundos e invalidação seletiva pela tag `classificacao`.
+- `BF1_TTL_CACHE_MAX_ENTRIES` limita o cache em memória; não existe variável de
+  ambiente para alterar o TTL da Classificação no código vigente.
 - O cálculo é dividido em `build_classification_summary` (tabela atual) e
   `build_classification_history` (histórico por prova e séries dos gráficos),
-  permitindo que a página inicial carregue apenas o resumo.
-- Escritas em apostas, resultados, regras, provas, pilotos, equipes e
-  participantes disparam `clear_data_cache("classificacao")` para garantir
-  consistência.
+  com uma base normalizada compartilhada. O frontend solicita os dois contratos
+  em paralelo, mas pode apresentar o resumo antes de o histórico concluir.
+- Os serviços de escrita V4 para apostas, resultados, regras, provas, pilotos,
+  equipes, participantes e campeonato disparam a invalidação da tag
+  `classificacao` para garantir consistência.
 - Após o processamento de um resultado, `save_and_process_result` chama
-  `build_classification` para materializar o read model em cache antes das
-  próximas leituras.
+  `build_classification` para aquecer o snapshot completo em memória antes das
+  próximas leituras. O cache não é uma tabela nem uma materialização persistente.
 
 ### 9. Previsão meteorológica da Telemetria
 - A sincronização Jolpica persiste coordenadas opcionais em `circuitos_f1`; as
@@ -320,6 +323,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 
 ### Changelog
 
+- `4.30` — 2026-09-16 — Cache local da Classificação, contratos resumo/histórico, invalidação e aquecimento pós-resultado alinhados ao código vigente.
 - `4.29` — 2026-09-16 — `must_change_password` aplicado pela identidade FastAPI antes de rotas protegidas.
 - `4.28` — 2026-09-16 — Reautenticação administrativa crítica centralizada, rate-limited e fail-closed para restore e exportação de logs.
 - `4.26` — 2026-09-13 — Gestão administrativa de apostas passa a operar em `/admin/apostas`, autorizada para Admin/Master e reutilizando geração e email legados.

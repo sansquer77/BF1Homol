@@ -2,8 +2,8 @@
 tipo: produto
 area: bf1
 status: em-implementacao
-versao: 5.1
-atualizado: 2026-09-12
+versao: 5.2
+atualizado: 2026-09-16
 relacionados: ["[[01_necessidade]]", "[[02_regras_de_negocio]]", "[[03_spec]]", "[[04_arquitetura]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [produto, "area/bf1", "status/em-implementacao"]
 aliases: ["Documento de Projeto"]
@@ -12,7 +12,7 @@ aliases: ["Documento de Projeto"]
 # Documento de Projeto — BF1
 
 > [!info] Status
-> **em-implementacao** · área: `bf1` · atualizado em 2026-09-12 · relacionados: [[04_arquitetura]], [[specs/migracao-v4-nextjs-fastapi]]
+> **em-implementacao** · área: `bf1` · atualizado em 2026-09-16 · relacionados: [[04_arquitetura]], [[specs/migracao-v4-nextjs-fastapi]]
 
 ## Estado do produto
 
@@ -31,11 +31,14 @@ não podem ser quebrados.
 Estão implementados na V4: autenticação e recuperação de senha, Telemetria,
 apostas, calendário, classificação, análises, campeonato, Hall da Fama,
 Dashboard F1, logs, conteúdo institucional e operações administrativas de
-usuários, pilotos, provas, Hall, financeiro, regras e backup/restore.
+usuários, pilotos, equipes, provas, resultados, Hall, financeiro, regras e
+backup/restore. Backup e restore SQL/Excel foram confirmados funcionais em
+homologação.
 
-Permanecem como lacunas funcionais explícitas a gestão dedicada de equipes e a
-atualização de resultados pela interface V4. Backup e restore SQL/Excel foram
-confirmados funcionais em homologação.
+A Classificação usa cache em memória por temporada com TTL de cinco minutos,
+resumo e histórico em contratos separados e aquecimento após o processamento
+de resultados. Essa mitigação responde ao primeiro gate de 100 acessos, mas não
+substitui a repetição do ensaio para aprovação da Fase 9.
 
 ## Stack vigente da V4
 
@@ -65,12 +68,14 @@ suportam o baseline V3, mas não fazem parte do runtime V4.
 
 ## Próximas entregas
 
-1. Implementar gestão explícita de equipes e atualização de resultados na V4.
-2. Executar segurança, carga, acessibilidade e experiência mobile.
-3. Validar builds limpos, rollback, cutover e observação da operação.
+1. Repetir a carga da Classificação em patamares de 10, 25, 50, 75 e 100
+   acessos após a implantação do cache.
+2. Concluir acessibilidade, experiência mobile e gates residuais da Fase 9.
+3. Validar builds limpos, rollback, cutover e observação da operação na Fase 10.
 
 ## Changelog
 
+- `5.2` — 2026-09-16 — Escopo funcional reconciliado; cache da Classificação e pendência de novo gate de carga registrados.
 - `5.1` — 2026-09-12 — Fase 8 atualizada como concluída após confirmação do backup/restore Excel.
 - `5.0` — 2026-09-12 — Documento reconciliado com a arquitetura V4 Next.js/FastAPI, status real dos módulos e pendências de homologação.
 - `4.1` — 2026-07-31 — Governança SDD e stack PostgreSQL/psycopg 3 documentadas para o baseline V3.

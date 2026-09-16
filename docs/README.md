@@ -2,8 +2,8 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.18
-atualizado: 2026-09-13
+versao: 1.19
+atualizado: 2026-09-16
 relacionados:
   - "[[sdd]]"
   - "[[01_necessidade]]"
@@ -16,7 +16,7 @@ aliases: ["Documentação BF1", "Map of Content"]
 # Documentação BF1
 
 > [!info] Status
-> **implementado** · área: `meta` · atualizado em 2026-09-13 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
+> **implementado** · área: `meta` · atualizado em 2026-09-16 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
 
 Este é o ponto de entrada da documentação do BF1. O vault é compatível com
 Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
@@ -25,7 +25,10 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 
 - Fases 1–8 concluídas; backup/restore SQL e Excel confirmados em homologação.
 - Jornadas funcionais V4 concluídas, incluindo equipes e processamento de resultados.
-- Fases 9 e 10 pendentes: segurança/carga/acessibilidade/mobile e cutover/observação.
+- Fase 9 em validação: correções de segurança aplicadas e primeiro gate de 100
+  acessos executado; o cache da Classificação foi implantado após a saturação
+  observada e ainda exige repetição progressiva da carga.
+- Fase 10 pendente: builds limpos, cutover, observação e ensaio de rollback.
 
 ## Comece aqui
 
@@ -94,6 +97,7 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.19` — 2026-09-16 — Estado da Fase 9 reconciliado com o primeiro gate de carga e a mitigação por cache da Classificação.
 - `1.18` — 2026-09-13 — Gestão administrativa de apostas V4 concluída com visões por prova/usuário, lembretes, geração automática e relatório anual.
 - `1.17` — 2026-09-13 — Formulário V4 passa a oferecer geração assistida `Sem ideias`, preservando o fluxo e as regras da V3.5.
 - `1.16` — 2026-09-13 — Detalhamento de apostas passa a expor contribuição por piloto e histórico compara as duas temporadas mais recentes.

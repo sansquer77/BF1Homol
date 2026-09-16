@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: performance
 status: implementado
-versao: 1.1
-atualizado: 2026-09-06
+versao: 1.2
+atualizado: 2026-09-16
 relacionados:
   - "[[04_arquitetura]]"
   - "[[06_modulos_tecnicos]]"
@@ -15,11 +15,13 @@ aliases: ["Performance e Jornadas Críticas"]
 # Performance e jornadas críticas
 
 > [!info] Status
-> **implementado** · área: `performance` · atualizado em 2026-09-06 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]], [[adr/0001-streamlit-postgresql]]
+> **implementado** · área: `performance` · atualizado em 2026-09-16 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]], [[adr/0001-streamlit-postgresql]]
 
 Metas operacionais:
 
-- P95 das jornadas de leitura (`login`, `abertura_painel`, `classificacao`, `historico`) abaixo de 1 s.
+- P95 dos contratos HTTP de leitura da V4 abaixo de 400 ms; para as jornadas
+  completas de interface (`login`, `abertura_painel`, `classificacao`,
+  `historico`), p95 abaixo de 1 s.
 - Downloads com renderização pesada, como a imagem da classificação, são gerados somente após ação explícita do usuário.
 - Cada função de leitura possui namespace próprio no cache; resultados de provas, participantes, apostas e posições nunca compartilham entradas mesmo quando recebem a mesma temporada.
 - P95 de `envio_aposta` abaixo de 1,5 s.
@@ -74,6 +76,29 @@ emissão sem remover a instrumentação.
   somente a prova selecionada em vez de executar todas as antigas abas.
 - Matplotlib é importado somente durante a geração explícita de imagens da
   classificação.
+- A Classificação mantém, por temporada e por processo da API, a preparação de
+  dados, o resumo e o histórico em caches com TTL fixo de 300 s e limite global
+  de entradas definido por `BF1_TTL_CACHE_MAX_ENTRIES`.
+- Resumo e histórico possuem contratos HTTP separados. O frontend os solicita
+  em paralelo, permitindo que a tabela atual seja apresentada sem aguardar a
+  serialização das séries históricas.
+- Escritas V4 de apostas, resultados, regras, provas, pilotos, equipes,
+  participantes e campeonato invalidam a tag `classificacao`. O processamento
+  de resultado aquece o snapshot completo depois da invalidação.
+
+## Gate de carga da Classificação
+
+Em 2026-09-16, o primeiro ensaio de homologação executou 100 usuários virtuais,
+três leituras por usuário e uma sessão Master compartilhada. Foram recebidas 10
+respostas dentro do timeout e ocorreram 290 timeouts no cliente; p95 foi 30,527
+s e a taxa de erro observada pelo gerador foi 96,67%. A API posteriormente
+registrou as 300 chamadas como HTTP 200, evidenciando fila de processamento.
+
+Durante o ensaio, a CPU da API chegou a aproximadamente 70%, enquanto o banco
+permaneceu em torno de 20–25%. O cache, a divisão resumo/histórico e o aquecimento
+após resultados foram implantados depois desse diagnóstico. Eles são uma
+mitigação ainda não validada pelo mesmo gate: a aprovação exige novo ensaio em
+10, 25, 50, 75 e 100 usuários e atendimento simultâneo das metas de p95 e erro.
 
 ## Benchmark e EXPLAIN
 
@@ -117,9 +142,14 @@ entre 5 e 10 temporadas: ele não pode crescer com o número de temporadas.
 7. O relatório agregado permite verificar P95 de leitura abaixo de 1 s e de
    envio de aposta abaixo de 1,5 s.
 8. Geração de imagens pesadas só ocorre após ação explícita.
+9. Cache da Classificação é reutilizado na mesma temporada e invalidado pelas
+   escritas V4 dos domínios que alteram seus dados.
+10. A mitigação do gargalo só é considerada aprovada após repetição do gate de
+    100 usuários; testes unitários de cache não substituem carga em homologação.
 
 ## Changelog
 
+- `1.2` — 2026-09-16 — Primeiro gate de carga, diagnóstico de saturação, cache da Classificação e obrigação de novo ensaio documentados.
 - `1.1` — 2026-09-06 — Definidas as seis jornadas, métricas, linha de base e barreiras do benchmark seguro da Fase 0.
 - `1.0` — 2026-07-31 — Documento incorporado ao padrão SDD com metadados e critérios operacionais.
 

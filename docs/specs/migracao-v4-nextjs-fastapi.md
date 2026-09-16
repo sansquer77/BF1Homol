@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 4.2
+versao: 4.3
 atualizado: 2026-09-16
 relacionados:
   - "[[inventario-v4]]"
@@ -159,12 +159,13 @@ acessos autenticados concorrentes, não 100 identidades independentes.
   em aproximadamente 0,5 s.
 
 O critério 15 permanece **reprovado**: a meta de leitura é p95 inferior a 400
-ms e taxa de erro inferior a 1%. As evidências apontam primeiro para saturação
+ms e taxa de erro inferior a 1%. As evidências apontaram primeiro para saturação
 do processamento síncrono da API e ausência de cancelamento do trabalho após o
-timeout do cliente, enquanto não indicam saturação primária do banco. O contrato
-recalcula integralmente, a cada chamada, pontuação, descartes, movimentos e
-histórico com DataFrames. Antes de repetir o gate, esse caminho deve ser
-perfilado e receber cache/read model com invalidação por domínio. O script reproduzível está em
+timeout do cliente, sem indicar saturação primária do banco. Como mitigação, a
+Classificação passou a manter base, resumo e histórico em cache local por
+temporada durante 300 segundos, separar resumo/histórico em contratos HTTP e
+aquecer o snapshot depois do processamento de resultados. Essas mudanças ainda
+não foram submetidas novamente ao gate e, portanto, não fecham o critério. O script reproduzível está em
 `scripts/load_test_classification.py` e o resultado bruto em
 `load-test-classification-100.json`.
 
@@ -173,8 +174,8 @@ perfilado e receber cache/read model com invalidação por domínio. O script re
 > [!question] Pendências
 > As decisões de produto e arquitetura necessárias ao scaffold foram aprovadas.
 
-1. Corrigir a saturação da Classificação observada no gate de 100 usuários e
-   repetir a carga em patamares de 10, 25, 50, 75 e 100 usuários.
+1. Repetir, após a implantação do cache da Classificação, a carga em patamares
+   de 10, 25, 50, 75 e 100 usuários e confirmar p95/erros aprovados.
 2. Concluir a Fase 9: carga, acessibilidade e experiência mobile.
 3. Executar a Fase 10: builds limpos, publicação/cutover, observação e ensaio de rollback.
 
@@ -205,6 +206,7 @@ controles de acesso, sanitização ou exportação.
 
 ## Changelog
 
+- `4.3` — 2026-09-16 — Mitigação do gargalo da Classificação registrada; critério de carga permanece aberto até novo ensaio progressivo.
 - `4.2` — 2026-09-16 — Gate de 100 acessos autenticados concorrentes registrado como reprovado por saturação e timeouts na Classificação.
 - `4.1` — 2026-09-13 — Painel do Participante encerrado na Telemetria com gráfico combinado e abas Apostas, Histórico e Minha conta.
 - `4.0` — 2026-09-12 — Lacunas funcionais encerradas com gestão explícita de equipes e processamento completo de resultados na V4.

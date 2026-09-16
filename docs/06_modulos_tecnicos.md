@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: em-implementacao
-versao: 5.1
-atualizado: 2026-09-12
+versao: 5.2
+atualizado: 2026-09-16
 relacionados: ["[[04_arquitetura]]", "[[05_projeto]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [arquitetura, "area/bf1", "status/em-implementacao"]
 aliases: ["Módulos Técnicos"]
@@ -12,7 +12,7 @@ aliases: ["Módulos Técnicos"]
 # Módulos Técnicos — BF1 V4
 
 > [!info] Status
-> **em-implementacao** · área: `bf1` · atualizado em 2026-09-12 · Fases 1–8 concluídas; Fases 9–10 pendentes.
+> **em-implementacao** · área: `bf1` · atualizado em 2026-09-16 · Fases 1–8 concluídas; Fase 9 em validação e Fase 10 pendente.
 
 ## Entradas do runtime V4
 
@@ -46,6 +46,20 @@ todo gráfico deve possuir representação textual acessível.
 O seletor de temporada do bolão usa um contexto global. O seletor histórico do
 Dashboard F1 é local e independente por definição de produto.
 
+## Classificação e cache
+
+- `GET /api/v1/classification?season=YYYY` entrega apenas o resumo atual.
+- `GET /api/v1/classification/history?season=YYYY` entrega comparativo e séries
+  por prova; o frontend inicia essa leitura separadamente em paralelo ao resumo.
+- `history=true` no endpoint principal preserva o contrato completo para
+  consumidores compatíveis.
+- `services/classification_service.py` compartilha a preparação dos DataFrames
+  e mantém base, resumo e histórico em cache local por processo durante 300 s.
+- Escritas V4 que afetam a classificação invalidam a tag `classificacao`; o
+  processamento de resultado aquece novamente o snapshot completo.
+- `BF1_TTL_CACHE_MAX_ENTRIES` limita o número de entradas do utilitário. O TTL
+  da Classificação não é configurável no código vigente.
+
 ## Dados e continuidade
 
 - `db/connection_pool.py`: pool psycopg 3.
@@ -66,12 +80,14 @@ sequences. O round-trip real foi confirmado funcional em homologação.
 
 ## Lacunas conhecidas
 
-1. Gestão explícita de equipes na interface V4.
-2. Atualização de resultados de provas na interface V4.
-3. Gates de segurança, carga, acessibilidade/mobile e cutover.
+1. Repetir o gate de carga depois do cache da Classificação e confirmar p95 e
+   taxa de erro nas metas aprovadas.
+2. Concluir acessibilidade e experiência mobile da Fase 9.
+3. Executar os gates de cutover, observação e rollback da Fase 10.
 
 ## Changelog
 
+- `5.2` — 2026-09-16 — Contratos, cache e invalidação da Classificação documentados; lacunas funcionais já concluídas removidas.
 - `5.1` — 2026-09-12 — Gate operacional Excel encerrado e Fase 8 marcada como concluída.
 - `5.0` — 2026-09-12 — Referência reescrita para os módulos Next.js/FastAPI e separação explícita do baseline Streamlit V3.
 - `4.3` — 2026-07-31 — Limites de camadas do runtime V3 documentados.
