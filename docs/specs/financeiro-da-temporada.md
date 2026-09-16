@@ -2,7 +2,7 @@
 tipo: spec
 area: financeiro
 status: implementado
-versao: 1.1
+versao: 1.2
 atualizado: 2026-09-16
 relacionados:
   - "[[02_regras_de_negocio]]"
@@ -65,7 +65,8 @@ alterar ou disparar cobranças financeiras.
 ## Critérios de aceite
 
 1. A temporada retorna participantes historicamente ativos, sem o Master.
-2. Taxa e pagamentos persistem nas duas tabelas legadas.
+2. Taxa e pagamentos persistem nas duas tabelas legadas; `pago` é gravado
+   explicitamente como inteiro `0/1`, conforme o schema dos backups V3.5.
 3. A resposta calcula contagens, totais monetários e percentuais de premiação.
 4. A tela permite filtrar devedores e apresenta todos os resumos.
 5. O lembrete envia em CCO somente aos pendentes com e-mail válido.
@@ -96,6 +97,7 @@ alterar ou disparar cobranças financeiras.
 
 ## Changelog
 
+- `1.2` — 2026-09-16 — Escrita de `pago` corrigida para o contrato legado `INTEGER` (`0/1`).
 - `1.1` — 2026-09-16 — Recálculo imediato dos cards de resumo ao alternar status de pagamento; validação de taxa e exibição de erro da API no frontend.
 - `1.0` — 2026-09-12 — Gestão financeira V4 especificada com paridade funcional à V3.
 

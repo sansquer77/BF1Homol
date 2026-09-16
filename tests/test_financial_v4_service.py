@@ -47,6 +47,13 @@ def test_financial_write_keeps_legacy_tables_and_is_master_only():
     sql = " ".join(call.args[0] for call in connection.cursor.return_value.execute.call_args_list)
     assert "financeiro_config_temporada" in sql
     assert "financeiro_participantes" in sql
+    payment_params = [
+        call.args[1]
+        for call in connection.cursor.return_value.execute.call_args_list
+        if "financeiro_participantes" in call.args[0]
+    ]
+    assert payment_params == [(2, "2026", 1), (3, "2026", 0)]
+    assert all(type(params[2]) is int for params in payment_params)
     connection.commit.assert_called_once()
 
 

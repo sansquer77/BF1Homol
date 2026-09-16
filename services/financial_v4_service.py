@@ -94,7 +94,10 @@ def save_financial(context: AuthenticatedContext, season: str, fee: float, payme
                    VALUES (%s,%s,%s,CURRENT_TIMESTAMP)
                    ON CONFLICT(usuario_id,temporada) DO UPDATE SET pago=EXCLUDED.pago,
                    atualizado_em=CURRENT_TIMESTAMP""",
-                (int(user_id), season, bool(paid)),
+                # spec: financeiro-da-temporada v1.2 — critério 2
+                # O backup V3.5 define `pago` como INTEGER; preserve 0/1 em vez
+                # de enviar bool, que o PostgreSQL não converte implicitamente.
+                (int(user_id), season, 1 if paid else 0),
             )
         conn.commit()
         cur.close()
