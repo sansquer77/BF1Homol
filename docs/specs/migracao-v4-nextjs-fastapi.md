@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 4.3
+versao: 4.4
 atualizado: 2026-09-16
 relacionados:
   - "[[inventario-v4]]"
@@ -169,6 +169,13 @@ não foram submetidas novamente ao gate e, portanto, não fecham o critério. O 
 `scripts/load_test_classification.py` e o resultado bruto em
 `load-test-classification-100.json`.
 
+Após o cache, um ensaio intermediário com 15 usuários e três leituras por
+usuário recebeu 45/45 respostas HTTP 200, sem erros, com vazão de 39,876
+requisições/s e p95 de 706,568 ms. O resultado em
+`load-test-classification-15.json` confirma a recuperação de estabilidade nesse
+patamar, mas não fecha o critério 15 porque a latência permanece acima de 400 ms
+e o gate de 100 usuários ainda precisa ser repetido.
+
 ## Pendências
 
 > [!question] Pendências
@@ -206,6 +213,7 @@ controles de acesso, sanitização ou exportação.
 
 ## Changelog
 
+- `4.4` — 2026-09-16 — Ensaio intermediário pós-cache com 15 usuários registrado sem erros; p95 de 706,568 ms mantém o critério 15 aberto.
 - `4.3` — 2026-09-16 — Mitigação do gargalo da Classificação registrada; critério de carga permanece aberto até novo ensaio progressivo.
 - `4.2` — 2026-09-16 — Gate de 100 acessos autenticados concorrentes registrado como reprovado por saturação e timeouts na Classificação.
 - `4.1` — 2026-09-13 — Painel do Participante encerrado na Telemetria com gráfico combinado e abas Apostas, Histórico e Minha conta.

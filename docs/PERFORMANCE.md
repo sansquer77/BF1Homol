@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: performance
 status: implementado
-versao: 1.2
+versao: 1.3
 atualizado: 2026-09-16
 relacionados:
   - "[[04_arquitetura]]"
@@ -100,6 +100,13 @@ após resultados foram implantados depois desse diagnóstico. Eles são uma
 mitigação ainda não validada pelo mesmo gate: a aprovação exige novo ensaio em
 10, 25, 50, 75 e 100 usuários e atendimento simultâneo das metas de p95 e erro.
 
+Um ensaio intermediário pós-cache com 15 usuários simultâneos e três leituras
+por usuário foi executado em 2026-09-16. As 45 requisições responderam HTTP 200,
+sem falhas, em 1,128 s de parede e 39,876 requisições/s. O p95 foi 706,568 ms:
+atende ao limite de 1 s da jornada de interface, mas ainda excede a meta de 400
+ms do contrato HTTP. O artefato está em `load-test-classification-15.json` e
+não substitui a escada obrigatória até 100 usuários.
+
 ## Benchmark e EXPLAIN
 
 Use exclusivamente uma cópia descartável ou anonimizada do PostgreSQL:
@@ -149,6 +156,7 @@ entre 5 e 10 temporadas: ele não pode crescer com o número de temporadas.
 
 ## Changelog
 
+- `1.3` — 2026-09-16 — Ensaio pós-cache com 15 usuários registrado: zero erros e p95 de 706,568 ms.
 - `1.2` — 2026-09-16 — Primeiro gate de carga, diagnóstico de saturação, cache da Classificação e obrigação de novo ensaio documentados.
 - `1.1` — 2026-09-06 — Definidas as seis jornadas, métricas, linha de base e barreiras do benchmark seguro da Fase 0.
 - `1.0` — 2026-07-31 — Documento incorporado ao padrão SDD com metadados e critérios operacionais.
