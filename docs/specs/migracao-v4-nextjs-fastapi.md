@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 4.5
+versao: 4.6
 atualizado: 2026-09-16
 relacionados:
   - "[[inventario-v4]]"
@@ -184,7 +184,9 @@ e o gate de 100 usuários ainda precisa ser repetido.
 1. Repetir, após a implantação dos caches de leitura (Classificação,
    Telemetria, Calendário, Hall da Fama, Análise de Apostas, Histórico,
    Apostas Pessoais, Dashboard F1 e Logs), a carga em patamares de 10, 25, 50,
-   75 e 100 usuários e confirmar p95/erros aprovados.
+   75 e 100 usuários e confirmar p95/erros aprovados. O ensaio de 15 VUs em
+   2026-09-16 foi reprovado por rotação de sessão (conta única compartilhada)
+   e por p95 acima de 400 ms; ver `docs/relatorio-carga-2026-09-16.md`.
 2. Concluir a Fase 9: carga, acessibilidade e experiência mobile.
 3. Executar a Fase 10: builds limpos, publicação/cutover, observação e ensaio de rollback.
 
@@ -215,6 +217,7 @@ controles de acesso, sanitização ou exportação.
 
 ## Changelog
 
+- `4.6` — 2026-09-16 — Novo ensaio de carga em homologação com 15 VUs reprovado por rotação de sessão (conta única) e p95 acima de 400 ms; relatório `docs/relatorio-carga-2026-09-16.md`.
 - `4.5` — 2026-09-16 — Cache TTL estendido aos principais endpoints de leitura da V4 e proteção contra thundering herd na previsão do tempo; aguarda novo ensaio de carga para fechar critério 15.
 - `4.4` — 2026-09-16 — Ensaio intermediário pós-cache com 15 usuários registrado sem erros; p95 de 706,568 ms mantém o critério 15 aberto.
 - `4.3` — 2026-09-16 — Mitigação do gargalo da Classificação registrada; critério de carga permanece aberto até novo ensaio progressivo.

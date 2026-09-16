@@ -90,6 +90,9 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
   Apostas Pessoais, Dashboard F1 e Logs) e proteção contra thundering herd no
   cache de previsão do tempo; invalidações de cache atualizadas em escritas de
   provas, resultados e apostas.
+- Teste de carga: ensaio com 15 VUs executado em homologação. Resultado
+  reprovado por rotação de sessão ao compartilhar uma única conta e por p95
+  acima de 400 ms; relatório em `docs/relatorio-carga-2026-09-16.md`.
 
 ### 3.6.0
 
