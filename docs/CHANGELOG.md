@@ -39,10 +39,31 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 > fuso selecionado.
 > Segurança: recuperação de senha agora envia email em background e equaliza
 > o tempo de processamento para emails não cadastrados, mitigando timing attack.
+> Segurança: sessões criadas com `must_change_password` ativa agora são
+> restritas no servidor, permitindo apenas identidade, troca de senha, logout e
+> refresh até que a senha seja trocada.
 > Gestão de apostas V4: Admin e Master passam a contar com visões por prova e
-> usuário, lembretes segmentados, geração automática e relatório anual.
+> usuário, lembretes segmentados, geração automática e relatório anual; aba
+> Relatórios agora permite baixar imagem institucional da cobertura de apostas
+> por participante.
 
 ## Versão vigente
+
+### 3.6.0
+
+- Funcionalidade: gestão administrativa de apostas passa a oferecer download de
+  imagem institucional do relatório de cobertura por participante, com logo,
+  barra de progresso e identidade visual do BF1.
+
+### 3.5.4
+
+- Email: recuperação passa a entregar o token em mensagem compacta e o cadastro
+  administrativo envia convite com senha temporária e troca obrigatória.
+
+- Segurança: sessões criadas com `must_change_password` ativa passam a ser
+  restritas no servidor, permitindo apenas identidade, troca de senha, logout e
+  refresh até que a senha seja trocada; a troca de senha própria limpa a flag e
+  revoga as sessões anteriores.
 
 ### 3.5.3
 

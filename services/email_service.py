@@ -8,8 +8,7 @@ from typing import Optional
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from utils.logging_utils import redact_identifier
-from utils.html_utils import escape_html_attr, escape_html_text
-from utils.helpers import get_bf1_logo_data_uri
+from utils.html_utils import escape_html_text
 from services.gemini_service import gemini_disponivel, gerar_conteudo_gemini
 
 logger = logging.getLogger(__name__)
@@ -308,10 +307,6 @@ def enviar_email_recuperacao_senha(
     nome_safe = escape_html_text(nome_usuario or "Participante")
     token_safe = escape_html_text(reset_token or "")
     
-    # Obter logo BF1 como data URI para embutir no email
-    bf1_logo_uri = get_bf1_logo_data_uri()
-    bf1_logo_uri_safe = escape_html_attr(bf1_logo_uri)
-    
     corpo_html = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -399,7 +394,7 @@ def enviar_email_recuperacao_senha(
 <body>
     <div class="container">
         <div class="header">
-            <img src="{bf1_logo_uri_safe}" alt="BF1 Logo" class="logo">
+            <strong style="font-size:28px;color:#d32f2f;">BF1</strong>
         </div>
         <div class="content">
             <p class="greeting">Olá, {nome_safe}!</p>
@@ -421,4 +416,20 @@ def enviar_email_recuperacao_senha(
 </body>
 </html>
 """
-    enviar_email(email_usuario, "Recuperação de Senha - BF1", corpo_html)
+    # O logo em data URI tinha ~2 MB e fazia o Gmail truncar o corpo antes do token.
+    return enviar_email(email_usuario, "Recuperação de Senha - BF1", corpo_html)
+
+
+def enviar_email_convite_usuario(email_usuario: str, nome_usuario: str, senha_temporaria: str) -> bool:
+    """Envia credencial inicial; a troca é obrigatória no primeiro acesso."""
+    nome_safe = escape_html_text(nome_usuario or "Participante")
+    senha_safe = escape_html_text(senha_temporaria or "")
+    corpo_html = f"""
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Acesso BF1</title></head>
+<body style="font-family:Arial,sans-serif;color:#222"><h1 style="color:#d32f2f">BF1</h1>
+<p>Olá, {nome_safe}!</p><p>Seu acesso ao Bolão de Fórmula 1 foi criado por convite.</p>
+<p><strong>Email:</strong> {escape_html_text(email_usuario)}</p>
+<p><strong>Senha temporária:</strong></p><p style="font: bold 18px monospace;background:#f5f5f5;padding:12px">{senha_safe}</p>
+<p>Por segurança, você deverá trocar esta senha no próximo login.</p>
+</body></html>"""
+    return enviar_email(email_usuario, "Seu acesso ao BF1", corpo_html)

@@ -2,7 +2,7 @@
 tipo: spec
 area: autenticacao
 status: implementado
-versao: 1.7
+versao: 1.8
 atualizado: 2026-09-16
 relacionados:
   - "[[02_regras_de_negocio]]"
@@ -83,6 +83,11 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 18. Quando o email não está cadastrado, o servidor executa trabalho
     computacionalmente similar ao caminho existente para equalizar o tempo de
     resposta e dificultar enumeração por timing attack.
+19. Quando `must_change_password` está ativa, a sessão emitida é restrita: o
+    backend permite apenas identidade, troca de senha, logout e refresh; todas
+    as demais rotas autenticadas retornam 403 até que a senha seja trocada.
+20. A troca de senha própria limpa `must_change_password`, incrementa
+    `session_version` e revoga as sessões anteriores.
 
 ## Interface, serviços e dados
 
@@ -122,6 +127,14 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
     resposta é genérica e o email é enviado em background.
 15. Dado email não cadastrado, quando solicitada recuperação de senha, então a
     resposta é idêntica à do email cadastrado e nenhum email é enviado.
+16. Dado usuário com `must_change_password` ativa, quando acessar qualquer rota
+    autenticada fora da whitelist, então recebe 403.
+17. Dado usuário com `must_change_password` ativa, quando acessar `/auth/me`,
+    `/auth/account/password`, `/auth/logout` ou `/auth/refresh`, então a
+    operação é permitida.
+18. Dado usuário com `must_change_password` ativa, quando troca a senha com
+    sucesso, então a flag é limpa, as sessões anteriores são revogadas e o
+    próximo login funciona normalmente.
 
 ## Verificação
 
@@ -145,12 +158,13 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 - [x] Limitar reautenticação crítica e fechar oráculos alternativos do Master. Fecha: critérios 12 e 13.
 - [x] Aplicar `must_change_password` no servidor e redirecionar a interface para Minha conta. Fecha: critério 14.
 - [x] Mitigar information disclosure por timing no reset de senha. Fecha: critérios 14 e 15.
+- [x] Restringir sessão enquanto `must_change_password` estiver ativa e garantir limpeza da flag na troca. Fecha: critérios 16 a 18.
 
 ## Changelog
 
+- `1.8` — 2026-09-16 — Troca obrigatória de senha agora restringe a sessão no servidor (apenas identidade, troca de senha, logout e refresh) e a troca de senha própria limpa a flag e revoga sessões anteriores.
 - `1.7` — 2026-09-16 — Recuperação de senha envia email em background e equaliza tempo de processamento para emails não cadastrados, dificultando enumeração por timing.
 - `1.6` — 2026-09-16 — Reautenticação crítica passa a ter bucket compartilhado por conta/IP e a conta Master é recusada antes de bcrypt na interface de conta.
-- `1.7` — 2026-09-16 — Troca obrigatória de senha passou a ser imposta pela dependência de identidade da API, com exceções mínimas para senha, identidade e logout.
 - `1.5` — 2026-09-14 — Adicionado timezone do usuário persistido, seletor global e API `/account/timezone`.
 - `1.4` — 2026-09-13 — Minha conta V4 permite alterar email e senha mediante confirmação da credencial atual.
 - `1.3` — 2026-09-12 — Interface e logout alinhados ao runtime Next.js/FastAPI; Streamlit identificado apenas como baseline V3.

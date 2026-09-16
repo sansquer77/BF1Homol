@@ -35,7 +35,9 @@ def change_own_password(context: AuthenticatedContext, current_password: str, ne
         raise ValueError(reason)
     if check_password(new_password, str(user.get("senha_hash") or "")):
         raise ValueError("A nova senha deve ser diferente da atual.")
-    if not update_user_password(context.user_id, new_password):
+    # spec: autenticacao-e-sessao v1.7 — critério 15
+    # Troca de senha própria limpa a flag e revoga sessões anteriores.
+    if not update_user_password(context.user_id, new_password, must_change_password=False):
         raise ValueError("Não foi possível alterar a senha.")
 
 

@@ -2,13 +2,14 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from api.dependencies import get_current_context
 from services.access_control import AuthenticatedContext, AuthorizationDenied
-from services.admin_v4_service import create_user, list_admin_circuits, list_admin_drivers, list_admin_races, list_admin_teams, list_admin_users, refresh_admin_circuits, update_user, upsert_driver, upsert_race, upsert_team
+from services.admin_v4_service import create_user, list_admin_circuits, list_admin_drivers, list_admin_races, list_admin_teams, refresh_admin_circuits, update_user, upsert_driver, upsert_race, upsert_team
 from services.admin_bets_v4_service import generate_admin_bet, get_admin_bets, send_admin_bet_reminder
+from services.report_image_service import generate_bets_coverage_image
 from services.hall_admin_v4_service import bulk_save_hall, delete_hall_record, list_hall_admin, save_hall_record, update_hall_record
 from services.financial_v4_service import get_financial, save_financial, send_financial_reminder
 from services.rules_admin_v4_service import assign_rule, clone_rule, delete_rule, list_rules, recalculate_season, save_position_points, save_rule
@@ -98,6 +99,26 @@ def _read(action, *args, **kwargs):
 @router.get("/bets", response_model=AdminBetsResponse)
 def admin_bets(season: str = Query(pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
     return _read(get_admin_bets, context, season)
+
+
+@router.get("/bets/report-image")
+def admin_bets_report_image(season: str = Query(pattern=r"^\d{4}$"), context: AuthenticatedContext = Depends(get_current_context)):
+    # spec: gestao-administrativa-de-apostas v0.1 — critério 7
+    try:
+        snapshot = get_admin_bets(context, season)
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+    image_bytes = generate_bets_coverage_image(
+        season=str(season),
+        races_total=len(snapshot.get("races", [])),
+        reports=snapshot.get("reports", []),
+    )
+    filename = f"bf1-cobertura-apostas-{season}.png"
+    return Response(
+        content=image_bytes,
+        media_type="image/png",
+        headers={"Content-Disposition": f"attachment; filename=\"{filename}\""},
+    )
 
 
 @router.post("/bets/generate", response_model=AdminBetActionResponse)

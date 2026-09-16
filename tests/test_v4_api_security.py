@@ -297,6 +297,72 @@ class V4ApiSecurityTests(unittest.TestCase):
         mock_dummy.assert_called_once()
         mock_send.assert_not_called()
 
+    def test_password_change_clears_must_change_flag(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        user = {"id": 7, "nome": "Ana", "email": "ana@example.com", "perfil": "participante", "status": "ativo", "must_change_password": True, "timezone": "America/Sao_Paulo", "senha_hash": "hash"}
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(7, "Ana", "participante", "ativo", frozenset({"2026"}), must_change_password=True)
+        try:
+            with patch("db.repo_users.get_user_by_id", return_value=user), \
+                 patch("db.repo_users.check_password", side_effect=[True, False]), \
+                 patch("db.repo_users.update_user_password", return_value=True) as mock_update, \
+                 patch("db.repo_observability.record_event"):
+                response = self.client.put("/api/v1/auth/account/password", headers={"Origin": "https://bf1.test"}, json={"current_password": "temp1234", "new_password": "NovaSenhaForte1!"})
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("Senha alterada", response.json()["message"])
+            mock_update.assert_called_once_with(7, "NovaSenhaForte1!", must_change_password=False)
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_protected_route_blocked_when_must_change_password_is_active(self):
+        from api.config import settings
+        user = {"id": 7, "nome": "Ana", "email": "ana@example.com", "perfil": "participante", "status": "ativo", "must_change_password": True, "timezone": "America/Sao_Paulo"}
+        with patch("services.auth_service.decode_token", return_value={"user_id": 7}), \
+             patch("db.repo_users.get_user_by_id", return_value=user), \
+             patch("db.repo_users.get_usuario_temporadas_ativas", return_value=[]), \
+             patch("db.repo_observability.record_event"):
+            response = self.client.get("/api/v1/content/about", cookies={settings.cookie_name: "dummy"})
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("Troca de senha", response.json()["detail"])
+
+    def test_refresh_allowed_when_must_change_password_is_active(self):
+        from api.config import settings
+        user = {"id": 7, "nome": "Ana", "perfil": "participante", "status": "ativo", "must_change_password": True, "timezone": "America/Sao_Paulo"}
+        with patch("services.auth_service.decode_token", return_value={"user_id": 7}), \
+             patch("db.repo_users.get_user_by_id", return_value=user), \
+             patch("db.repo_users.get_usuario_temporadas_ativas", return_value=[]), \
+             patch("services.auth_service.generate_token", return_value="new-token"), \
+             patch("db.repo_observability.record_event"):
+            response = self.client.post(
+                "/api/v1/auth/refresh",
+                headers={"Origin": "https://bf1.test", "X-CSRF-Token": "csrf"},
+                cookies={settings.cookie_name: "dummy", settings.csrf_cookie_name: "csrf"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["must_change_password"])
+
+    def test_bets_report_image_returns_png_attachment(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(1, "Admin", "admin", "ativo", frozenset({"2026"}))
+        try:
+            snapshot = {
+                "season": "2026",
+                "races": [{"race_id": 1, "name": "Prova 1"}],
+                "reports": [{"user_id": 7, "name": "Ana", "manual_total": 1, "automatic_total": 0, "missing_total": 0, "bets_total": 1}],
+            }
+            with patch("api.routes.admin.get_admin_bets", return_value=snapshot), \
+                 patch("db.repo_observability.record_event"):
+                response = self.client.get("/api/v1/admin/bets/report-image?season=2026")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers["content-type"], "image/png")
+            self.assertIn("bf1-cobertura-apostas-2026.png", response.headers.get("content-disposition", ""))
+            self.assertTrue(response.content.startswith(b"\x89PNG"))
+        finally:
+            app.dependency_overrides.clear()
+
     def test_user_object_rejects_idor_as_not_found(self):
         from api.dependencies import get_current_context
         from api.main import app

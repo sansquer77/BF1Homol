@@ -11,6 +11,7 @@ _PASSWORD_CHANGE_ALLOWED_PATHS = {
     "/api/v1/auth/me",
     "/api/v1/auth/account/password",
     "/api/v1/auth/logout",
+    "/api/v1/auth/refresh",
 }
 
 

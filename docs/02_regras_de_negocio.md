@@ -102,6 +102,8 @@ Pontos = Σ (Pontos_Regra[posição_real] × fichas_apostadas) + Bônus_11o − 
 - Apenas o perfil `master` pode criar, editar e inativar usuários.
 - Senhas são armazenadas com hash bcrypt (nunca em texto claro).
 - Usuários novos podem ser criados com flag `must_change_password = True`, obrigando troca no primeiro acesso.
+- Enquanto `must_change_password` estiver ativa, a sessão é restrita: o backend aceita apenas consulta de identidade (`/auth/me`), troca de senha (`/auth/account/password`), logout (`/auth/logout`) e renovação de sessão (`/auth/refresh`); qualquer outra rota autenticada retorna 403.
+- A troca de senha própria limpa `must_change_password`, incrementa `session_version` e revoga as sessões anteriores, exigindo novo login com a senha definida pelo usuário.
 - O usuário **master** é criado automaticamente no bootstrap da aplicação via `MasterUserManager`.
 
 ## RN-010 — Backup e Integridade de Dados

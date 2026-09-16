@@ -63,7 +63,7 @@ export function BetsAdminView() {
     {!data && !notice ? <div className="calendar-state" role="status">Carregando apostas…</div> : null}
     {data && tab === "race" ? <ByRace data={data} raceId={raceId} setRaceId={setRaceId} betMap={betMap} busy={busy} action={action} /> : null}
     {data && tab === "user" ? <ByUser data={data} raceId={raceId} setRaceId={setRaceId} userId={userId} setUserId={setUserId} betMap={betMap} busy={busy} action={action} /> : null}
-    {data && tab === "reports" ? <Reports reports={data.reports} racesTotal={data.races.length} /> : null}
+    {data && tab === "reports" ? <Reports reports={data.reports} racesTotal={data.races.length} season={data.season} onNotice={setNotice} /> : null}
   </div>;
 }
 
@@ -98,8 +98,35 @@ function formatComposition(bet?: Bet) {
   return bet ? bet.drivers.map((driver, index) => `${driver} (${bet.chips[index] ?? 0})`).join(" · ") : "—";
 }
 
-function Reports({ reports, racesTotal }: { reports: Report[]; racesTotal: number }) {
-  return <section className="panel admin-list bets-report"><div className="panel__heading"><div><p className="eyebrow">Resumo analítico</p><h2>Cobertura de apostas por participante</h2></div><small>{racesTotal} provas na temporada</small></div><div className="table-scroll" tabIndex={0}><table><caption className="sr-only">Resumo anual de apostas manuais, automáticas e ausentes</caption><thead><tr><th>Participante</th><th>Total</th><th>Manuais</th><th>Automáticas</th><th>Sem registro</th></tr></thead><tbody>{reports.map((report) => <tr key={report.user_id}><td><strong>{report.name}</strong></td><td>{report.bets_total}/{racesTotal}</td><td><RaceList count={report.manual_total} races={report.manual_races} empty="Nenhuma" /></td><td><RaceList count={report.automatic_total} races={report.automatic_races} empty="Nenhuma" automatic /></td><td><RaceList count={report.missing_total} races={report.missing_races} empty="Completo" /></td></tr>)}</tbody></table></div></section>;
+function Reports({ reports, racesTotal, season, onNotice }: { reports: Report[]; racesTotal: number; season: string; onNotice: (notice: { kind: "error" | "success"; text: string }) => void }) {
+  const [downloading, setDownloading] = useState(false);
+
+  async function downloadImage() {
+    setDownloading(true);
+    try {
+      const response = await fetch(`/api/v1/admin/bets/report-image?season=${encodeURIComponent(season)}`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ detail: "Erro ao gerar relatório." }));
+        throw new Error(body.detail || "Erro ao gerar relatório.");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `bf1-cobertura-apostas-${season}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      onNotice({ kind: "success", text: "Imagem do relatório baixada com sucesso." });
+    } catch (reason) {
+      onNotice({ kind: "error", text: reason instanceof Error ? reason.message : "Erro ao baixar relatório." });
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return <section className="panel admin-list bets-report"><div className="panel__heading"><div><p className="eyebrow">Resumo analítico</p><h2>Cobertura de apostas por participante</h2></div><div className="bets-report-actions"><small>{racesTotal} provas na temporada</small><button type="button" className="secondary-action" disabled={downloading} onClick={downloadImage}>{downloading ? "Gerando imagem…" : "Baixar imagem"}</button></div></div><div className="table-scroll" tabIndex={0}><table><caption className="sr-only">Resumo anual de apostas manuais, automáticas e ausentes</caption><thead><tr><th>Participante</th><th>Total</th><th>Manuais</th><th>Automáticas</th><th>Sem registro</th></tr></thead><tbody>{reports.map((report) => <tr key={report.user_id}><td><strong>{report.name}</strong></td><td>{report.bets_total}/{racesTotal}</td><td><RaceList count={report.manual_total} races={report.manual_races} empty="Nenhuma" /></td><td><RaceList count={report.automatic_total} races={report.automatic_races} empty="Nenhuma" automatic /></td><td><RaceList count={report.missing_total} races={report.missing_races} empty="Completo" /></td></tr>)}</tbody></table></div></section>;
 }
 
 function RaceList({ count, races, empty, automatic = false }: { count: number; races: string[]; empty: string; automatic?: boolean }) {

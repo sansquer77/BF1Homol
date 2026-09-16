@@ -2,8 +2,8 @@
 tipo: spec
 area: gestao-administrativa-de-apostas
 status: implementado
-versao: 1.0
-atualizado: 2026-09-13
+versao: 1.1
+atualizado: 2026-09-16
 relacionados:
   - "[[specs/apostas-de-prova]]"
   - "[[specs/apostas-automaticas]]"
@@ -15,7 +15,7 @@ aliases: ["Gestão Administrativa de Apostas"]
 # Gestão administrativa de apostas
 
 > [!info] Status
-> **implementado** · área: `gestao-administrativa-de-apostas` · atualizado em 2026-09-13 · relacionados: [[specs/apostas-de-prova]], [[specs/apostas-automaticas]], [[specs/notificacoes-por-email]]
+> **implementado** · área: `gestao-administrativa-de-apostas` · atualizado em 2026-09-16 · relacionados: [[specs/apostas-de-prova]], [[specs/apostas-automaticas]], [[specs/notificacoes-por-email]]
 
 ## Problema
 
@@ -33,7 +33,7 @@ Somente usuários ativos com perfil `admin` ou `master`.
    lembrete em CCO aos pendentes e pode gerar a aposta automática individual.
 3. Em Por usuário, seleciona participante e prova, consulta todo o ano, envia
    lembrete somente à pessoa selecionada e pode gerar sua aposta automática.
-4. Em Relatórios, compara por participante as provas manuais, automáticas e sem registro.
+4. Em Relatórios, compara por participante as provas manuais, automáticas e sem registro e pode baixar essa análise como imagem institucional.
 
 ## Dados
 
@@ -53,15 +53,17 @@ Somente usuários ativos com perfil `admin` ou `master`.
    fallback da primeira prova, contador `faltas`, auditoria e penalidade vigente.
 6. Aposta manual existente nunca é substituída pela geração automática.
 7. Relatórios classificam `automatica > 0` como automática e `automatica = 0`
-   como manual, além de listar provas sem registro.
-8. Nenhuma tabela ou coluna PostgreSQL é adicionada ou alterada.
+    como manual, além de listar provas sem registro.
+8. O operador pode gerar uma imagem PNG do relatório de cobertura, com logo,
+    barra de progresso por participante e identidade visual institucional.
+9. Nenhuma tabela ou coluna PostgreSQL é adicionada ou alterada.
 
 ## Interface, serviços e dados
 
 - Tela: `/admin/apostas`, grupo Administração.
 - Serviço: `services/admin_bets_v4_service.py` sobre os repositórios e serviços V3.
-- API: `GET /api/v1/admin/bets`, `POST /api/v1/admin/bets/reminder` e
-  `POST /api/v1/admin/bets/generate`.
+- API: `GET /api/v1/admin/bets`, `POST /api/v1/admin/bets/reminder`,
+  `POST /api/v1/admin/bets/generate` e `GET /api/v1/admin/bets/report-image`.
 - Tabelas: `usuarios`, `usuarios_status_historico`, `provas`, `apostas`, `log_apostas`.
 
 ## Critérios de aceite
@@ -73,13 +75,14 @@ Somente usuários ativos com perfil `admin` ou `master`.
 5. Dada aposta manual existente, quando tenta gerar automática, então a operação falha sem sobrescrever dados.
 6. Dada a aba Por usuário, quando seleciona participante, então todas as provas da temporada exibem seu estado e composição.
 7. Dada a aba Relatórios, quando há dados, então cada participante apresenta totais e listas de provas manuais, automáticas e sem registro.
-8. Dado perfil participante ou inativo, quando consulta ou altera o módulo, então recebe acesso negado.
-9. Dada temporada diferente, quando o seletor global muda, então toda a gestão e os relatórios são recarregados nesse escopo.
+8. Dada a aba Relatórios, quando solicita o download da imagem, então recebe um PNG com logo, título, tabela e data de geração.
+9. Dado perfil participante ou inativo, quando consulta ou altera o módulo, então recebe acesso negado.
+10. Dada temporada diferente, quando o seletor global muda, então toda a gestão e os relatórios são recarregados nesse escopo.
 
 ## Verificação
 
-- Critérios 1–9 — testes de serviço, autorização, contrato OpenAPI e contrato estático do frontend.
-- Responsividade e envio SMTP real — verificação manual em homologação.
+- Critérios 1–10 — testes de serviço, autorização, contrato OpenAPI e contrato estático do frontend.
+- Responsividade, envio SMTP real e renderização visual da imagem — verificação manual em homologação.
 
 ## Pendências
 
@@ -95,9 +98,11 @@ Somente usuários ativos com perfil `admin` ou `master`.
 - [x] Passo 1 — serviço de leitura, relatório e autorização. Fecha: critérios 1, 6–9.
 - [x] Passo 2 — lembretes e geração automática. Fecha: critérios 2–5 e 8.
 - [x] Passo 3 — tela responsiva, menu, contratos e testes. Fecha: critérios 1–9.
+- [x] Passo 4 — exportação do relatório de cobertura como imagem institucional. Fecha: critério 10.
 
 ## Changelog
 
+- `1.1` — 2026-09-16 — Adicionado botão de download de imagem do relatório de cobertura de apostas.
 - `1.0` — 2026-09-13 — Gestão V4 entregue com visões por prova/usuário, lembretes, geração automática e relatório anual.
 - `0.1` — 2026-09-13 — Intenção, compatibilidade V3.5 e relatório anual especificados.
 

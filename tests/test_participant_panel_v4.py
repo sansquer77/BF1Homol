@@ -83,4 +83,4 @@ def test_account_password_validates_current_password_and_policy():
     user = {"id": 7, "email": "ana@example.com", "perfil": "participante", "senha_hash": "hash"}
     with patch("db.repo_users.get_user_by_id", return_value=user), patch("db.repo_users.check_password", side_effect=[True, False]), patch("db.repo_users.update_user_password", return_value=True) as update:
         change_own_password(PARTICIPANT, "Atual1Senha", "Nova2Senha")
-    update.assert_called_once_with(7, "Nova2Senha")
+    update.assert_called_once_with(7, "Nova2Senha", must_change_password=False)

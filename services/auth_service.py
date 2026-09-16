@@ -198,7 +198,13 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
             c = conn.cursor()
             cols = get_table_columns(conn, 'usuarios')
             pwd_col = _get_usuarios_password_column(conn)
-            if 'faltas' in cols:
+            if 'must_change_password' in cols:
+                c.execute(
+                    f'INSERT INTO usuarios (nome, email, {pwd_col}, perfil, status, faltas, must_change_password) '
+                    'VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id',
+                    (nome, email, senha_hashed, perfil, status, 0, True)
+                )
+            elif 'faltas' in cols:
                 # Inserção compatível com PostgreSQL, retornando o id criado.
                 c.execute(
                     f'INSERT INTO usuarios (nome, email, {pwd_col}, perfil, status, faltas) '
@@ -215,6 +221,12 @@ def cadastrar_usuario(nome: str, email: str, senha: str, perfil="participante", 
             user_id = row['id'] if row else None
             conn.commit()
         clear_data_cache()
+        try:
+            from services.email_service import enviar_email_convite_usuario
+            if isinstance(user_id, int) and not enviar_email_convite_usuario(email, nome, senha):
+                logger.warning("Convite de usuário não enviado para %s", email)
+        except Exception:
+            logger.exception("Falha no envio do convite para %s", email)
         try:
             if isinstance(user_id, int):
                 from db.repo_users import registrar_historico_status_usuario

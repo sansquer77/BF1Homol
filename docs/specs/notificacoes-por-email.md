@@ -2,8 +2,8 @@
 tipo: spec
 area: notificacoes
 status: implementado
-versao: 1.0
-atualizado: 2026-07-31
+versao: 1.1
+atualizado: 2026-09-16
 relacionados: ["[[specs/autenticacao-e-sessao]]", "[[specs/resultados-de-provas]]", "[[04_arquitetura]]"]
 tags: [spec, "area/notificacoes", "status/implementado"]
 aliases: ["Notificações por email"]
@@ -21,6 +21,7 @@ Enviar comunicações transacionais de recuperação de senha e resultado de pro
 ## Usuários
 
 - Usuário com email cadastrado: recebe recuperação e, quando elegível, resumo de resultado.
+- Usuário recém-cadastrado: recebe convite com senha temporária e troca obrigatória.
 - Operador: visualiza estatísticas de sucesso/falha do envio iniciado pelo fluxo.
 
 ## Jornada
@@ -45,6 +46,10 @@ Enviar comunicações transacionais de recuperação de senha e resultado de pro
 5. Falha parcial de SMTP é reportada, mas não reverte um resultado de prova já confirmado.
 6. Logs não contêm senha, token completo nem credencial SMTP.
 7. Sem configuração de email, o app permanece utilizável e informa indisponibilidade no fluxo dependente.
+8. O cadastro administrativo envia a senha temporária somente ao email cadastrado e
+   grava `must_change_password` antes do primeiro login; a senha nunca aparece em logs.
+9. O email de recuperação mantém o token em payload pequeno, sem imagens inline
+   grandes que possam fazer clientes truncarem o código.
 
 ## Interface, serviços e dados
 
@@ -62,10 +67,14 @@ Enviar comunicações transacionais de recuperação de senha e resultado de pro
 5. Dado SMTP indisponível, quando um resultado já foi salvo, então o resultado permanece persistido.
 6. Dada configuração ausente, quando disparar email, então a falha é controlada e não revela credenciais.
 7. Dado qualquer envio, quando registrar logs, então token e segredo não aparecem integralmente.
+8. Dado usuário novo, quando cadastrado, então recebe convite e o servidor exige troca
+   da senha temporária no próximo login.
+9. Dado pedido de recuperação, quando o email é gerado, então o token permanece visível
+   no corpo sem dependência de imagem inline volumosa.
 
 ## Verificação
 
-- Critérios 1 e 7 — testes de segurança relacionados em `tests/test_security_utils.py`; revisar payloads com valores sentinela.
+- Critérios 1, 7 e 9 — testes em `tests/test_email_notifications.py` e `tests/test_security_utils.py`.
 - Critérios 2–6 — teste manual/integrado com SMTP de homologação, incluindo um destinatário inválido e servidor indisponível.
 
 ## Pendências
@@ -80,9 +89,11 @@ Enviar comunicações transacionais de recuperação de senha e resultado de pro
 
 - [x] Implementar transporte e recuperação segura. Fecha: critérios 1, 6 e 7.
 - [x] Integrar notificação de resultado com tolerância parcial. Fecha: critérios 2–5.
+- [x] Enviar convite de cadastro com troca obrigatória e reduzir payload da recuperação. Fecha: critérios 8 e 9.
 
 ## Changelog
 
+- `1.1` — 2026-09-16 — Convite inicial por email com senha temporária e `must_change_password`; recuperação sem logo inline volumoso.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
 ## Relacionados
