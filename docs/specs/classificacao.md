@@ -2,7 +2,7 @@
 tipo: spec
 area: classificacao
 status: implementado
-versao: 1.10
+versao: 1.11
 atualizado: 2026-09-16
 relacionados:
   - "[[02_regras_de_negocio]]"
@@ -63,13 +63,14 @@ classificação da temporada. Administradores e master também geram imagens.
 10. O PNG usa o ícone oficial do BF1 no canto superior esquerdo e distribui as colunas conforme o conteúdo, priorizando a leitura integral do participante.
 11. A movimentação compara a posição atual com a classificação acumulada até a penúltima prova realizada: valor positivo indica subida, negativo indica queda, zero permanência e ausência de referência indica novo participante.
 12. O percentual por prova divide os pontos obtidos pelo teto teórico calculado com a regra aplicável ao tipo da etapa: fichas totais, limite por piloto, mínimo de pilotos, tabela de posições e acerto do 11º. Uma Sprint usa sempre `pontos_sprint_posicoes`, independentemente de `regra_sprint`; esta flag altera somente a composição da aposta. A pontuação dobrada somente integra o teto de etapas Sprint; nunca é aplicada a uma prova Normal.
-13. A base normalizada, o resumo e o histórico da classificação são mantidos em
+13. O comparativo da etapa e sua imagem são ordenados pelos **pontos da prova em ordem decrescente**, facilitando a visualização de quem obteve a maior pontuação na etapa selecionada. A coluna `Pos.` continua a exibir a posição acumulada no campeonato.
+14. A base normalizada, o resumo e o histórico da classificação são mantidos em
     cache local por temporada e processo da API, com TTL fixo de 300 segundos.
-14. O cache da classificação é invalidado quando apostas, resultados, regras, provas, pilotos, equipes ou participantes são alterados.
-15. O histórico completo por prova é exposto em endpoint separado e reutiliza a
+15. O cache da classificação é invalidado quando apostas, resultados, regras, provas, pilotos, equipes ou participantes são alterados.
+16. O histórico completo por prova é exposto em endpoint separado e reutiliza a
     mesma base preparada do resumo; o frontend inicia ambas as leituras em
     paralelo e pode renderizar a tabela assim que o resumo chegar.
-16. Após o processamento de um resultado, o snapshot completo da Classificação
+17. Após o processamento de um resultado, o snapshot completo da Classificação
     V4 é recalculado e aquecido no cache local, servindo as próximas leituras do
     mesmo processo sem novo processamento síncrono.
 
@@ -105,6 +106,7 @@ classificação da temporada. Administradores e master também geram imagens.
     solicitados em paralelo, então o resumo pode ser retornado e renderizado sem
     aguardar a resposta do histórico.
 17. Dado o processamento de um resultado, quando ele conclui, então o snapshot da classificação é pré-calculado e armazenado para leituras subsequentes.
+18. Dada uma prova com pontuação variada entre participantes, quando o comparativo da etapa é exibido ou exportado como imagem, então a ordem reflete os pontos da prova do maior para o menor, mantendo a coluna `Pos.` como a posição acumulada no campeonato.
 
 ## Verificação
 
@@ -114,6 +116,7 @@ classificação da temporada. Administradores e master também geram imagens.
 - Critério 10 — teste de proporções em `tests/test_classificacao_imagem.py` e inspeção visual do PNG V4.
 - Critério 11 — teste de caracterização do cálculo em `tests/test_classification_workflow.py` e verificação visual da tabela V4.
 - Critérios 14 a 17 — testes em `tests/test_classification_cache.py` e verificação de comportamento sob carga em homologação.
+- Critério 18 — testes em `tests/test_classification_service_v4.py` e verificação visual do comparativo da etapa e da imagem da prova.
 
 ## Pendências
 
@@ -140,6 +143,7 @@ classificação da temporada. Administradores e master também geram imagens.
 
 ## Changelog
 
+- `1.11` — 2026-09-16 — Especificada ordenação decrescente por pontos da prova no comparativo da etapa e na imagem exportada, preservando a coluna `Pos.` como posição acumulada no campeonato.
 - `1.10` — 2026-09-16 — Documentação corrigida para cache local com TTL fixo e carregamento paralelo, sem caracterizá-lo como materialização persistente ou histórico acionado por expansão.
 - `1.9` — 2026-09-16 — Classificação passa a usar cache por temporada, invalidação em escritas de apostas/resultados/regras/provas/participantes, endpoint separado para histórico e pré-cálculo após processamento de resultados.
 - `1.8` — 2026-09-16 — Teto da Sprint passa a usar obrigatoriamente sua tabela por posição; `regra_sprint` permanece restrita aos limites de composição.

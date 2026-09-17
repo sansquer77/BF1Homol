@@ -80,3 +80,47 @@ def test_classification_orders_by_valid_total_and_applies_discard_once():
     race_snapshot = classification_for_race(result, 10)
     assert race_snapshot["entries"][0]["participant"] == "Ana"
     assert render_classification_png(race_snapshot).read(8) == b"\x89PNG\r\n\x1a\n"
+
+
+def test_race_comparative_orders_by_race_points_descending():
+    """O comparativo da etapa e a imagem da prova ordenam por pontos da prova."""
+    clear_all_caches("classificacao")
+    users = pd.DataFrame([
+        {"id": 1, "nome": "Ana", "perfil": "participante"},
+        {"id": 2, "nome": "Beto", "perfil": "participante"},
+    ])
+    races = pd.DataFrame([
+        {"id": 10, "nome": "GP A", "data": "2026-03-01", "tipo": "Normal", "temporada": "2026"},
+        {"id": 11, "nome": "GP B", "data": "2026-03-15", "tipo": "Normal", "temporada": "2026"},
+    ])
+    bets = pd.DataFrame([
+        {"usuario_id": 1, "prova_id": 10, "piloto_11": "X", "data_envio": "2026-02-28"},
+        {"usuario_id": 2, "prova_id": 10, "piloto_11": "Y", "data_envio": "2026-02-28"},
+        {"usuario_id": 1, "prova_id": 11, "piloto_11": "X", "data_envio": "2026-03-14"},
+        {"usuario_id": 2, "prova_id": 11, "piloto_11": "Y", "data_envio": "2026-03-14"},
+    ])
+    results = pd.DataFrame([
+        {"prova_id": 10, "posicoes": "{11: 'X'}"},
+        {"prova_id": 11, "posicoes": "{11: 'X'}"},
+    ])
+    # Ana vence a primeira; Beto vence a segunda, mas Ana lidera o acumulado.
+    points = [100, 80, 50, 90]
+    with patch("db.repo_bets.get_participantes_temporada_df", return_value=users), \
+         patch("db.repo_bets.get_apostas_df", return_value=bets), \
+         patch("db.repo_races.get_provas_df", return_value=races), \
+         patch("db.repo_races.get_resultados_df", return_value=results), \
+         patch("services.classification_service.calcular_pontuacao_lote", return_value=points), \
+         patch("services.classification_service.get_regras_aplicaveis", return_value={"descarte": False, "quantidade_fichas": 15, "fichas_por_piloto": 5, "qtd_minima_pilotos": 5, "pontos_posicoes": [25, 18, 15, 12, 10], "pontos_11_colocado": 50}), \
+         patch("services.classification_service.get_final_results", return_value=None):
+        result = build_classification("2026")
+
+    race_b = next(race for race in result["races"] if race["race_id"] == 11)
+    # Ordem por pontos da prova: Beto (90), Ana (50)
+    assert [score["participant"] for score in race_b["scores"]] == ["Beto", "Ana"]
+    # A posição exibida ainda reflete o acumulado: Ana lidera com 150, Beto 170? Não,
+    # acumulado Beto 170 > Ana 150, então Beto é 1º e Ana 2º.
+    assert [score["position"] for score in race_b["scores"]] == [1, 2]
+    # Imagem da prova segue a mesma ordenação por pontos da etapa.
+    race_snapshot = classification_for_race(result, 11)
+    assert [entry["participant"] for entry in race_snapshot["entries"]] == ["Beto", "Ana"]
+    assert render_classification_png(race_snapshot).read(8) == b"\x89PNG\r\n\x1a\n"

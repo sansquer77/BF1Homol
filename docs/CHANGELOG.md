@@ -49,6 +49,13 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 ## Versão vigente
 
+### 3.7.2
+
+- Usabilidade: o comparativo da etapa e a imagem PNG de uma prova específica
+  passam a ordenar os participantes pelos pontos da prova em ordem decrescente,
+  facilitando a visualização de quem marcou mais na etapa selecionada. A coluna
+  `Pos.` continua a exibir a posição acumulada no campeonato.
+
 ### 3.7.1
 
 - Correção: o máximo do Comparativo da Etapa usa a tabela de pontuação Sprint

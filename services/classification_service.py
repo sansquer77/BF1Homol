@@ -233,18 +233,23 @@ def _build_history(base: _ClassificationBase) -> list[dict[str, Any]]:
             cumulative[uid] += points
         ranking = sorted(cumulative, key=lambda uid: (-cumulative[uid], names[uid]))
         positions = {uid: index for index, uid in enumerate(ranking, start=1)}
+        # spec: classificacao v1.11 — regra 13
+        # O comparativo da etapa é ordenado pelos pontos da prova, do maior para
+        # o menor, enquanto a coluna Pos. mantém a posição acumulada no campeonato.
+        scores = [{
+            "participant": names[uid],
+            "points": round(points_by_user[uid], 2),
+            "maximum_percentage": round(points_by_user[uid] / maximum_points * 100, 2) if maximum_points else 0.0,
+            "cumulative_points": round(cumulative[uid], 2),
+            "position": positions[uid],
+        } for uid in ranking]
+        scores.sort(key=lambda item: (-item["points"], item["participant"]))
         race_history.append({
             "race_id": race_id,
             "race_name": race_names.get(race_id, f"Prova {race_id}"),
             "race_type": race_types.get(race_id, "Normal"),
             "maximum_points": maximum_points,
-            "scores": [{
-                "participant": names[uid],
-                "points": round(points_by_user[uid], 2),
-                "maximum_percentage": round(points_by_user[uid] / maximum_points * 100, 2) if maximum_points else 0.0,
-                "cumulative_points": round(cumulative[uid], 2),
-                "position": positions[uid],
-            } for uid in ranking],
+            "scores": scores,
         })
     return race_history
 
@@ -284,7 +289,9 @@ def classification_for_race(snapshot: dict[str, Any], race_id: int) -> dict[str,
         "discard": 0.0,
         "valid_total": score["points"],
         "movement": None,
-    } for score in sorted(race["scores"], key=lambda item: item["position"])]
+    # spec: classificacao v1.11 — regra 13
+    # A imagem da prova segue a mesma ordenação decrescente por pontos da etapa.
+    } for score in sorted(race["scores"], key=lambda item: (-item["points"], item["participant"]))]
     return {"season": snapshot.get("season"), "title": f'Classificação BF1 · {race["race_name"]}', "entries": entries}
 
 
