@@ -125,7 +125,9 @@ def test_excel_api_validates_and_restores_with_master_dependency():
 
         with patch("db.repo_observability.record_event"), patch("api.security.consume_restore_authorization", return_value=(1, "jti")), patch(
             "utils.backup_security.grant_restore_authorization"
-        ), patch("db.backup_excel.restore_table_excel", return_value=restored) as restore:
+        ), patch("db.backup_excel.restore_table_excel", return_value=restored) as restore, patch(
+            "api.routes.backup._resync_master_after_restore"
+        ) as resync:
             response = client.post(
                 "/api/v1/backup/restore/excel/usuarios",
                 content=workbook_bytes(),
@@ -134,5 +136,6 @@ def test_excel_api_validates_and_restores_with_master_dependency():
         assert response.status_code == 200
         assert response.json()["filename"] == "usuarios_20260907.xlsx"
         restore.assert_called_once()
+        resync.assert_called_once()
     finally:
         app.dependency_overrides.clear()

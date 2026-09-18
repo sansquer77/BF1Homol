@@ -2,7 +2,7 @@
 tipo: spec
 area: backup
 status: implementado
-versao: 1.8
+versao: 1.9
 atualizado: 2026-09-16
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/autenticacao-e-sessao]]", "[[04_arquitetura]]"]
 tags: [spec, "area/backup", "status/implementado"]
@@ -87,6 +87,9 @@ Permitir exportação e restauração administrativa com limites de recursos, re
     antes de qualquer chamada ao banco ou processo externo.
 12. Dado limite crítico atingido na restauração ou exportação de logs, quando
     tentar reautorizar um restore, então bcrypt não é executado e nenhum grant é criado.
+13. Dado restore SQL ou Excel concluído, então o Master é revalidado pelas
+    variáveis `USUARIO_MASTER`, `EMAIL_MASTER` e `SENHA_MASTER` antes da
+    resposta de sucesso.
 
 ## Verificação
 
@@ -115,6 +118,7 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 
 ## Changelog
 
+- `1.9` — 2026-09-18 — Revalidação do Master adicionada após todo restore SQL ou Excel.
 - `1.8` — 2026-09-16 — Reautenticação de restore recebe limite compartilhado por conta/IP, persistido e fail-closed.
 - `1.7` — 2026-09-16 — Restore SQL deixa de executar uploads via `psql`, passa
   a aceitar somente o dump lógico BF1 com valores literais e preserva a fixture

@@ -25,6 +25,11 @@ class ExcelRestoreResponse(BaseModel):
 
 EXCEL_MEDIA_TYPE="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
+def _resync_master_after_restore() -> None:
+ from db.master_user_manager import MasterUserManager
+ if not MasterUserManager.create_master_user():
+  raise RuntimeError("Não foi possível revalidar o usuário Master após a restauração.")
+
 @router.get("/excel/tables", response_model=list[str])
 def excel_tables(context: AuthenticatedContext=Depends(require_master)):
  from db.backup_excel import list_excel_backup_tables
@@ -92,6 +97,7 @@ async def restore_sql(request: Request, response:FastAPIResponse, context:Authen
   grant_restore_authorization(user_id=user_id,jti=jti)
   from db.backup_utils import restore_backup_from_sql
   if not restore_backup_from_sql(sql): raise HTTPException(status_code=422,detail="Restauração não concluída.")
+  _resync_master_after_restore()
  except PermissionError as exc: raise HTTPException(status_code=403,detail="Reautenticação necessária.") from exc
  except HTTPException: raise
  except Exception as exc: raise HTTPException(status_code=422,detail="Backup inválido ou incompatível.") from exc
@@ -110,6 +116,7 @@ async def restore_excel(table_name:str, request:Request, response:FastAPIRespons
   grant_restore_authorization(user_id=user_id,jti=jti)
   from db.backup_excel import restore_table_excel
   result=restore_table_excel(raw,table_name,validate_fks=True)
+  _resync_master_after_restore()
  except PermissionError as exc: raise HTTPException(status_code=403,detail="Reautenticação necessária.") from exc
  except HTTPException: raise
  except BackupLimitExceeded as exc: raise HTTPException(status_code=413,detail=str(exc)) from exc

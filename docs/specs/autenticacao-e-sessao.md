@@ -59,7 +59,8 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
    uma sessão ativa por usuário.
 10. No bootstrap, `USUARIO_MASTER`, `EMAIL_MASTER` e `SENHA_MASTER` são a fonte
     autoritativa da conta Master; nome, email, status e hash bcrypt são
-    sincronizados sem persistir a senha em texto.
+    sincronizados sem persistir a senha em texto. Essa sincronização também
+    ocorre imediatamente após cada restore SQL ou Excel concluído.
 11. Alteração autenticada de email ou senha exige a senha atual; a conta Master
     não altera email nem senha pela interface porque `EMAIL_MASTER` e
     `SENHA_MASTER` permanecem autoritativos.
