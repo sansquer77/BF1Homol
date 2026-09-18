@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/bets/report-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Bets Report Image */
+        get: operations["admin_bets_report_image_api_v1_admin_bets_report_image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/circuits": {
         parameters: {
             query?: never;
@@ -903,23 +920,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/classification/image": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Classification Image */
-        get: operations["classification_image_api_v1_classification_image_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/classification/history": {
         parameters: {
             query?: never;
@@ -929,6 +929,23 @@ export interface paths {
         };
         /** Classification History */
         get: operations["classification_history_api_v1_classification_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classification/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Classification Image */
+        get: operations["classification_image_api_v1_classification_image_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1626,6 +1643,16 @@ export interface components {
             /** Vice Bonus */
             vice_bonus: number;
         };
+        /** ClassificationHistoryResponse */
+        ClassificationHistoryResponse: {
+            /**
+             * Races
+             * @default []
+             */
+            races: components["schemas"]["ClassificationRace"][];
+            /** Season */
+            season: string;
+        };
         /** ClassificationRace */
         ClassificationRace: {
             /** Maximum Points */
@@ -1658,16 +1685,6 @@ export interface components {
             discard_active: boolean;
             /** Entries */
             entries: components["schemas"]["ClassificationEntry"][];
-            /**
-             * Races
-             * @default []
-             */
-            races: components["schemas"]["ClassificationRace"][];
-            /** Season */
-            season: string;
-        };
-        /** ClassificationHistoryResponse */
-        ClassificationHistoryResponse: {
             /**
              * Races
              * @default []
@@ -2520,6 +2537,11 @@ export interface components {
             circuit_id?: string | null;
             /** Date */
             date: string;
+            /**
+             * Has Bet
+             * @default false
+             */
+            has_bet: boolean;
             /** Id */
             id: number;
             /** Name */
@@ -2742,6 +2764,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminBetActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_bets_report_image_api_v1_admin_bets_report_image_get: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -4473,6 +4526,7 @@ export interface operations {
         parameters: {
             query: {
                 season: string;
+                history?: boolean;
                 race_id?: number | null;
             };
             header?: never;
@@ -4489,36 +4543,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ClassificationResponse"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    classification_image_api_v1_classification_image_get: {
-        parameters: {
-            query: {
-                season: string;
-                race_id?: number | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -4550,6 +4574,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ClassificationHistoryResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    classification_image_api_v1_classification_image_get: {
+        parameters: {
+            query: {
+                season: string;
+                race_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

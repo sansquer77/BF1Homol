@@ -1387,6 +1387,27 @@
         "title": "ClassificationEntry",
         "type": "object"
       },
+      "ClassificationHistoryResponse": {
+        "properties": {
+          "races": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ClassificationRace"
+            },
+            "title": "Races",
+            "type": "array"
+          },
+          "season": {
+            "title": "Season",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season"
+        ],
+        "title": "ClassificationHistoryResponse",
+        "type": "object"
+      },
       "ClassificationRace": {
         "properties": {
           "maximum_points": {
@@ -1488,27 +1509,6 @@
           "entries"
         ],
         "title": "ClassificationResponse",
-        "type": "object"
-      },
-      "ClassificationHistoryResponse": {
-        "properties": {
-          "races": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/ClassificationRace"
-            },
-            "title": "Races",
-            "type": "array"
-          },
-          "season": {
-            "title": "Season",
-            "type": "string"
-          }
-        },
-        "required": [
-          "season"
-        ],
-        "title": "ClassificationHistoryResponse",
         "type": "object"
       },
       "DriverBetAggregate": {
@@ -3923,6 +3923,11 @@
             "title": "Date",
             "type": "string"
           },
+          "has_bet": {
+            "default": false,
+            "title": "Has Bet",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -4480,6 +4485,47 @@
           }
         },
         "summary": "Remind Bet",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/bets/report-image": {
+      "get": {
+        "operationId": "admin_bets_report_image_api_v1_admin_bets_report_image_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}$",
+              "title": "Season",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Bets Report Image",
         "tags": [
           "admin"
         ]

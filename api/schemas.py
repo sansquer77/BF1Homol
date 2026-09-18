@@ -98,6 +98,7 @@ class TelemetryNextRace(BaseModel):
     starts_at: str
     type: str
     circuit_id: str | None = None
+    has_bet: bool = False
     weather: TelemetryWeather | None = None
 
 

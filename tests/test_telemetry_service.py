@@ -14,6 +14,7 @@ def test_snapshot_uses_authenticated_user_and_materialized_v3_data():
     ])
     bets = pd.DataFrame([
         {"usuario_id": 7, "prova_id": 10, "automatica": 1},
+        {"usuario_id": 7, "prova_id": 20, "automatica": 0},
         {"usuario_id": 8, "prova_id": 10},
     ])
     positions = pd.DataFrame([
@@ -40,8 +41,9 @@ def test_snapshot_uses_authenticated_user_and_materialized_v3_data():
     assert snapshot["user_name"] == "Ana"
     assert snapshot["next_race"]["id"] == 20
     assert snapshot["next_race"]["circuit_id"] == "baku"
+    assert snapshot["next_race"]["has_bet"] is True
     assert snapshot["next_race"]["weather"]["available"] is False
-    assert snapshot["metrics"] == {"current_position": 2, "points": 18.0, "bets_submitted": 1, "races_total": 2}
+    assert snapshot["metrics"] == {"current_position": 2, "points": 18.0, "bets_submitted": 2, "races_total": 2}
     assert snapshot["automatic_bet"] == {"benefit_available": False, "automatic_generation": 1, "next_penalty_percent": 15.0}
     assert snapshot["current_rules"]["name"] == "Sprint 2026"
     assert snapshot["current_rules"]["race_type"] == "Sprint"

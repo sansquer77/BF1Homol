@@ -138,6 +138,9 @@ def build_telemetry_snapshot(
         except (TypeError, ValueError):
             continue
 
+    if next_race is not None:
+        next_race["has_bet"] = int(next_race["id"]) in own_bet_races
+
     current_rules = None
     try:
         from services.rules_service import get_regras_aplicaveis
