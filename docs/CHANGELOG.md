@@ -3,7 +3,7 @@ tipo: produto
 area: releases
 status: implementado
 versao: 1.21
-atualizado: 2026-09-16
+atualizado: 2026-09-19
 relacionados:
   - "[[sdd]]"
   - "[[03_spec]]"
@@ -15,7 +15,7 @@ aliases: ["Changelog do produto", "Versões do BF1"]
 # Changelog do produto BF1
 
 > [!info] Status
-> **implementado** · área: `releases` · atualizado em 2026-09-16 · relacionados: [[sdd]], [[03_spec]], [[07_guia_deploy]]
+> **implementado** · área: `releases` · atualizado em 2026-09-19 · relacionados: [[sdd]], [[03_spec]], [[07_guia_deploy]]
 
 Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
@@ -199,6 +199,8 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 - Alterações sem efeito observável no produto não geram uma nova versão.
 
 ## Changelog
+
+- `1.21` — 2026-09-19 — Versão 3.8.0 adiciona à V4 a criação da próxima temporada em Cadastros e padroniza os nomes dos backups SQL/Excel como `bf1_backup_YYYYMMDD_HHMMSS`.
 
 - `1.19` — 2026-09-16 — Patch 3.5.2 passa a limitar reautenticações críticas e fecha o oráculo alternativo de senha da conta Master.
 - `1.20` — 2026-09-16 — Patch 3.5.2 passa a impor troca obrigatória de senha no servidor.

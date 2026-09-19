@@ -2,8 +2,8 @@
 tipo: spec
 area: backup
 status: implementado
-versao: 1.9
-atualizado: 2026-09-16
+versao: 1.10
+atualizado: 2026-09-19
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/autenticacao-e-sessao]]", "[[04_arquitetura]]"]
 tags: [spec, "area/backup", "status/implementado"]
 aliases: ["Backup e restauração"]
@@ -12,7 +12,7 @@ aliases: ["Backup e restauração"]
 # Backup e restauração
 
 > [!info] Status
-> **implementado** · área: `backup` · atualizado em 2026-09-16 · relacionados: [[specs/controle-de-acesso]], [[specs/autenticacao-e-sessao]], [[04_arquitetura]]
+> **implementado** · área: `backup` · atualizado em 2026-09-19 · relacionados: [[specs/controle-de-acesso]], [[specs/autenticacao-e-sessao]], [[04_arquitetura]]
 
 ## Problema
 
@@ -60,6 +60,8 @@ Permitir exportação e restauração administrativa com limites de recursos, re
     o backend os recalcula internamente após a restauração.
 15. Tentativas de reautenticação são limitadas pelo mesmo bucket crítico usado
     na exportação de logs, por conta e IP, com padrão de 5 falhas em 15 minutos.
+16. Downloads SQL e Excel usam o nome `bf1_backup_YYYYMMDD_HHMMSS`, acrescido
+    somente da extensão correspondente (`.sql` ou `.xlsx`).
 
 ## Interface, serviços e dados
 
@@ -117,6 +119,8 @@ Permitir exportação e restauração administrativa com limites de recursos, re
   mantendo a fixture real anonimizada V3.5. Fecha: critérios 10 e 11.
 
 ## Changelog
+
+- `1.10` — 2026-09-19 — Padronizada a nomenclatura dos arquivos de backup V4 com data e hora.
 
 - `1.9` — 2026-09-18 — Revalidação do Master adicionada após todo restore SQL ou Excel.
 - `1.8` — 2026-09-16 — Reautenticação de restore recebe limite compartilhado por conta/IP, persistido e fail-closed.

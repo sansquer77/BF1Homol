@@ -5608,6 +5608,42 @@
         ]
       }
     },
+    "/api/v1/admin/seasons": {
+      "get": {
+        "operationId": "get_admin_seasons_api_v1_admin_seasons_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Admin Seasons",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_admin_season_route_api_v1_admin_seasons_post",
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Create Admin Season Route",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/teams": {
       "get": {
         "operationId": "get_admin_teams_api_v1_admin_teams_get",

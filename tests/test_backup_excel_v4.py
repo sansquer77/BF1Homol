@@ -101,6 +101,24 @@ def test_v4_exposes_excel_backup_and_restore_in_master_screen():
     assert "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in frontend
 
 
+def test_v4_downloads_use_timestamped_backup_names():
+    from api.routes.backup import download_excel, download_sql
+    from services.access_control import AuthenticatedContext
+
+    master = AuthenticatedContext(1, "Master", "master", "ativo", frozenset())
+    with patch("api.routes.backup._backup_stamp", return_value="20260919_123456"), patch(
+        "db.backup_excel.export_table_excel", return_value=b"xlsx"
+    ):
+        excel = download_excel("usuarios", master)
+    assert excel.headers["content-disposition"] == 'attachment; filename="bf1_backup_20260919_123456.xlsx"'
+
+    with patch("api.routes.backup._backup_stamp", return_value="20260919_123456"), patch(
+        "db.backup_utils._generate_backup_sql_content", return_value=("BEGIN; COMMIT;", "data-only")
+    ):
+        sql = download_sql(master)
+    assert sql.headers["content-disposition"] == 'attachment; filename="bf1_backup_20260919_123456.sql"'
+
+
 def test_excel_api_validates_and_restores_with_master_dependency():
     from api.dependencies import require_master
     from api.config import settings

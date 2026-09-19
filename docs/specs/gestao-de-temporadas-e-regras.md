@@ -2,8 +2,8 @@
 tipo: spec
 area: regras
 status: implementado
-versao: 1.2
-atualizado: 2026-09-16
+versao: 1.3
+atualizado: 2026-09-19
 relacionados: ["[[02_regras_de_negocio]]", "[[specs/pontuacao-de-provas]]", "[[specs/classificacao]]"]
 tags: [spec, "area/regras", "status/implementado"]
 aliases: ["Gestão de temporadas e regras"]
@@ -12,7 +12,7 @@ aliases: ["Gestão de temporadas e regras"]
 # Gestão de temporadas e regras
 
 > [!info] Status
-> **implementado** · área: `regras` · atualizado em 2026-09-16 · relacionados: [[02_regras_de_negocio]], [[specs/pontuacao-de-provas]], [[specs/classificacao]]
+> **implementado** · área: `regras` · atualizado em 2026-09-19 · relacionados: [[02_regras_de_negocio]], [[specs/pontuacao-de-provas]], [[specs/classificacao]]
 
 ## Problema
 
@@ -48,6 +48,9 @@ Centralizar configurações versionáveis de pontuação e associá-las às temp
 9. Ao alterar pontos por posição de uma temporada cuja regra é compartilhada, o sistema clona a regra e reassocia somente a temporada escolhida antes da alteração.
 10. O recálculo é sempre uma ação explícita do Master, limitada à temporada selecionada, e reutiliza a rotina canônica de materialização da V3.5.
 11. Na aba Pontuação por posição, Temporada, Tipo de Prova e quantidade de posições permanecem separados, sem sobreposição, em desktop e mobile.
+12. A aba Temporadas em Administração → Cadastros lista os anos existentes e,
+    somente para o Master, cria automaticamente o ano seguinte ao maior cadastrado,
+    preservando o comportamento da V3.5 e todo o histórico anterior.
 
 ## Interface, serviços e dados
 
@@ -69,6 +72,8 @@ Centralizar configurações versionáveis de pontuação e associá-las às temp
 9. Dada temporada e tipo de prova, quando salvar a tabela por posição, então são persistidas até 20 posições e uma regra compartilhada não altera outra temporada.
 10. Dada temporada selecionada, quando o Master confirmar o recálculo, então todas as provas dessa temporada são reprocessadas pela rotina canônica.
 11. Dada a aba Pontuação por posição, quando exibida em viewport suportado, então os campos Temporada e Tipo de Prova não colidem nem extrapolam seus controles.
+12. Dado Master, quando acionar Criar próxima temporada, então o sistema registra
+    o ano seguinte ao maior existente; dado Admin, a criação é negada pelo servidor.
 
 ## Verificação
 
@@ -89,8 +94,11 @@ Centralizar configurações versionáveis de pontuação e associá-las às temp
 - [x] Persistir e autorizar regras e associações. Fecha: critérios 1, 2, 5 e 6.
 - [x] Integrar tipos de prova e invalidação de cache. Fecha: critérios 3, 4 e 7.
 - [x] Portar editor integral, tabela por posição e recálculo explícito para a V4. Fecha: critérios 8–10.
+- [x] Portar a criação da próxima temporada para Cadastros. Fecha: critério 12.
 
 ## Changelog
+
+- `1.3` — 2026-09-19 — Criação da próxima temporada portada para Cadastros V4 com autorização exclusiva do Master.
 
 - `1.2` — 2026-09-16 — Formaliza a separação responsiva dos filtros da aba Pontuação por posição.
 - `1.1` — 2026-09-14 — Especifica paridade integral do editor V3.5, pontuação por posição com isolamento por temporada e recálculo explícito.

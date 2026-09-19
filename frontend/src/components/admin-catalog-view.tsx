@@ -3,13 +3,14 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ApiRequestError, apiRequest, type User as Identity } from "@/lib/api/client";
 
-type Tab = "users" | "teams" | "drivers" | "races";
+type Tab = "users" | "teams" | "drivers" | "races" | "seasons";
 type User = { id: number; name: string; email: string; profile: string; status: string; must_change_password: boolean };
 type Driver = { id: number; name: string; team: string; status: string; number: number };
 type Race = { id: number; name: string; date: string; time: string; type: string; race_status: string; circuit_id: string | null };
 type Circuit = { circuit_id: string; circuit_name: string; country: string; locality: string };
 type Team = { id: number; name: string; primary_color: string; secondary_color: string | null; status: string };
-type Item = User | Team | Driver | Race;
+type Season = { id: number; season: string; created_at: string | null };
+type Item = User | Team | Driver | Race | Season;
 type FormState = Record<string, string | boolean>;
 
 function circuitLabel(circuit: Circuit) {
@@ -39,7 +40,7 @@ export function AdminCatalogView() {
 
   const load = useCallback(() => {
     if (!identity) return;
-    const path = tab === "users" ? "/api/v1/admin/users" : tab === "teams" ? "/api/v1/admin/teams" : tab === "drivers" ? "/api/v1/admin/drivers" : `/api/v1/admin/races?season=${season}`;
+    const path = tab === "users" ? "/api/v1/admin/users" : tab === "teams" ? "/api/v1/admin/teams" : tab === "drivers" ? "/api/v1/admin/drivers" : tab === "seasons" ? "/api/v1/admin/seasons" : `/api/v1/admin/races?season=${season}`;
     setError(""); setErrorDetail("");
     apiRequest<Item[]>(path as `/api/v1/${string}`).then(setItems).catch((reason) => {
       const detail = reason instanceof ApiRequestError ? `HTTP ${reason.status}${reason.detail ? ` — ${reason.detail}` : ""}` : String(reason);
@@ -74,7 +75,7 @@ export function AdminCatalogView() {
 
   function startEdit(item: Item) {
     if (!canEdit) return;
-    setEditingId(item.id); setError(""); setNotice("");
+    setEditingId((item as User | Team | Driver | Race).id); setError(""); setNotice("");
     if (tab === "users") {
       const user = item as User;
       setForm({ name: user.name, email: user.email, profile: user.profile, status: user.status, must_change_password: user.must_change_password });
@@ -84,7 +85,7 @@ export function AdminCatalogView() {
     } else if (tab === "drivers") {
       const driver = item as Driver;
       setForm({ name: driver.name, team: driver.team, number: String(driver.number), status: driver.status });
-    } else {
+    } else if (tab === "races") {
       const race = item as Race;
       setForm({ name: race.name, date: race.date.slice(0, 10), time: race.time.slice(0, 5), type: race.type, status: race.race_status, circuit_id: race.circuit_id ?? "" });
     }
@@ -117,9 +118,11 @@ export function AdminCatalogView() {
       } else if (tab === "drivers") {
         const path = editingId === null ? "/api/v1/admin/drivers" : `/api/v1/admin/drivers/${editingId}`;
         await apiRequest(path as `/api/v1/${string}`, { method: editingId === null ? "POST" : "PUT", body: JSON.stringify({ name: value("name"), team: value("team"), status: value("status") || "Ativo", number: Number(value("number") || 0) }) });
-      } else {
+      } else if (tab === "races") {
         const path = editingId === null ? `/api/v1/admin/races?season=${season}` : `/api/v1/admin/races/${editingId}?season=${season}`;
         await apiRequest(path as `/api/v1/${string}`, { method: editingId === null ? "POST" : "PUT", body: JSON.stringify({ name: value("name"), date: value("date"), time: value("time"), type: value("type") || "Normal", race_status: value("status") || "Pendente", circuit_id: value("circuit_id") || null }) });
+      } else {
+        await apiRequest("/api/v1/admin/seasons", { method: "POST" });
       }
       const edited = editingId !== null;
       setEditingId(null); setForm({}); load(); loadTeams(); setNotice(edited ? "Registro atualizado." : "Registro salvo.");
@@ -128,10 +131,22 @@ export function AdminCatalogView() {
     }
   }
 
-  const tabs: [Tab, string][] = canEdit ? [["users", "Usuários"], ["teams", "Equipes"], ["drivers", "Pilotos"], ["races", "Provas"]] : [["teams", "Equipes"], ["drivers", "Pilotos"], ["races", "Provas"]];
+  const tabs: [Tab, string][] = canEdit ? [["users", "Usuários"], ["teams", "Equipes"], ["drivers", "Pilotos"], ["races", "Provas"], ["seasons", "Temporadas"]] : [["teams", "Equipes"], ["drivers", "Pilotos"], ["races", "Provas"]];
   const selectedCircuitIsLegacy = Boolean(value("circuit_id") && !circuits.some((circuit) => circuit.circuit_id === value("circuit_id")));
-  const entityLabel = tab === "users" ? "usuário" : tab === "teams" ? "equipe" : tab === "drivers" ? "piloto" : "prova";
-  const title = editingId !== null ? `Editar ${entityLabel}` : tab === "users" ? "Convidar usuário" : tab === "teams" ? "Adicionar equipe" : tab === "drivers" ? "Adicionar piloto" : "Adicionar prova";
+  const entityLabel = tab === "users" ? "usuário" : tab === "teams" ? "equipe" : tab === "drivers" ? "piloto" : tab === "races" ? "prova" : "temporada";
+  const title = editingId !== null ? `Editar ${entityLabel}` : tab === "users" ? "Convidar usuário" : tab === "teams" ? "Adicionar equipe" : tab === "drivers" ? "Adicionar piloto" : tab === "races" ? "Adicionar prova" : "Criar temporada";
+
+  if (tab === "seasons") return <div className="admin-catalog-view">
+    <header className="institutional-hero"><p className="eyebrow">Administração</p><h1>Temporadas do campeonato.</h1><p>Crie a próxima temporada antes de cadastrar suas provas e regras. Esta operação é exclusiva do Master.</p></header>
+    <div className="admin-tabs" role="tablist">{tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "admin-tab admin-tab--active" : "admin-tab"} onClick={() => selectTab(key)}>{label}</button>)}</div>
+    {error ? <div className="calendar-state calendar-state--error" role="alert">{error}</div> : null}
+    {notice ? <div className="calendar-state" role="status">{notice}</div> : null}
+    <section className="panel admin-form">
+      <div className="panel__heading"><div><h2>Criar próxima temporada</h2><p>O sistema usa o maior ano cadastrado e registra automaticamente o ano seguinte, como na V3.5.</p></div></div>
+      <form className="admin-fields" onSubmit={submit}><button className="primary-action">Criar próxima temporada</button></form>
+    </section>
+    <section className="panel admin-list"><h2>Temporadas cadastradas <small>{items.length} itens</small></h2><div className="table-scroll"><table><thead><tr><th>Temporada</th><th>Criada em</th></tr></thead><tbody>{items.map((item) => <tr key={(item as Season).season}><td>{(item as Season).season}</td><td>{(item as Season).created_at ? new Date((item as Season).created_at as string).toLocaleString("pt-BR") : "—"}</td></tr>)}</tbody></table></div></section>
+  </div>;
 
   return <div className="admin-catalog-view">
     <header className="institutional-hero"><p className="eyebrow">Administração</p><h1>Cadastros do campeonato.</h1><p>Novos registros seguem as permissões vigentes; editar registros existentes é exclusivo do Master.</p></header>

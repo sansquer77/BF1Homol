@@ -3,12 +3,43 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from services.access_control import AuthenticatedContext, authorize_context
 from utils.cache_utils import clear_data_cache
 
 logger = logging.getLogger(__name__)
+
+
+def list_admin_seasons(context: AuthenticatedContext) -> list[dict[str, Any]]:
+    _require(context, "temporada.read", frozenset({"admin", "master"}))
+    from db.db_schema import db_connect
+    with db_connect() as conn:
+        cur = conn.cursor()
+        cur.execute("CREATE TABLE IF NOT EXISTS temporadas (temporada TEXT PRIMARY KEY, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+        cur.execute("SELECT temporada, criado_em FROM temporadas ORDER BY temporada DESC")
+        rows = cur.fetchall() or []
+    return [{"season": str(row["temporada"]), "created_at": row.get("criado_em")} for row in rows]
+
+
+def create_admin_season(context: AuthenticatedContext) -> dict[str, Any]:
+    _require(context, "temporada.write", frozenset({"master"}))
+    from db.db_schema import db_connect
+    with db_connect() as conn:
+        cur = conn.cursor()
+        cur.execute("CREATE TABLE IF NOT EXISTS temporadas (temporada TEXT PRIMARY KEY, criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+        cur.execute("SELECT temporada FROM temporadas ORDER BY temporada")
+        seasons = [str(row["temporada"]) for row in (cur.fetchall() or []) if row and row.get("temporada")]
+        try:
+            season = str(max(int(value) for value in seasons) + 1) if seasons else str(datetime.now().year)
+        except (TypeError, ValueError):
+            season = str(datetime.now().year + 1)
+        cur.execute("INSERT INTO temporadas (temporada) VALUES (%s) ON CONFLICT (temporada) DO NOTHING", (season,))
+        conn.commit()
+    clear_data_cache("calendario")
+    clear_data_cache("telemetria")
+    return {"season": season, "created": True}
 
 
 def _require(context: AuthenticatedContext, operation: str, roles: frozenset[str], season: str | None = None) -> None:

@@ -37,14 +37,14 @@ export function BackupAdminView() {
   const downloadSql = async () => {
     const response = await fetch("/api/v1/backup/sql", { credentials: "include" });
     if (!response.ok) { notify("Acesso restrito ao Master.", "error"); return; }
-    await saveResponse(response, "bf1_backup_v4.sql");
+    await saveResponse(response, "bf1_backup.sql");
   };
 
   const downloadExcel = async () => {
     if (!excelTable) { notify("Selecione uma tabela para exportar.", "error"); return; }
     const response = await fetch(`/api/v1/backup/excel/${encodeURIComponent(excelTable)}`, { credentials: "include" });
     if (!response.ok) { notify("Não foi possível exportar a tabela em Excel.", "error"); return; }
-    await saveResponse(response, `${excelTable}_backup_v4.xlsx`);
+    await saveResponse(response, "bf1_backup.xlsx");
   };
 
   const reauthorize = () => apiRequest("/api/v1/backup/reauthorize", { method: "POST", body: JSON.stringify({ password }) });

@@ -12,11 +12,13 @@ from api.dependencies import get_current_context
 from services.access_control import AuthenticatedContext, AuthorizationDenied
 from services.admin_v4_service import (
     create_user,
+    create_admin_season,
     list_admin_circuits,
     list_admin_drivers,
     list_admin_races,
     list_admin_teams,
     list_admin_users,
+    list_admin_seasons,
     refresh_admin_circuits,
     update_user,
     upsert_driver,
@@ -230,6 +232,21 @@ def get_admin_users(context: AuthenticatedContext = Depends(get_current_context)
     except Exception as exc:
         logger.exception("Failed to list admin users for user_id=%s", getattr(context, "user_id", None))
         raise
+
+
+@router.get("/seasons")
+def get_admin_seasons(context: AuthenticatedContext = Depends(get_current_context)):
+    return _read(list_admin_seasons, context)
+
+
+@router.post("/seasons", status_code=201)
+def create_admin_season_route(context: AuthenticatedContext = Depends(get_current_context)):
+    try:
+        return create_admin_season(context)
+    except AuthorizationDenied as exc:
+        raise HTTPException(status_code=403, detail="Acesso negado.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.patch("/users/{user_id}")

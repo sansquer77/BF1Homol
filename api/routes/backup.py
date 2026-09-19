@@ -1,4 +1,6 @@
 """Backup e restauração V4; operações destrutivas exigem Master e reautenticação."""
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Request, Response as FastAPIResponse
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -25,6 +27,9 @@ class ExcelRestoreResponse(BaseModel):
 
 EXCEL_MEDIA_TYPE="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
+def _backup_stamp() -> str:
+ return datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%Y%m%d_%H%M%S")
+
 def _resync_master_after_restore() -> None:
  from db.master_user_manager import MasterUserManager
  if not MasterUserManager.create_master_user():
@@ -41,7 +46,7 @@ def download_excel(table_name:str, context: AuthenticatedContext=Depends(require
   from db.backup_excel import export_table_excel
   content=export_table_excel(table_name)
  except ValueError as exc: raise HTTPException(status_code=404,detail="Tabela indisponível para exportação.") from exc
- return Response(content,media_type=EXCEL_MEDIA_TYPE,headers={"Content-Disposition":f'attachment; filename="{table_name}_backup_v4.xlsx"',"Cache-Control":"no-store"})
+ return Response(content,media_type=EXCEL_MEDIA_TYPE,headers={"Content-Disposition":f'attachment; filename="bf1_backup_{_backup_stamp()}.xlsx"',"Cache-Control":"no-store"})
 
 @router.post("/validate/excel/{table_name}",response_model=ExcelValidationResponse)
 async def validate_excel(table_name:str, request:Request, context:AuthenticatedContext=Depends(require_master)):
@@ -58,7 +63,7 @@ async def validate_excel(table_name:str, request:Request, context:AuthenticatedC
 @router.get("/sql")
 def download_sql(context: AuthenticatedContext=Depends(require_master)):
  from db.backup_utils import _generate_backup_sql_content
- sql,mode=_generate_backup_sql_content(); return Response(sql,media_type="application/sql",headers={"Content-Disposition":'attachment; filename="bf1_backup_v4.sql"',"Cache-Control":"no-store","X-Backup-Mode":mode})
+ sql,mode=_generate_backup_sql_content(); return Response(sql,media_type="application/sql",headers={"Content-Disposition":f'attachment; filename="bf1_backup_{_backup_stamp()}.sql"',"Cache-Control":"no-store","X-Backup-Mode":mode})
 
 @router.post("/validate/sql")
 async def validate_sql(request: Request, context: AuthenticatedContext=Depends(require_master)):
