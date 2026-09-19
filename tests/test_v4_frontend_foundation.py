@@ -44,6 +44,7 @@ def test_mobile_first_contract_has_360px_without_page_overflow():
     assert "overflow-x: auto" in css
     assert "prefers-reduced-motion" in css
     assert "44px" in css
+    assert ".sidebar__footer .text-link { min-width: 44px; min-height: 44px" in css
 
 
 def test_typed_client_is_generated_from_versioned_openapi_and_uses_secure_transport():

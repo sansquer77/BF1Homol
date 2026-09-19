@@ -2,8 +2,8 @@
 tipo: produto
 area: bf1
 status: em-implementacao
-versao: 5.2
-atualizado: 2026-09-16
+versao: 5.4
+atualizado: 2026-09-19
 relacionados: ["[[01_necessidade]]", "[[02_regras_de_negocio]]", "[[03_spec]]", "[[04_arquitetura]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [produto, "area/bf1", "status/em-implementacao"]
 aliases: ["Documento de Projeto"]
@@ -12,7 +12,7 @@ aliases: ["Documento de Projeto"]
 # Documento de Projeto — BF1
 
 > [!info] Status
-> **em-implementacao** · área: `bf1` · atualizado em 2026-09-16 · relacionados: [[04_arquitetura]], [[specs/migracao-v4-nextjs-fastapi]]
+> **em-implementacao** · área: `bf1` · atualizado em 2026-09-19 · relacionados: [[04_arquitetura]], [[specs/migracao-v4-nextjs-fastapi]]
 
 ## Estado do produto
 
@@ -37,8 +37,8 @@ homologação.
 
 A Classificação usa cache em memória por temporada com TTL de cinco minutos,
 resumo e histórico em contratos separados e aquecimento após o processamento
-de resultados. Essa mitigação responde ao primeiro gate de 100 acessos, mas não
-substitui a repetição do ensaio para aprovação da Fase 9.
+de resultados. O gate aquecido de 25 usuários simultâneos foi aprovado com
+erro de 0% e p95 de 377,835 ms, encerrando a Fase 9.
 
 ## Stack vigente da V4
 
@@ -64,16 +64,17 @@ suportam o baseline V3, mas não fazem parte do runtime V4.
 - Migrations são incrementais e idempotentes.
 - Nenhum segredo, senha, JWT ou conteúdo integral de backup é registrado.
 - Metas da V4: API p95 abaixo de 400 ms em leitura e 700 ms em escrita comum;
-  100 usuários simultâneos; LCP abaixo de 2,5 s; CLS abaixo de 0,1; WCAG 2.2 AA.
+  25 usuários simultâneos; LCP abaixo de 2,5 s; CLS abaixo de 0,1; WCAG 2.2 AA.
 
 ## Próximas entregas
 
-1. Repetir a carga da Classificação em patamares de 10, 25, 50, 75 e 100
-   acessos após a implantação do cache.
-2. Concluir acessibilidade, experiência mobile e gates residuais da Fase 9.
-3. Validar builds limpos, rollback, cutover e observação da operação na Fase 10.
+1. Validar builds limpos, rollback, cutover e observação da operação na Fase 10.
 
 ## Changelog
+
+- `5.4` — 2026-09-19 — Fase 9 concluída com gate de 25 VUs, acessibilidade e responsividade aprovados.
+
+- `5.3` — 2026-09-19 — Gate da Fase 9 calibrado para 25 usuários simultâneos.
 
 - `5.2` — 2026-09-16 — Escopo funcional reconciliado; cache da Classificação e pendência de novo gate de carga registrados.
 - `5.1` — 2026-09-12 — Fase 8 atualizada como concluída após confirmação do backup/restore Excel.

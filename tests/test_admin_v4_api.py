@@ -53,3 +53,56 @@ def test_admin_result_route_allows_admin_only_after_service_authorization():
         save.assert_called_once()
     finally:
         app.dependency_overrides.clear()
+
+
+def test_admin_cannot_create_master_or_patch_another_user():
+    from fastapi.testclient import TestClient
+    from api.main import app
+    from api.dependencies import get_current_context
+    from services.access_control import AuthenticatedContext, AuthorizationDenied
+
+    context = AuthenticatedContext(2, "Admin", "admin", "ativo", frozenset())
+    app.dependency_overrides[get_current_context] = lambda: context
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        with patch("api.routes.admin.create_user", side_effect=AuthorizationDenied("denied")) as create, patch(
+            "api.routes.admin.update_user", side_effect=AuthorizationDenied("denied")
+        ) as update, patch("db.repo_observability.record_event"):
+            created = client.post(
+                "/api/v1/admin/users",
+                headers={"Origin": "https://bf1.test"},
+                json={"name": "X", "email": "x@example.com", "password": "strong-password", "profile": "master", "user_status": "ativo"},
+            )
+            changed = client.patch(
+                "/api/v1/admin/users/1",
+                headers={"Origin": "https://bf1.test"},
+                json={"profile": "master"},
+            )
+        assert created.status_code == 403
+        assert changed.status_code == 403
+        create.assert_called_once()
+        update.assert_called_once()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_participant_cannot_generate_admin_bet_for_another_user():
+    from fastapi.testclient import TestClient
+    from api.main import app
+    from api.dependencies import get_current_context
+    from services.access_control import AuthenticatedContext, AuthorizationDenied
+
+    context = AuthenticatedContext(7, "Ana", "participante", "ativo", frozenset({"2026"}))
+    app.dependency_overrides[get_current_context] = lambda: context
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        with patch("api.routes.admin.generate_admin_bet", side_effect=AuthorizationDenied("denied")) as generate, patch("db.repo_observability.record_event"):
+            response = client.post(
+                "/api/v1/admin/bets/generate",
+                headers={"Origin": "https://bf1.test"},
+                json={"season": "2026", "user_id": 8, "race_id": 31},
+            )
+        assert response.status_code == 403
+        generate.assert_called_once()
+    finally:
+        app.dependency_overrides.clear()

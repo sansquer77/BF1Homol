@@ -2,8 +2,8 @@
 tipo: spec
 area: autenticacao
 status: implementado
-versao: 1.8
-atualizado: 2026-09-16
+versao: 1.9
+atualizado: 2026-09-19
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[03_spec]]"
@@ -16,7 +16,7 @@ aliases: ["Autenticação e Sessão"]
 # Autenticação e sessão
 
 > [!info] Status
-> **implementado** · área: `autenticacao` · atualizado em 2026-09-16 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[specs/controle-de-acesso]], [[07_guia_deploy]]
+> **implementado** · área: `autenticacao` · atualizado em 2026-09-19 · relacionados: [[02_regras_de_negocio]], [[03_spec]], [[specs/controle-de-acesso]], [[07_guia_deploy]]
 
 ## Problema
 
@@ -89,6 +89,9 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
     as demais rotas autenticadas retornam 403 até que a senha seja trocada.
 20. A troca de senha própria limpa `must_change_password`, incrementa
     `session_version` e revoga as sessões anteriores.
+21. Os cookies de sessão e CSRF usam `Secure`, `SameSite=Strict`; a sessão é
+    `HttpOnly`. Toda mutação exige correspondência exata do cabeçalho `Origin`
+    com a allowlist e token CSRF, sem aceitar origem vazia ou subdomínio implícito.
 
 ## Interface, serviços e dados
 
@@ -136,6 +139,10 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 18. Dado usuário com `must_change_password` ativa, quando troca a senha com
     sucesso, então a flag é limpa, as sessões anteriores são revogadas e o
     próximo login funciona normalmente.
+19. Dada mutação sem origem, com origem não listada ou proveniente de subdomínio
+    não autorizado, quando enviada, então recebe 403 antes da regra de negócio.
+20. Dada sessão emitida ou renovada, então seu cookie possui `Secure`,
+    `HttpOnly` e `SameSite=Strict`, e o cookie CSRF possui `Secure` e `SameSite=Strict`.
 
 ## Verificação
 
@@ -162,6 +169,8 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 - [x] Restringir sessão enquanto `must_change_password` estiver ativa e garantir limpeza da flag na troca. Fecha: critérios 16 a 18.
 
 ## Changelog
+
+- `1.9` — 2026-09-19 — Cookies elevados a `SameSite=Strict` e validação exata de origem formalizada como regra de não regressão.
 
 - `1.8` — 2026-09-16 — Troca obrigatória de senha agora restringe a sessão no servidor (apenas identidade, troca de senha, logout e refresh) e a troca de senha própria limpa a flag e revoga sessões anteriores.
 - `1.7` — 2026-09-16 — Recuperação de senha envia email em background e equaliza tempo de processamento para emails não cadastrados, dificultando enumeração por timing.

@@ -28,15 +28,15 @@ def validate_csrf(request: Request) -> None:
 
 def issue_session_cookies(response: Response, token: str) -> str:
     csrf = secrets.token_urlsafe(32)
-    common = {"secure": settings.cookie_secure, "samesite": "lax", "path": "/", "max_age": 7200}
+    common = {"secure": settings.cookie_secure, "samesite": "strict", "path": "/", "max_age": 7200}
     response.set_cookie(settings.cookie_name, token, httponly=True, **common)
     response.set_cookie(settings.csrf_cookie_name, csrf, httponly=False, **common)
     return csrf
 
 
 def clear_session_cookies(response: Response) -> None:
-    response.delete_cookie(settings.cookie_name, path="/", secure=settings.cookie_secure, httponly=True, samesite="lax")
-    response.delete_cookie(settings.csrf_cookie_name, path="/", secure=settings.cookie_secure, httponly=False, samesite="lax")
+    response.delete_cookie(settings.cookie_name, path="/", secure=settings.cookie_secure, httponly=True, samesite="strict")
+    response.delete_cookie(settings.csrf_cookie_name, path="/", secure=settings.cookie_secure, httponly=False, samesite="strict")
 
 
 def issue_restore_authorization_cookie(

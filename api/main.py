@@ -8,11 +8,12 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from api.config import settings
+from api.dependencies import get_current_context
 from api.request_context import RequestContext, reset_request_context, set_request_context
 from api.routes import admin, analysis, auth, backup, calendar, championship, classification, content, f1_dashboard, hall_of_fame, logs, race_bets, teams, telemetry, users
 from api.security import validate_csrf, validate_origin
@@ -38,12 +39,18 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="BF1 API",
     version=API_VERSION,
-    openapi_url="/api/v1/openapi.json",
+    openapi_url=None,
     docs_url=None,
     redoc_url=None,
     lifespan=lifespan,
 )
 app.include_router(backup.router, prefix="/api/v1")
+
+
+@app.get("/api/v1/openapi.json", include_in_schema=False)
+def authenticated_openapi(_: object = Depends(get_current_context)) -> JSONResponse:
+    """Evita reconhecimento anônimo da superfície completa da API."""
+    return JSONResponse(app.openapi(), headers={"Cache-Control": "no-store"})
 
 
 def _opaque_error(status_code: int, detail: str, request_id: str) -> JSONResponse:

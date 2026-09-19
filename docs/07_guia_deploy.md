@@ -2,8 +2,8 @@
 tipo: metodologia
 area: bf1
 status: em-revisao
-versao: 5.3
-atualizado: 2026-09-16
+versao: 5.5
+atualizado: 2026-09-19
 relacionados: ["[[04_arquitetura]]", "[[06_modulos_tecnicos]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [metodologia, "area/bf1", "status/em-revisao"]
 aliases: ["Guia de Deploy e Operações"]
@@ -12,7 +12,7 @@ aliases: ["Guia de Deploy e Operações"]
 # Guia de Deploy e Operações — BF1 V4
 
 > [!info] Status
-> **em-revisao** · área: `bf1` · atualizado em 2026-09-16 · configuração de homologação ativa; cutover ainda pendente.
+> **em-revisao** · área: `bf1` · atualizado em 2026-09-19 · configuração de homologação ativa; cutover ainda pendente.
 
 ## Topologia DigitalOcean
 
@@ -69,14 +69,18 @@ DigitalOcean. O Master pode exportar logs por endpoint limitado e reautenticado.
 
 - [x] Round-trip Excel aprovado em homologação.
 - [x] Gestão de equipes e atualização de resultados disponíveis na V4.
-- [ ] Testes de segurança, carga, acessibilidade e mobile aprovados.
-- [ ] Gate de carga repetido após o cache da Classificação, com p95 abaixo de
-  400 ms e taxa de erro inferior a 1%.
+- [x] Testes de segurança, carga, acessibilidade e mobile aprovados.
+- [x] Gate de 25 usuários simultâneos repetido após o cache da Classificação,
+  com p95 abaixo de 400 ms e taxa de erro inferior a 1%.
 - [ ] Restore SQL/Excel e rollback ensaiados a partir do artefato estável.
 - [ ] Builds limpos e health checks dos dois componentes aprovados.
 - [ ] Métricas e logs observados após a promoção.
 
 ## Changelog
+
+- `5.5` — 2026-09-19 — Gates da Fase 9 marcados como aprovados após ensaio de 25 VUs e validação responsiva/acessível.
+
+- `5.4` — 2026-09-19 — Gate de promoção ajustado para 25 usuários simultâneos e controles de segurança reconciliados.
 
 - `5.3` — 2026-09-16 — pnpm 12.4.2 fixado no projeto e no build da DigitalOcean.
 - `5.2` — 2026-09-16 — Gestão de equipes/resultados confirmada e novo gate pós-cache incluído no checklist de promoção.

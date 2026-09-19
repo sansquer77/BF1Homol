@@ -282,6 +282,15 @@ class V4ApiSecurityTests(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertNotIn("allowed_origins", response.text)
 
+    def test_unsafe_request_rejects_untrusted_subdomain_origin(self):
+        with patch("db.repo_observability.record_event"):
+            response = self.client.post(
+                "/api/v1/auth/login",
+                headers={"Origin": "https://evil.bf1.test"},
+                json={"email": "a@example.com", "password": "secret"},
+            )
+        self.assertEqual(response.status_code, 403)
+
     def test_login_failure_is_indistinguishable_for_missing_and_wrong_password(self):
         from db import repo_users
         headers = {"Origin": "https://bf1.test"}
@@ -420,6 +429,34 @@ class V4ApiSecurityTests(unittest.TestCase):
         finally:
             app.dependency_overrides.clear()
 
+    def test_analysis_rejects_participant_idor_before_reading_bets(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(7, "A", "participante", "ativo", frozenset({"2026"}))
+        try:
+            with patch("api.routes.analysis.build_bets_analysis") as build, patch("db.repo_observability.record_event"):
+                response = self.client.get("/api/v1/analysis/bets?season=2026&participant_id=8")
+            self.assertEqual(response.status_code, 404)
+            build.assert_not_called()
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_betting_logs_ignore_foreign_bettor_filter_for_participant_scope(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(7, "A", "participante", "ativo", frozenset({"2026"}))
+        scoped = {"season": "2026", "scope": "individual", "pagination": {"page": 1, "page_size": 50, "total": 0, "total_pages": 1}, "items": []}
+        try:
+            with patch("services.logs_read_service.list_betting_logs", return_value=scoped) as read, patch("db.repo_observability.record_event"):
+                response = self.client.get("/api/v1/logs/bets?season=2026&bettor_id=8")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["scope"], "individual")
+            self.assertEqual(read.call_args.kwargs["scope_user_id"], 7)
+        finally:
+            app.dependency_overrides.clear()
+
     def test_season_object_rejects_idor_as_not_found(self):
         from api.dependencies import authorize_season_object
         from fastapi import HTTPException
@@ -473,7 +510,7 @@ class V4ApiSecurityTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         generate.assert_called_once()
         cookies = response.headers.get_list("set-cookie")
-        self.assertTrue(any("bf1_session=new-token" in value and "HttpOnly" in value and "SameSite=lax" in value for value in cookies))
+        self.assertTrue(any("bf1_session=new-token" in value and "HttpOnly" in value and "SameSite=strict" in value for value in cookies))
 
     def test_unhandled_failure_is_opaque_and_correlated(self):
         with patch("db.db_schema.db_connect", side_effect=RuntimeError("sentinel database detail")), \
@@ -537,8 +574,18 @@ class V4ApiSecurityTests(unittest.TestCase):
         export.assert_not_called()
 
     def test_api_has_no_public_signup_contract(self):
+        from api.dependencies import get_current_context
+        from api.main import app
+        from services.access_control import AuthenticatedContext
         with patch("db.repo_observability.record_event"):
-            paths = self.client.get("/api/v1/openapi.json").json()["paths"]
+            anonymous = self.client.get("/api/v1/openapi.json")
+        self.assertEqual(anonymous.status_code, 401)
+        app.dependency_overrides[get_current_context] = lambda: AuthenticatedContext(7, "A", "participante", "ativo", frozenset({"2026"}))
+        try:
+            with patch("db.repo_observability.record_event"):
+                paths = self.client.get("/api/v1/openapi.json").json()["paths"]
+        finally:
+            app.dependency_overrides.clear()
         self.assertNotIn("/api/v1/auth/signup", paths)
         self.assertNotIn("/api/v1/auth/register", paths)
 

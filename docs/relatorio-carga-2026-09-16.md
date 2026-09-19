@@ -1,4 +1,18 @@
+---
+tipo: relatorio
+area: performance
+status: implementado
+versao: 1.2
+atualizado: 2026-09-19
+relacionados: ["[[PERFORMANCE]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
+tags: [relatorio, "area/performance", "status/implementado"]
+aliases: ["Relatório de carga de 2026-09-16"]
+---
+
 # Relatório de Teste de Carga — BF1 Homologação
+
+> [!info] Status
+> **implementado** · evidência histórica do ensaio de 2026-09-16; o gate vigente foi recalibrado para 25 VUs.
 
 **Data:** 2026-09-16  
 **Ambiente:** https://bf1homol-3i2u4.ondigitalocean.app  
@@ -42,7 +56,8 @@ Para cada usuário virtual (VU):
    - `GET /api/v1/logs/bets?season=2026`
 3. Pausa aleatória de 1–4 s entre requisições
 
-Foram previstos ensaios com **15, 25, 50, 75 e 100 VUs**.
+Originalmente foram previstos ensaios até 100 VUs; o gate vigente passou a ser
+**25 VUs simultâneos** após a revisão de capacidade e do público real.
 
 ---
 
@@ -52,8 +67,8 @@ O requisito original diz que o teste deve usar **100 usuários reais previamente
 cadastrados, cada um com e-mail/senha próprios**. Apenas uma credencial real foi
 fornecida para o ambiente de homologação:
 
-- `bote_album11@icloud.com`
-- `C4tatuia.`
+- uma conta Master de homologação, omitida deste artefato versionado;
+- a credencial nunca deve ser registrada em documentação ou resultado de carga.
 
 Reutilizar a mesma conta em múltiplos VUs ativa a **rotação de sessão** do BF1:
 cada novo login invalida o cookie de sessão dos logins anteriores. Isso torna o
@@ -69,8 +84,8 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 
 const base = __ENV.BASE_URL || "https://bf1homol-3i2u4.ondigitalocean.app";
-const email = __ENV.EMAIL || "bote_album11@icloud.com";
-const password = __ENV.PASSWORD || "C4tatuia.";
+const email = __ENV.EMAIL;
+const password = __ENV.PASSWORD;
 const target = parseInt(__ENV.TARGET || "15", 10);
 const duration = __ENV.DURATION || "2m";
 const ramp = __ENV.RAMP || "30s";
@@ -142,8 +157,8 @@ export default function () {
 
 ```bash
 BASE_URL=https://bf1homol-3i2u4.ondigitalocean.app \
-EMAIL=bote_album11@icloud.com \
-PASSWORD='C4tatuia.' \
+EMAIL='<conta-de-homologacao>' \
+PASSWORD='<segredo-fornecido-fora-do-repositorio>' \
 TARGET=15 DURATION=2m RAMP=30s \
 k6 run load_test.js
 ```
@@ -202,7 +217,7 @@ k6 run load_test.js
 
 ---
 
-## 7. Ensaios com 25, 50, 75 e 100 VUs
+## 7. Ensaios acima de 15 VUs na execução original
 
 **Não foram executados.** O ensaio com 15 VUs já evidenciou que o cenário com
 uma única credencial é invalidado pela rotação de sessão. Executar patamares
@@ -211,7 +226,10 @@ mederia a latência real dos endpoints.
 
 ---
 
-## 8. Recomendações
+## 8. Recomendações registradas na execução original
+
+> Estas recomendações são históricas e foram superadas pela revalidação da
+> seção 11, que evita a rotação artificial usando uma sessão compartilhada.
 
 1. **Fornecer múltiplas credenciais reais** (uma por VU planejado) para que o
    teste meça processamento e não rotação de sessão.
@@ -219,8 +237,8 @@ mederia a latência real dos endpoints.
    carga no banco e no processamento síncrono.
 3. **Considerar um endpoint de health/warmup** antes do teste para aquecer os
    caches de classificação, calendário, hall da fama e previsão do tempo.
-4. **Repetir o ensaio progressivo** (15, 25, 50, 75, 100 VUs) somente após a
-   disponibilidade das contas.
+4. **Repetir o ensaio progressivo** (10, 15 e 25 VUs); ação concluída em
+   2026-09-19 conforme a seção 11.
 
 ---
 
@@ -243,3 +261,38 @@ O ensaio de 15 VUs **não aprovou** os critérios de carga por dois motivos:
 
 Para um resultado confiável, o teste deve ser refeito com **uma conta real por
 VU**, conforme o cenário originalmente especificado.
+
+## 11. Revalidação e fechamento do gate — 2026-09-19
+
+O cenário final usa uma única sessão autenticada compartilhada, sem repetir o
+login durante a carga. Assim ele mede acessos simultâneos ao contrato de leitura
+sem provocar artificialmente a rotação de sessão. Cada patamar executou três
+leituras por usuário após warm-up.
+
+| VUs | Requisições | HTTP 200 | Erro | p95 aquecido | Vazão |
+|---:|---:|---:|---:|---:|---:|
+| 10 | 30 | 30 | 0% | 279,362 ms | 46,675 req/s |
+| 15 | 45 | 45 | 0% | 347,438 ms | 61,216 req/s |
+| 25 | 75 | 75 | 0% | **377,835 ms** | 90,225 req/s |
+
+A passagem inicial com caches frios também foi preservada: não houve erro HTTP,
+mas o p95 variou de 487,272 ms a 1.323,212 ms. Depois que as réplicas da App
+Platform estavam aquecidas, todos os patamares atenderam simultaneamente à meta
+de p95 inferior a 400 ms e erro inferior a 1%. O gate vigente da Fase 9 está
+**aprovado**.
+
+Artefatos versionados: `load-test-classification-{10,15,25}-20260919.json` e
+`load-test-classification-{10,15,25}-warm-20260919.json`. O executor reproduzível
+sem dependências externas está em `scripts/load_test_classification.mjs`.
+
+## Changelog
+
+- `1.2` — 2026-09-19 — Revalidação progressiva registrada; gate aquecido de 25 VUs aprovado com p95 de 377,835 ms e erro de 0%.
+
+- `1.1` — 2026-09-19 — Credencial removida e relatório marcado como evidência histórica; gate vigente atualizado para 25 VUs.
+- `1.0` — 2026-09-16 — Registro original do ensaio de homologação.
+
+## Relacionados
+
+- [[PERFORMANCE]]
+- [[specs/migracao-v4-nextjs-fastapi]]

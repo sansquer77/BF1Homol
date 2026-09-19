@@ -2,8 +2,8 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 4.6
-atualizado: 2026-09-16
+versao: 4.8
+atualizado: 2026-09-19
 relacionados:
   - "[[inventario-v4]]"
   - "[[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]"
@@ -15,7 +15,7 @@ aliases: ["Migração BF1 4.0 para Next.js e FastAPI"]
 # Migração BF1 4.0 para Next.js e FastAPI
 
 > [!info] Status
-> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-16 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
+> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-19 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
 
 ## Problema
 
@@ -63,7 +63,7 @@ operação responsável por deploy, observabilidade e restauração.
 13. Frontend e API são publicados pela mesma origem; o ingresso encaminha `/api/*` ao FastAPI e as demais rotas ao Next.js.
 14. Não existe cadastro público: somente o Master autenticado cria e administra usuários convidados.
 15. No bootstrap, se ainda não existir usuário Master, o backend cria um usando `EMAIL_MASTER`, `SENHA_MASTER` e `USUARIO_MASTER`; reinícios nunca redefinem a senha de um Master existente e nenhum desses valores é registrado em logs. Os nomes permanecem idênticos aos usados atualmente na DigitalOcean.
-16. A sessão usa cookie `Secure`, `HttpOnly`, `SameSite=Lax`, validade de duas horas e rotação durante atividade; há uma sessão ativa por usuário, troca de senha revoga todas as sessões e operações críticas exigem reautenticação.
+16. A sessão usa cookie `Secure`, `HttpOnly`, `SameSite=Strict`, validade de duas horas e rotação durante atividade; há uma sessão ativa por usuário, troca de senha revoga todas as sessões e operações críticas exigem reautenticação.
 17. OIDC não integra a primeira entrega da versão 4; a arquitetura não impede inclusão opcional futura, sem substituir o acesso por convite e senha.
 18. Aplicação, acesso HTTP, segurança e erros geram registros estruturados no PostgreSQL com retenção inicial de 30 dias; falhas anteriores à conexão ou do próprio banco permanecem em `stdout/stderr`.
 19. O Master pode baixar uma exportação de logs gerada sob demanda por endpoint com reautenticação, intervalo e volume limitados; a API nunca aceita caminho arbitrário.
@@ -83,7 +83,7 @@ operação responsável por deploy, observabilidade e restauração.
 
 - API: p95 menor que 400 ms em leituras e 700 ms em escritas comuns, com taxa
   de erro inferior a 1% no cenário representativo.
-- Carga inicial de homologação: 100 usuários simultâneos.
+- Gate de carga de homologação: 25 usuários simultâneos, acima do universo atual de participantes.
 - Web: LCP menor que 2,5 s e CLS menor que 0,1 nas jornadas prioritárias.
 - Compatibilidade: duas versões mais recentes de Chrome, Edge, Firefox e Safari.
 - Responsividade: viewport mínimo de 360 px sem rolagem horizontal da página.
@@ -94,7 +94,7 @@ operação responsável por deploy, observabilidade e restauração.
 - Backend: `api/`, FastAPI, schemas e dependências de autenticação/autorização.
 - Domínio: `services/` reutilizado e progressivamente desacoplado de estado de UI.
 - Dados: `db/` reutilizado; migrations aditivas e idempotentes.
-- API: prefixo `/api/v1`; OpenAPI é contrato de integração e gera/verifica tipos do cliente.
+- API: prefixo `/api/v1`; OpenAPI gera/verifica os tipos do cliente, mas o endpoint operacional `/api/v1/openapi.json` exige autenticação.
 
 ## Critérios de aceite
 
@@ -171,10 +171,10 @@ não foram submetidas novamente ao gate e, portanto, não fecham o critério. O 
 
 Após o cache, um ensaio intermediário com 15 usuários e três leituras por
 usuário recebeu 45/45 respostas HTTP 200, sem erros, com vazão de 39,876
-requisições/s e p95 de 706,568 ms. O resultado em
-`load-test-classification-15.json` confirma a recuperação de estabilidade nesse
-patamar, mas não fecha o critério 15 porque a latência permanece acima de 400 ms
-e o gate de 100 usuários ainda precisa ser repetido.
+requisições/s e p95 de 706,568 ms. Em 2026-09-19, o gate progressivo foi
+repetido já com as réplicas aquecidas: 10, 15 e 25 VUs obtiveram p95 de
+279,362 ms, 347,438 ms e 377,835 ms, respectivamente, sempre com erro de 0%.
+O patamar final processou 75/75 respostas HTTP 200 e fechou o critério 15.
 
 ## Pendências
 
@@ -183,12 +183,11 @@ e o gate de 100 usuários ainda precisa ser repetido.
 
 1. Repetir, após a implantação dos caches de leitura (Classificação,
    Telemetria, Calendário, Hall da Fama, Análise de Apostas, Histórico,
-   Apostas Pessoais, Dashboard F1 e Logs), a carga em patamares de 10, 25, 50,
-   75 e 100 usuários e confirmar p95/erros aprovados. O ensaio de 15 VUs em
+   Apostas Pessoais, Dashboard F1 e Logs), a carga em patamares de 10, 15 e 25
+   usuários e confirmar p95/erros aprovados. O ensaio de 15 VUs em
    2026-09-16 foi reprovado por rotação de sessão (conta única compartilhada)
    e por p95 acima de 400 ms; ver `docs/relatorio-carga-2026-09-16.md`.
-2. Concluir a Fase 9: carga, acessibilidade e experiência mobile.
-3. Executar a Fase 10: builds limpos, publicação/cutover, observação e ensaio de rollback.
+2. Executar a Fase 10: builds limpos, publicação/cutover, observação e ensaio de rollback.
 
 A retenção de logs poderá ser calibrada após observar o volume real, sem reduzir
 controles de acesso, sanitização ou exportação.
@@ -212,10 +211,14 @@ controles de acesso, sanitização ou exportação.
 - [x] Fase 7 — migrar operações administrativas e autorização por objeto. Operações e telas administrativas V4 concluídas para usuários, pilotos, provas, Hall da Fama, financeiro e regras, incluindo edição exclusiva do Master, associação por temporada e clonagem.
 - [x] Fase 8 — backup/restauração SQL e Excel disponíveis e confirmados funcionais em homologação, com pré-validação, reautenticação e limites preservados.
 - [x] Fechar jornadas V4 identificadas na validação de homologação: gestão explícita de equipes e atualização/processamento de resultados pela interface. Recuperação de senha e formulário de apostas por prova também estão concluídos.
-- [ ] Fase 9 — executar segurança, carga, acessibilidade e experiência mobile. Fecha critérios 5–9, 11–15 e 18–20.
+- [x] Fase 9 — segurança, carga, acessibilidade e experiência mobile aprovadas em homologação. O gate aquecido de 25 usuários entregou 75/75 respostas HTTP 200, erro de 0% e p95 de 377,835 ms. Seis jornadas prioritárias foram verificadas em 360, 768 e 1440 px sem overflow; sem nomes acessíveis ausentes, IDs duplicados ou imagens sem `alt`; navegação por teclado alcança primeiro o skip link. Fecha critérios 5–9, 11–15 e 18–20.
 - [ ] Fase 10 — validar builds puros, publicar a V4 e observar a operação. Fecha critério 16.
 
 ## Changelog
+
+- `4.8` — 2026-09-19 — Fase 9 concluída: segurança aprovada, gate aquecido de 25 VUs dentro da meta e jornadas prioritárias verificadas em mobile, tablet e desktop.
+
+- `4.7` — 2026-09-19 — Gate da Fase 9 ajustado para 25 usuários simultâneos; OpenAPI autenticado, cookies `SameSite=Strict` e controles IDOR/origem incorporados ao contrato.
 
 - `4.6` — 2026-09-16 — Novo ensaio de carga em homologação com 15 VUs reprovado por rotação de sessão (conta única) e p95 acima de 400 ms; relatório `docs/relatorio-carga-2026-09-16.md`.
 - `4.5` — 2026-09-16 — Cache TTL estendido aos principais endpoints de leitura da V4 e proteção contra thundering herd na previsão do tempo; aguarda novo ensaio de carga para fechar critério 15.

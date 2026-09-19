@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: em-implementacao
-versao: 5.2
-atualizado: 2026-09-16
+versao: 5.4
+atualizado: 2026-09-19
 relacionados: ["[[04_arquitetura]]", "[[05_projeto]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [arquitetura, "area/bf1", "status/em-implementacao"]
 aliases: ["Módulos Técnicos"]
@@ -12,7 +12,7 @@ aliases: ["Módulos Técnicos"]
 # Módulos Técnicos — BF1 V4
 
 > [!info] Status
-> **em-implementacao** · área: `bf1` · atualizado em 2026-09-16 · Fases 1–8 concluídas; Fase 9 em validação e Fase 10 pendente.
+> **em-implementacao** · área: `bf1` · atualizado em 2026-09-19 · Fases 1–9 concluídas; Fase 10 pendente.
 
 ## Entradas do runtime V4
 
@@ -80,12 +80,13 @@ sequences. O round-trip real foi confirmado funcional em homologação.
 
 ## Lacunas conhecidas
 
-1. Repetir o gate de carga depois do cache da Classificação e confirmar p95 e
-   taxa de erro nas metas aprovadas.
-2. Concluir acessibilidade e experiência mobile da Fase 9.
-3. Executar os gates de cutover, observação e rollback da Fase 10.
+1. Executar os gates de cutover, observação e rollback da Fase 10.
 
 ## Changelog
+
+- `5.4` — 2026-09-19 — Fase 9 concluída com segurança, carga e experiência responsiva aprovadas.
+
+- `5.3` — 2026-09-19 — Gate de carga recalibrado para 25 usuários simultâneos.
 
 - `5.2` — 2026-09-16 — Contratos, cache e invalidação da Classificação documentados; lacunas funcionais já concluídas removidas.
 - `5.1` — 2026-09-12 — Gate operacional Excel encerrado e Fase 8 marcada como concluída.

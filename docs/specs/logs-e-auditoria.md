@@ -2,8 +2,8 @@
 tipo: spec
 area: auditoria
 status: implementado
-versao: 1.5
-atualizado: 2026-09-16
+versao: 1.6
+atualizado: 2026-09-19
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/apostas-de-prova]]", "[[04_arquitetura]]"]
 tags: [spec, "area/auditoria", "status/implementado"]
 aliases: ["Logs e auditoria"]
@@ -12,7 +12,7 @@ aliases: ["Logs e auditoria"]
 # Logs e auditoria
 
 > [!info] Status
-> **implementado** · área: `auditoria` · atualizado em 2026-09-16 · relacionados: [[specs/controle-de-acesso]], [[specs/apostas-de-prova]], [[04_arquitetura]]
+> **implementado** · área: `auditoria` · atualizado em 2026-09-19 · relacionados: [[specs/controle-de-acesso]], [[specs/apostas-de-prova]], [[04_arquitetura]]
 
 ## Problema
 
@@ -57,6 +57,9 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 12. O status **Não efetiva** é destacado visualmente na interface Next.js.
 13. A senha exigida na exportação usa o mesmo bucket de tentativas críticas da
     restauração, persistido por conta e IP, sem registrar a credencial.
+14. Reautenticação de backup concedida, restauração SQL/Excel concluída e
+    exportação de logs geram eventos de segurança próprios; recusas e bloqueios
+    de reautenticação permanecem auditados sem senha, token ou conteúdo do backup.
 
 ## Interface, serviços e dados
 
@@ -87,6 +90,8 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 16. Dado Master, quando alternar para a aba **Acessos**, então o log de acessos é carregado com filtros de data, usuário/email e paginação.
 17. Dado limite crítico atingido na restauração ou exportação, quando tentar
     exportar logs, então a consulta não é executada e a recusa é auditada.
+18. Dada operação crítica concluída, quando consultar a auditoria, então existe
+    evento identificando tipo, usuário, request_id e metadados mínimos não sensíveis.
 
 ## Verificação
 
@@ -110,6 +115,8 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 - [x] Endurecer origem de IP e conteúdo auditável. Fecha: critérios 6 e 7.
 
 ## Changelog
+
+- `1.6` — 2026-09-19 — Eventos explícitos de segurança adicionados à reautenticação e restauração de backups.
 
 - `1.5` — 2026-09-16 — Exportação reautenticada passa a compartilhar limite persistido de tentativas críticas com o restore.
 - `1.4` — 2026-09-13 — Adicionado status "Não efetiva" para apostas fora do prazo, filtros por tipo/status/data na interface V4 e destaque visual.

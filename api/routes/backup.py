@@ -85,6 +85,8 @@ def reauthorize(payload:ReauthRequest, response:FastAPIResponse, request:Request
   session=decode_token(request.cookies.get(settings.cookie_name, ""))
   if not session or int(session.get("user_id", 0)) != context.user_id: raise PermissionError
   issue_restore_authorization_cookie(response,user_id=context.user_id,session_jti=str(session["jti"]),expires_at=expires)
+  from db.repo_observability import record_event
+  record_event(level="INFO",category="security",event="backup_reauthorization_granted",message="Reautenticação de backup concedida",user_id=context.user_id,request_id=request.state.request_id)
   return {"status":"ok","expires_at":expires}
  except PermissionError as exc: raise HTTPException(status_code=403,detail="Reautenticação necessária.") from exc
 
@@ -103,6 +105,8 @@ async def restore_sql(request: Request, response:FastAPIResponse, context:Authen
   from db.backup_utils import restore_backup_from_sql
   if not restore_backup_from_sql(sql): raise HTTPException(status_code=422,detail="Restauração não concluída.")
   _resync_master_after_restore()
+  from db.repo_observability import record_event
+  record_event(level="WARNING",category="security",event="backup_restored",message="Backup SQL restaurado",user_id=context.user_id,request_id=request.state.request_id,metadata={"format":"sql"})
  except PermissionError as exc: raise HTTPException(status_code=403,detail="Reautenticação necessária.") from exc
  except HTTPException: raise
  except Exception as exc: raise HTTPException(status_code=422,detail="Backup inválido ou incompatível.") from exc
@@ -122,6 +126,8 @@ async def restore_excel(table_name:str, request:Request, response:FastAPIRespons
   from db.backup_excel import restore_table_excel
   result=restore_table_excel(raw,table_name,validate_fks=True)
   _resync_master_after_restore()
+  from db.repo_observability import record_event
+  record_event(level="WARNING",category="security",event="backup_restored",message="Tabela Excel restaurada",user_id=context.user_id,request_id=request.state.request_id,metadata={"format":"excel","table":table_name})
  except PermissionError as exc: raise HTTPException(status_code=403,detail="Reautenticação necessária.") from exc
  except HTTPException: raise
  except BackupLimitExceeded as exc: raise HTTPException(status_code=413,detail=str(exc)) from exc

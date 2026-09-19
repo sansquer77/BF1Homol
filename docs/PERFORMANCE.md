@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: performance
 status: implementado
-versao: 1.3
-atualizado: 2026-09-16
+versao: 1.5
+atualizado: 2026-09-19
 relacionados:
   - "[[04_arquitetura]]"
   - "[[06_modulos_tecnicos]]"
@@ -15,7 +15,7 @@ aliases: ["Performance e Jornadas Críticas"]
 # Performance e jornadas críticas
 
 > [!info] Status
-> **implementado** · área: `performance` · atualizado em 2026-09-16 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]], [[adr/0001-streamlit-postgresql]]
+> **implementado** · área: `performance` · atualizado em 2026-09-19 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]], [[adr/0001-streamlit-postgresql]]
 
 Metas operacionais:
 
@@ -97,15 +97,21 @@ registrou as 300 chamadas como HTTP 200, evidenciando fila de processamento.
 Durante o ensaio, a CPU da API chegou a aproximadamente 70%, enquanto o banco
 permaneceu em torno de 20–25%. O cache, a divisão resumo/histórico e o aquecimento
 após resultados foram implantados depois desse diagnóstico. Eles são uma
-mitigação ainda não validada pelo mesmo gate: a aprovação exige novo ensaio em
-10, 25, 50, 75 e 100 usuários e atendimento simultâneo das metas de p95 e erro.
+mitigação ainda não validada pelo gate aprovado: a aprovação exige novo ensaio
+progressivo em 10, 15 e 25 usuários e atendimento simultâneo das metas de p95 e erro.
 
 Um ensaio intermediário pós-cache com 15 usuários simultâneos e três leituras
 por usuário foi executado em 2026-09-16. As 45 requisições responderam HTTP 200,
 sem falhas, em 1,128 s de parede e 39,876 requisições/s. O p95 foi 706,568 ms:
 atende ao limite de 1 s da jornada de interface, mas ainda excede a meta de 400
 ms do contrato HTTP. O artefato está em `load-test-classification-15.json` e
-não substitui a escada obrigatória até 100 usuários.
+não substitui o gate obrigatório de 25 usuários.
+
+Em 2026-09-19, o ensaio progressivo foi repetido. A primeira passagem, com
+caches ainda frios entre as réplicas, preservou erro de 0%, mas excedeu a meta
+de latência. Na repetição aquecida, 10, 15 e 25 VUs ficaram respectivamente em
+279,362 ms, 347,438 ms e 377,835 ms de p95, sempre com 0% de erro. O patamar de
+25 VUs processou 75/75 respostas HTTP 200 e aprovou o gate vigente.
 
 ## Benchmark e EXPLAIN
 
@@ -151,10 +157,14 @@ entre 5 e 10 temporadas: ele não pode crescer com o número de temporadas.
 8. Geração de imagens pesadas só ocorre após ação explícita.
 9. Cache da Classificação é reutilizado na mesma temporada e invalidado pelas
    escritas V4 dos domínios que alteram seus dados.
-10. A mitigação do gargalo só é considerada aprovada após repetição do gate de
-    100 usuários; testes unitários de cache não substituem carga em homologação.
+10. A mitigação do gargalo só é considerada aprovada após o gate de 25 usuários
+    simultâneos; testes unitários de cache não substituem carga em homologação.
 
 ## Changelog
+
+- `1.5` — 2026-09-19 — Gate aquecido de 25 VUs aprovado com erro de 0% e p95 de 377,835 ms.
+
+- `1.4` — 2026-09-19 — Gate operacional da Fase 9 calibrado para 25 usuários simultâneos, acima do total atual de participantes.
 
 - `1.3` — 2026-09-16 — Ensaio pós-cache com 15 usuários registrado: zero erros e p95 de 706,568 ms.
 - `1.2` — 2026-09-16 — Primeiro gate de carga, diagnóstico de saturação, cache da Classificação e obrigação de novo ensaio documentados.

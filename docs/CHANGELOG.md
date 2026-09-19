@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.21
+versao: 1.23
 atualizado: 2026-09-19
 relacionados:
   - "[[sdd]]"
@@ -21,8 +21,17 @@ Este documento registra versões do aplicativo. A versão documental deste
 arquivo aparece no frontmatter e evolui independentemente do produto.
 
 > [!note] Migração V4
-> As Fases 1–8 estão concluídas, incluindo backup/restore Excel confirmado em
-> homologação. As Fases 9–10 e duas jornadas administrativas permanecem;
+> As Fases 1–9 estão concluídas, incluindo backup/restore Excel confirmado em
+> homologação. A Fase 10 de cutover e observação permanece pendente.
+
+## 3.8.2 — 2026-09-19
+
+- Fase 9 concluída com gate aquecido de 25 usuários simultâneos: 75/75 respostas
+  HTTP 200, erro de 0% e p95 de 377,835 ms.
+- Jornadas prioritárias verificadas em 360, 768 e 1440 px, sem overflow; alvo
+  do botão `Sair` elevado para 44×44 px e protegido por teste de regressão.
+- Adicionado executor Node.js sem dependências externas para repetir o gate da
+  Classificação em ambientes de homologação.
 > esta atualização documental não altera a versão do produto.
 > Melhoria no log de apostas V4: status "Não efetiva" para apostas fora do
 > prazo (não automáticas), filtros por participante, data, tipo e status, e
@@ -199,6 +208,10 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 - Alterações sem efeito observável no produto não geram uma nova versão.
 
 ## Changelog
+
+- `1.23` — 2026-09-19 — Patch 3.8.2 conclui a Fase 9 com carga de 25 VUs, validação responsiva/acessível e correção do alvo do botão Sair.
+
+- `1.22` — 2026-09-19 — Patch 3.8.1 autentica o OpenAPI operacional, eleva cookies a `SameSite=Strict`, amplia testes IDOR/origem, audita restaurações e calibra a Fase 9 para 25 usuários simultâneos.
 
 - `1.21` — 2026-09-19 — Versão 3.8.0 adiciona à V4 a criação da próxima temporada em Cadastros e padroniza os nomes dos backups SQL/Excel como `bf1_backup_YYYYMMDD_HHMMSS`.
 

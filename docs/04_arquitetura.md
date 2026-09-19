@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 4.30
-atualizado: 2026-09-16
+versao: 4.31
+atualizado: 2026-09-19
 relacionados:
   - "[[01_necessidade]]"
   - "[[02_regras_de_negocio]]"
@@ -16,7 +16,7 @@ aliases: ["Arquitetura do Sistema"]
 # Arquitetura do Sistema — BF1
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-09-16 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
+> **implementado** · área: `bf1` · atualizado em 2026-09-19 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[MAPA_MENTAL_MODULOS]]
 
 ## Visão Geral
 
@@ -304,7 +304,7 @@ USUARIO_MASTER      # Nome do usuário master inicial
 - **Senhas**: bcrypt com salt automático (nunca texto claro).
 - **Tokens**: JWT HS256 com expiração fixa de 120 minutos no código atual.
 - **Sessões**: `auth_sessions` registra `jti`, usuário, versão, emissão, expiração e revogação.
-- **Cookie**: sessão `HttpOnly`, `Secure` em produção e `SameSite=Lax`; CSRF em cookie separado e validação de origem nas mutações.
+- **Cookie**: sessão `HttpOnly`, `Secure` em produção e `SameSite=Strict`; CSRF em cookie separado e validação exata de origem nas mutações.
 - **Proxy**: headers de IP só são confiados com `TRUSTED_PROXY_MODE` e topologia explícita; o padrão `direct` ignora headers.
 - **Retenção**: o bootstrap remove tentativas, logs, tokens expirados e sessões antigas conforme configuração.
 - **Autorização em profundidade**: `access_control.py` revalida o usuário e centraliza matrizes de páginas/operações.
@@ -322,6 +322,8 @@ USUARIO_MASTER      # Nome do usuário master inicial
 - **HTTPS**: garantido pela App Platform da DigitalOcean.
 
 ### Changelog
+
+- `4.31` — 2026-09-19 — Cookie de sessão elevado a `SameSite=Strict` e validação exata de origem documentada.
 
 - `4.30` — 2026-09-16 — Cache local da Classificação, contratos resumo/histórico, invalidação e aquecimento pós-resultado alinhados ao código vigente.
 - `4.29` — 2026-09-16 — `must_change_password` aplicado pela identidade FastAPI antes de rotas protegidas.
