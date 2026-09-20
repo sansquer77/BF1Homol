@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import unicodedata
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from services.access_control import AuthenticatedContext, AuthorizationDenied, authorize_context
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 from services.bets_rules import _aposta_valida_regras, pode_fazer_aposta
 from services.rules_service import get_regras_aplicaveis
 
@@ -20,6 +20,27 @@ def _records(frame: pd.DataFrame | None) -> list[dict[str, Any]]:
 
 def _active(value: object) -> bool:
     return str(value or "").strip().lower() == "ativo"
+
+
+def _normalized_driver_name(value: object) -> str:
+    text = unicodedata.normalize("NFKD", str(value or "").strip().casefold())
+    return " ".join("".join(char for char in text if not unicodedata.combining(char)).split())
+
+
+def _resolve_driver_name(value: object, available_names: list[str]) -> str | None:
+    """Resolve nome completo ou token único sem escolher correspondência ambígua."""
+    query = _normalized_driver_name(value)
+    if not query:
+        return None
+    exact = [name for name in available_names if _normalized_driver_name(name) == query]
+    if len(exact) == 1:
+        return exact[0]
+    token_matches = [
+        name
+        for name in available_names
+        if query in _normalized_driver_name(name).split()
+    ]
+    return token_matches[0] if len(token_matches) == 1 else None
 
 
 def build_race_bet_snapshot(season: str, context: AuthenticatedContext, race_id: int | None = None) -> dict[str, Any]:
@@ -102,22 +123,25 @@ def place_race_bet(season: str, race_id: int, allocations: list[dict[str, Any]],
     if not race["is_open"]:
         raise AuthorizationDenied("Prazo de apostas encerrado para esta prova.")
     drivers = {item["name"]: item for item in snapshot["drivers"]}
-    names = [str(item.get("driver") or "").strip() for item in allocations]
+    available_names = list(drivers)
+    names = [_resolve_driver_name(item.get("driver"), available_names) for item in allocations]
+    eleventh_name = _resolve_driver_name(eleventh_driver, available_names)
     chips = [int(item.get("chips") or 0) for item in allocations]
-    if any(name not in drivers for name in names) or str(eleventh_driver).strip() not in drivers:
+    if any(name is None for name in names) or eleventh_name is None:
         raise ValueError("A aposta contém piloto indisponível.")
+    canonical_names = [str(name) for name in names]
     applicable_rules = get_regras_aplicaveis(str(season), race["type"])
     drivers_frame = pd.DataFrame(snapshot["drivers"], columns=["name", "team"]).rename(columns={"name": "nome", "team": "equipe"})
-    if not _aposta_valida_regras(names, chips, str(eleventh_driver).strip(), drivers_frame, applicable_rules):
+    if not _aposta_valida_regras(canonical_names, chips, eleventh_name, drivers_frame, applicable_rules):
         raise ValueError("A distribuição não atende às regras vigentes.")
     errors: list[str] = []
     from services.bets_write import salvar_aposta
     saved = salvar_aposta(
         context.user_id,
         int(race_id),
-        names,
+        canonical_names,
         chips,
-        str(eleventh_driver).strip(),
+        eleventh_name,
         race["name"],
         automatica=0,
         temporada=str(season),

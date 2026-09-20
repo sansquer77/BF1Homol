@@ -2,8 +2,8 @@
 tipo: spec
 area: apostas
 status: implementado
-versao: 1.3
-atualizado: 2026-09-13
+versao: 1.4
+atualizado: 2026-09-19
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[specs/deadline-de-apostas]]"
@@ -16,7 +16,7 @@ aliases: ["Apostas de Prova"]
 # Apostas de prova
 
 > [!info] Status
-> **implementado** · área: `apostas` · atualizado em 2026-09-12 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/pontuacao-de-provas]], [[specs/apostas-automaticas]]
+> **implementado** · área: `apostas` · atualizado em 2026-09-19 · relacionados: [[02_regras_de_negocio]], [[specs/deadline-de-apostas]], [[specs/pontuacao-de-provas]], [[specs/apostas-automaticas]]
 
 ## Problema
 
@@ -57,10 +57,15 @@ explicitamente autorizadas.
    legado, com estratégia assistida quando disponível e fallback aleatório.
 10. A aposta criada por `Sem ideias` é manual (`automatica = 0`) e não consome
     o benefício reservado às ausências automáticas.
+11. Cada seletor pesquisável omite os pilotos já escolhidos nas outras linhas;
+    o seletor do 11º omite todos os pilotos apostados.
+12. Nome completo, caixa e acentos são normalizados. Um sobrenome ou token
+    identifica o piloto somente quando a correspondência é única; entradas
+    desconhecidas ou ambíguas são recusadas sem escolher silenciosamente.
 
 ## Interface, serviços e dados
 
-- Telas: `ui/painel.py` no V3 e `/apostas` no frontend V4.
+- Tela: `/apostas` no frontend V4.
 - Serviços: `services/bets_rules.py`, `services/bets_write.py` e `services/race_bets_v4_service.py`.
 - Tabelas: `apostas`, `log_apostas`, `provas`, `pilotos`, `regras`.
 - API V4: `GET /api/v1/race-bets`, `POST /api/v1/race-bets` e
@@ -84,13 +89,20 @@ explicitamente autorizadas.
     aposta válida é registrada e o formulário é recarregado com a composição.
 12. Dada prova encerrada ou falha do gerador, quando `Sem ideias` é acionado,
     então nenhuma aposta inválida é persistida e a interface informa a falha.
+13. Dado um piloto escolhido, quando os seletores seguintes e o 11º são
+    abertos, então esse piloto não aparece como opção.
+14. Dado o texto `Norris` e apenas `Lando Norris` disponível, quando o campo é
+    confirmado ou a aposta é enviada, então o valor canônico `Lando Norris` é
+    utilizado.
+15. Dado sobrenome/token ambíguo, quando a aposta é enviada, então o backend
+    recusa a composição e não persiste uma escolha arbitrária.
 
 ## Verificação
 
 - Critérios 2 a 7 — `tests/test_bets_rules_extended.py`.
 - Critério 8 — `tests/test_apostas_dataframe_contract.py` e `tests/test_performance_optimizations.py`.
 - Critério 1 — verificação de integração do fluxo de envio.
-- Critérios 1–12 na V4 — `tests/test_race_bets_v4.py`, contrato estático do frontend e testes de API/segurança.
+- Critérios 1–15 na V4 — `tests/test_race_bets_v4.py`, contrato estático do frontend e testes de API/segurança.
 
 ## Pendências
 
@@ -107,9 +119,12 @@ explicitamente autorizadas.
 - [x] Expor formulário responsivo e endpoints V4 usando identidade da sessão, regras e escrita legadas. Fecha: critérios 1 a 9.
 - [x] Sinalizar visualmente total e piloto acima dos limites vigentes. Fecha: critério 10.
 - [x] Expor `Sem ideias` reutilizando o gerador V3 e recarregar a composição. Fecha: critérios 11 e 12.
+- [x] Tornar a seleção pesquisável, omitir escolhas anteriores e resolver
+  sobrenomes únicos também no servidor. Fecha: critérios 13 a 15.
 
 ## Changelog
 
+- `1.4` — 2026-09-19 — Seletores passam a omitir pilotos já usados e a resolver sobrenomes únicos para o nome canônico.
 - `1.3` — 2026-09-13 — Formulário V4 recebe geração `Sem ideias` compatível com o fluxo V3.5.
 - `1.2` — 2026-09-12 — Formulário passa a destacar em vermelho pilotos e total de fichas acima dos limites da regra.
 - `1.1` — 2026-09-10 — Formulário de apostas V4 conectado a provas, pilotos, regras, deadline e persistência legada.

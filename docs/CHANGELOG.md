@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.25
+versao: 1.26
 atualizado: 2026-09-19
 relacionados:
   - "[[sdd]]"
@@ -23,6 +23,15 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 > [!note] Migração V4
 > As Fases 1–9 estão concluídas, incluindo backup/restore Excel confirmado em
 > homologação. A Fase 10 de cutover e observação permanece pendente.
+
+### 4.1.0
+
+- Formulário de apostas passa a omitir pilotos escolhidos nos seletores
+  seguintes e no palpite do 11º colocado.
+- Campos de piloto passam a aceitar nome completo ou token/sobrenome único,
+  resolvido no frontend e novamente validado de forma canônica no servidor.
+- Correspondências ambíguas ou desconhecidas continuam bloqueadas sem escolha
+  automática e sem persistência parcial.
 
 ### 4.0.0
 

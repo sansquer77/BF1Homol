@@ -354,6 +354,11 @@ def test_race_bet_form_and_collapsible_navigation_are_connected():
     assert 'aria-invalid={overLimit}' in form
     assert "eleventhConflicts" in form
     assert "O piloto do 11º não pode estar entre os apostados." in form
+    assert "resolveDriverName" in form
+    assert "Digite o nome ou sobrenome" in form
+    assert 'list={`bet-driver-options-${index}`}' in form
+    assert 'data.drivers.filter((item) => !otherDrivers.has(item.name))' in form
+    assert 'data?.drivers.filter((driver) => !used.has(driver.name))' in form
     assert "teamsValid" in form
     assert 'className={!teamsValid ? "rule-error" : ""}' in form
     assert "Pilotos repetidos" in form

@@ -57,6 +57,59 @@ def test_submission_rejects_eleventh_driver_also_in_allocations():
     save.assert_not_called()
 
 
+def test_submission_resolves_unique_surnames_to_canonical_driver_names():
+    snapshot = {
+        "selected_race": {"id": 10, "name": "GP Teste", "type": "Normal", "is_open": True},
+        "drivers": [
+            {"name": "Lando Norris", "team": "McLaren"},
+            {"name": "Charles Leclerc", "team": "Ferrari"},
+            {"name": "Pierre Gasly", "team": "Alpine"},
+        ],
+    }
+    with patch("services.race_bets_v4_service.build_race_bet_snapshot", return_value=snapshot), patch("services.race_bets_v4_service.get_regras_aplicaveis", return_value=RULES), patch("services.bets_write.salvar_aposta", return_value=True) as save:
+        place_race_bet("2026", 10, [{"driver": "Norris", "chips": 2}, {"driver": "Leclerc", "chips": 1}], "Gasly", CONTEXT)
+    assert save.call_args.args[2] == ["Lando Norris", "Charles Leclerc"]
+    assert save.call_args.args[4] == "Pierre Gasly"
+
+
+def test_submission_rejects_ambiguous_driver_token_without_writing():
+    snapshot = {
+        "selected_race": {"id": 10, "name": "GP Teste", "type": "Normal", "is_open": True},
+        "drivers": [
+            {"name": "Carlos Sainz", "team": "Williams"},
+            {"name": "Carlos Silva", "team": "Ferrari"},
+            {"name": "Lando Norris", "team": "McLaren"},
+        ],
+    }
+    with patch("services.race_bets_v4_service.build_race_bet_snapshot", return_value=snapshot), patch("services.race_bets_v4_service.get_regras_aplicaveis", return_value=RULES), patch("services.bets_write.salvar_aposta") as save:
+        try:
+            place_race_bet("2026", 10, [{"driver": "Carlos", "chips": 2}, {"driver": "Norris", "chips": 1}], "Sainz", CONTEXT)
+        except ValueError as exc:
+            assert "indisponível" in str(exc)
+        else:
+            raise AssertionError("Token ambíguo deveria ser recusado")
+    save.assert_not_called()
+
+
+def test_submission_rejects_duplicate_after_surname_resolution():
+    snapshot = {
+        "selected_race": {"id": 10, "name": "GP Teste", "type": "Normal", "is_open": True},
+        "drivers": [
+            {"name": "Lando Norris", "team": "McLaren"},
+            {"name": "Charles Leclerc", "team": "Ferrari"},
+            {"name": "Pierre Gasly", "team": "Alpine"},
+        ],
+    }
+    with patch("services.race_bets_v4_service.build_race_bet_snapshot", return_value=snapshot), patch("services.race_bets_v4_service.get_regras_aplicaveis", return_value=RULES), patch("services.bets_write.salvar_aposta") as save:
+        try:
+            place_race_bet("2026", 10, [{"driver": "Norris", "chips": 2}, {"driver": "Lando Norris", "chips": 1}], "Gasly", CONTEXT)
+        except ValueError as exc:
+            assert "regras vigentes" in str(exc)
+        else:
+            raise AssertionError("Duplicidade canônica deveria ser recusada")
+    save.assert_not_called()
+
+
 def test_sem_ideias_uses_authenticated_user_and_legacy_generator():
     snapshot = {"selected_race": {"id": 10, "name": "GP Teste", "type": "Normal", "is_open": True}}
     with patch("services.race_bets_v4_service.build_race_bet_snapshot", return_value=snapshot), patch("services.bets_write.gerar_aposta_sem_ideias", return_value=(True, "Aposta gerada!", {"pilotos": ["A"]})) as generate:

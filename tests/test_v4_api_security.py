@@ -7,6 +7,7 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+from app_version import APP_VERSION
 from tests._db_driver_stub import install_if_needed
 
 install_if_needed()
@@ -49,7 +50,7 @@ class V4ApiSecurityTests(unittest.TestCase):
             with patch("db.repo_observability.record_event"):
                 response = self.client.get("/api/v1/content/about")
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json()["version"], "4.0.0")
+            self.assertEqual(response.json()["version"], APP_VERSION)
             self.assertEqual(response.json()["architecture"], "Next.js + FastAPI + PostgreSQL")
         finally:
             app.dependency_overrides.clear()
