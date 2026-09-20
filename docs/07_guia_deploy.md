@@ -2,7 +2,7 @@
 tipo: metodologia
 area: bf1
 status: em-revisao
-versao: 5.5
+versao: 5.6
 atualizado: 2026-09-19
 relacionados: ["[[04_arquitetura]]", "[[06_modulos_tecnicos]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [metodologia, "area/bf1", "status/em-revisao"]
@@ -24,7 +24,7 @@ aliases: ["Guia de Deploy e Operações"]
 | `/*` | `bf1-frontend` | `/frontend`; build pnpm; servidor standalone Next na porta 3000 |
 
 Ambos usam instância de 0,5 GB na homologação e compartilham o PostgreSQL 18
-gerenciado. O ingresso preserva o prefixo `/api`. A V4 não inicia Streamlit.
+gerenciado. O ingresso preserva o prefixo `/api`; não existe runtime web alternativo.
 
 ## Configuração obrigatória
 
@@ -73,10 +73,13 @@ DigitalOcean. O Master pode exportar logs por endpoint limitado e reautenticado.
 - [x] Gate de 25 usuários simultâneos repetido após o cache da Classificação,
   com p95 abaixo de 400 ms e taxa de erro inferior a 1%.
 - [ ] Restore SQL/Excel e rollback ensaiados a partir do artefato estável.
-- [ ] Builds limpos e health checks dos dois componentes aprovados.
+- [x] Compilação Python, typecheck e build Next.js locais executados do zero.
+- [ ] Health checks dos dois componentes aprovados no artefato publicado.
 - [ ] Métricas e logs observados após a promoção.
 
 ## Changelog
+
+- `5.6` — 2026-09-19 — Build limpo local separado dos health checks pós-publicação.
 
 - `5.5` — 2026-09-19 — Gates da Fase 9 marcados como aprovados após ensaio de 25 VUs e validação responsiva/acessível.
 

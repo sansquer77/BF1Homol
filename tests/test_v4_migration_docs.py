@@ -36,23 +36,19 @@ def test_v4_inventory_covers_every_current_route():
     inventory = INVENTORY.read_text(encoding="utf-8")
     expected_routes = {
         "Login",
-        "Painel do Participante",
+        "Telemetria",
         "Calendário",
-        "Gestão de Usuários",
-        "Gestão de Pilotos",
-        "Gestão de Provas",
-        "Gestão de Regras",
+        "Cadastros",
+        "Regras",
         "Gestão de Apostas",
         "Análise de Apostas",
-        "Atualização de resultados",
-        "Apostas Campeonato",
-        "Resultado Campeonato",
-        "Log de Apostas",
-        "Log de Acessos",
+        "Resultados",
+        "Campeonato",
+        "Logs",
         "Classificação",
         "Hall da Fama",
         "Dashboard F1",
-        "Backup dos Bancos de Dados",
+        "Backup",
         "Regulamento",
         "Sobre",
     }
@@ -64,20 +60,20 @@ def test_v4_inventory_covers_every_current_route():
 def test_v4_adr_preserves_layer_boundaries_and_legacy_columns():
     adr = ADR.read_text(encoding="utf-8")
 
-    assert "`services/` como núcleo das regras" in adr
-    assert "`db/` como persistência" in adr
-    assert "migrations aditivas/idempotentes" in adr
-    assert "colunas legadas" in adr
+    assert "`services/` preserva o domínio Python" in adr
+    assert "`db/` a persistência PostgreSQL" in adr
+    assert "Migrations são aditivas e idempotentes" in adr
+    assert "Backups SQL e Excel suportados" in adr
 
 
-def test_v4_uses_same_origin_and_has_no_streamlit_runtime():
+def test_v4_uses_same_origin_and_has_single_runtime_contract():
     spec = SPEC.read_text(encoding="utf-8")
     adr = ADR.read_text(encoding="utf-8")
 
     assert "mesma origem" in spec
     assert "`/api/*` ao FastAPI" in spec
-    assert "sem runtime, rota, dependência ou mecanismo de sessão do Streamlit" in spec
-    assert "sem runtime ou compatibilidade de UI/sessão" in adr
+    assert "apenas os runtimes Next.js e FastAPI" in spec
+    assert "único runtime web" in adr
 
 
 def test_v3_5_backup_source_is_registered_without_raw_sensitive_dump():

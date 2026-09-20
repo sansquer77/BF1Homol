@@ -36,7 +36,7 @@ def download_db(presenter) -> None:
 
 
 def restore_backup_from_sql(sql_content: str, presenter) -> bool:
-    # Um único motor evita divergência de validação entre Streamlit e API V4.
+    # Um único motor evita divergência entre pré-validação e restauração.
     from db.backup_utils import restore_backup_from_sql as restore_canonical_sql
 
     return restore_canonical_sql(sql_content, presenter)

@@ -20,7 +20,7 @@ aliases: ["Gestão Administrativa de Apostas"]
 ## Problema
 
 Admin e Master precisam acompanhar as apostas da temporada, lembrar participantes
-pendentes e gerar apostas por ausência sem retornar à interface Streamlit.
+pendentes e gerar apostas por ausência na Administração V4.
 
 ## Usuários
 

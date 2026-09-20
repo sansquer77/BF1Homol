@@ -1,6 +1,6 @@
 """Serviço de consolidação histórica de apostas por participante.
 
-Este módulo fornece funções puras de cálculo — sem acoplamento a Streamlit —
+Este módulo fornece funções puras de cálculo, sem acoplamento à apresentação,
 para alimentar a aba 'Histórico' do Painel do Participante.
 
 Fonte de dados para pontuação:

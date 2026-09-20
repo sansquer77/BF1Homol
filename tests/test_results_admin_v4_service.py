@@ -35,11 +35,13 @@ def test_save_processes_scoring_and_keeps_email_failure_non_fatal():
     positions = {str(index): f"Piloto {index}" for index in range(1, 12)}
     save = patch("services.admin_operations.admin_save_resultado")
     score = patch("services.bets_scoring.atualizar_classificacoes_todas_as_provas")
+    warm_cache = patch("services.classification_service.build_classification")
     notify = patch("services.result_notification_service.enviar_emails_resultado_prova", return_value=SimpleNamespace(enviados=8, falhas=1, sem_aposta=2))
-    with patch("services.results_admin_v4_service.get_result_management", return_value=_snapshot()), save as persist, score as recalculate, notify:
+    with patch("services.results_admin_v4_service.get_result_management", return_value=_snapshot()), save as persist, score as recalculate, warm_cache as build, notify:
         result = save_and_process_result(ADMIN, 10, "2026", positions, ["Piloto 12"])
     persist.assert_called_once()
     recalculate.assert_called_once_with("2026")
+    build.assert_called_once_with("2026")
     assert result["status"] == "processed"
     assert result["notifications"]["sent"] == 8
     assert result["notifications"]["warning"]

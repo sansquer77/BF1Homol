@@ -2,7 +2,7 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.21
+versao: 1.23
 atualizado: 2026-09-19
 relacionados:
   - "[[sdd]]"
@@ -28,7 +28,10 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 - Fase 9 concluída: controles de segurança, acessibilidade e experiência
   responsiva aprovados; o gate aquecido de 25 usuários simultâneos passou com
   erro de 0% e p95 de 377,835 ms.
-- Fase 10 pendente: builds limpos, cutover, observação e ensaio de rollback.
+- Fase 10 em andamento: builds limpos e revisão de qualidade aprovados; faltam
+  cutover, observação e ensaio de rollback.
+- O repositório contém somente o runtime V4; compatibilidade 3.x permanece nos
+  contratos de dados, fixtures e testes de restauração.
 
 ## Comece aqui
 
@@ -47,6 +50,7 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 | [[glossario]] | Vocabulário de domínio |
 | [[CHANGELOG]] | Versão vigente e histórico de releases do produto |
 | [[inventario-v4]] | Inventário de telas, jornadas, serviços e contratos para a versão 4 |
+| [[relatorio-qualidade-v4-2026-09-19]] | Build limpo, padrões e backlog técnico priorizado |
 
 ## Especificações focadas
 
@@ -82,7 +86,6 @@ migração gradual de cada módulo.
 
 ## Decisões arquiteturais
 
-- [[adr/0001-streamlit-postgresql|ADR-0001 — Streamlit e PostgreSQL gerenciado]]
 - [[adr/0002-limites-de-camadas|ADR-0002 — Limites entre UI, serviços e banco]]
 - [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados|ADR-0003 — Next.js, FastAPI e compatibilidade de dados]]
 
@@ -96,6 +99,10 @@ migração gradual de cada módulo.
 - Código e testes são a fonte executável; specs ancoram intenção e aceite.
 
 ## Changelog
+
+- `1.23` — 2026-09-19 — Runtime anterior removido e versão 4.0.0 consolidada.
+
+- `1.22` — 2026-09-19 — Registrado o build limpo e a revisão de qualidade da V4.
 
 - `1.21` — 2026-09-19 — Fase 9 concluída após aprovação de segurança, carga com 25 VUs e validação responsiva/acessível.
 

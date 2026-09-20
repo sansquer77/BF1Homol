@@ -7,7 +7,7 @@ atualizado: 2026-09-19
 relacionados:
   - "[[04_arquitetura]]"
   - "[[06_modulos_tecnicos]]"
-  - "[[adr/0001-streamlit-postgresql]]"
+  - "[[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]"
 tags: [arquitetura, "area/performance", "status/implementado"]
 aliases: ["Performance e Jornadas Críticas"]
 ---
@@ -15,7 +15,7 @@ aliases: ["Performance e Jornadas Críticas"]
 # Performance e jornadas críticas
 
 > [!info] Status
-> **implementado** · área: `performance` · atualizado em 2026-09-19 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]], [[adr/0001-streamlit-postgresql]]
+> **implementado** · área: `performance` · atualizado em 2026-09-19 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]
 
 Metas operacionais:
 
@@ -175,4 +175,4 @@ entre 5 e 10 temporadas: ele não pode crescer com o número de temporadas.
 
 - [[04_arquitetura]]
 - [[06_modulos_tecnicos]]
-- [[adr/0001-streamlit-postgresql]]
+- [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]

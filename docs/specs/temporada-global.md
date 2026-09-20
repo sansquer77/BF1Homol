@@ -2,7 +2,7 @@
 tipo: spec
 area: navegacao
 status: implementado
-versao: 1.2
+versao: 2.0
 atualizado: 2026-09-09
 relacionados:
   - "[[04_arquitetura]]"
@@ -38,28 +38,26 @@ consultam ou operam dados por temporada.
 
 ## Dados
 
-- `SeasonProvider`/`useSeason`: contexto canônico do frontend V4, persistido no
+- `SeasonProvider`/`useSeason`: contexto canônico do frontend, persistido no
   cliente e usado pelas consultas do bolão.
 - Parâmetro `season` da API: sempre validado e autorizado no backend.
-- `temporada_global`/`temporada` em `session_state`: implementação legada V3.
 
 ## Regras
 
-1. O seletor global fica no shell V4 e publica a escolha pelo contexto de temporada.
+1. O seletor global fica no shell e publica a escolha pelo contexto de temporada.
 2. Telas de consulta e operação não exibem mais seletor próprio: leem
-   `temporada_global` e caem para o default da tela apenas se o valor global
+   `useSeason()` e caem para o default apenas se o valor global
    não estiver entre as opções disponíveis naquela tela.
 3. Campos de entrada de dados (criar prova em `nova_temporada_prova`, regras,
    dashboard histórico da Ergast e filtros específicos do Hall da Fama)
    permanecem locais, pois representam dados e não contexto de consulta.
-4. As opções e o filtro por status de perfil continuam definidos por
-   `utils/season_utils.py`; nenhuma regra de negócio muda.
+4. As opções vêm do contrato autenticado e o backend valida o escopo do perfil.
 5. O Dashboard F1 mantém seletor local independente, pois pesquisa a história
    da Fórmula 1 e não o recorte anual do bolão.
 
 ## Interface, serviços e dados
 
-- Frontend: contexto em `frontend/src/lib/season/` e consumo pelas páginas V4.
+- Frontend: contexto em `frontend/src/lib/season-context.tsx` e consumo pelas páginas.
 - Backend: endpoints recebem `season` e revalidam o escopo permitido.
 - Tabelas: nenhuma.
 - API: contratos `/api/v1` dos módulos filtrados por temporada.
@@ -81,7 +79,7 @@ consultam ou operam dados por temporada.
 
 ## Verificação
 
-- Critérios 1, 2 e 4 — testes de temporada V3 e contratos/frontend V4 na suíte.
+- Critérios 1, 2 e 4 — `tests/test_v4_pure_runtime.py` e contratos do frontend.
 - Critérios 3 e 5 — verificação manual em navegador (inativo com histórico e
   fallback de tela sem o valor global).
 
@@ -93,7 +91,7 @@ consultam ou operam dados por temporada.
 
 - Unificar campos de entrada de dados (criar prova, criar/editar regras).
 - Alterar o dashboard da Ergast (histórico real, não a temporada do bolão).
-- Alterar `utils/season_utils.py` ou a restrição por perfil inativo.
+- Alterar a restrição por perfil inativo.
 
 ## Plano de implementação
 
@@ -102,6 +100,8 @@ consultam ou operam dados por temporada.
 - [x] Teste estático do seletor global e das telas. Fecha: critérios 1, 2 e 4.
 
 ## Changelog
+
+- `2.0` — 2026-09-19 — Contrato consolidado no `SeasonProvider` e autorização da API.
 
 - `1.2` — 2026-09-12 — Contrato atualizado para `SeasonProvider` da V4 e APIs por temporada; estado Streamlit rotulado como legado.
 - `1.1` — 2026-09-09 — Contexto global V4 aplicado às consultas do bolão; Dashboard F1 histórico permanece independente.

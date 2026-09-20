@@ -1,4 +1,4 @@
-"""Snapshot de leitura da Telemetria V4, sem dependência de Streamlit."""
+"""Snapshot de leitura da Telemetria V4, independente da apresentação."""
 
 from __future__ import annotations
 

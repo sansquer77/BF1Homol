@@ -22,28 +22,11 @@ from utils.data_utils import (
     get_taxa_dnf_por_piloto,
 )
 from utils.data_utils import get_current_season
+from utils.json_utils import extract_json_object as _extrair_json_texto
 from services.gemini_service import gerar_conteudo_gemini
 
 logger = logging.getLogger(__name__)
 MAX_GEMINI_CONTEXT_CHARS = 5200
-
-
-def _extrair_json_texto(raw_text: str) -> Optional[dict]:
-    if not raw_text:
-        return None
-    txt = raw_text.strip()
-    try:
-        return json.loads(txt)
-    except Exception:
-        pass
-    ini = txt.find("{")
-    fim = txt.rfind("}")
-    if ini == -1 or fim == -1 or fim <= ini:
-        return None
-    try:
-        return json.loads(txt[ini : fim + 1])
-    except Exception:
-        return None
 
 
 def _get_resumo_ultimas_apostas(usuario_id: int, apostas_df: pd.DataFrame, limite: int = 3) -> list[dict]:

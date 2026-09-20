@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.23
+versao: 1.25
 atualizado: 2026-09-19
 relacionados:
   - "[[sdd]]"
@@ -24,7 +24,17 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 > As Fases 1–9 estão concluídas, incluindo backup/restore Excel confirmado em
 > homologação. A Fase 10 de cutover e observação permanece pendente.
 
-## 3.8.2 — 2026-09-19
+### 4.0.0
+
+- Repositório consolidado no runtime único Next.js/FastAPI.
+- Removidos entrypoint, views, configuração, ativos e utilitários exclusivos
+  da apresentação anterior.
+- Testes de inspeção da interface anterior migrados para contratos da API,
+  serviços e frontend V4.
+- Compatibilidade com backups 3.x preservada por fixtures e restores, sem
+  manter o código de apresentação antigo.
+
+### 3.8.2
 
 - Fase 9 concluída com gate aquecido de 25 usuários simultâneos: 75/75 respostas
   HTTP 200, erro de 0% e p95 de 377,835 ms.
@@ -32,6 +42,8 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
   do botão `Sair` elevado para 44×44 px e protegido por teste de regressão.
 - Adicionado executor Node.js sem dependências externas para repetir o gate da
   Classificação em ambientes de homologação.
+- Manutenção interna sem incremento de produto: build limpo da V4 aprovado,
+  fontes órfãs removidas e parser JSON compartilhado entre os serviços.
 > esta atualização documental não altera a versão do produto.
 > Melhoria no log de apostas V4: status "Não efetiva" para apostas fora do
 > prazo (não automáticas), filtros por participante, data, tipo e status, e

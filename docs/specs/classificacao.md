@@ -110,9 +110,9 @@ classificação da temporada. Administradores e master também geram imagens.
 
 ## Verificação
 
-- Critérios 1, 2, 4, 5, 6 e 7 — testes em `tests/test_classificacao_pontuacao.py` e `tests/test_classification_workflow.py`.
+- Critérios 1, 2, 4, 5, 6 e 7 — testes em `tests/test_classification_service_v4.py` e `tests/test_classification_workflow.py`.
 - Critério 3 — teste da fórmula e verificação manual da tabela após resultado de campeonato.
-- Critérios 8 e 9 — testes em `tests/test_classificacao_imagem.py` e verificação manual do download no ambiente Streamlit.
+- Critérios 8 e 9 — testes em `tests/test_classificacao_imagem.py` e verificação manual do download na interface V4.
 - Critério 10 — teste de proporções em `tests/test_classificacao_imagem.py` e inspeção visual do PNG V4.
 - Critério 11 — teste de caracterização do cálculo em `tests/test_classification_workflow.py` e verificação visual da tabela V4.
 - Critérios 14 a 17 — testes em `tests/test_classification_cache.py` e verificação de comportamento sob carga em homologação.

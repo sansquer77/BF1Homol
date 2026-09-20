@@ -2,7 +2,7 @@
 tipo: arquitetura
 area: bf1
 status: em-implementacao
-versao: 5.4
+versao: 6.0
 atualizado: 2026-09-19
 relacionados: ["[[04_arquitetura]]", "[[05_projeto]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [arquitetura, "area/bf1", "status/em-implementacao"]
@@ -12,7 +12,7 @@ aliases: ["Módulos Técnicos"]
 # Módulos Técnicos — BF1 V4
 
 > [!info] Status
-> **em-implementacao** · área: `bf1` · atualizado em 2026-09-19 · Fases 1–9 concluídas; Fase 10 pendente.
+> **em-implementacao** · área: `bf1` · atualizado em 2026-09-19 · Fases 1–9 concluídas; gate local da Fase 10 aprovado.
 
 ## Entradas do runtime V4
 
@@ -20,10 +20,10 @@ aliases: ["Módulos Técnicos"]
 - `frontend/src/app/`: rotas Next.js App Router.
 - `frontend/src/components/`: shell, telas e componentes interativos.
 - `frontend/src/lib/api/`: cliente HTTP e tipos derivados do OpenAPI.
-- `frontend/src/lib/season/`: contexto global da temporada do bolão.
+- `frontend/src/lib/season-context.tsx`: contexto global da temporada do bolão.
 
-`main.py`, `ui/`, `.streamlit/` e o `requirements.txt` raiz representam o
-runtime V3 de referência. Não são carregados pelos componentes V4.
+O repositório contém somente o runtime V4. A compatibilidade histórica é
+exercitada por fixtures e testes de domínio/backup.
 
 ## Backend
 
@@ -80,9 +80,14 @@ sequences. O round-trip real foi confirmado funcional em homologação.
 
 ## Lacunas conhecidas
 
-1. Executar os gates de cutover, observação e rollback da Fase 10.
+1. Executar os gates de cutover, observação e rollback da Fase 10. O build
+   limpo e o backlog técnico estão em [[relatorio-qualidade-v4-2026-09-19]].
 
 ## Changelog
+
+- `6.0` — 2026-09-19 — Removidos entrypoint, views, configuração e utilitários exclusivos da apresentação anterior.
+
+- `5.5` — 2026-09-19 — Gate local e oportunidades de modularização referenciados.
 
 - `5.4` — 2026-09-19 — Fase 9 concluída com segurança, carga e experiência responsiva aprovadas.
 

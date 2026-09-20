@@ -154,8 +154,8 @@ def instrumented_cache_data(*, ttl: int, tags: tuple[str, ...] = ()):
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         # Todos os wrappers abaixo compartilham a mesma implementação interna.
-        # O namespace explícito impede o Streamlit de reutilizar o valor de uma
-        # função em outra quando ambas recebem argumentos iguais (ex.: temporada).
+        # O namespace explícito impede qualquer backend de cache de reutilizar o
+        # valor de uma função em outra com argumentos iguais (ex.: temporada).
         cache_namespace = f"{func.__module__}.{func.__qualname__}"
 
         @ttl_cache(ttl=ttl, tags=tags)

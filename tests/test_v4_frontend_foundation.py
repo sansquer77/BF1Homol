@@ -71,7 +71,6 @@ def test_v4_python_runtime_has_no_legacy_ui_or_plotly_dependencies():
     assert "streamlit" not in requirements
     assert "streamlit-calendar" not in requirements
     assert "plotly" not in requirements
-    assert "streamlit-calendar" not in transitional
     assert "requirements-api.txt" in transitional
 
 
@@ -94,8 +93,8 @@ def test_login_is_invite_only_and_calendar_contract_is_preserved():
     readme = (FRONTEND / "README.md").read_text(encoding="utf-8")
 
     assert "Não existe cadastro público" in login
-    assert "streamlit-calendar" in readme
-    assert "será implementada em React" in readme
+    assert "Streamlit" not in readme
+    assert "Next.js" in readme
     assert "fuso" in readme
     assert "/api/v1/auth/password-reset" in login_form
     assert "/api/v1/auth/password-reset/confirm" in login_form

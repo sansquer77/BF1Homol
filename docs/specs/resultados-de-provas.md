@@ -86,7 +86,7 @@ Admin e master registram resultados; demais perfis apenas consomem os efeitos.
 
 - Critérios 1 a 4 — `tests/test_result_default_race.py`.
 - Critérios 5, 6 e 8–10 — `tests/test_results_admin_v4_service.py`,
-  `tests/test_classification_workflow.py`, `tests/test_access_matrix.py` e `tests/test_admin_ui_has_no_writes.py`.
+  `tests/test_classification_workflow.py`, `tests/test_access_matrix.py` e `tests/test_results_admin_v4_service.py`.
 - Critério 11 — contrato estático do frontend e build Next.js.
 - Critério 7 — verificação de integração do envio de email.
 

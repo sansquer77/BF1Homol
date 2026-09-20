@@ -95,7 +95,7 @@ usuários sem acesso à senha usam o fluxo de recuperação por email.
 
 ## Interface, serviços e dados
 
-- Tela V4: `frontend/src/app/login`; o fluxo Streamlit permanece apenas como baseline V3.
+- Tela: `frontend/src/app/login`; autenticação servida exclusivamente pela API V4.
 - Serviços: `services/auth_service.py` e `services/access_control.py`.
 - Repositórios/tabelas: `usuarios`, `auth_sessions`, `login_attempts`, `password_reset_tokens`.
 - API V4: `/api/v1/auth/login`, `/logout`, `/me`, `/refresh`,

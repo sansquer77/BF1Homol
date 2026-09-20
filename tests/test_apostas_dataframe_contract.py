@@ -1,5 +1,4 @@
 import unittest
-from pathlib import Path
 
 import pandas as pd
 
@@ -28,28 +27,6 @@ class ApostasDataFrameContractTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "usuario_id"], 7)
         self.assertEqual(result.loc[0, "prova_id"], 11)
 
-    def test_gestao_apostas_normalizes_both_dataframe_reads(self):
-        source = (Path(__file__).resolve().parents[1] / "ui" / "gestao_apostas.py").read_text(encoding="utf-8")
-        self.assertIn("def _normalizar_apostas_df", source)
-        self.assertEqual(2, source.count("_normalizar_apostas_df(get_apostas_df(season))"))
-        self.assertIn("_normalizar_provas_df(get_provas_df(season))", source)
-        self.assertIn("_normalizar_participantes_df(get_participantes_temporada_df(season))", source)
-        self.assertNotIn('provas_df.sort_values("data")', source)
-
-    def test_painel_fallback_keeps_prova_id_after_sem_ideias_rerun(self):
-        source = (Path(__file__).resolve().parents[1] / "ui" / "painel.py").read_text(encoding="utf-8")
-        self.assertNotIn("apostas_part = pd.DataFrame()", source)
-        self.assertIn("apostas_part = with_required_columns(apostas_df, APOSTAS_COLUMNS)", source)
-        self.assertIn("'prova_id' in apostas_part.columns", source)
-
-    def test_sem_ideias_clears_specific_cache_and_preserves_feedback(self):
-        source = (Path(__file__).resolve().parents[1] / "ui" / "painel.py").read_text(encoding="utf-8")
-        self.assertIn("get_apostas_df.clear()", source)
-        self.assertIn('st.session_state["sem_ideias_feedback"] = msg_auto', source)
-        self.assertIn('st.session_state.pop("sem_ideias_feedback", None)', source)
-        self.assertIn('st.session_state["sem_ideias_detalhes"] = detalhes_auto', source)
-        self.assertIn('st.session_state.pop("sem_ideias_detalhes", None)', source)
-
     def test_all_public_dataframe_contracts_preserve_empty_schema(self):
         contracts = (
             PILOTOS_COLUMNS,
@@ -65,50 +42,3 @@ class ApostasDataFrameContractTests(unittest.TestCase):
                 result = with_required_columns(None, columns)
                 self.assertEqual(set(columns), set(result.columns))
                 self.assertTrue(result.empty)
-
-    def test_gestao_resultados_normalizes_every_result_read(self):
-        source = (Path(__file__).resolve().parents[1] / "ui" / "gestao_resultados.py").read_text(encoding="utf-8")
-        self.assertIn("def _normalizar_dados_resultados", source)
-        self.assertEqual(2, source.count("get_resultados_df(temporada_selecionada)"))
-        self.assertIn("with_required_columns(\n        get_resultados_df(temporada_selecionada), RESULTADOS_COLUMNS", source)
-
-    def test_high_risk_pages_apply_contracts_at_ui_boundary(self):
-        root = Path(__file__).resolve().parents[1] / "ui"
-        expected = {
-            "championship_results.py": "PILOTOS_COLUMNS",
-            "championship_bets.py": "USUARIOS_COLUMNS",
-            "classificacao.py": "RESULTADOS_COLUMNS",
-            "hall_da_fama.py": "USUARIOS_COLUMNS",
-            "usuarios.py": "USUARIOS_COLUMNS",
-            "calendario.py": "PROVAS_COLUMNS",
-            "painel.py": "POSICOES_COLUMNS",
-            "gestao_provas.py": "PROVAS_COLUMNS",
-            "analysis.py": "APOSTAS_COLUMNS",
-        }
-        for filename, contract in expected.items():
-            with self.subTest(filename=filename):
-                source = (root / filename).read_text(encoding="utf-8")
-                self.assertIn("with_required_columns", source)
-                self.assertIn(contract, source)
-
-        analysis_source = (root / "analysis.py").read_text(encoding="utf-8")
-        self.assertNotIn("resultados_df['prova_id'].values", analysis_source)
-        self.assertNotIn("apostas_df[apostas_df['prova_id'] == rid]", analysis_source)
-        self.assertIn("resultados_ids", analysis_source)
-        self.assertIn("apostas_por_prova", analysis_source)
-
-        classificacao_source = (root / "classificacao.py").read_text(encoding="utf-8")
-        self.assertIn("def _normalizar_ids_numericos", classificacao_source)
-        self.assertIn('_normalizar_ids_numericos(apostas_df, "usuario_id", "prova_id")', classificacao_source)
-        self.assertIn('.fillna(0.0)', classificacao_source)
-        self.assertIn("def _montar_pontos_por_prova", classificacao_source)
-        self.assertIn('pontos.index.name = "Prova"', classificacao_source)
-        self.assertIn('"_index": st.column_config.TextColumn("Prova"', classificacao_source)
-        self.assertIn("def destacar_heatmap", classificacao_source)
-        self.assertIn("df_styled = destacar_heatmap", classificacao_source)
-
-        button_pos = classificacao_source.index('st.button("Preparar imagem da tabela"')
-        generation_pos = classificacao_source.index(
-            "gerar_imagem_tabela_ajustada(df_display, colunas_ordem).getvalue()"
-        )
-        self.assertLess(button_pos, generation_pos)

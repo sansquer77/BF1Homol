@@ -1,6 +1,5 @@
 import unittest
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 
@@ -53,16 +52,6 @@ class ResultDefaultRaceTests(unittest.TestCase):
             get_prova_atual_sem_resultado_id(races, pd.DataFrame(), self.now),
             7,
         )
-
-    def test_tela_preserva_escolha_manual_ate_trocar_temporada_ou_salvar(self):
-        source = (
-            Path(__file__).resolve().parents[1] / "ui" / "gestao_resultados.py"
-        ).read_text(encoding="utf-8")
-        self.assertIn("current_selection not in prova_options", source)
-        self.assertIn("season_changed", source)
-        self.assertIn('st.session_state.pop("resultados_reselecionar", False)', source)
-        self.assertIn('st.session_state["resultados_reselecionar"] = True', source)
-
 
 if __name__ == "__main__":
     unittest.main()

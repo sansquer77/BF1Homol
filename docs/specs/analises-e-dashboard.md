@@ -65,7 +65,7 @@ Transformar apostas, resultados e classificação em visualizações operacionai
 
 ## Verificação
 
-- Critérios 3–6 — testes: `tests/test_apostas_dataframe_contract.py`, `tests/test_lazy_screen_loading.py`, `tests/test_performance_cache_namespace.py` e `tests/test_access_matrix.py`.
+- Critérios 3–6 — testes: `tests/test_bets_analysis_service.py`, `tests/test_v4_frontend_foundation.py`, `tests/test_performance_cache_namespace.py` e `tests/test_access_matrix.py`.
 - Critérios 1 e 2 — verificação visual com uma prova concluída e outra pendente.
 
 ## Pendências

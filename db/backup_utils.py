@@ -471,7 +471,7 @@ def _prepare_schema_for_restore() -> None:
 
     # spec: migracao-v4-nextjs-fastapi v0.3 — critérios 1 a 3
     # Algumas tabelas da V3.5 eram criadas sob demanda pelas telas. Um restore
-    # precisa preparar o contrato completo sem depender da UI/Streamlit.
+    # precisa preparar o contrato completo sem depender da apresentação.
     with db_connect() as conn:
         cursor = conn.cursor()
         # A V3.5 permite o mesmo nome em registros históricos distintos

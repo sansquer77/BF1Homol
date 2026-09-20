@@ -4,8 +4,7 @@ import base64
 from functools import lru_cache
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Any, Optional
-from utils.html_utils import escape_html_attr
+from typing import Optional
 
 def normalize_str(text: str) -> str:
     """
@@ -109,17 +108,6 @@ def _bf1_logo_data_uri() -> str:
     return f"data:{mime_type};base64,{encoded}"
 
 
-def render_bf1_logo_html(width: int = 75, alt: str = "BF1") -> str:
-    """Gera HTML do logo BF1 embutido em base64 para uso com st.markdown."""
-    data_uri = _bf1_logo_data_uri()
-    if not data_uri:
-        return ""
-    safe_width = max(1, int(width))
-    safe_alt = escape_html_attr(alt or "BF1")
-    safe_data_uri = escape_html_attr(data_uri)
-    return f'<img src="{safe_data_uri}" alt="{safe_alt}" width="{safe_width}" loading="eager" />'
-
-
 def get_bf1_logo_data_uri() -> str:
     """Retorna o logo BF1 como data URI para uso em emails e outras aplicações.
     
@@ -130,19 +118,3 @@ def get_bf1_logo_data_uri() -> str:
         str: Data URI da imagem BF1 (ex: data:image/png;base64,...)
     """
     return _bf1_logo_data_uri()
-
-
-def render_page_header(st_module: Any, title: str, logo_width: int = 75) -> None:
-    """Renderiza cabeçalho padronizado com logo BF1 + título da página."""
-    col_logo, col_title = st_module.columns([1, 16])
-    with col_logo:
-        logo_uri = get_bf1_logo_data_uri()
-        if logo_uri:
-            st_module.image(logo_uri, width=logo_width)
-    with col_title:
-        st_module.title(title)
-
-    # Aviso explícito para perfis inativos nas telas de consulta.
-    user_status = str(st_module.session_state.get("user_status", "")).strip().lower()
-    if user_status and user_status != "ativo":
-        st_module.warning("Você está inativo e visualiza apenas temporadas em que esteve ativo.")

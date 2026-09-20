@@ -70,7 +70,7 @@ contratos críticos já possuem especificações próprias:
 - **Erro**: mensagem de credenciais inválidas; rate limiting aplicado.
 
 ### 1.2 Logout
-- Limpa cookies de autenticação e session state do Streamlit.
+- Limpa cookies de autenticação e o estado efêmero do cliente.
 - Redireciona para tela de login.
 
 ### 1.3 Guard de Rotas
@@ -224,7 +224,7 @@ Acesso: todos os perfis ativos; inativos com histórico.
 > [!tip] `historico_service.py` — contrato público
 > - `calcular_resumo_historico(usuario_id: int) -> ResumoHistorico`
 > - `calcular_dados_grafico(usuario_id: int) -> DadosGrafico`
-> Ambas retornam `@dataclass` tipados, sem dependência de Streamlit.
+> Ambas retornam `@dataclass` tipados, sem dependência da camada de apresentação.
 
 ---
 

@@ -19,11 +19,10 @@ aliases: ["Inventário funcional e técnico da versão 4"]
 
 ## Objetivo e método
 
-Este documento é a linha de base da migração. O inventário foi obtido do
-roteador em `main.py`, da matriz em `services/access_control.py`, das telas em
-`ui/`, dos serviços e repositórios, do bootstrap/migrations em `db/` e das specs
-focadas. Divergências continuam marcadas para caracterização; este documento
-não substitui os contratos executáveis.
+Este documento registra a linha de base usada na migração e o mapeamento final
+da V4. O inventário vigente deriva das rotas `frontend/src/app`, dos contratos
+`api/routes`, da matriz em `services/access_control.py`, dos serviços,
+repositórios e specs focadas. Ele não substitui os contratos executáveis.
 
 ## Perfis e jornadas transversais
 
@@ -43,34 +42,26 @@ validação e falha; paginação/filtros; exportações; invalidação seletiva 
 
 | Área atual | Módulo | Perfis | Responsabilidade principal | Onda sugerida |
 |---|---|---|---|---|
-| Login | `ui/login.py` | anônimo | Email/senha, rate limit, recuperação e OIDC opcional. | fundação |
-| Painel do Participante | `ui/painel.py` | todos autenticados | Próxima prova, aposta e histórico individual. Na V4, a área é exibida como **Telemetria**. | 1 |
-| Calendário | `ui/calendario.py` | todos autenticados | Provas e horários convertidos para o fuso de exibição. | 1 |
-| Gestão de Usuários | `ui/usuarios.py` | master | Usuários, status, senha e gestão financeira. | 4 |
-| Gestão de Pilotos | `ui/gestao_pilotos.py` | admin/master | Cadastro e manutenção de pilotos. | 3 |
-| Gestão de Provas | `ui/gestao_provas.py` | admin/master | Calendário, tipo, circuito, status e temporada. | 3 |
-| Gestão de Regras | `ui/gestao_regras.py` | master | Regras por temporada/tipo e clonagem. | 4 |
-| Gestão de Apostas | `ui/gestao_apostas.py` | admin/master | Consulta/operação administrativa de apostas. | 3 |
-| Análise de Apostas | `ui/analysis.py` | autenticados permitidos | Agregações, tabelas e gráficos de apostas. | 2 |
-| Atualização de resultados | `ui/gestao_resultados.py` | admin/master | Resultado, abandonos, pontuação e notificações. | 3 |
-| Apostas Campeonato | `ui/championship_bets.py` | participante/admin/master | Palpites e deadline do campeonato. | 2 |
-| Resultado Campeonato | `ui/championship_results.py` | admin/master | Resultado final e pontuação dos palpites. | 3 |
-| Log de Apostas | `ui/log_apostas.py` | autenticados permitidos | Auditoria com restrição do participante aos próprios dados. | 2 |
-| Log de Acessos | `ui/log_acessos.py` | master | Auditoria de autenticação/acesso. | 4 |
-| Classificação | `ui/classificacao.py` | autenticados permitidos | Totais, descarte, bônus, ranking e exportação. | 2 |
-| Hall da Fama | `ui/hall_da_fama.py` | todos autenticados | Histórico consolidado e manutenção master. | 2/4 |
-| Dashboard F1 | `ui/dashboard.py` | todos autenticados | Dados e visualizações externas da Fórmula 1. | 2 |
-| Backup dos Bancos de Dados | `ui/backup.py` | master | Exportação, reautenticação e restauração. | 5 |
-| Regulamento | `ui/regulamento.py` | autenticados permitidos | Conteúdo oficial. | 1 |
-| Sobre | `ui/sobre.py` | autenticados permitidos | Metadados e versão do produto. | 1 |
+| Login | `/login` | anônimo | Email/senha, rate limit e recuperação. | fundação |
+| Telemetria | `/` e `/telemetria/*` | todos autenticados | Próxima prova, aposta e histórico individual. | 1 |
+| Calendário | `/calendario` | todos autenticados | Provas e horários no fuso de exibição. | 1 |
+| Cadastros | `/admin` | master/admin conforme operação | Usuários, pilotos, equipes, provas e temporadas. | 4 |
+| Regras | `/admin/regras` | master | Regras por temporada/tipo, posições e recálculo. | 4 |
+| Gestão de Apostas | `/admin/apostas` | admin/master | Operação administrativa e relatórios. | 3 |
+| Análise de Apostas | `/analises` | autenticados permitidos | Agregações, tabelas e gráficos. | 2 |
+| Resultados | `/admin/resultados` | admin/master | Resultado, abandonos, pontuação e notificações. | 3 |
+| Campeonato | `/campeonato` e `/admin/campeonato` | conforme operação | Palpites, deadline, acompanhamento e resultado. | 2/3 |
+| Logs | `/logs` | conforme escopo | Auditoria de apostas e acessos. | 2/4 |
+| Classificação | `/classificacao` | autenticados permitidos | Totais, descarte, bônus, ranking e exportação. | 2 |
+| Hall da Fama | `/hall-da-fama` e `/admin/hall-da-fama` | conforme operação | Histórico consolidado e manutenção. | 2/4 |
+| Dashboard F1 | `/dashboard-f1` | todos autenticados | Dados históricos externos da Fórmula 1. | 2 |
+| Backup | `/admin/backup` | master | Exportação, reautenticação e restauração. | 5 |
+| Regulamento | `/regulamento` | autenticados permitidos | Conteúdo oficial. | 1 |
+| Sobre | `/sobre` | autenticados permitidos | Metadados e versão do produto. | 1 |
 
-Cada onda é implementada somente depois dos testes de caracterização do domínio
-correspondente. A versão 4 não carrega módulos ou sessão Streamlit. Gráficos da versão 4 usam ApexCharts por um adaptador React único,
-com tabela/resumo textual acessível como alternativa.
-
-“Painel do Participante” permanece como nome histórico da tela V3 e de seu
-módulo Python. Na interface V4, a área e a navegação usam **Telemetria**; essa
-mudança de rótulo não altera permissões, dados nem regras.
+Todas as ondas foram implementadas após caracterização do domínio. Gráficos
+usam ApexCharts por adaptador React compartilhado, com alternativa textual.
+**Telemetria** é o nome vigente da área do participante.
 
 ## Serviços Python reutilizáveis
 
@@ -85,9 +76,8 @@ mudança de rótulo não altera permissões, dados nem regras.
 - Persistência: `db/repo_*.py`, `db/rules_utils.py`, `db/migrations*.py` e
   `db/backup_*.py`.
 
-Antes de expor um serviço na API, dependências de `app_runtime`/estado Streamlit
-devem ser substituídas por contexto de requisição explícito, sem mover regras
-para handlers FastAPI.
+Serviços expostos pela API usam contexto de requisição explícito, sem mover
+regras para handlers FastAPI.
 
 ## Contrato de banco e backup
 
@@ -241,13 +231,12 @@ redefine a credencial persistida.
 
 ## Riscos e lacunas encontradas
 
-- Classificação, análise e financeiro já possuem contratos FastAPI e telas V4;
-  o código Streamlit correspondente permanece apenas como baseline V3.
+- Classificação, análise e financeiro possuem contratos FastAPI e telas V4.
 - A gestão explícita de equipes e a atualização/processamento de resultados
   estão disponíveis na interface V4.
 - O log operacional em banco deve coexistir com `access_logs` e `log_apostas`;
   nenhum deles substitui a auditoria de domínio do outro.
-- A mesma origem, a ausência de Streamlit no runtime V4, logs no PostgreSQL e o
+- A mesma origem, o runtime único V4, logs no PostgreSQL e o
   round-trip Excel estão aprovados. O primeiro gate de carga reprovou a
   Classificação; cache e separação resumo/histórico foram implantados, mas o
   ensaio progressivo e o rollback continuam pendentes.

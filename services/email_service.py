@@ -3,12 +3,12 @@ import os
 import logging
 import hashlib
 import random
-import json
 from typing import Optional
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from utils.logging_utils import redact_identifier
 from utils.html_utils import escape_html_text
+from utils.json_utils import extract_json_object as _extrair_json_texto
 from services.gemini_service import gemini_disponivel, gerar_conteudo_gemini
 
 logger = logging.getLogger(__name__)
@@ -145,24 +145,6 @@ def gerar_previsao_sarcastica(nome_usuario: str, nome_prova: str, pilotos: list[
     except Exception as e:
         logger.warning(f"Falha ao gerar previsão sarcástica: {e}")
         return _gerar_previsao_fallback(nome_usuario, nome_prova, pilotos, fichas, piloto_11)
-
-
-def _extrair_json_texto(raw_text: str) -> Optional[dict]:
-    if not raw_text:
-        return None
-    txt = raw_text.strip()
-    try:
-        return json.loads(txt)
-    except Exception:
-        pass
-    ini = txt.find('{')
-    fim = txt.rfind('}')
-    if ini == -1 or fim == -1 or fim <= ini:
-        return None
-    try:
-        return json.loads(txt[ini:fim + 1])
-    except Exception:
-        return None
 
 
 def _probabilidade_fallback(seed_texto: str) -> int:

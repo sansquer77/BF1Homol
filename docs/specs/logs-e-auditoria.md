@@ -95,7 +95,7 @@ Permitir investigação operacional de acessos e alterações de apostas com fil
 
 ## Verificação
 
-- Critérios 1–7 — testes: `tests/test_pagination_integration.py`,
+- Critérios 1–7 — testes: `tests/test_logs_read_service_v4.py`,
   `tests/test_logs_read_service_v4.py`, `tests/test_v4_api_security.py`,
   `tests/test_proxy_topology.py` e `tests/test_access_matrix.py`.
 - Critério 7 — inspeção automatizada/manual dos campos de log e tentativa de autenticação com valor sentinela.

@@ -3,186 +3,64 @@ tipo: arquitetura
 area: bf1
 status: implementado
 versao: 4.0
-atualizado: 2026-07-19
+atualizado: 2026-09-19
 relacionados:
-  - "[[01_necessidade]]"
-  - "[[02_regras_de_negocio]]"
-  - "[[03_spec]]"
   - "[[04_arquitetura]]"
-  - "[[05_projeto]]"
+  - "[[06_modulos_tecnicos]]"
 tags: [arquitetura, "area/bf1", "status/implementado"]
-aliases: ["Mapa Mental de Módulos"]
+aliases: ["Mapa Mental dos Módulos"]
 ---
 
-# Mapa Mental de Módulos — BF1
+# Mapa dos módulos BF1 V4
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-07-19 · relacionados: [[01_necessidade]], [[02_regras_de_negocio]], [[03_spec]], [[04_arquitetura]], [[05_projeto]]
+> **implementado** · área: `bf1` · atualizado em 2026-09-19 · runtime único V4.
 
-Este documento apresenta uma visão técnica das relações entre os módulos da aplicação.
-
----
-
-## Mapa Mental
-
-```mermaid
-mindmap
-  root((BF1))
-    main.py
-      Orquestra a aplicação Streamlit
-      Carrega CSS e PWA meta-tags
-      Inicializa DB, migrations e master user
-      Importa views UI e auth_service
-    ui (camada de apresentação)
-      login
-      painel
-        aba Visão Geral
-        aba Histórico por Temporada
-        aba Histórico ← v3.6
-        aba Minha Conta
-      calendario
-      classificacao
-      dashboard
-      gestao_apostas
-      gestao_resultados
-      usuarios
-      hall_da_fama
-      log_apostas
-      log_acessos
-      championship_bets
-      championship_results
-      gestao_provas
-      gestao_regras
-      gestao_pilotos
-      backup
-      regulamento
-      sobre
-      analysis
-      Depende de services
-      Depende de db
-      Depende de utils
-    services (regras de negócio e orquestração)
-      auth_service
-      data_access_core
-      data_access_auth
-      data_access_apostas
-      data_access_provas
-      data_access_regras
-      data_access_backup
-      bets_ai
-      bets_rules
-      bets_scoring
-      bets_write
-      championship_service
-      results_service
-      rules_service
-      hall_da_fama_service
-      email_service
-      result_notification_service
-      painel_controller
-      hall_da_fama_controller
-      historico_service ← v3.6
-        calcular_resumo_historico()
-        calcular_dados_grafico()
-        _parse_posicoes()
-      Depende de db
-      Depende de utils
-    db (persistência e acesso a dados)
-      db_schema
-      repo_users
-      repo_races
-      repo_bets
-      repo_logs
-      migrations
-      migrations_native_types
-      db_config
-      connection_pool
-      master_user_manager
-      backup_excel
-      backup_repair
-      backup_sql
-      backup_utils
-      backup_validate
-      circuitos_utils
-      rules_utils
-      Depende de utils e config
-    utils (funções transversais)
-      helpers
-      datetime_utils
-      data_utils
-      input_models
-      logging_utils
-      request_utils
-      season_utils
-      validators
-      cache_utils
-      Suporta todas as camadas
+```text
+frontend/
+├─ app/                 rotas, layouts, metadata e páginas
+├─ components/          telas, formulários, navegação e ApexCharts
+└─ lib/
+   ├─ api/              cliente e tipos OpenAPI
+   ├─ season-context    temporada global do bolão
+   └─ timezone-context  preferência de apresentação
+        │ HTTPS /api/v1
+api/
+├─ main.py              aplicação, lifespan e middleware
+├─ routes/              contratos HTTP por domínio
+├─ schemas.py           validação e serialização
+└─ dependencies.py      sessão e contexto autenticado
+        │
+services/
+├─ access_control       autorização por perfil/objeto/temporada
+├─ bets_*               regras, escrita, pontuação e análises
+├─ classification_*     classificação, histórico, cache e PNG
+├─ *_v4_service         casos de uso das jornadas V4
+└─ auth/email/weather   capacidades transversais de domínio
+        │
+db/
+├─ connection_pool      pool psycopg 3
+├─ repo_*               consultas e escritas
+├─ migrations*          evolução idempotente
+└─ backup_*             SQL/Excel, validação e restore
+        │
+PostgreSQL 18
 ```
 
----
+## Regras de dependência
 
-## Relações Entre Camadas
+1. O frontend acessa somente `/api/v1`.
+2. Rotas não executam SQL nem recalculam regras de domínio.
+3. Serviços não dependem do frontend.
+4. Repositórios não autorizam usuários; recebem operações já autorizadas.
+5. Utilitários não acessam o banco.
 
-```mermaid
-graph LR
-  MAIN[main.py]
-  UI[ui/*]
-  SVC[services/*]
-  DB[db/*]
-  UTL[utils/*]
+## Changelog
 
-  MAIN --> UI
-  MAIN --> SVC
-  MAIN --> DB
+- `4.0` — 2026-09-19 — Mapa refeito para o runtime exclusivo Next.js/FastAPI.
 
-  UI --> SVC
-  UI --> DB
-  UI --> UTL
+## Relacionados
 
-  SVC --> DB
-  SVC --> UTL
-
-  DB --> UTL
-```
-
----
-
-## Dependências Internas Mais Relevantes
-
-- **`main.py`**: coordena o carregamento das views, aplica tema e meta tags, inicializa banco e migrações e cria o master user.
-- **`ui/painel.py`**: página principal do participante; desde a v3.6 inclui a aba **"Histórico"** que consome `historico_service`.
-- **`ui/*`**: representa as páginas da aplicação; cada módulo UI consome services para regras e db/repos para acesso a dados.
-- **`services/historico_service.py`** *(v3.6)*: módulo de serviço puro (sem dependência de Streamlit) que calcula o resumo e os dados de gráfico do histórico consolidado do participante. Retorna `@dataclass` tipados.
-- **`services/bets_write.py`**: integra regras de negócio, persistência e notificações/suporte no fluxo de apostas.
-- **`services/auth_service.py`**: guarda autenticação e sessão, trabalhando com `db.repo_users` e `db.db_schema`.
-- **`services/data_access_*`**: atuam como camadas de acesso especializadas para domínios como apostas, provas, regras e backup.
-- **`services/hall_da_fama_service`** / **`services/hall_da_fama_controller`**: gerenciam lógica de ranking e apresentação de histórico de campeões.
-
----
-
-## Observações de Arquitetura
-
-> [!warning] Separação de camadas em evolução
-> A UI usa preferencialmente `services` e `data_access_*`, mas ainda existem acessos diretos a `db` em alguns fluxos. O mapa representa dependências reais, não uma separação estrita.
-
-> [!note] Normalização de tipos JSON
-> O campo `posicoes` em `resultados` é armazenado como `TEXT`. Ao ler, as chaves podem ser `int` ou `str`. Sempre usar `_parse_posicoes()` (ou equivalente) para normalizar para `int` antes de qualquer lookup de posição. Ver [[02_regras_de_negocio#RN-013 — Histórico Consolidado do Participante v3.6|RN-013]].
-
-- `services` centraliza regras e orquestra a escrita no banco, enquanto `data_access_*` cria fachadas para os repositórios.
-- A camada `db` possui tanto schemas e repositórios quanto utilitários de backup e migrations.
-- `utils` contém funções transversais e helpers compartilhados por todas as camadas.
-- `assets/styles.css` e `static/*` cuidam de aparência e suporte a PWA/ícones, fora das camadas principais.
-
-### Changelog
-
-- `4.0` — 2026-07-19 — Nome do sistema e observações de dependência alinhados ao código.
-- `3.6` — 2026-05-03 — Adicionados `result_notification_service` e `cache_utils` no mapa mental.
-- `3.5` — — Versão base.
-
-### Relacionados
-
-- [[01_necessidade]]
-- [[02_regras_de_negocio]]
-- [[03_spec]]
 - [[04_arquitetura]]
-- [[05_projeto]]
+- [[06_modulos_tecnicos]]
+- [[adr/0002-limites-de-camadas]]

@@ -88,14 +88,5 @@ class PerformanceOptimizationTests(unittest.TestCase):
         self.assertEqual(cursor.execute_count, 1)
         self.assertEqual(result["id"].tolist(), [7])
 
-    def test_envio_normal_nao_forca_segundo_rerun(self):
-        from pathlib import Path
-
-        source = (Path(__file__).resolve().parents[1] / "ui" / "painel.py").read_text(encoding="utf-8")
-        success = source.index('st.success("Aposta registrada/atualizada!")')
-        next_section = source.index('st.warning("Administração deve cadastrar', success)
-        self.assertNotIn("st.rerun()", source[success:next_section])
-
-
 if __name__ == "__main__":
     unittest.main()

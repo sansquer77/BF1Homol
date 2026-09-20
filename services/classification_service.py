@@ -296,7 +296,7 @@ def classification_for_race(snapshot: dict[str, Any], race_id: int) -> dict[str,
 
 
 def render_classification_png(snapshot: dict[str, Any]) -> BytesIO:
-    """Gera imagem limitada da tabela sem depender da UI Streamlit."""
+    """Gera imagem limitada da tabela no servidor."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.image as mpimg

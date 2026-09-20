@@ -2,8 +2,8 @@
 tipo: spec
 area: cliente
 status: implementado
-versao: 1.1
-atualizado: 2026-08-16
+versao: 2.0
+atualizado: 2026-09-19
 relacionados: ["[[specs/autenticacao-e-sessao]]", "[[04_arquitetura]]", "[[07_guia_deploy]]"]
 tags: [spec, "area/cliente", "status/implementado"]
 aliases: ["PWA e preferências do cliente"]
@@ -27,47 +27,46 @@ Oferecer experiência instalável e horários compreensíveis por usuário, mant
 
 1. O navegador carrega manifest, ícones e metadados da aplicação.
 2. O app detecta um timezone válido ou usa `America/Sao_Paulo` como fallback.
-3. O usuário pode escolher manualmente; a preferência é refletida nos query params e reutilizada nos reruns.
+3. O usuário pode escolher manualmente; a preferência é persistida pela API na conta.
 
 ## Dados
 
 - `tz`: identificador IANA validado.
-- `tz_source`: origem detectada ou `manual`; a escolha manual tem precedência.
+- `timezone`: preferência IANA persistida no usuário autenticado.
 - PWA: manifest, nome, cores, ícones e metadados do cliente.
 
 ## Regras
 
 1. Deadlines e datas de domínio continuam canônicos em `America/Sao_Paulo`; a preferência altera somente apresentação.
 2. Um timezone manual válido prevalece sobre nova detecção automática.
-3. Preferência válida é persistida em query params para sobreviver aos reruns e permitir navegação reproduzível.
+3. Preferência válida é persistida pelo endpoint autenticado da conta.
 4. Timezone ausente ou inválido usa fallback seguro sem quebrar a tela.
-5. Valores de query params são validados antes de uso e não concedem autenticação ou autorização.
+5. O valor enviado à API é validado antes de persistir e não amplia autorização.
 6. Manifest e recursos PWA devem ser servidos por HTTPS em produção e não armazenam segredos.
-7. Configurações de segurança do Streamlit preservam proteção XSRF e política de origem definida no deploy.
+7. Mutações usam cookie seguro, origem permitida e CSRF.
 
 ## Interface, serviços e dados
 
-- Cliente: `main.py`, utilitários de timezone e ativos em `static/`.
-- Estado: query params e `session_state`; sem tabela própria no banco.
+- Cliente: `frontend/src/lib/timezone-context.tsx` e metadados do App Router.
+- API: `PUT /api/v1/auth/account/timezone`.
+- Estado: campo de preferência do usuário autenticado.
 - Deploy: DigitalOcean App Platform com HTTPS.
-- API externa: não aplicável.
 
 ## Critérios de aceite
 
 1. Dado navegador com timezone IANA válido e sem escolha, quando abrir, então ele é usado para exibição.
-2. Dada escolha manual válida, quando ocorrer rerun, então ela permanece e tem precedência sobre detecção.
-3. Dado `tz` inválido ou manipulado, quando carregar, então o app usa fallback e não executa conteúdo arbitrário.
+2. Dada escolha manual válida, quando navegar ou autenticar novamente, então ela permanece.
+3. Dado timezone inválido ou manipulado, quando persistir, então a API rejeita sem alterar a preferência.
 4. Dado horário de prova, quando alternar timezone de exibição, então o instante/deadline canônico não muda.
 5. Dado navegador compatível em HTTPS, quando consultar os metadados, então nome, manifest e ícones permitem a experiência instalável.
-6. Dado query param de preferência, quando acessado sem login, então ele não autentica nem amplia permissões.
-7. Dada configuração de produção, quando iniciar, então XSRF e regras de origem permanecem habilitados conforme o deploy.
-8. Dado fuso de exibição selecionado, quando a Agenda (streamlit-calendar) renderizar, então os eventos são exibidos nesse fuso, mesmo quando o navegador está em outro; quando navegador e seleção coincidem, o resultado é idêntico ao atual.
+6. Dada requisição sem sessão, quando tenta persistir timezone, então recebe 401.
+7. Dada mutação sem origem/CSRF válidos, quando enviada, então é rejeitada.
+8. Dado fuso selecionado, quando o Calendário renderiza, então eventos usam esse fuso sem alterar o instante canônico.
 
 ## Verificação
 
-- Critérios 1–4 — testes em `tests/test_timezone_preference.py`.
-- Critério 8 — teste estático em `tests/test_timezone_preference.py` (componente da Agenda recebe `timezone` do fuso de exibição).
-- Critérios 6 e 7 — testes em `tests/test_streamlit_security_config.py` e matriz de autenticação.
+- Critérios 1–4 e 8 — `tests/test_v4_pure_runtime.py` e contratos do frontend.
+- Critérios 6 e 7 — `tests/test_v4_api_security.py`.
 - Critério 5 — verificação manual em navegador compatível e HTTPS, incluindo inspeção do manifest e instalação.
 
 ## Pendências
@@ -87,6 +86,7 @@ Oferecer experiência instalável e horários compreensíveis por usuário, mant
 ## Changelog
 
 - `1.1` — 2026-08-16 — Agenda passa a exibir eventos no fuso de exibição selecionado (critério 8).
+- `2.0` — 2026-09-19 — Preferência e segurança consolidadas no frontend/API V4.
 - `1.0` — 2026-07-31 — Especificação operacional inicial.
 
 ## Relacionados

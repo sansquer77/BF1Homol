@@ -90,8 +90,8 @@ class DocumentationContractTests(unittest.TestCase):
             DOCS / "glossario.md",
             DOCS / "CHANGELOG.md",
             DOCS / "templates" / "spec-template.md",
-            DOCS / "adr" / "0001-streamlit-postgresql.md",
             DOCS / "adr" / "0002-limites-de-camadas.md",
+            DOCS / "adr" / "0003-nextjs-fastapi-e-compatibilidade-de-dados.md",
         ] + [DOCS / "specs" / name for name in focused_specs]
         self.assertEqual([str(path) for path in expected if not path.is_file()], [])
 

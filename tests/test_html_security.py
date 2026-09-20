@@ -25,26 +25,25 @@ class HtmlSecurityTests(unittest.TestCase):
 
     def test_html_e_javascript_so_podem_ser_renderizados_pelo_sink_central(self):
         violations = []
-        for path in [ROOT / "main.py", *sorted((ROOT / "ui").glob("*.py")), *sorted((ROOT / "utils").glob("*.py"))]:
-            if path.name == "html_utils.py":
-                continue
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Call):
+        for directory in (ROOT / "api", ROOT / "services", ROOT / "utils"):
+            for path in sorted(directory.rglob("*.py")):
+                if path.name == "html_utils.py":
                     continue
-                if isinstance(node.func, ast.Attribute) and node.func.attr == "html":
-                    violations.append(f"{path.relative_to(ROOT)}:{node.lineno}: chamada direta a .html")
-                for keyword in node.keywords:
-                    if keyword.arg in {"unsafe_allow_html", "unsafe_allow_javascript"}:
-                        if isinstance(keyword.value, ast.Constant) and keyword.value.value is True:
-                            violations.append(
-                                f"{path.relative_to(ROOT)}:{node.lineno}: {keyword.arg}=True fora do sink central"
-                            )
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.Call):
+                        continue
+                    for keyword in node.keywords:
+                        if keyword.arg in {"unsafe_allow_html", "unsafe_allow_javascript"}:
+                            if isinstance(keyword.value, ast.Constant) and keyword.value.value is True:
+                                violations.append(
+                                    f"{path.relative_to(ROOT)}:{node.lineno}: {keyword.arg}=True"
+                                )
         self.assertEqual([], violations, "\n".join(violations))
 
     def test_modulos_html_nao_usam_escape_disperso(self):
         violations = []
-        for directory in (ROOT / "services", ROOT / "ui", ROOT / "utils"):
+        for directory in (ROOT / "api", ROOT / "services", ROOT / "utils"):
             for path in directory.glob("*.py"):
                 if path.name == "html_utils.py":
                     continue

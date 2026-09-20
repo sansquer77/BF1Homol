@@ -36,11 +36,12 @@ frontmatter, callout de status, changelog e relacionados.
 
 ## 2. Restrições arquiteturais
 
-- O app é um monólito Streamlit hospedado na DigitalOcean App Platform.
+- O app V4 possui frontend Next.js/TypeScript e backend FastAPI/Python na DigitalOcean App Platform.
 - PostgreSQL é a fonte de verdade; o driver é `psycopg` 3 com pool gerenciado.
-- `ui/` renderiza e orquestra widgets. Regras pertencem a `services/`; SQL e
-  persistência pertencem a `db/` ou aos adaptadores de dados existentes.
-- `services/`, `db/` e `utils/` não importam Streamlit.
+- `frontend/` contém apresentação e estado do cliente; `api/` valida,
+  autentica e orquestra os casos de uso HTTP.
+- Regras pertencem a `services/`; SQL e persistência pertencem a `db/`.
+- `api/`, `services/`, `db/` e `utils/` não dependem de frameworks de UI.
 - `utils/` contém funções puras e transversais, sem acesso ao banco.
 - Escritas administrativas passam por autorização de operação na camada de
   serviço; valores de perfil, usuário e temporada vindos da UI não são fonte
@@ -63,8 +64,8 @@ frontmatter, callout de status, changelog e relacionados.
 
 ## 4. Autenticação e segurança
 
-- O login de produção é email/senha com bcrypt e JWT revogável no
-  `session_state` do Streamlit.
+- O login de produção é email/senha com bcrypt e JWT revogável em cookie
+  `Secure`, `HttpOnly` e `SameSite=Strict`.
 - `JWT_SECRET` é obrigatório e não pode ser versionado.
 - Novo login rotaciona sessões; logout e troca/redefinição de senha revogam os
   tokens previstos na spec.
@@ -114,7 +115,7 @@ migração. Não incremente por suposição nem use datas como versão.
 - [ ] Critérios de aceite cobertos por teste ou verificação manual explícita.
 - [ ] Regras e arquitetura atualizadas quando afetadas.
 - [ ] ADR criado para decisão técnica não trivial.
-- [ ] Limites `ui` → `services` → `db` respeitados.
+- [ ] Limites `frontend` → `api` → `services` → `db` respeitados.
 - [ ] Nenhum segredo ou dado de runtime versionado.
 - [ ] Testes direcionados e suíte relevante aprovados.
 - [ ] Versão, data e changelog documental atualizados.

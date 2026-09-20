@@ -67,7 +67,7 @@ Oferecer uma visão consolidada e comparável do desempenho de um participante e
 
 ## Verificação
 
-- Critérios 4–6 — testes: `tests/test_access_matrix.py`, `tests/test_lazy_screen_loading.py` e `tests/test_apostas_dataframe_contract.py`.
+- Critérios 4–6 — testes: `tests/test_access_matrix.py`, `tests/test_participant_panel_v4.py` e `tests/test_apostas_dataframe_contract.py`.
 - Critérios 1–3 e 7 — verificação manual com participante de duas temporadas e uma temporada sem dados.
 
 ## Pendências

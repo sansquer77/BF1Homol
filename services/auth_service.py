@@ -66,9 +66,8 @@ def _get_jwt_secret() -> str:
         secret = secret_from_env
         secret_source = "env"
 
-    # Verificar se está em ambiente de produção (Digital Ocean / Streamlit Cloud)
+    # Verificar se está em ambiente de produção na DigitalOcean.
     is_production = (
-        os.environ.get("STREAMLIT_SHARING") or
         os.environ.get("DIGITALOCEAN_APP_PLATFORM") or
         os.environ.get("PRODUCTION") == "true"
     )

@@ -2,7 +2,7 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 4.8
+versao: 5.0
 atualizado: 2026-09-19
 relacionados:
   - "[[inventario-v4]]"
@@ -19,9 +19,8 @@ aliases: ["Migração BF1 4.0 para Next.js e FastAPI"]
 
 ## Problema
 
-O frontend Streamlit limita responsividade, composição visual e evolução da
-experiência. A versão 4 separa entrega web e API sem reescrever as regras Python
-nem quebrar a restauração dos backups e o banco PostgreSQL existentes.
+A versão 4 separa entrega web e API, preservando as regras Python, o PostgreSQL
+e a restauração dos backups existentes em uma interface responsiva.
 
 ## Usuários
 
@@ -58,7 +57,7 @@ operação responsável por deploy, observabilidade e restauração.
 8. Mutações autenticadas por cookie possuem proteção CSRF e validação de origem.
 9. Logs operacionais no PostgreSQL não substituem as trilhas de auditoria de domínio existentes.
 10. Cada área é implementada isoladamente e só é considerada concluída após paridade automatizada e verificação mobile.
-11. A versão 4 é uma aplicação limpa, sem runtime, rota, dependência ou mecanismo de sessão do Streamlit.
+11. A versão 4 possui apenas os runtimes Next.js e FastAPI; não mantém interface Python paralela.
 12. Datas/deadlines continuam usando `America/Sao_Paulo`; timezone do cliente altera apenas apresentação.
 13. Frontend e API são publicados pela mesma origem; o ingresso encaminha `/api/*` ao FastAPI e as demais rotas ao Next.js.
 14. Não existe cadastro público: somente o Master autenticado cria e administra usuários convidados.
@@ -113,7 +112,8 @@ operação responsável por deploy, observabilidade e restauração.
 13. Dada uma requisição, quando termina, então logs correlacionáveis registram status e duração sem conteúdo sensível.
 14. Dada falha não tratada, quando ocorre, então o cliente recebe erro opaco com `request_id` e o servidor registra o erro sanitizado, usando `stdout/stderr` como contingência se o banco estiver indisponível.
 15. Dada a meta de carga definida antes do cutover, quando o cenário representativo é executado, então latência, erros e saturação ficam dentro dos limites aprovados.
-16. Dado o artefato da versão 4, quando dependências e imports são inspecionados, então não existe dependência de Streamlit nem código de compatibilidade com sua sessão/UI.
+16. Dado o artefato da versão 4, quando dependências e fontes são inspecionados,
+    então existem somente os entrypoints Next.js e FastAPI e um único contrato de sessão.
 17. Dado o primeiro bootstrap sem Master, quando as três variáveis obrigatórias estão válidas, então exatamente um Master é criado; em reinícios, suas credenciais persistidas não são alteradas.
 18. Dado usuário não Master, quando tenta listar ou baixar logs por chamada direta, então recebe acesso negado sem metadados do arquivo.
 19. Dado Master reautenticado, quando baixa um log permitido, então recebe somente o arquivo solicitado, com nome seguro e auditoria da operação.
@@ -158,14 +158,14 @@ acessos autenticados concorrentes, não 100 identidades independentes.
 - após o ensaio, `/api/v1/health/live` e `/classificacao` responderam HTTP 200
   em aproximadamente 0,5 s.
 
-O critério 15 permanece **reprovado**: a meta de leitura é p95 inferior a 400
-ms e taxa de erro inferior a 1%. As evidências apontaram primeiro para saturação
+O primeiro ensaio do critério 15 foi **reprovado**: a meta de leitura é p95
+inferior a 400 ms e taxa de erro inferior a 1%. As evidências apontaram primeiro para saturação
 do processamento síncrono da API e ausência de cancelamento do trabalho após o
 timeout do cliente, sem indicar saturação primária do banco. Como mitigação, a
 Classificação passou a manter base, resumo e histórico em cache local por
 temporada durante 300 segundos, separar resumo/histórico em contratos HTTP e
-aquecer o snapshot depois do processamento de resultados. Essas mudanças ainda
-não foram submetidas novamente ao gate e, portanto, não fecham o critério. O script reproduzível está em
+aquecer o snapshot depois do processamento de resultados. Essas mudanças,
+isoladamente, ainda não fechavam o critério. O script reproduzível está em
 `scripts/load_test_classification.py` e o resultado bruto em
 `load-test-classification-100.json`.
 
@@ -181,13 +181,9 @@ O patamar final processou 75/75 respostas HTTP 200 e fechou o critério 15.
 > [!question] Pendências
 > As decisões de produto e arquitetura necessárias ao scaffold foram aprovadas.
 
-1. Repetir, após a implantação dos caches de leitura (Classificação,
-   Telemetria, Calendário, Hall da Fama, Análise de Apostas, Histórico,
-   Apostas Pessoais, Dashboard F1 e Logs), a carga em patamares de 10, 15 e 25
-   usuários e confirmar p95/erros aprovados. O ensaio de 15 VUs em
-   2026-09-16 foi reprovado por rotação de sessão (conta única compartilhada)
-   e por p95 acima de 400 ms; ver `docs/relatorio-carga-2026-09-16.md`.
-2. Executar a Fase 10: builds limpos, publicação/cutover, observação e ensaio de rollback.
+1. Concluir a Fase 10: publicação/cutover, observação e ensaio de rollback. Os
+   builds limpos locais e a revisão de qualidade estão aprovados em
+   `docs/relatorio-qualidade-v4-2026-09-19.md`.
 
 A retenção de logs poderá ser calibrada após observar o volume real, sem reduzir
 controles de acesso, sanitização ou exportação.
@@ -212,9 +208,15 @@ controles de acesso, sanitização ou exportação.
 - [x] Fase 8 — backup/restauração SQL e Excel disponíveis e confirmados funcionais em homologação, com pré-validação, reautenticação e limites preservados.
 - [x] Fechar jornadas V4 identificadas na validação de homologação: gestão explícita de equipes e atualização/processamento de resultados pela interface. Recuperação de senha e formulário de apostas por prova também estão concluídos.
 - [x] Fase 9 — segurança, carga, acessibilidade e experiência mobile aprovadas em homologação. O gate aquecido de 25 usuários entregou 75/75 respostas HTTP 200, erro de 0% e p95 de 377,835 ms. Seis jornadas prioritárias foram verificadas em 360, 768 e 1440 px sem overflow; sem nomes acessíveis ausentes, IDs duplicados ou imagens sem `alt`; navegação por teclado alcança primeiro o skip link. Fecha critérios 5–9, 11–15 e 18–20.
-- [ ] Fase 10 — validar builds puros, publicar a V4 e observar a operação. Fecha critério 16.
+- [ ] Fase 10 — runtime anterior removido e builds puros locais aprovados; falta
+  publicar o artefato, observar a operação e ensaiar rollback. Critério 16 fechado.
 
 ## Changelog
+
+- `5.0` — 2026-09-19 — Código de apresentação anterior removido; repositório consolidado nos runtimes Next.js/FastAPI e versão do produto elevada a 4.0.0.
+
+- `4.9` — 2026-09-19 — Build local limpo da V4 aprovado, fontes órfãs removidas
+  e revisão de padrões/duplicações registrada; cutover e observação permanecem.
 
 - `4.8` — 2026-09-19 — Fase 9 concluída: segurança aprovada, gate aquecido de 25 VUs dentro da meta e jornadas prioritárias verificadas em mobile, tablet e desktop.
 

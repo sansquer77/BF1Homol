@@ -1,4 +1,4 @@
-"""Agregados de apostas da Fase 6 sem dependência de Streamlit."""
+"""Agregados de apostas da Fase 6 independentes da apresentação."""
 
 from __future__ import annotations
 

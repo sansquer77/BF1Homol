@@ -2,7 +2,7 @@
 tipo: produto
 area: bf1
 status: em-implementacao
-versao: 5.4
+versao: 6.0
 atualizado: 2026-09-19
 relacionados: ["[[01_necessidade]]", "[[02_regras_de_negocio]]", "[[03_spec]]", "[[04_arquitetura]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [produto, "area/bf1", "status/em-implementacao"]
@@ -40,6 +40,10 @@ resumo e histórico em contratos separados e aquecimento após o processamento
 de resultados. O gate aquecido de 25 usuários simultâneos foi aprovado com
 erro de 0% e p95 de 377,835 ms, encerrando a Fase 9.
 
+O gate local da Fase 10 aprovou compilação Python, typecheck e build de produção
+Next.js. A revisão removeu fontes órfãs e registrou modularizações de maior
+risco para depois do cutover; consulte [[relatorio-qualidade-v4-2026-09-19]].
+
 ## Stack vigente da V4
 
 | Camada | Tecnologia |
@@ -53,9 +57,9 @@ erro de 0% e p95 de 377,835 ms, encerrando a Fase 9.
 | Arquivos | pandas e openpyxl para compatibilidade Excel |
 | Deploy | DigitalOcean App Platform |
 
-`requirements-api.txt` define o runtime Python V4 e `frontend/package.json`
-define o runtime web. `requirements.txt`, `main.py` e `ui/` documentam e
-suportam o baseline V3, mas não fazem parte do runtime V4.
+`requirements-api.txt` define o runtime Python e `frontend/package.json`
+define o runtime web. `requirements.txt` é apenas um alias operacional do
+manifesto da API.
 
 ## Qualidade e gates
 
@@ -68,9 +72,14 @@ suportam o baseline V3, mas não fazem parte do runtime V4.
 
 ## Próximas entregas
 
-1. Validar builds limpos, rollback, cutover e observação da operação na Fase 10.
+1. Executar rollback, cutover e observação da operação na Fase 10; os builds
+   limpos locais já estão aprovados.
 
 ## Changelog
+
+- `6.0` — 2026-09-19 — Repositório consolidado no runtime único V4 e produto elevado a 4.0.0.
+
+- `5.5` — 2026-09-19 — Build local e revisão de qualidade da V4 registrados.
 
 - `5.4` — 2026-09-19 — Fase 9 concluída com gate de 25 VUs, acessibilidade e responsividade aprovados.
 

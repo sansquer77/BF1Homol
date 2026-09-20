@@ -19,9 +19,8 @@ aliases: ["Regulamento e Sobre da versão 4"]
 
 ## Problema
 
-Regulamento e Sobre ainda existem somente na interface Streamlit. A V4 precisa
-oferecer o mesmo conteúdo em páginas responsivas, dentro da navegação
-autenticada, sem carregar o runtime legado.
+Regulamento e Sobre precisam permanecer disponíveis em páginas responsivas,
+dentro da navegação autenticada e alinhadas ao conteúdo oficial.
 
 ## Usuários
 
@@ -39,8 +38,7 @@ Todos os perfis autenticados: `participante`, `admin`, `master` e
 
 ## Dados
 
-- Regulamento: conteúdo institucional derivado de `ui/regulamento.py` e da
-  RN-014, sem consulta ao PostgreSQL.
+- Regulamento: conteúdo institucional da RN-014, sem consulta ao PostgreSQL.
 - Versão V4: `api/version.py::API_VERSION`, compartilhada pelo metadado
   OpenAPI e pelo contrato `GET /api/v1/content/about`.
 - GIF: post público Tenor `14649753`, carregado isoladamente e sob demanda.
@@ -54,8 +52,7 @@ Todos os perfis autenticados: `participante`, `admin`, `master` e
    título acessível e link alternativo.
 4. Scripts de terceiros não são injetados no documento principal; o conteúdo
    Tenor é isolado em `iframe`.
-5. Sobre descreve a arquitetura V4 e não anuncia Streamlit como tecnologia da
-   nova aplicação.
+5. Sobre descreve a arquitetura Next.js/FastAPI vigente.
 6. A versão exibida em Sobre vem da API; o componente não repete literal de
    versão.
 7. As páginas seguem Apex Paddock UI, suportam teclado e não criam rolagem
@@ -84,8 +81,8 @@ Todos os perfis autenticados: `participante`, `admin`, `master` e
    exibida é a mesma constante usada pelo OpenAPI.
 6. Dado viewport de 360 px, quando usa qualquer uma das páginas, então conteúdo,
    links e embed permanecem utilizáveis sem overflow horizontal.
-7. Dado o artefato V4, quando suas dependências são inspecionadas, então essas
-   páginas não importam Streamlit nem executam o script global do Tenor.
+7. Dado o artefato, quando suas dependências são inspecionadas, então o embed
+   não executa o script global do Tenor.
 
 ## Verificação
 

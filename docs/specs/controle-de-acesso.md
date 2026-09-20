@@ -59,11 +59,11 @@ Os perfis são `master`, `admin`, `participante` e `inativo`.
 
 ## Interface, serviços e dados
 
-- Roteador: `main.py`.
+- Roteadores: `api/routes/` e dependências em `api/dependencies.py`.
 - Política: `services/access_control.py`.
 - Operações administrativas: `services/admin_operations.py`.
 - Dados: `usuarios`, histórico de status e JWT validado.
-- API: não aplicável.
+- API: `/api/v1`, com contexto autenticado em toda rota protegida.
 
 ## Critérios de aceite
 

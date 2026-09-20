@@ -248,7 +248,7 @@ def atualizar_classificacoes_todas_as_provas(temporada: Optional[str] = None):
                 continue
             for _col in list(_df.columns):
                 try:
-                    if pd.api.types.is_categorical_dtype(_df[_col]):
+                    if isinstance(_df[_col].dtype, pd.CategoricalDtype):
                         _df[_col] = _df[_col].astype(object)
                 except Exception:
                     try:

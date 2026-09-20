@@ -2,12 +2,12 @@
 tipo: adr
 area: arquitetura
 status: implementado
-versao: 1.1
-atualizado: 2026-09-07
+versao: 2.0
+atualizado: 2026-09-19
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
   - "[[inventario-v4]]"
-  - "[[adr/0001-streamlit-postgresql]]"
+  - "[[adr/0002-limites-de-camadas]]"
 tags: [adr, "area/arquitetura", "status/implementado"]
 aliases: ["ADR-0003 Next.js, FastAPI e compatibilidade de dados"]
 ---
@@ -15,88 +15,47 @@ aliases: ["ADR-0003 Next.js, FastAPI e compatibilidade de dados"]
 # ADR-0003 — Next.js, FastAPI e compatibilidade de dados
 
 > [!info] Status
-> **implementado** · área: `arquitetura` · atualizado em 2026-09-07 · relacionados: [[specs/migracao-v4-nextjs-fastapi]], [[inventario-v4]], [[adr/0001-streamlit-postgresql]]
+> **implementado** · área: `arquitetura` · atualizado em 2026-09-19 · runtime V4 exclusivo.
 
 ## Contexto
 
-As limitações de responsividade e composição visual atingiram o critério de
-revisão do ADR-0001. A aplicação já possui regras Python parcialmente separadas
-da UI e precisa preservar o PostgreSQL e a restauração dos backups existentes
-como regra primária da versão 4.
+O BF1 precisa de uma interface responsiva, contratos HTTP explícitos e
+continuidade integral do PostgreSQL e dos backups já suportados.
 
 ## Decisão
 
-- Construir a versão 4 como aplicação limpa com Next.js App Router/TypeScript
-  no frontend e FastAPI no backend, sem runtime ou compatibilidade de UI/sessão
-  do Streamlit.
-- Manter `services/` como núcleo das regras e `db/` como persistência, usando a
-  API como adaptador de entrega, conforme os limites do ADR-0002.
-- Manter PostgreSQL como única fonte de verdade e tratar o formato de backup
-  3.x suportado como contrato de entrada versionado.
-- Reconstruir o contrato V3.x a partir do código de schema/migrations, código
-  de restore e backups SQL/Excel reais; não exigir acesso ao banco hospedado
-  para inventário ou caracterização.
-- Evoluir o schema por migrations aditivas/idempotentes; colunas legadas ficam
-  disponíveis até existir conversor e retirada formalmente aprovados.
-- Hospedar frontend e API sob a mesma origem, com o ingresso encaminhando
-  `/api/*` ao FastAPI e as demais rotas ao Next.js, simplificando cookies, CORS
-  e CSRF.
-- Usar sessão em cookie seguro e revogável; autorização por objeto e temporada
-  ocorre nos serviços, não no frontend.
-- Usar ApexCharts por um componente compartilhado no frontend.
-- Registrar aplicação, acesso, segurança e erros de forma estruturada no
-  PostgreSQL existente, com retenção e exportação administrativa protegida;
-  manter `stdout/stderr` para falhas do próprio banco ou anteriores à conexão.
-- Implementar e validar por área; o rollback operacional usa o último artefato
-  estável e o backup compatível, não uma instalação Streamlit paralela.
-- Manter autenticação por convite, sem cadastro público, e criar o primeiro
-  Master de forma idempotente pelas variáveis seguras da DigitalOcean.
+- Next.js App Router/TypeScript é o único frontend.
+- FastAPI é o único backend HTTP, sob `/api/v1`.
+- `services/` preserva o domínio Python e `db/` a persistência PostgreSQL.
+- Frontend e API operam na mesma origem.
+- PostgreSQL permanece como única fonte de verdade.
+- Backups SQL e Excel suportados continuam como contrato de entrada versionado.
+- Migrations são aditivas e idempotentes.
+- Sessão usa cookie seguro e revogável; autorização por objeto e temporada
+  ocorre no servidor.
+- ApexCharts é o adaptador compartilhado para gráficos.
+- O rollback usa o último artefato V4 estável e backup compatível.
 
-## Alternativas consideradas
+## Alternativas rejeitadas
 
-- Reescrever também as regras em TypeScript: rejeitada por duplicar o domínio e
-  elevar o risco de divergência de pontuação/deadlines.
-- Criar um banco novo e importar os dados: rejeitada por violar a regra primária
-  e tornar restauração/rollback mais frágeis.
-- Conversão imediata das colunas TEXT para tipos nativos: rejeitada; colunas
-  paralelas preservam o contrato atual e permitem validação gradual.
-- Migração big-bang: rejeitada pela superfície de 20 telas, operações sensíveis
-  e criticidade de backup.
-- Arquivos persistentes ou object storage para observabilidade: rejeitados nesta
-  fase pelo custo adicional e pelo baixo volume esperado do aplicativo por convite.
+- Reescrever regras em TypeScript: duplicaria o domínio.
+- Criar outro banco: quebraria a regra primária de compatibilidade.
+- Executar uploads SQL arbitrários: incompatível com a política fail-closed.
+- Manter duas interfaces: ampliaria superfície de ataque, dependências e testes.
 
 ## Consequências
 
-- O repositório passa a ter dois runtimes e um contrato HTTP versionado.
-- Testes de caracterização tornam-se gate de cada área e do cutover.
-- Parte das regras ainda presente em `ui/` terá de migrar para serviços antes de
-  receber endpoints.
-- Deploy, health checks, retenção de logs e correlação entre runtimes exigem
-  configuração operacional adicional.
-- Não haverá fallback de interface para Streamlit neste ambiente; a cobertura de
-  caracterização e o ensaio de restauração tornam-se gates ainda mais fortes.
-
-## Critérios de revisão
-
-Revisar se o volume de logs afetar o banco transacional ou tornar object storage
-mais econômico. Revisar a retirada de
-qualquer coluna/formato legado somente após a janela de compatibilidade e um
-conversor de backup aprovado.
-
-## Pendências
-
-- Nenhuma pendência arquitetural bloqueante conhecida.
+O repositório possui um único runtime web. A compatibilidade histórica é
+garantida por dados, testes e fixtures, não por código de apresentação antigo.
+O cutover exige build, health checks, restore e rollback do artefato V4.
 
 ## Changelog
 
-- `1.1` — 2026-09-07 — Formalizadas as fontes do contrato reconstruído V3.x e a independência de acesso ao banco hospedado; logs operacionais usam o PostgreSQL por decisão de custo.
-- `1.0` — 2026-09-06 — Decisão aprovada, incluindo convite, bootstrap Master, política de sessão, logs e compatibilidade integral dos backups V3.x suportados.
-- `0.2` — 2026-09-06 — Aprovadas mesma origem com `/api` e V4 pura sem dependência ou convivência com Streamlit.
-- `0.1` — 2026-09-06 — Decisão arquitetural proposta para a versão 4.
+- `2.0` — 2026-09-19 — Retirada da apresentação antiga e consolidação do runtime V4 exclusivo.
+- `1.0` — 2026-09-06 — Arquitetura V4 aprovada.
 
 ## Relacionados
 
 - [[specs/migracao-v4-nextjs-fastapi]]
 - [[inventario-v4]]
-- [[adr/0001-streamlit-postgresql]]
 - [[adr/0002-limites-de-camadas]]

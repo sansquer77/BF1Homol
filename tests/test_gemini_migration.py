@@ -56,7 +56,7 @@ class GeminiMigrationTests(unittest.TestCase):
         self.assertEqual("gemini-3.5-flash", gemini_service.DEFAULT_GEMINI_MODEL)
 
     def test_repository_has_no_perplexity_runtime_contract(self):
-        searchable = [ROOT / "services", ROOT / "ui", ROOT / "docs", ROOT / "requirements.txt"]
+        searchable = [ROOT / "services", ROOT / "api", ROOT / "frontend", ROOT / "docs", ROOT / "requirements.txt"]
         matches = []
         for path in searchable:
             files = path.rglob("*") if path.is_dir() else [path]
