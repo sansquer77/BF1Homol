@@ -2,8 +2,8 @@
 tipo: metodologia
 area: migracao-v4
 status: implementado
-versao: 1.0
-atualizado: 2026-09-19
+versao: 1.1
+atualizado: 2026-09-20
 relacionados:
   - "[[specs/migracao-v4-nextjs-fastapi]]"
   - "[[04_arquitetura]]"
@@ -31,7 +31,7 @@ build de produção e suíte automatizada.
 | TypeScript `tsc --noEmit` | Aprovado |
 | Next.js `next build` limpo | Aprovado; 26 páginas geradas |
 | Testes direcionados da limpeza e documentação | 54 aprovados |
-| Suíte integral V4 | Aprovada: 300 testes e 144 subtestes |
+| Suíte integral V4 | Aprovada: 306 testes e 144 subtestes |
 
 A suíte anterior contabilizava 328 testes e 153 subtestes porque ainda incluía
 casos que importavam ou inspecionavam a apresentação Streamlit. Esses casos
@@ -71,8 +71,9 @@ Oportunidades:
    começando por `logs-view.tsx`, sem alterar contratos.
 2. Adotar ESLint e Prettier em mudança própria, com versões travadas e gate de
    CI; hoje há comentários de ESLint sem uma ferramenta versionada no pacote.
-3. Manter o cache de dados no FastAPI: não foi identificado uso de ISR nem
-   cache compartilhado do Next que exigisse coordenação entre instâncias.
+3. ~~Manter o cache de dados no FastAPI~~ — aplicado em 2026-09-20: o cliente
+   Next permanece `no-store` e o cache TTL do backend passou a agrupar misses
+   concorrentes por chave, sem introduzir ISR ou uma segunda autoridade de cache.
 
 ### Python e FastAPI
 
@@ -104,6 +105,7 @@ V4 o único artefato operável. Decisão de versão: **major**, elevando o produ
 
 ## Changelog
 
+- `1.1` — 2026-09-20 — Diretriz de cache FastAPI aplicada com single-flight por chave e frontend sem cache de dados.
 - `1.0` — 2026-09-19 — Gate local, limpeza segura e backlog técnico priorizado.
 
 ## Relacionados

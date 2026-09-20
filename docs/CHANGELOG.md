@@ -2,8 +2,8 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.26
-atualizado: 2026-09-19
+versao: 1.27
+atualizado: 2026-09-20
 relacionados:
   - "[[sdd]]"
   - "[[03_spec]]"
@@ -23,6 +23,13 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 > [!note] Migração V4
 > As Fases 1–9 estão concluídas, incluindo backup/restore Excel confirmado em
 > homologação. A Fase 10 de cutover e observação permanece pendente.
+
+### 4.1.1
+
+- Cache TTL do FastAPI passa a agrupar misses concorrentes da mesma chave,
+  reduzindo consultas e cálculos duplicados durante aquecimento.
+- Invalidação concorrente impede reinserção de resultados iniciados antes de
+  uma escrita; o Next.js permanece sem cache de dados de negócio.
 
 ### 4.1.0
 

@@ -2,8 +2,8 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.23
-atualizado: 2026-09-19
+versao: 1.24
+atualizado: 2026-09-20
 relacionados:
   - "[[sdd]]"
   - "[[01_necessidade]]"
@@ -16,7 +16,7 @@ aliases: ["Documentação BF1", "Map of Content"]
 # Documentação BF1
 
 > [!info] Status
-> **implementado** · área: `meta` · atualizado em 2026-09-19 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
+> **implementado** · área: `meta` · atualizado em 2026-09-20 · relacionados: [[sdd]], [[01_necessidade]], [[03_spec]], [[04_arquitetura]]
 
 Este é o ponto de entrada da documentação do BF1. O vault é compatível com
 Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
@@ -100,6 +100,7 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.24` — 2026-09-20 — Cache FastAPI consolidado como autoridade única, com agrupamento de misses concorrentes por chave.
 - `1.23` — 2026-09-19 — Runtime anterior removido e versão 4.0.0 consolidada.
 
 - `1.22` — 2026-09-19 — Registrado o build limpo e a revisão de qualidade da V4.

@@ -1,5 +1,8 @@
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from threading import Barrier, Event, Lock
+from time import sleep
 from unittest.mock import patch
 
 from tests._db_driver_stub import install_if_needed
@@ -71,6 +74,62 @@ class PerformanceOptimizationTests(unittest.TestCase):
         self.assertEqual((apostas(), provas()), (1, 1))
         clear_all_caches("apostas")
         self.assertEqual((apostas(), provas()), (2, 1))
+
+    def test_cache_frio_agrupa_misses_concorrentes_da_mesma_chave(self):
+        calls = 0
+        calls_lock = Lock()
+
+        @ttl_cache(ttl=60, tags=("single-flight",))
+        def expensive(season):
+            nonlocal calls
+            with calls_lock:
+                calls += 1
+            sleep(0.05)
+            return {"season": season}
+
+        with ThreadPoolExecutor(max_workers=12) as executor:
+            results = list(executor.map(expensive, ["2026"] * 12))
+
+        self.assertEqual(calls, 1)
+        self.assertEqual(results, [{"season": "2026"}] * 12)
+
+    def test_chaves_diferentes_continuam_processando_em_paralelo(self):
+        both_started = Barrier(2, timeout=2)
+
+        @ttl_cache(ttl=60, tags=("parallel-keys",))
+        def read_key(key):
+            both_started.wait()
+            return key
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(read_key, key) for key in ("2025", "2026")]
+            self.assertEqual([future.result(timeout=2) for future in futures], ["2025", "2026"])
+
+    def test_invalidacao_durante_miss_nao_reinsere_resultado_obsoleto(self):
+        started = Event()
+        release = Event()
+        calls = 0
+
+        @ttl_cache(ttl=60, tags=("invalidate-in-flight",))
+        def read_value():
+            nonlocal calls
+            calls += 1
+            current = calls
+            if current == 1:
+                started.set()
+                release.wait(timeout=2)
+            return current
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            first = executor.submit(read_value)
+            self.assertTrue(started.wait(timeout=2))
+            clear_all_caches("invalidate-in-flight")
+            release.set()
+            self.assertEqual(first.result(timeout=2), 1)
+
+        self.assertEqual(read_value(), 2)
+        self.assertEqual(read_value(), 2)
+        self.assertEqual(calls, 2)
 
     def test_participantes_com_historico_usam_uma_consulta_de_dados(self):
         cursor = _Cursor([{"id": 7, "nome": "Ana", "status": "inativo"}])

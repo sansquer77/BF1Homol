@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: implementado
-versao: 5.0
-atualizado: 2026-09-19
+versao: 5.1
+atualizado: 2026-09-20
 relacionados:
   - "[[02_regras_de_negocio]]"
   - "[[adr/0002-limites-de-camadas]]"
@@ -15,7 +15,7 @@ aliases: ["Arquitetura do Sistema"]
 # Arquitetura do Sistema — BF1 V4
 
 > [!info] Status
-> **implementado** · área: `bf1` · atualizado em 2026-09-19 · runtime único Next.js/FastAPI.
+> **implementado** · área: `bf1` · atualizado em 2026-09-20 · runtime único Next.js/FastAPI.
 
 ## Visão geral
 
@@ -72,7 +72,10 @@ restrita e nunca encaminhado como script arbitrário ao banco.
 
 Caches de leitura usam TTL e tags de domínio; escritas invalidam apenas tags
 afetadas. A Classificação mantém resumo e histórico por temporada e aquece o
-snapshot após resultados. Logs de aplicação, acesso e segurança são
+snapshot após resultados. Misses simultâneos da mesma chave são agrupados por
+processo, evitando cálculos duplicados, e uma invalidação concorrente impede a
+reinserção de valor obsoleto. O Next.js não mantém cache de dados de negócio.
+Logs de aplicação, acesso e segurança são
 estruturados no PostgreSQL, com `stdout/stderr` como contingência.
 
 ## Build e deploy
@@ -85,6 +88,7 @@ estruturados no PostgreSQL, com `stdout/stderr` como contingência.
 
 ## Changelog
 
+- `5.1` — 2026-09-20 — Cache FastAPI ganha single-flight por chave; frontend permanece sem cache de dados de negócio.
 - `5.0` — 2026-09-19 — Arquitetura consolidada no runtime único V4 após retirada integral da apresentação antiga.
 
 ## Relacionados

@@ -23,7 +23,9 @@ _CACHE_EVICTION_BATCH = max(1, _MAX_CACHE_ENTRIES // 10)
 def ttl_cache(*, ttl: int, tags: tuple[str, ...] = ()) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorate(func: Callable[P, R]) -> Callable[P, R]:
         values: dict[object, tuple[float, R]] = {}
+        pending: dict[object, threading.Event] = {}
         lock = threading.RLock()
+        generation = 0
 
         def make_key(args: tuple[Any, ...], kwargs: dict[str, Any]) -> object:
             try:
@@ -53,20 +55,45 @@ def ttl_cache(*, ttl: int, tags: tuple[str, ...] = ()) -> Callable[[Callable[P, 
         @functools.wraps(func)
         def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
             key = make_key(args, kwargs)
-            now = time.monotonic()
+            while True:
+                now = time.monotonic()
+                with lock:
+                    _prune_expired(now)
+                    cached = values.get(key)
+                    if cached and cached[0] > now:
+                        return cached[1]
+                    ready = pending.get(key)
+                    if ready is None:
+                        ready = threading.Event()
+                        pending[key] = ready
+                        owner_generation = generation
+                        break
+                # Outro worker já produz esta chave. Chaves diferentes não
+                # compartilham o evento e continuam processando em paralelo.
+                ready.wait()
+
+            try:
+                result = func(*args, **kwargs)
+            except BaseException:
+                with lock:
+                    pending.pop(key, None)
+                    ready.set()
+                raise
             with lock:
-                _prune_expired(now)
-                cached = values.get(key)
-                if cached and cached[0] > now:
-                    return cached[1]
-            result = func(*args, **kwargs)
-            with lock:
-                values[key] = (now + ttl, result)
-                _evict_if_needed()
+                # Uma escrita pode invalidar a tag enquanto o produtor está
+                # executando. Nesse caso o valor iniciado antes da escrita não
+                # volta ao cache, embora esta chamada ainda receba seu resultado.
+                if owner_generation == generation:
+                    values[key] = (time.monotonic() + ttl, result)
+                    _evict_if_needed()
+                pending.pop(key, None)
+                ready.set()
             return result
 
         def clear() -> None:
+            nonlocal generation
             with lock:
+                generation += 1
                 values.clear()
 
         wrapped.clear = clear  # type: ignore[attr-defined]

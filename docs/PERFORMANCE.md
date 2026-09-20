@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: performance
 status: implementado
-versao: 1.5
-atualizado: 2026-09-19
+versao: 1.6
+atualizado: 2026-09-20
 relacionados:
   - "[[04_arquitetura]]"
   - "[[06_modulos_tecnicos]]"
@@ -15,7 +15,7 @@ aliases: ["Performance e Jornadas Críticas"]
 # Performance e jornadas críticas
 
 > [!info] Status
-> **implementado** · área: `performance` · atualizado em 2026-09-19 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]
+> **implementado** · área: `performance` · atualizado em 2026-09-20 · relacionados: [[04_arquitetura]], [[06_modulos_tecnicos]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]
 
 Metas operacionais:
 
@@ -85,6 +85,13 @@ emissão sem remover a instrumentação.
 - Escritas V4 de apostas, resultados, regras, provas, pilotos, equipes,
   participantes e campeonato invalidam a tag `classificacao`. O processamento
   de resultado aquece o snapshot completo depois da invalidação.
+- O cache TTL do FastAPI aplica *single-flight* por chave: em um miss
+  concorrente, somente uma requisição executa a leitura/cálculo e as demais
+  aguardam o mesmo resultado. A invalidação ocorrida durante o cálculo impede
+  que o resultado anterior à escrita seja reinserido no cache.
+- O frontend usa `cache: "no-store"` nas chamadas da API. Não há ISR nem cache
+  de dados de negócio no Next.js; a autoridade de TTL e invalidação permanece
+  no FastAPI.
 
 ## Gate de carga da Classificação
 
@@ -159,9 +166,14 @@ entre 5 e 10 temporadas: ele não pode crescer com o número de temporadas.
    escritas V4 dos domínios que alteram seus dados.
 10. A mitigação do gargalo só é considerada aprovada após o gate de 25 usuários
     simultâneos; testes unitários de cache não substituem carga em homologação.
+11. Requisições concorrentes com a mesma chave em cache frio executam o produtor
+    uma única vez por processo; chaves diferentes continuam independentes.
+12. Uma invalidação durante o processamento não permite que o resultado
+    iniciado antes dela seja armazenado novamente.
 
 ## Changelog
 
+- `1.6` — 2026-09-20 — Cache TTL do FastAPI passa a agrupar misses concorrentes por chave e a impedir reinserção obsoleta após invalidação.
 - `1.5` — 2026-09-19 — Gate aquecido de 25 VUs aprovado com erro de 0% e p95 de 377,835 ms.
 
 - `1.4` — 2026-09-19 — Gate operacional da Fase 9 calibrado para 25 usuários simultâneos, acima do total atual de participantes.

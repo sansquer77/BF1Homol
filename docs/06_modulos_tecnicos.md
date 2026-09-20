@@ -2,8 +2,8 @@
 tipo: arquitetura
 area: bf1
 status: em-implementacao
-versao: 6.0
-atualizado: 2026-09-19
+versao: 6.1
+atualizado: 2026-09-20
 relacionados: ["[[04_arquitetura]]", "[[05_projeto]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [arquitetura, "area/bf1", "status/em-implementacao"]
 aliases: ["Módulos Técnicos"]
@@ -12,7 +12,7 @@ aliases: ["Módulos Técnicos"]
 # Módulos Técnicos — BF1 V4
 
 > [!info] Status
-> **em-implementacao** · área: `bf1` · atualizado em 2026-09-19 · Fases 1–9 concluídas; gate local da Fase 10 aprovado.
+> **em-implementacao** · área: `bf1` · atualizado em 2026-09-20 · Fases 1–9 concluídas; gate local da Fase 10 aprovado.
 
 ## Entradas do runtime V4
 
@@ -59,6 +59,11 @@ Dashboard F1 é local e independente por definição de produto.
   processamento de resultado aquece novamente o snapshot completo.
 - `BF1_TTL_CACHE_MAX_ENTRIES` limita o número de entradas do utilitário. O TTL
   da Classificação não é configurável no código vigente.
+- O utilitário TTL agrupa misses concorrentes da mesma chave por processo. Uma
+  invalidação durante o cálculo incrementa a geração e impede que o resultado
+  anterior à escrita seja armazenado novamente.
+- O cliente HTTP do Next.js usa `cache: "no-store"`; cache e invalidação de
+  dados de negócio pertencem exclusivamente ao FastAPI.
 
 ## Dados e continuidade
 
