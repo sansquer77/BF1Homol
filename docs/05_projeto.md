@@ -2,8 +2,8 @@
 tipo: produto
 area: bf1
 status: em-implementacao
-versao: 6.0
-atualizado: 2026-09-19
+versao: 6.1
+atualizado: 2026-09-20
 relacionados: ["[[01_necessidade]]", "[[02_regras_de_negocio]]", "[[03_spec]]", "[[04_arquitetura]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [produto, "area/bf1", "status/em-implementacao"]
 aliases: ["Documento de Projeto"]
@@ -12,7 +12,7 @@ aliases: ["Documento de Projeto"]
 # Documento de Projeto — BF1
 
 > [!info] Status
-> **em-implementacao** · área: `bf1` · atualizado em 2026-09-19 · relacionados: [[04_arquitetura]], [[specs/migracao-v4-nextjs-fastapi]]
+> **em-implementacao** · área: `bf1` · atualizado em 2026-09-20 · promoção da V4 para produção agendada para 2026-09-20.
 
 ## Estado do produto
 
@@ -72,11 +72,13 @@ manifesto da API.
 
 ## Próximas entregas
 
-1. Executar rollback, cutover e observação da operação na Fase 10; os builds
-   limpos locais já estão aprovados.
+1. Executar a promoção agendada para 2026-09-20 e observar health checks, logs,
+   autenticação e apostas. Builds, restores e estratégia de rollback V3.5 já
+   estão aprovados.
 
 ## Changelog
 
+- `6.1` — 2026-09-20 — Promoção para produção agendada após aprovação de restores, acesso de participantes, apostas e estratégia de rollback.
 - `6.0` — 2026-09-19 — Repositório consolidado no runtime único V4 e produto elevado a 4.0.0.
 
 - `5.5` — 2026-09-19 — Build local e revisão de qualidade da V4 registrados.

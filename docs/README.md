@@ -2,7 +2,7 @@
 tipo: produto
 area: meta
 status: implementado
-versao: 1.24
+versao: 1.25
 atualizado: 2026-09-20
 relacionados:
   - "[[sdd]]"
@@ -28,8 +28,9 @@ Obsidian e permanece legível no GitHub, IDEs e ferramentas de IA.
 - Fase 9 concluída: controles de segurança, acessibilidade e experiência
   responsiva aprovados; o gate aquecido de 25 usuários simultâneos passou com
   erro de 0% e p95 de 377,835 ms.
-- Fase 10 em andamento: builds limpos e revisão de qualidade aprovados; faltam
-  cutover, observação e ensaio de rollback.
+- Fase 10 em andamento: promoção para produção agendada para 2026-09-20;
+  builds, restores e estratégia de rollback aprovados, restando health checks
+  e observação pós-deploy.
 - O repositório contém somente o runtime V4; compatibilidade 3.x permanece nos
   contratos de dados, fixtures e testes de restauração.
 
@@ -100,6 +101,7 @@ migração gradual de cada módulo.
 
 ## Changelog
 
+- `1.25` — 2026-09-20 — Promoção para produção agendada; validações de homologação e estratégia de rollback reconciliadas.
 - `1.24` — 2026-09-20 — Cache FastAPI consolidado como autoridade única, com agrupamento de misses concorrentes por chave.
 - `1.23` — 2026-09-19 — Runtime anterior removido e versão 4.0.0 consolidada.
 

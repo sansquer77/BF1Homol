@@ -46,7 +46,7 @@ def download_excel(table_name:str, context: AuthenticatedContext=Depends(require
   from db.backup_excel import export_table_excel
   content=export_table_excel(table_name)
  except ValueError as exc: raise HTTPException(status_code=404,detail="Tabela indisponível para exportação.") from exc
- return Response(content,media_type=EXCEL_MEDIA_TYPE,headers={"Content-Disposition":f'attachment; filename="bf1_backup_{_backup_stamp()}.xlsx"',"Cache-Control":"no-store"})
+ return Response(content,media_type=EXCEL_MEDIA_TYPE,headers={"Content-Disposition":f'attachment; filename="bf1_backup_{table_name}_{_backup_stamp()}.xlsx"',"Cache-Control":"no-store"})
 
 @router.post("/validate/excel/{table_name}",response_model=ExcelValidationResponse)
 async def validate_excel(table_name:str, request:Request, context:AuthenticatedContext=Depends(require_master)):

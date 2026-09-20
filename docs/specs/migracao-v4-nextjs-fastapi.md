@@ -2,8 +2,8 @@
 tipo: spec
 area: migracao-v4
 status: em-implementacao
-versao: 5.0
-atualizado: 2026-09-19
+versao: 5.1
+atualizado: 2026-09-20
 relacionados:
   - "[[inventario-v4]]"
   - "[[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]]"
@@ -15,7 +15,7 @@ aliases: ["Migração BF1 4.0 para Next.js e FastAPI"]
 # Migração BF1 4.0 para Next.js e FastAPI
 
 > [!info] Status
-> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-19 · relacionados: [[inventario-v4]], [[adr/0003-nextjs-fastapi-e-compatibilidade-de-dados]], [[04_arquitetura]]
+> **em-implementacao** · área: `migracao-v4` · atualizado em 2026-09-20 · promoção para produção agendada; observação pós-deploy pendente.
 
 ## Problema
 
@@ -181,9 +181,9 @@ O patamar final processou 75/75 respostas HTTP 200 e fechou o critério 15.
 > [!question] Pendências
 > As decisões de produto e arquitetura necessárias ao scaffold foram aprovadas.
 
-1. Concluir a Fase 10: publicação/cutover, observação e ensaio de rollback. Os
-   builds limpos locais e a revisão de qualidade estão aprovados em
-   `docs/relatorio-qualidade-v4-2026-09-19.md`.
+1. Concluir a promoção para produção agendada para 2026-09-20 e observar health
+   checks, erros, autenticação, apostas e banco após o deploy. Builds, restores
+   SQL/Excel e estratégia de retorno ao código V3.5 estão aprovados.
 
 A retenção de logs poderá ser calibrada após observar o volume real, sem reduzir
 controles de acesso, sanitização ou exportação.
@@ -208,11 +208,13 @@ controles de acesso, sanitização ou exportação.
 - [x] Fase 8 — backup/restauração SQL e Excel disponíveis e confirmados funcionais em homologação, com pré-validação, reautenticação e limites preservados.
 - [x] Fechar jornadas V4 identificadas na validação de homologação: gestão explícita de equipes e atualização/processamento de resultados pela interface. Recuperação de senha e formulário de apostas por prova também estão concluídos.
 - [x] Fase 9 — segurança, carga, acessibilidade e experiência mobile aprovadas em homologação. O gate aquecido de 25 usuários entregou 75/75 respostas HTTP 200, erro de 0% e p95 de 377,835 ms. Seis jornadas prioritárias foram verificadas em 360, 768 e 1440 px sem overflow; sem nomes acessíveis ausentes, IDs duplicados ou imagens sem `alt`; navegação por teclado alcança primeiro o skip link. Fecha critérios 5–9, 11–15 e 18–20.
-- [ ] Fase 10 — runtime anterior removido e builds puros locais aprovados; falta
-  publicar o artefato, observar a operação e ensaiar rollback. Critério 16 fechado.
+- [ ] Fase 10 — runtime anterior removido, builds puros, restores SQL/Excel e
+  estratégia de rollback V3.5 aprovados. Promoção para produção agendada para
+  2026-09-20; falta confirmar health checks e observação pós-deploy. Critério 16 fechado.
 
 ## Changelog
 
+- `5.1` — 2026-09-20 — Promoção para produção agendada; validações funcionais, restores e estratégia de rollback aprovadas, restando observação pós-deploy.
 - `5.0` — 2026-09-19 — Código de apresentação anterior removido; repositório consolidado nos runtimes Next.js/FastAPI e versão do produto elevada a 4.0.0.
 
 - `4.9` — 2026-09-19 — Build local limpo da V4 aprovado, fontes órfãs removidas

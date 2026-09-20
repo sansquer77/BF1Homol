@@ -2,8 +2,8 @@
 tipo: spec
 area: backup
 status: implementado
-versao: 1.10
-atualizado: 2026-09-19
+versao: 1.11
+atualizado: 2026-09-20
 relacionados: ["[[specs/controle-de-acesso]]", "[[specs/autenticacao-e-sessao]]", "[[04_arquitetura]]"]
 tags: [spec, "area/backup", "status/implementado"]
 aliases: ["Backup e restauração"]
@@ -12,7 +12,7 @@ aliases: ["Backup e restauração"]
 # Backup e restauração
 
 > [!info] Status
-> **implementado** · área: `backup` · atualizado em 2026-09-19 · relacionados: [[specs/controle-de-acesso]], [[specs/autenticacao-e-sessao]], [[04_arquitetura]]
+> **implementado** · área: `backup` · atualizado em 2026-09-20 · relacionados: [[specs/controle-de-acesso]], [[specs/autenticacao-e-sessao]], [[04_arquitetura]]
 
 ## Problema
 
@@ -60,8 +60,9 @@ Permitir exportação e restauração administrativa com limites de recursos, re
     o backend os recalcula internamente após a restauração.
 15. Tentativas de reautenticação são limitadas pelo mesmo bucket crítico usado
     na exportação de logs, por conta e IP, com padrão de 5 falhas em 15 minutos.
-16. Downloads SQL e Excel usam o nome `bf1_backup_YYYYMMDD_HHMMSS`, acrescido
-    somente da extensão correspondente (`.sql` ou `.xlsx`).
+16. O download SQL usa `bf1_backup_YYYYMMDD_HHMMSS.sql`. Como o contrato Excel
+    gera um arquivo por tabela, cada download usa
+    `bf1_backup_<tabela>_YYYYMMDD_HHMMSS.xlsx`.
 
 ## Interface, serviços e dados
 
@@ -92,6 +93,8 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 13. Dado restore SQL ou Excel concluído, então o Master é revalidado pelas
     variáveis `USUARIO_MASTER`, `EMAIL_MASTER` e `SENHA_MASTER` antes da
     resposta de sucesso.
+14. Dada exportação Excel da tabela `usuarios`, então o nome baixado segue
+    `bf1_backup_usuarios_YYYYMMDD_HHMMSS.xlsx`; o nome SQL permanece sem tabela.
 
 ## Verificação
 
@@ -120,6 +123,7 @@ Permitir exportação e restauração administrativa com limites de recursos, re
 
 ## Changelog
 
+- `1.11` — 2026-09-20 — Nome do backup Excel passa a identificar a tabela antes do timestamp; padrão SQL permanece inalterado.
 - `1.10` — 2026-09-19 — Padronizada a nomenclatura dos arquivos de backup V4 com data e hora.
 
 - `1.9` — 2026-09-18 — Revalidação do Master adicionada após todo restore SQL ou Excel.

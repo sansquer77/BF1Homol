@@ -2,8 +2,8 @@
 tipo: metodologia
 area: bf1
 status: em-revisao
-versao: 5.6
-atualizado: 2026-09-19
+versao: 5.7
+atualizado: 2026-09-20
 relacionados: ["[[04_arquitetura]]", "[[06_modulos_tecnicos]]", "[[specs/migracao-v4-nextjs-fastapi]]"]
 tags: [metodologia, "area/bf1", "status/em-revisao"]
 aliases: ["Guia de Deploy e Operações"]
@@ -12,7 +12,7 @@ aliases: ["Guia de Deploy e Operações"]
 # Guia de Deploy e Operações — BF1 V4
 
 > [!info] Status
-> **em-revisao** · área: `bf1` · atualizado em 2026-09-19 · configuração de homologação ativa; cutover ainda pendente.
+> **em-revisao** · área: `bf1` · atualizado em 2026-09-20 · promoção para produção agendada para 2026-09-20; faltam health checks e observação pós-deploy.
 
 ## Topologia DigitalOcean
 
@@ -72,13 +72,15 @@ DigitalOcean. O Master pode exportar logs por endpoint limitado e reautenticado.
 - [x] Testes de segurança, carga, acessibilidade e mobile aprovados.
 - [x] Gate de 25 usuários simultâneos repetido após o cache da Classificação,
   com p95 abaixo de 400 ms e taxa de erro inferior a 1%.
-- [ ] Restore SQL/Excel e rollback ensaiados a partir do artefato estável.
+- [x] Restore SQL/Excel aprovados em homologação e retorno ao código estável
+  V3.5 confirmado pelo mantenedor como estratégia de rollback.
 - [x] Compilação Python, typecheck e build Next.js locais executados do zero.
 - [ ] Health checks dos dois componentes aprovados no artefato publicado.
 - [ ] Métricas e logs observados após a promoção.
 
 ## Changelog
 
+- `5.7` — 2026-09-20 — Promoção para produção agendada; restores e estratégia de rollback V3.5 confirmados, restando observação pós-deploy.
 - `5.6` — 2026-09-19 — Build limpo local separado dos health checks pós-publicação.
 
 - `5.5` — 2026-09-19 — Gates da Fase 9 marcados como aprovados após ensaio de 25 VUs e validação responsiva/acessível.

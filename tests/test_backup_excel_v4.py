@@ -110,7 +110,7 @@ def test_v4_downloads_use_timestamped_backup_names():
         "db.backup_excel.export_table_excel", return_value=b"xlsx"
     ):
         excel = download_excel("usuarios", master)
-    assert excel.headers["content-disposition"] == 'attachment; filename="bf1_backup_20260919_123456.xlsx"'
+    assert excel.headers["content-disposition"] == 'attachment; filename="bf1_backup_usuarios_20260919_123456.xlsx"'
 
     with patch("api.routes.backup._backup_stamp", return_value="20260919_123456"), patch(
         "db.backup_utils._generate_backup_sql_content", return_value=("BEGIN; COMMIT;", "data-only")

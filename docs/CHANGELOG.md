@@ -2,7 +2,7 @@
 tipo: produto
 area: releases
 status: implementado
-versao: 1.27
+versao: 1.28
 atualizado: 2026-09-20
 relacionados:
   - "[[sdd]]"
@@ -22,7 +22,16 @@ arquivo aparece no frontmatter e evolui independentemente do produto.
 
 > [!note] Migração V4
 > As Fases 1–9 estão concluídas, incluindo backup/restore Excel confirmado em
-> homologação. A Fase 10 de cutover e observação permanece pendente.
+> homologação. A promoção para produção da Fase 10 está agendada para
+> 2026-09-20; health checks e observação pós-deploy permanecem pendentes.
+
+### 4.1.2
+
+- Backups Excel passam a incluir a tabela no nome:
+  `bf1_backup_<tabela>_YYYYMMDD_HHMMSS.xlsx`.
+- Backups SQL preservam `bf1_backup_YYYYMMDD_HHMMSS.sql`.
+- Restores SQL/Excel, acesso de participantes e cadastro de apostas foram
+  confirmados em homologação; promoção para produção agendada.
 
 ### 4.1.1
 
